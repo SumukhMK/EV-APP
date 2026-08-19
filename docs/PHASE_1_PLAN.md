@@ -347,45 +347,81 @@ Codes: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`,
 
 ---
 
-## 5. Module ownership
+## 5. Module ownership (1/4 Abhiram, 3/4 SMK)
 
-| Owner | Tool | Owns | Doesn't touch |
-|---|---|---|---|
-| SMK (you) | Claude Code (Opus) | `backend/**`, `db/migration/**`, `docker-compose.yml`, `docs/openapi.yaml` | `frontend/**` |
-| Abhiram | GitHub Copilot (Opus-tier) | `frontend/**` | `backend/**`, `db/**` |
-| Both (shared) | — | `README.md`, `.gitignore`, root configs | — |
+### SMK (you) — 75% of work
+**Tool:** Claude Code (Opus) for backend, Copilot (Opus-tier) for frontend.
 
-**The API contract in §4 is the seam.** Any change to a request/response shape requires updating `docs/PHASE_1_PLAN.md` AND posting in the group before continuing.
+**Owns:**
+- `backend/**`
+- `db/migration/**`
+- `docker-compose.yml`
+- `frontend/src/pages/admin/**` — super-admin app (~10 screens)
+- `frontend/src/pages/tenant/**` — tenant-admin app (~15 screens, the heavy one)
+- `frontend/src/components/layout/**` — dashboard shells (sidebar + topbar) for both apps
+- `frontend/src/components/forms/**` — app-specific forms (record payment, book rental, block rider, etc.)
+- Day 3 integration, analytics dashboards, API integration with Abhiram's foundation
+
+**Doesn't touch:**
+- `frontend/src/components/ui/**`, `frontend/src/lib/**`, `frontend/src/context/**`, `frontend/src/hooks/**`, `frontend/src/types/**` (Abhiram's foundation)
+
+### Abhiram — 25% of work
+**Tool:** GitHub Copilot (Opus-tier, Business plan).
+
+**Owns (frontend foundation, fully isolated folders):**
+- `frontend/src/components/ui/**` — shadcn primitives (button, input, label, form, dialog, dropdown-menu, table, card, sonner) + custom shared components (DataTable, FormField, EmptyState, LoadingSpinner, StatusBadge, ConfirmDialog)
+- `frontend/src/lib/**` — `api.ts` (axios + interceptors), `auth.ts` (token storage + refresh), `queryClient.ts` (TanStack Query setup), `utils.ts` (cn helper, formatters)
+- `frontend/src/context/**` — `AuthContext.tsx`
+- `frontend/src/hooks/**` — `useAuth.ts`, `useDebounce.ts`, `useToast.ts`, `usePagination.ts`
+- `frontend/src/types/**` — shared TS types mirroring API request/response shapes from §4
+- `frontend/src/pages/public/**` — Landing, Inquiry, Login, ForgotPassword, ResetPassword, NotFound
+
+**Doesn't touch:**
+- `backend/**`, `db/**`, `docker-compose.yml`, anything in `pages/admin/**` or `pages/tenant/**`
+
+### Coordination rule (the seam)
+**The API contract in §4 is the only contract.** Abhiram's `types/` folder must mirror it. If you need a new shared component, hook, or type, **add it to your own folder** (or open a PR to Abhiram's foundation — but don't edit his files without his sign-off).
+
+### Day 1 ordering
+1. **Abhiram** starts foundation work immediately — `lib/`, `ui/`, `context/`, `hooks/`, `types/`, `public/` pages.
+2. **You** start backend in parallel — `backend/`, `db/migration/`, `docker-compose.yml`, auth endpoints.
+3. By end of Day 1: Abhiram's foundation is done. Your backend has auth + RLS + seed data.
+4. Day 2 onwards: You consume Abhiram's foundation (`useAuth`, DataTable, FormField, types) to build the admin apps. If something's missing, add it to your own folder locally — don't block on Abhiram.
+
+### Day 3 (Abhiram is free)
+Abhiram's 25% is complete by end of Day 1. He's free from Day 2 onwards. If he wants to help, optional extras: write a few component tests, polish the inquiry form, write the README. But his core deliverable is locked.
 
 ---
 
 ## 6. File tree
 
+**Legend:** `[S]` = SMK (you, 75%), `[A]` = Abhiram (25%), `[both]` = either, just don't conflict.
+
 ```
 EV-APP/
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── README.md
+├── docker-compose.yml                          [S]
+├── .env.example                                [S]
+├── .gitignore                                  [both]
+├── README.md                                   [both]
 ├── docs/
-│   ├── BUILD.md              # product overview, phases
-│   ├── PHASE_1_PLAN.md       # this file (source of truth)
-│   ├── openapi.yaml          # generated/curated from backend
-│   └── 19 02:54  - Notes by Gemini.pdf
-├── backend/
+│   ├── BUILD.md                                [both — done]
+│   ├── PHASE_1_PLAN.md                         [both — locked]
+│   ├── openapi.yaml                            [S]
+│   └── 19 02:54  - Notes by Gemini.pdf          [both]
+├── backend/                                    [S]
 │   ├── pom.xml
 │   ├── Dockerfile
 │   ├── src/main/java/com/evrental/
 │   │   ├── EvRentalApplication.java
-│   │   ├── config/
-│   │   ├── tenant/
-│   │   ├── auth/
-│   │   ├── platform/
-│   │   ├── tenantadmin/
-│   │   ├── shared/
-│   │   ├── notification/
-│   │   ├── excel/
-│   │   └── common/
+│   │   ├── config/        (security, jwt, cors, openapi)
+│   │   ├── tenant/        (TenantContext, filter, RLS enable)
+│   │   ├── auth/          (login, refresh, me, password reset)
+│   │   ├── platform/      (super-admin: tenants, plans, inquiries, analytics)
+│   │   ├── tenantadmin/   (bikes, riders, rentals, payments, blacklist, staff)
+│   │   ├── shared/        (shared blacklist read)
+│   │   ├── notification/  (email service only)
+│   │   ├── excel/         (xlsx importer)
+│   │   └── common/        (exceptions, dto, util)
 │   ├── src/main/resources/
 │   │   ├── application.yml
 │   │   ├── application-local.yml
@@ -396,41 +432,50 @@ EV-APP/
 │   │       ├── V4__bikes_riders.sql
 │   │       ├── V5__rentals_payments.sql
 │   │       ├── V6__blacklist_inquiries.sql
-│   │       └── V7__rls_policies.sql
+│   │       ├── V7__rls_policies.sql
+│   │       └── V8__seed_demo.sql
 │   └── src/test/java/...
-└── frontend/
-    ├── package.json
-    ├── vite.config.ts
-    ├── tsconfig.json
-    ├── tailwind.config.js
-    ├── postcss.config.js
-    ├── index.html
-    ├── Dockerfile
+└── frontend/                                   [mixed — see below]
+    ├── package.json                            [A]
+    ├── vite.config.ts                          [A]
+    ├── tsconfig.json                           [A]
+    ├── tailwind.config.js                      [A]
+    ├── postcss.config.js                       [A]
+    ├── index.html                              [A]
+    ├── Dockerfile                              [S]
+    ├── .env.example                            [A]
     └── src/
-        ├── main.tsx
-        ├── App.tsx
-        ├── router.tsx
-        ├── lib/
-        │   ├── api.ts          # axios instance + interceptors
-        │   ├── queryClient.ts  # TanStack Query setup
-        │   └── auth.ts         # token storage, refresh logic
-        ├── context/
+        ├── main.tsx                            [A]
+        ├── App.tsx                             [A]
+        ├── router.tsx                          [A]   (only public routes)
+        ├── lib/                                [A]
+        │   ├── api.ts
+        │   ├── auth.ts
+        │   ├── queryClient.ts
+        │   └── utils.ts
+        ├── context/                            [A]
         │   └── AuthContext.tsx
-        ├── hooks/
+        ├── hooks/                              [A]
+        │   ├── useAuth.ts
+        │   ├── useDebounce.ts
+        │   ├── useToast.ts
+        │   └── usePagination.ts
+        ├── types/                              [A]
+        │   └── api.ts
         ├── components/
-        │   ├── ui/             # shadcn primitives
-        │   ├── layout/
-        │   └── forms/
-        ├── pages/
-        │   ├── public/
-        │   │   ├── Login.tsx
-        │   │   ├── ForgotPassword.tsx
-        │   │   └── Inquiry.tsx
-        │   ├── admin/          # super-admin screens
-        │   ├── tenant/         # tenant-admin screens
-        │   └── shared/         # 404, error
-        └── types/
-            └── api.ts          # typed request/response shapes
+        │   ├── ui/                             [A]   (shadcn + DataTable, FormField, EmptyState, StatusBadge, ConfirmDialog, LoadingSpinner)
+        │   ├── layout/                         [S]   (DashboardShell, AdminShell, TenantShell, Sidebar, Topbar)
+        │   └── forms/                          [S]   (RecordPaymentForm, BookRentalForm, BlockRiderForm, etc.)
+        └── pages/
+            ├── public/                         [A]
+            │   ├── Landing.tsx
+            │   ├── Inquiry.tsx
+            │   ├── Login.tsx
+            │   ├── ForgotPassword.tsx
+            │   ├── ResetPassword.tsx
+            │   └── NotFound.tsx
+            ├── admin/                          [S]   (super-admin screens)
+            └── tenant/                         [S]   (tenant-admin screens)
 ```
 
 ---
@@ -464,6 +509,8 @@ Frontend (4h, parallel):
 
 ### Day 2 — Core modules (8h)
 **Goal:** Bikes, riders, rentals, payments, blacklist all CRUD + flows.
+**Abhiram:** done after Day 1, his 25% complete. (He can optionally help on extras but his core scope is locked.)
+**SMK:** solo work today.
 
 Backend (4h):
 1. `platform/` package: `TenantController`, `PlanController`, `InquiryController`, `AnalyticsController`.
@@ -474,17 +521,19 @@ Backend (4h):
 6. Audit log interceptor (logs CREATE/UPDATE/DELETE/BLOCK).
 7. Tests: critical paths (auth, tenant isolation, payment overdue calculation).
 
-Frontend (4h, parallel):
-1. TanStack Query hooks per resource (`useBikes`, `useRiders`, `useRentals`, `usePayments`).
-2. `pages/admin/`: Tenants list/detail/create, Plans list/create, Inquiries list/detail, Platform Analytics.
-3. `pages/tenant/`: Dashboard, Bikes (list/create/edit), Riders (list/create/edit), Rentals (list/book/assign/return), Payments (list/record), Blacklist, Staff, Tenant Analytics.
-4. Forms with Zod validation, error toasts.
-5. Reusable DataTable component (sort, paginate, search).
+Frontend (4h):
+1. TanStack Query hooks per resource (`useBikes`, `useRiders`, `useRentals`, `usePayments`) — own folder, NOT in Abhiram's hooks/.
+2. `components/layout/`: `DashboardShell`, `AdminShell`, `TenantShell`, `Sidebar` (role-aware), `Topbar` (user dropdown, logout).
+3. `pages/admin/`: Tenants list/detail/create, Plans list/create, Inquiries list/detail, Platform Analytics stub.
+4. `pages/tenant/`: Dashboard stub, Bikes (list/create/edit), Riders (list/create/edit), Rentals (list/book/assign/return), Payments (list/record), Blacklist, Staff, Tenant Analytics stub.
+5. Forms in `components/forms/`: `RecordPaymentForm`, `BookRentalForm`, `BlockRiderForm`, `CreateTenantForm`, etc. using Abhiram's FormField + shadcn.
+6. Consume Abhiram's DataTable, FormField, EmptyState, StatusBadge throughout.
 
 **End-of-day demo:** Full tenant admin flow: create tenant → add bikes → add riders → book rental → record payment → see analytics update. Block a rider, verify shared.
 
 ### Day 3 — Polish, dashboards, Excel, integration (8h)
 **Goal:** Demo-ready. All screens working end-to-end. Excel import works.
+**SMK:** solo work today.
 
 Backend (3h):
 1. `excel/` package: `BikeImporter` (`/api/tenant/bikes/import`), `RiderImporter`.
@@ -494,14 +543,14 @@ Backend (3h):
 5. Dockerfile for backend.
 6. Integration tests (Testcontainers): one happy-path per role.
 
-Frontend (3h, parallel):
+Frontend (3h):
 1. Super-admin dashboard with platform KPIs (revenue chart, tenant growth, top tenants).
 2. Tenant-admin dashboard (active rentals, overdue payments, fleet utilization, weekly revenue chart).
 3. Excel upload UI (drag-drop, preview, confirm).
 4. Empty states, loading skeletons, error boundaries.
 5. Responsive pass on dashboard layouts (desktop-first, tablet acceptable).
 
-Integration + cleanup (2h, together):
+Integration + cleanup (2h):
 1. End-to-end smoke: docker-compose up → run migrations → seed → log in each role → full demo flow.
 2. README with quickstart.
 3. Fix any drift found between API contract and implementation.
@@ -536,93 +585,158 @@ Integration + cleanup (2h, together):
 
 ## 9. Day 1 kickoff prompts
 
-### Backend worker (Claude Code, Opus)
+### Worker A: SMK — Backend (Claude Code, Opus)
 ```
-You are building Phase 1 of the EV Rental Platform backend.
+You are building Phase 1 of the EV Rental Platform backend. Owner: SMK.
 
 READ FIRST (mandatory):
 - /Users/sumukhmk/Documents/GitHub/EV-APP/docs/PHASE_1_PLAN.md (the locked plan)
 
+YOUR FILES (only edit these):
+- backend/**
+- db/migration/** (under backend/src/main/resources/)
+- docker-compose.yml (at repo root)
+- backend/pom.xml
+- backend/Dockerfile (skip if no time on Day 1)
+
+NOT YOUR FILES:
+- frontend/** (Abhiram is doing this)
+- docs/** (plan is locked)
+
 TODAY'S SCOPE (Day 1):
-1. Maven scaffold at backend/ (Spring Boot 3.3, Java 21)
-2. docker-compose.yml at repo root (postgres:16 + mailhog)
-3. Flyway migrations V1 through V7 from §3 of the plan
-4. Security + JWT config, auth controller (login/refresh/me)
-5. Multi-tenancy: TenantContext + filter + RLS interceptor
-6. Seed: 1 super-admin, 2 demo tenants, 2 plans, 1 tenant-admin per tenant
+1. Maven scaffold at backend/ (Spring Boot 3.3, Java 21, group com.evrental)
+2. docker-compose.yml at repo root (postgres:16 + mailhog, ports 5432 + 1025/8025)
+3. Flyway migrations V1 through V7 from §3 of the plan — implement all of them
+4. Security + JWT config (jjwt 0.12), auth controller (POST /auth/login, /auth/refresh, /auth/logout, GET /auth/me)
+5. Multi-tenancy: TenantContext (ThreadLocal), OncePerRequestFilter to extract JWT and set context, RLS interceptor that calls `SET LOCAL app.tenant_id`
+6. Seed via Flyway `V8__seed_demo.sql`: 1 super-admin (admin@ev.com / Admin@123), 2 plans (Starter, Growth), 2 tenants, 2 tenant-admins (admin@greenfleet.com, admin@cityride.com / Tenant@123)
 7. application.yml + application-local.yml with postgres + mail config
 
 HARD CONSTRAINTS:
-- Use UUID primary keys everywhere
-- Every domain table needs tenant_id column from day 1 (even if not all used yet)
+- UUID primary keys everywhere (`uuid` type, not `varchar`)
+- Every domain table needs `tenant_id` column from day 1
 - Use springdoc-openapi for /swagger-ui.html
-- BCrypt for passwords
-- No Redis, no RabbitMQ, no S3
+- BCrypt for passwords (use Spring Security's BCryptPasswordEncoder)
+- No Redis, no RabbitMQ, no S3 — use @Async + ThreadPoolTaskExecutor for notifications
+- Refresh tokens stored in DB (refresh_tokens table), not stateless
 
 VERIFY before reporting done:
 - `mvn clean compile` exits 0
-- `mvn test` passes
-- `docker-compose up -d` starts postgres + mailhog
+- `mvn test` exits 0
+- `docker-compose up -d` starts postgres + mailhog cleanly
 - `mvn spring-boot:run` starts app, /actuator/health returns 200
-- curl: POST /api/auth/login with seeded super-admin returns access+refresh
-- curl: GET /api/auth/me with token returns user JSON
-- Two tenants seeded, RLS verified: query as tenant A doesn't see tenant B rows
+- `curl -X POST http://localhost:8080/api/auth/login -d '{"email":"admin@ev.com","password":"Admin@123"}' -H 'Content-Type: application/json'` returns access+refresh tokens
+- `curl http://localhost:8080/api/auth/me -H "Authorization: Bearer <token>"` returns super-admin user JSON
+- RLS verification: log in as tenant A admin, query a list endpoint, see only tenant A's rows (use 2 seeded tenants to prove this)
 
 RETURN:
 - List of files created
 - Output of `mvn clean compile`
 - Output of `mvn test`
-- Curl commands + outputs for login + me
+- Curl commands + outputs for login + me + RLS proof
 - Any deviations from PHASE_1_PLAN.md (with reason)
 - Any blockers
 
 If you hit a blocker that requires user input, stop and report it. Do NOT silently change the contract.
 ```
 
-### Frontend worker (GitHub Copilot, Opus-tier)
+### Worker B: Abhiram — Frontend foundation (Copilot, Opus-tier)
 ```
-You are building Phase 1 of the EV Rental Platform frontend.
+You are building the frontend foundation for Phase 1 of the EV Rental Platform. Owner: Abhiram.
 
 READ FIRST (mandatory):
 - /Users/sumukhmk/Documents/GitHub/EV-APP/docs/PHASE_1_PLAN.md (the locked plan)
 
-TODAY'S SCOPE (Day 1):
-1. Vite + React 18 + TypeScript 5 (strict) at frontend/
-2. Tailwind 3 + shadcn/ui (init: button, input, label, form, dialog, dropdown-menu, table, card, sonner)
-3. React Router 6 with routes:
-   - /login (public)
-   - /forgot-password (public)
-   - /inquiry (public)
-   - /app/** (protected, role-aware shell)
-   - /admin/** (protected, super-admin only)
-4. lib/api.ts: axios instance with request interceptor (attach JWT) + response interceptor (refresh on 401, single retry)
-5. lib/auth.ts: token storage (localStorage for Phase 1), refresh logic
-6. context/AuthContext.tsx: current user, login(), logout(), role check helpers
-7. Login page UI: email + password + forgot link
-8. Protected layout: sidebar (role-aware menu) + topbar (user dropdown, logout) + content slot
-9. Empty Dashboard page placeholder
-10. .env.example with VITE_API_BASE_URL
+YOUR FILES (only edit these — strict):
+- frontend/src/components/ui/**
+- frontend/src/lib/**
+- frontend/src/context/**
+- frontend/src/hooks/**
+- frontend/src/types/**
+- frontend/src/pages/public/**
+- frontend/package.json
+- frontend/vite.config.ts
+- frontend/tsconfig.json
+- frontend/tailwind.config.js
+- frontend/postcss.config.js
+- frontend/index.html
+- frontend/src/main.tsx
+- frontend/src/App.tsx
+- frontend/src/router.tsx
+- frontend/.env.example
+
+NOT YOUR FILES:
+- backend/**, db/**, docker-compose.yml
+- frontend/src/pages/admin/** (SMK is building the super-admin app)
+- frontend/src/pages/tenant/** (SMK is building the tenant-admin app)
+- frontend/src/components/layout/** (SMK is building dashboard shells)
+- frontend/src/components/forms/** (SMK is building app-specific forms)
+- docs/** (plan is locked)
+
+TODAY'S SCOPE (Day 1) — the foundation:
+
+1. Vite + React 18 + TypeScript 5 (strict mode ON) at frontend/
+2. Tailwind 3 + shadcn/ui init (button, input, label, form, dialog, dropdown-menu, table, card, sonner, badge, separator, skeleton)
+3. Custom shared components in components/ui/:
+   - DataTable (sortable headers, pagination, search, empty state, loading state)
+   - FormField (label + input + error message wrapper)
+   - EmptyState (icon + title + description + action slot)
+   - StatusBadge (color-coded by status string)
+   - ConfirmDialog (uses Dialog primitive)
+   - LoadingSpinner / PageLoader
+4. lib/:
+   - api.ts (axios instance, baseURL from VITE_API_BASE_URL, request interceptor attaches JWT, response interceptor does single-retry on 401 with refresh)
+   - auth.ts (token storage in localStorage, getAccessToken, setTokens, clearTokens, refresh logic)
+   - queryClient.ts (TanStack Query QueryClient with sensible defaults)
+   - utils.ts (cn helper from shadcn, formatters for currency/date/phone)
+5. context/AuthContext.tsx: current user state, login(email, password), logout(), hasRole(role), hasPermission(perm), loading state
+6. hooks/:
+   - useAuth() (returns AuthContext)
+   - useDebounce<T>(value, delay)
+   - useToast() (sonner wrapper)
+   - usePagination() (returns { page, size, setPage, setSize })
+7. types/api.ts: TypeScript types mirroring ALL API request/response shapes from §4 of the plan. Use the exact field names. Export types like: LoginRequest, LoginResponse, User, Tenant, Plan, Bike, Rider, Rental, Payment, Inquiry, PageResponse<T>, ApiError
+8. pages/public/:
+   - Landing.tsx (hero + features + CTA to /inquiry and /login)
+   - Inquiry.tsx (form: company, contact, email, phone, city, fleet size, message — posts to /api/public/inquiries)
+   - Login.tsx (email + password + forgot link, calls AuthContext.login, redirects to /app)
+   - ForgotPassword.tsx (email input, posts to /api/auth/forgot-password)
+   - ResetPassword.tsx (token from URL + new password, posts to /api/auth/reset-password)
+   - NotFound.tsx (404)
+9. router.tsx: react-router-dom with these routes only:
+   - / (Landing)
+   - /inquiry (Inquiry)
+   - /login (Login)
+   - /forgot-password (ForgotPassword)
+   - /reset-password (ResetPassword)
+   - /* (NotFound)
+   - NOTE: do NOT add /app/**, /admin/**, /tenant/** — SMK owns those layouts
+10. main.tsx, App.tsx: wire QueryClientProvider, AuthProvider, RouterProvider, Toaster (sonner)
 
 HARD CONSTRAINTS:
 - TypeScript strict mode ON, no `any` in shared types
 - shadcn/ui components only (no MUI, no Chakra)
-- API base URL from env, not hardcoded
-- Token in localStorage (not cookie) — Phase 1 acceptable, flagged in code comment
+- API base URL from env (VITE_API_BASE_URL=http://localhost:8080/api), not hardcoded
+- Token in localStorage (not cookie) — Phase 1 acceptable, add code comment flagging this
+- All API types in types/api.ts must match §4 exactly — this is the contract SMK consumes
+- Component props must be well-typed (no `any`)
 
 VERIFY before reporting done:
-- `npm run dev` starts on :5173, page loads
-- /login renders, can submit (backend may not exist yet — mock the API call)
-- After "login", redirect to /app
-- /app shell renders sidebar with role-aware items
-- Logout clears token, redirects to /login
+- `npm install` succeeds
+- `npm run dev` starts on :5173, Landing page renders
+- /login renders the form
+- /inquiry renders the form (validation works with Zod)
 - npm run build exits 0
-- tsc --noEmit exits 0
+- tsc --noEmit exits 0 (strict mode clean)
+- Manually test: type in login form, click submit (will fail since backend not up — that's OK, mock it locally or just verify no JS errors)
+- Manually test: DataTable renders with mock data (write a small story or demo page that shows DataTable with 5 fake rows)
+- Manually test: FormField works with label + input + error
 
 RETURN:
-- List of files created
-- npm run build output (tail)
+- List of files created (per folder)
+- npm run build output (tail, last 20 lines)
 - tsc --noEmit output
-- Screenshot path or description of login + dashboard shell
+- Screenshot path or description of Landing + Login + DataTable demo
 - Any deviations from PHASE_1_PLAN.md (with reason)
 - Any blockers
 
