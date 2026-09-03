@@ -24,9 +24,12 @@ export function PageHeader({
     <Box
       sx={{
         display: 'flex',
-        alignItems: 'flex-end',
+        // Stacks below sm so a long title and three actions do not squeeze
+        // each other into two words per line.
+        flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'flex-start', sm: 'flex-end' },
         justifyContent: 'space-between',
-        gap: 6,
+        gap: { xs: 4, sm: 6 },
         pt: 6,
         pb: 3.5,
         borderBottom: `1px solid ${neutral[900]}`,
@@ -34,12 +37,12 @@ export function PageHeader({
     >
       <Box>
         <Typography variant="overline">{section}</Typography>
-        <Typography variant="h3" sx={{ mt: '2px' }}>
+        <Typography variant="h3" sx={{ mt: '2px', fontSize: { xs: 22, sm: 25, xl: 28 } }}>
           {title}
         </Typography>
       </Box>
       {actions ? (
-        <Stack direction="row" spacing={2}>
+        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', rowGap: 2 }}>
           {actions}
         </Stack>
       ) : null}

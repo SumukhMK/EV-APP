@@ -14,6 +14,7 @@ import { createVehicle } from '../../lib/api/vehicles';
 import { ApiError } from '../../lib/api/client';
 import { ADD_VEHICLE_DEFAULTS, addVehicleSchema, type AddVehicleValues } from '../../lib/schemas/vehicle';
 import { MODELS, HUBS } from '../../mocks/seed';
+import { layout } from '../../theme/tokens';
 
 /**
  * A new bike enters as INDUCTED, never as READY_TO_DEPLOY — it has to pass
@@ -95,9 +96,9 @@ export function AddVehicle() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: 860 }}>
+      <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: layout.readingMax }}>
         <Panel label="Identity">
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
             <TextField label="Vehicle id" placeholder="BLRSS0451" {...field('id')} />
             <TextField label="Chassis number" placeholder="17 characters" {...field('chassisNumber')} />
             <SelectField
@@ -116,7 +117,7 @@ export function AddVehicle() {
         </Panel>
 
         <Panel label="Specification">
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
             <TextField label="Make" placeholder="e-Connects" {...field('make')} />
             <SelectField
               control={form.control}
@@ -138,7 +139,7 @@ export function AddVehicle() {
         </Panel>
 
         <Panel label="Devices">
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
             <TextField label="Controller number" {...field('controllerNumber')} />
             <TextField label="RFID tag" {...field('rfidTag')} />
           </Box>

@@ -112,7 +112,15 @@ export function Inspection() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 372px', gap: 5, mt: 5, alignItems: 'start' }}>
+      <Box sx={{
+          display: 'grid',
+          // The aside drops under the main column rather than shrinking:
+          // below lg a 372px panel and a spec table both end up unreadable.
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 372px' },
+          gap: 5,
+          mt: 5,
+          alignItems: 'start',
+        }}>
         <Box sx={{ display: 'grid', gap: 5 }}>
           <Panel label="Vehicle">
             <Autocomplete

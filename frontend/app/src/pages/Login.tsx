@@ -39,7 +39,7 @@ export function Login() {
         px: 4,
       }}
     >
-      <Box component="form" onSubmit={submit} sx={{ width: 392, display: 'flex', flexDirection: 'column', gap: 5.5 }}>
+      <Box component="form" onSubmit={submit} sx={{ width: '100%', maxWidth: 392, display: 'flex', flexDirection: 'column', gap: 5.5 }}>
         <Box>
           <Mono sx={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: neutral[500] }}>
             e-Connects

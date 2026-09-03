@@ -63,6 +63,25 @@ If a screen needs something the shared layer does not have, raise it rather than
 - **There is no auth.** `src/app/session.tsx` is a stub. Any URL is reachable by typing it. Real
   authorisation is server-side and arrives with the API.
 
+## Responsive behaviour
+
+Breakpoints are MUI's defaults (`sm` 600, `md` 900, `lg` 1200, `xl` 1536). Three rules:
+
+1. **The shell.** The nav rail is permanent from `md` up and a drawer below it. Content centres and
+   grows to `layout.contentMax` (1680) — the wireframe's 1180 column is the *reading* width for
+   forms (`layout.readingMax`), not a cap on the app. On a 1920 display a 1180 column pinned left
+   leaves a third of the screen empty and makes everything read small.
+2. **Tables shed columns, they do not shrink.** A list keeps what someone actually scans for and
+   drops the reference numbers. See `narrow` / `compact` in `VehiclesList`. Where even that will not
+   fit — the QC queue, where the Pass and Fail buttons must never scroll out of reach — the table
+   becomes a list of cards below `sm`.
+3. **Anything wide scrolls inside its own box**, never the page. `SimpleTable` and `BarChart` both
+   do this. `SimpleTable` derives its scroll threshold from its own column widths: `table-layout:
+   fixed` honours the colgroup even when the declared widths exceed the table, so columns *overlap*
+   rather than overflow if the threshold is too low.
+
+Check a change at 390, 900, 1440 and 1920 before calling it done.
+
 ## Unbuilt screens
 
 Every route in the wireframe exists. Unbuilt ones render `Placeholder`, which names the artboard

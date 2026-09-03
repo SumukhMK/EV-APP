@@ -65,9 +65,19 @@ export const fonts = {
   mono: 'ui-monospace, Menlo, "SF Mono", monospace',
 } as const;
 
-/** Shell metrics the layout and the artboards agree on. */
+/**
+ * Shell metrics.
+ *
+ * The wireframe was drawn on a 1440 artboard: a 232 rail and an 1180 column.
+ * That column is kept as the *reading* width for forms and prose, but the app
+ * itself is not capped there — on a 1920 display an 1180 column pinned to the
+ * left leaves a third of the screen empty and makes everything read small.
+ * The shell grows to `contentMax` and centres in whatever is left of the rail.
+ */
 export const layout = {
   navWidth: 232,
-  contentMax: 1180,
-  contentPadX: 28,
+  /** How wide the content column is allowed to grow before it stops. */
+  contentMax: 1680,
+  /** Forms and single-column reading stay near the artboard width. */
+  readingMax: 900,
 } as const;

@@ -64,8 +64,8 @@ export function VehicleDetail() {
       <PageHeader
         section="Fleet / Vehicles"
         title={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <Mono sx={{ fontSize: 25, letterSpacing: 0 }}>{v.id}</Mono>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+            <Mono sx={{ fontSize: { xs: 22, sm: 25, xl: 28 }, letterSpacing: 0 }}>{v.id}</Mono>
             <StateChip label={VEHICLE_STATE_LABEL[v.state]} tone={VEHICLE_STATE_TONE[v.state]} />
           </Box>
         }
@@ -81,7 +81,15 @@ export function VehicleDetail() {
         }
       />
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 372px', gap: 5, mt: 5, alignItems: 'start' }}>
+      <Box sx={{
+          display: 'grid',
+          // The aside drops under the main column rather than shrinking:
+          // below lg a 372px panel and a spec table both end up unreadable.
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 372px' },
+          gap: 5,
+          mt: 5,
+          alignItems: 'start',
+        }}>
         <Panel label="Specification">
           <DefinitionList
             columns={2}
@@ -153,9 +161,25 @@ export function VehicleDetail() {
       </Box>
 
       <Panel label="Lifecycle" sx={{ mt: 5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: 4 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            mt: 4,
+            // Seven states never fit a phone; the strip scrolls rather than
+            // wrapping, so the sequence stays readable left to right. The top
+            // padding is for the dots, which hang on a negative margin and
+            // would otherwise be clipped by the scroll box.
+            overflowX: 'auto',
+            pt: 1,
+            pb: 1,
+          }}
+        >
           {v.lifecycle.map((s, i) => (
-            <Box key={`${s.state}-${s.occurredOn}-${i}`} sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box
+              key={`${s.state}-${s.occurredOn}-${i}`}
+              sx={{ flex: 1, minWidth: 132, display: 'flex', flexDirection: 'column', gap: 2.5 }}
+            >
               <Box sx={{ height: '1px', background: neutral[800] }} />
               <Box
                 sx={{
@@ -185,13 +209,15 @@ export function VehicleDetail() {
             rows={v.assignments}
             getRowKey={(a) => `${a.riderId}-${a.startedOn}`}
             columns={[
-              { key: 'rider', header: 'Rider', render: (a) => a.riderName },
+              { key: 'rider', header: 'Rider', width: 170, render: (a) => a.riderName },
               { key: 'riderId', header: 'Rider id', width: 110, render: (a) => <Mono>{a.riderId}</Mono> },
               {
                 key: 'plan',
                 header: 'Plan',
                 align: 'right',
-                width: 110,
+                // Wider than the figure needs, so the right-aligned header
+                // does not butt up against the left-aligned one beside it.
+                width: 140,
                 render: (a) => <Mono>{rupees(a.planAmount)}</Mono>,
               },
               { key: 'start', header: 'Start', width: 140, render: (a) => <Mono>{formatDate(a.startedOn)}</Mono> },
@@ -205,7 +231,7 @@ export function VehicleDetail() {
                   </Mono>
                 ),
               },
-              { key: 'days', header: 'Days', align: 'right', width: 80, render: (a) => <Mono>{a.days}</Mono> },
+              { key: 'days', header: 'Days', align: 'right', width: 110, render: (a) => <Mono>{a.days}</Mono> },
               {
                 key: 'closedBy',
                 header: 'Closed by',

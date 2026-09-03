@@ -8,11 +8,14 @@ export function SearchField({
   onChange,
   placeholder = 'Search',
   width = 246,
+  fullWidth = false,
 }: {
   value: string;
   onChange: (next: string) => void;
   placeholder?: string;
   width?: number;
+  /** Let the caller hand it the whole row on a narrow screen. */
+  fullWidth?: boolean;
 }) {
   return (
     <TextField
@@ -20,7 +23,7 @@ export function SearchField({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       fullWidth={false}
-      sx={{ width }}
+      sx={{ width: fullWidth ? { xs: '100%', md: width } : width }}
       slotProps={{
         input: {
           startAdornment: (

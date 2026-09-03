@@ -10,7 +10,7 @@ import { useSession } from '../app/sessionContext';
  * a dark ground already reads as grouped, and rules would compete with the
  * table rules that are the product's actual signature.
  */
-export function FleetNav() {
+export function FleetNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { user, tenant } = useSession();
 
   return (
@@ -18,8 +18,8 @@ export function FleetNav() {
       component="nav"
       sx={{
         width: layout.navWidth,
-        flex: `0 0 ${layout.navWidth}px`,
         minHeight: '100vh',
+        bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
         borderRight: `1px solid ${neutral[900]}`,
@@ -55,6 +55,7 @@ export function FleetNav() {
                     component={NavLink}
                     to={item.path}
                     end={item.path === '/riders'}
+                    onClick={onNavigate}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',

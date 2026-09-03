@@ -23,14 +23,20 @@ export function BarChart({ bars, height = 196 }: { bars: Bar[]; height?: number 
   const max = Math.max(...bars.map((b) => b.value), 1);
   const peakIndex = bars.reduce((best, b, i) => (b.value > bars[best].value ? i : best), 0);
 
+  // Thirteen labelled columns cannot compress below their text. Rather than
+  // let the month row spill out of the panel, the chart scrolls as one piece
+  // and keeps the labels under their own bars.
+  const minWidth = bars.length * 42;
+
   return (
-    <>
+    <Box sx={{ overflowX: 'auto', pb: 1 }}>
       <Box
         sx={{
           display: 'flex',
           alignItems: 'flex-end',
-          gap: 3.5,
+          gap: { xs: 1.5, sm: 3.5 },
           height,
+          minWidth,
           mt: 5,
           borderBottom: `1px solid ${neutral[800]}`,
         }}
@@ -41,7 +47,14 @@ export function BarChart({ bars, height = 196 }: { bars: Bar[]; height?: number 
           return (
             <Box
               key={barKey(b, i)}
-              sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 1.5,
+              }}
             >
               <Mono sx={{ fontSize: 11, color: neutral[500] }}>{b.value}</Mono>
               <Box
@@ -55,13 +68,16 @@ export function BarChart({ bars, height = 196 }: { bars: Bar[]; height?: number 
           );
         })}
       </Box>
-      <Box sx={{ display: 'flex', gap: 3.5, mt: 1.75 }}>
+      <Box sx={{ display: 'flex', gap: { xs: 1.5, sm: 3.5 }, minWidth, mt: 1.75 }}>
         {bars.map((b, i) => (
-          <Mono key={barKey(b, i)} sx={{ flex: 1, textAlign: 'center', fontSize: 10, color: neutral[600] }}>
+          <Mono
+            key={barKey(b, i)}
+            sx={{ flex: 1, minWidth: 0, textAlign: 'center', fontSize: 10, color: neutral[600] }}
+          >
             {b.label}
           </Mono>
         ))}
       </Box>
-    </>
+    </Box>
   );
 }

@@ -18,14 +18,17 @@ export function Panel({
   sx?: React.ComponentProps<typeof Paper>['sx'];
 }) {
   return (
-    <Paper sx={[{ p: '18px 20px 16px' }, ...(Array.isArray(sx) ? sx : [sx])]}>
+    <Paper sx={[{ p: { xs: '16px 14px 14px', sm: '18px 20px 16px' } }, ...(Array.isArray(sx) ? sx : [sx])]}>
       {(label || action) && (
         <Box
           sx={{
             display: 'flex',
-            alignItems: 'flex-end',
+            // The action drops below the label on a narrow panel; side by side
+            // it squeezes a two-word subtitle onto four lines.
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'flex-end' },
             justifyContent: 'space-between',
-            gap: 4,
+            gap: { xs: 2, sm: 4 },
             mb: subtitle ? 4 : 3,
           }}
         >

@@ -20,7 +20,14 @@ export function StatTiles({ tiles }: { tiles: StatTile[] }) {
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${tiles.length}, 1fr)`,
+        // The strip reflows rather than scrolls: seven tiles across on a wide
+        // screen, four on a laptop, two on a phone. The 1px gaps still do the
+        // dividing, so a wrapped row needs no extra rules.
+        gridTemplateColumns: {
+          xs: 'repeat(2, 1fr)',
+          sm: `repeat(${Math.min(tiles.length, 4)}, 1fr)`,
+          lg: `repeat(${tiles.length}, 1fr)`,
+        },
         gap: '1px',
         background: neutral[900],
         border: `1px solid ${neutral[900]}`,
@@ -33,8 +40,14 @@ export function StatTiles({ tiles }: { tiles: StatTile[] }) {
           key={t.label}
           onClick={t.onClick}
           sx={{
+            // An odd count leaves a dead cell in the two-column layout, which
+            // reads as a broken tile. The last one takes the whole row instead.
+            gridColumn: {
+              xs: tiles.length % 2 === 1 && t === tiles[tiles.length - 1] ? 'span 2' : 'auto',
+              sm: 'auto',
+            },
             background: base.surface,
-            p: '14px 14px 12px',
+            p: { xs: '12px 12px 10px', lg: '14px 14px 12px' },
             display: 'flex',
             flexDirection: 'column',
             gap: 2,
@@ -44,7 +57,13 @@ export function StatTiles({ tiles }: { tiles: StatTile[] }) {
           }}
         >
           <Typography variant="overline">{t.label}</Typography>
-          <Mono sx={{ fontSize: 28, lineHeight: 1, color: t.tone ? status[t.tone].fg : 'text.primary' }}>
+          <Mono
+            sx={{
+              fontSize: { xs: 24, lg: 28, xl: 32 },
+              lineHeight: 1,
+              color: t.tone ? status[t.tone].fg : 'text.primary',
+            }}
+          >
             {t.value}
           </Mono>
         </Box>

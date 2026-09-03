@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import type { GridColDef } from '@mui/x-data-grid';
@@ -21,6 +23,13 @@ const PAGE_SIZE = 12;
 
 export function VehiclesList() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  // The table sheds columns in two steps rather than scrolling sideways.
+  // What survives to the narrowest view is what a dispatcher actually scans
+  // for — which bike, what state, who has it. The reference numbers (chassis,
+  // battery, hub) are lookups, and they live on the detail page anyway.
+  const narrow = useMediaQuery(theme.breakpoints.down('lg'));
+  const compact = useMediaQuery(theme.breakpoints.down('sm'));
   const [state, setState] = useState<VehicleState | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -45,7 +54,7 @@ export function VehiclesList() {
       {
         field: 'id',
         headerName: 'Vehicle id',
-        width: 130,
+        width: compact ? 108 : 130,
         renderCell: ({ row }) => <Mono sx={{ color: accent[300] }}>{row.id}</Mono>,
       },
       {
@@ -56,7 +65,7 @@ export function VehiclesList() {
           <Mono sx={{ fontSize: 12, color: neutral[400] }}>{row.chassisNumber}</Mono>
         ),
       },
-      { field: 'model', headerName: 'Model', flex: 1, minWidth: 150 },
+      { field: 'model', headerName: 'Model', flex: 1, minWidth: 140 },
       {
         field: 'batteryType',
         headerName: 'Battery',
@@ -68,7 +77,7 @@ export function VehiclesList() {
       {
         field: 'state',
         headerName: 'State',
-        width: 140,
+        width: compact ? 124 : 140,
         sortable: false,
         renderCell: ({ row }) => (
           <StateChip label={VEHICLE_STATE_LABEL[row.state]} tone={VEHICLE_STATE_TONE[row.state]} />
@@ -76,12 +85,14 @@ export function VehiclesList() {
       },
       {
         field: 'currentRiderName',
-        headerName: 'Current rider',
-        width: 170,
+        headerName: compact ? 'Rider' : 'Current rider',
+        width: compact ? 0 : 170,
+        flex: compact ? 1 : undefined,
+        minWidth: compact ? 120 : undefined,
         renderCell: ({ row }) => row.currentRiderName ?? <Box sx={{ color: neutral[600] }}>—</Box>,
       },
     ],
-    [],
+    [compact],
   );
 
   const rows = list.data?.content ?? [];
@@ -107,9 +118,12 @@ export function VehiclesList() {
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'center',
+          // Search drops under the chips below md, and takes the full width
+          // there rather than sitting as a stub at one end.
+          flexDirection: { xs: 'column-reverse', md: 'row' },
+          alignItems: { xs: 'stretch', md: 'center' },
           justifyContent: 'space-between',
-          gap: 5,
+          gap: { xs: 3, md: 5 },
           mt: 4,
         }}
       >
@@ -121,14 +135,17 @@ export function VehiclesList() {
             setPage(0);
           }}
         />
-        <SearchField
-          value={search}
-          onChange={(next) => {
-            setSearch(next);
-            setPage(0);
-          }}
-          placeholder="Search id, chassis, rider"
-        />
+        <Box sx={{ width: { xs: '100%', md: 'auto' }, flex: { md: '0 0 auto' } }}>
+          <SearchField
+            value={search}
+            onChange={(next) => {
+              setSearch(next);
+              setPage(0);
+            }}
+            placeholder="Search id, chassis, rider"
+            fullWidth
+          />
+        </Box>
       </Box>
 
       <Box sx={{ mt: 3.5, '& .muted-cell': { color: neutral[400] } }}>
@@ -136,6 +153,12 @@ export function VehiclesList() {
           rows={rows}
           columns={columns}
           loading={list.isLoading}
+          columnVisibilityModel={{
+            chassisNumber: !narrow,
+            batteryType: !narrow,
+            hub: !narrow,
+            model: !compact,
+          }}
           onRowClick={({ row }) => navigate(`/vehicles/${row.id}`)}
           hideFooter
           emptyMessage="No vehicles match this filter"

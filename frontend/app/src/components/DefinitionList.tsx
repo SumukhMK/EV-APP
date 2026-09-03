@@ -22,7 +22,19 @@ export function DefinitionList({
   divider?: 'top' | 'bottom';
 }) {
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, columnGap: 8 }}>
+    <Box
+      sx={{
+        display: 'grid',
+        // A two-column definition list collapses to one below sm, where
+        // label and value would otherwise meet in the middle.
+        gridTemplateColumns: { xs: '1fr', sm: `repeat(${columns}, 1fr)` },
+        columnGap: 8,
+        // And it stops growing on a wide panel. A label pinned to the left of
+        // a 1100px row and its value pinned to the right stop reading as a
+        // pair; the eye has to travel too far to connect them.
+        maxWidth: columns * 460,
+      }}
+    >
       {items.map((d) => (
         <Box
           key={d.label}
