@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { Link } from 'react-router-dom';
 import { base, neutral, status, type StatusTone } from '../theme/tokens';
 import { Mono } from './Mono';
 
@@ -8,7 +9,12 @@ export interface StatTile {
   value: string;
   /** Colours only the figure. Left off, the figure is plain text. */
   tone?: StatusTone;
-  onClick?: () => void;
+  /**
+   * Where the figure came from. A tile counts a set, so it should lead to that
+   * set. Given a `to`, the tile is a real anchor — middle-click opens it in a
+   * tab, the keyboard reaches it, and the browser shows the target on hover.
+   */
+  to?: string;
 }
 
 /**
@@ -38,7 +44,7 @@ export function StatTiles({ tiles }: { tiles: StatTile[] }) {
       {tiles.map((t) => (
         <Box
           key={t.label}
-          onClick={t.onClick}
+          {...(t.to ? { component: Link, to: t.to } : {})}
           sx={{
             // An odd count leaves a dead cell in the two-column layout, which
             // reads as a broken tile. The last one takes the whole row instead.
@@ -51,9 +57,11 @@ export function StatTiles({ tiles }: { tiles: StatTile[] }) {
             display: 'flex',
             flexDirection: 'column',
             gap: 2,
-            cursor: t.onClick ? 'pointer' : 'default',
+            color: 'inherit',
+            textDecoration: 'none',
+            cursor: t.to ? 'pointer' : 'default',
             transition: 'background 120ms',
-            '&:hover': t.onClick ? { background: neutral[900] } : undefined,
+            '&:hover': t.to ? { background: neutral[900] } : undefined,
           }}
         >
           <Typography variant="overline">{t.label}</Typography>

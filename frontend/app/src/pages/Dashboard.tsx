@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { Panel } from '../components/Panel';
 import { StatTiles } from '../components/StatTiles';
@@ -23,7 +22,6 @@ const now = new Intl.DateTimeFormat('en-IN', {
 });
 
 export function Dashboard() {
-  const navigate = useNavigate();
   const summary = useQuery({ queryKey: ['dashboard', 'summary'], queryFn: getFleetSummary });
   const deployments = useQuery({ queryKey: ['dashboard', 'deployments'], queryFn: getMonthlyDeployments });
 
@@ -46,15 +44,51 @@ export function Dashboard() {
       />
 
       <Box sx={{ mt: 4.5 }}>
+        {/*
+          Every tile leads to the set it counts. The four fleet-state tiles go
+          to the vehicles list pre-filtered on that state, so the figure and
+          the list can be reconciled in one click. Under repair used to open
+          the inspection form, which is where a bike is *sent* to repair, not
+          where the nine already there can be seen.
+        */}
         <StatTiles
           tiles={[
-            { label: 'Total fleet', value: s ? formatNumber(s.totalFleet) : '—', onClick: () => navigate('/vehicles') },
-            { label: 'Deployed', value: s ? formatNumber(s.deployed) : '—', onClick: () => navigate('/vehicles') },
-            { label: 'Ready', value: s ? formatNumber(s.readyToDeploy) : '—', tone: 'good', onClick: () => navigate('/vehicles') },
-            { label: 'Under repair', value: s ? formatNumber(s.underRepair) : '—', tone: 'warn', onClick: () => navigate('/inspections') },
-            { label: 'QC pending', value: s ? formatNumber(s.qcPending) : '—', tone: 'caution', onClick: () => navigate('/qc') },
-            { label: 'Overdue riders', value: s ? formatNumber(s.overdueRiders) : '—', tone: 'bad', onClick: () => navigate('/payments/overdue') },
-            { label: 'Overdue value', value: s ? rupees(s.overdueValue) : '—', tone: 'bad', onClick: () => navigate('/payments/overdue') },
+            { label: 'Total fleet', value: s ? formatNumber(s.totalFleet) : '—', to: '/vehicles' },
+            {
+              label: 'Deployed',
+              value: s ? formatNumber(s.deployed) : '—',
+              to: '/vehicles?state=DEPLOYED',
+            },
+            {
+              label: 'Ready',
+              value: s ? formatNumber(s.readyToDeploy) : '—',
+              tone: 'good',
+              to: '/vehicles?state=READY_TO_DEPLOY',
+            },
+            {
+              label: 'Under repair',
+              value: s ? formatNumber(s.underRepair) : '—',
+              tone: 'warn',
+              to: '/vehicles?state=UNDER_REPAIR',
+            },
+            {
+              label: 'QC pending',
+              value: s ? formatNumber(s.qcPending) : '—',
+              tone: 'caution',
+              to: '/vehicles?state=QC_PENDING',
+            },
+            {
+              label: 'Overdue riders',
+              value: s ? formatNumber(s.overdueRiders) : '—',
+              tone: 'bad',
+              to: '/payments/overdue',
+            },
+            {
+              label: 'Overdue value',
+              value: s ? rupees(s.overdueValue) : '—',
+              tone: 'bad',
+              to: '/payments/overdue',
+            },
           ]}
         />
       </Box>

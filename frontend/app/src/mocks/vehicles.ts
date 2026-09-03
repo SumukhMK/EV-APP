@@ -1,6 +1,7 @@
 import type {
   AssignmentHistoryRow,
   BatteryType,
+  QcQueueItem,
   Vehicle,
   VehicleLifecycleEvent,
   VehicleState,
@@ -130,10 +131,35 @@ export const assignmentsByVehicle: Record<string, AssignmentHistoryRow[]> = {
   ],
 };
 
-/** Artboard 14, verbatim. */
-export const qcQueue = [
-  { vehicleId: 'BLRSS0419', model: 'Eagle-SunM', repairSummary: 'Brake pads replaced, indicator stalk swapped', category: 'MINOR' as const, technician: 'Dhananjay', closedOn: '2026-08-26', costPaise: 64000, daysWaiting: 1 },
-  { vehicleId: 'FBLSS0074', model: 'Sprinto-SunM', repairSummary: 'Front fork straightened after fall, panel repaint', category: 'MAJOR' as const, technician: 'Abhinandan', closedOn: '2026-08-25', costPaise: 318000, daysWaiting: 2 },
-  { vehicleId: 'BLRSS0407', model: 'Eagle-SunM', repairSummary: 'Controller replaced under warranty', category: 'WARRANTY' as const, technician: 'Dhananjay', closedOn: '2026-08-24', costPaise: 0, daysWaiting: 3 },
-  { vehicleId: 'FBLSS0118', model: 'Sprinto-SunM Pro', repairSummary: 'Charging port harness rebuilt, battery lock aligned', category: 'MINOR' as const, technician: 'Abhinandan', closedOn: '2026-08-24', costPaise: 92000, daysWaiting: 3 },
+/**
+ * The repair write-ups from artboard 14, verbatim — but keyed by vehicle
+ * rather than held as a standalone list.
+ *
+ * The artboard names four bikes that are not the four the fleet has in
+ * QC_PENDING, so a dashboard tile counting the state and a queue listing the
+ * artboard's rows would show different bikes to anyone who clicked through.
+ * The queue is derived from the fleet in src/lib/api/vehicles.ts and borrows
+ * a write-up from here when the id matches.
+ */
+export const qcRepairDetails: Record<
+  string,
+  { repairSummary: string; category: QcQueueItem['category']; technician: string; closedOn: string; costPaise: number }
+> = {
+  BLRSS0419: { repairSummary: 'Brake pads replaced, indicator stalk swapped', category: 'MINOR', technician: 'Dhananjay', closedOn: '2026-08-26', costPaise: 64000 },
+  FBLSS0074: { repairSummary: 'Front fork straightened after fall, panel repaint', category: 'MAJOR', technician: 'Abhinandan', closedOn: '2026-08-25', costPaise: 318000 },
+  BLRSS0407: { repairSummary: 'Controller replaced under warranty', category: 'WARRANTY', technician: 'Dhananjay', closedOn: '2026-08-24', costPaise: 0 },
+  FBLSS0118: { repairSummary: 'Charging port harness rebuilt, battery lock aligned', category: 'MINOR', technician: 'Abhinandan', closedOn: '2026-08-24', costPaise: 92000 },
+};
+
+/** Fallback write-ups for bikes the artboard never named. */
+export const GENERIC_REPAIRS: ReadonlyArray<{
+  repairSummary: string;
+  category: QcQueueItem['category'];
+  technician: string;
+  costPaise: number;
+}> = [
+  { repairSummary: 'Brake shoes and cable replaced', category: 'MINOR', technician: 'Dhananjay', costPaise: 58000 },
+  { repairSummary: 'Rear suspension rebuilt, swingarm bushes pressed', category: 'MAJOR', technician: 'Abhinandan', costPaise: 214000 },
+  { repairSummary: 'Battery lock and charging harness replaced under warranty', category: 'WARRANTY', technician: 'Dhananjay', costPaise: 0 },
+  { repairSummary: 'Headlamp assembly and indicator stalk swapped', category: 'MINOR', technician: 'Abhinandan', costPaise: 76000 },
 ];

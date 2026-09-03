@@ -53,12 +53,36 @@ change per resource: `src/lib/api/client.ts` is the only place that knows the da
 
 If a screen needs something the shared layer does not have, raise it rather than styling around it.
 
+## List filters live in the URL
+
+A list screen keeps its filter in the query string, not in component state:
+
+```
+/vehicles?state=UNDER_REPAIR&q=eagle
+```
+
+That is what lets the dashboard tiles link straight to a filtered list, and it makes a filtered view
+bookmarkable, shareable, and reachable by the browser's back button. Three rules, all visible in
+`src/pages/vehicles/VehiclesList.tsx`:
+
+- **Read the filter from `useSearchParams`, never from `useState`.** An unknown value degrades to
+  "all" rather than showing an empty table — links go stale, enums get renamed.
+- **Write filter changes with `{ replace: true }`.** Otherwise every chip click and keystroke lands
+  in history, and getting back to the dashboard takes twenty back presses.
+- **A search box keeps its own state** so typing stays instant; only the debounced value is written
+  to the URL and used for the query.
+
+Dashboard tiles take a `to` and render as real anchors, so middle-click, the keyboard and the
+browser's hover preview all work. Every tile leads to the set it counts.
+
 ## Conventions worth knowing
 
 - **Money** is integer paise everywhere except the moment it is rendered (`rupees()`).
 - **Enums** go over the wire as `SCREAMING_SNAKE`; the label map is in `labels.ts`.
-- **Fixtures are derived, not duplicated.** Riders are built from the deployed bikes, the
-  dashboard tiles are counted from the fixtures. Two numbers that must agree come from one source.
+- **Fixtures are derived, not duplicated.** Riders are built from the deployed bikes, the QC queue
+  from the bikes in `QC_PENDING`, the dashboard tiles counted from the fixtures. Two numbers that
+  must agree come from one source — and now that a tile links to the list behind it, any
+  disagreement is one click from being seen.
 - **Vehicle state transitions** are listed in `VEHICLE_TRANSITIONS`. The UI offers only those.
 - **There is no auth.** `src/app/session.tsx` is a stub. Any URL is reachable by typing it. Real
   authorisation is server-side and arrives with the API.

@@ -13,8 +13,9 @@ import {
   assignmentsByVehicle,
   bulkUploadRows,
   deviceNumbers,
+  GENERIC_REPAIRS,
   lifecycleByVehicle,
-  qcQueue,
+  qcRepairDetails,
   vehicles,
 } from '../../mocks/vehicles';
 import { ApiError, delay, paginate } from './client';
@@ -126,8 +127,35 @@ export async function recordInspection(body: InspectionRequest): Promise<Vehicle
   return delay(v, 380);
 }
 
+/**
+ * Derived from the fleet, so the dashboard's "QC pending" tile and this queue
+ * can never disagree — click the tile and you get exactly these bikes.
+ * A bike named on artboard 14 keeps its write-up; the rest borrow a generic
+ * one, since the repair text is illustrative either way.
+ */
 export async function listQcQueue(): Promise<QcQueueItem[]> {
-  return delay(qcQueue.filter((q) => !qcDecided.has(q.vehicleId)));
+  const today = Date.parse('2026-08-27T00:00:00+05:30');
+
+  const items = vehicles
+    .filter((v) => v.state === 'QC_PENDING' && !qcDecided.has(v.id))
+    .map<QcQueueItem>((v, i) => {
+      const detail = qcRepairDetails[v.id] ?? {
+        ...GENERIC_REPAIRS[i % GENERIC_REPAIRS.length],
+        closedOn: `2026-08-2${4 + (i % 3)}`,
+      };
+      return {
+        vehicleId: v.id,
+        model: v.model,
+        repairSummary: detail.repairSummary,
+        category: detail.category,
+        technician: detail.technician,
+        closedOn: detail.closedOn,
+        costPaise: detail.costPaise,
+        daysWaiting: Math.max(1, Math.round((today - Date.parse(detail.closedOn)) / 86_400_000)),
+      };
+    });
+
+  return delay(items.sort((a, b) => a.daysWaiting - b.daysWaiting));
 }
 
 /** Decisions made during this session, so the queue visibly drains in a demo. */
