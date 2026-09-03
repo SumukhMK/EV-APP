@@ -1,7 +1,7 @@
 # Phase 1 UI Build Plan
 
 **Front end only. Mock JSON, no backend, no database.**
-SMK 65 percent, Abhiram 35 percent. Last updated 30 August 2026.
+Last updated 3 September 2026.
 
 ---
 
@@ -18,8 +18,32 @@ the API response we intend to ask for. When sign off comes, the fixtures are the
 
 ## Stack
 
-Next.js App Router, TypeScript, Tailwind. No backend. No auth library. No database.
-All data comes from `lib/api/*` which returns typed mock JSON. One swap point per resource later.
+React 19, TypeScript, Vite. **Material UI v9** with a custom dark theme. TanStack Query for data,
+React Hook Form + Zod for forms, React Router for navigation.
+
+No backend. No auth library. No database. All data comes from `src/lib/api/*`, which returns typed
+mock JSON from `src/mocks/*`. One swap point per resource later.
+
+The app lives in **`frontend/app/`**. The signed-off wireframe stays in `frontend/wireframe/`.
+
+```
+cd frontend/app
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # typecheck + production build
+npm run lint
+```
+
+### The look is not ours to invent
+
+The wireframe ships its own design system — "Nocturne": a dark ground (`#161826`), a blurple accent
+(`#9184d9`), Inter for text, monospaced tabular figures for every id and amount, and table row rules
+that fade out at both ends. Those tokens are transcribed into `src/theme/tokens.ts` and expressed as
+a MUI theme in `src/theme/theme.ts`.
+
+**Screens do not hardcode colour, spacing or type.** They use the theme, the shared components, and
+`src/lib/labels.ts` for the words attached to an enum. If something cannot be built from those,
+that is a gap in the shared layer — raise it, don't work around it.
 
 ---
 
@@ -27,66 +51,67 @@ All data comes from `lib/api/*` which returns typed mock JSON. One swap point pe
 
 | Path | Owner | Rule |
 |---|---|---|
-| `types/` | SMK | Abhiram requests changes, never edits |
-| `lib/api/` | SMK | This is the API contract |
-| `components/ui/` | SMK | Shared primitives |
-| `mocks/*.json` | Abhiram | Populated from the real tenant spreadsheet |
-| `app/(app)/<his routes>` | Abhiram | Free rein inside his own routes |
+| `src/theme/` | SMK | Design tokens and the MUI theme |
+| `src/types/` | SMK | This is the API contract. Abhiram requests changes, never edits |
+| `src/lib/api/`, `src/lib/labels.ts`, `src/lib/format.ts` | SMK | The mock API and shared vocabulary |
+| `src/components/` | SMK | Shared primitives |
+| `src/layouts/`, `src/app/` | SMK | Shell, nav, routing, session stub |
+| `src/mocks/` | SMK now, Abhiram later | Seeded from the wireframe today; Abhiram replaces it with the cleaned tenant spreadsheet |
+| `src/pages/vehicles/`, `src/pages/workshop/` | SMK | The vehicle flow |
+| `src/pages/riders/`, `src/pages/assignments/` | Abhiram | The rider flow — his own files, free rein inside them |
 
 One pull request per screen. SMK reviews every one. Abhiram does not merge his own.
 
 ---
 
-## SMK, Claude Code
+## What is built
 
-Cross file work and anything with a real rule in it.
+Nineteen artboards, nineteen routes. Every route exists; the unbuilt ones render a placeholder that
+names the artboard and its owner, so a demo can walk the whole rail without a dead link.
 
-1. Repo, Next.js scaffold, Tailwind, lint, CI, folder structure
-2. Design tokens and base components: button, input, select, table, tag, tile, modal, drawer, toast
-3. App shell, sidebar nav, role switch, tenant switch
-4. `types/` for vehicle, rider, assignment, payment period, service ticket, recovery
-5. `lib/api/` mock layer, one module per resource, shaped as the proposed API
-6. Operations dashboard, Ashok's structure, phase 2 sections visibly tagged
-7. Assign vehicle, only from ready to deploy, one to one enforced in the UI
-8. Exchange vehicle, as two events, old assignment closed and new one opened
-9. Deboard rider, condition capture and settlement summary, the gate
-10. Weekly payment run, both Monday and Wednesday cycles
-11. Vehicle state change and QC queue
-12. Review of everything Abhiram ships
+### SMK — done
 
-## Abhiram, Cursor
-
-Self contained screens against components that already exist.
-
-1. `mocks/*.json` built from the tenant spreadsheet, cleaned
-2. Vehicle list, filters by state and hub
-3. Vehicle detail, spec, device numbers, current rider, history
-4. Add vehicle, single entry
-5. Bulk vehicle upload, file picker, preview table, error rows
-6. Rider list, active and inactive filter
-7. Rider detail, profile, documents, current vehicle, assignment and payment history
-8. Onboard rider, form and document upload
-9. Overdue riders
-10. Recovery list, record recovery with reason
-11. Users and roles
-12. Message templates and send log
-13. Audit log
-
----
-
-## Sequence
-
-| Week | SMK | Abhiram |
+| # | Screen | Route |
 |---|---|---|
-| 1 | Scaffold, tokens, components, shell | Mock JSON from the spreadsheet |
-| 2 | Types, mock API layer, dashboard | Vehicle list and detail |
-| 3 | Assign, exchange | Add vehicle, bulk upload |
-| 4 | Deboard and settlement | Rider list and detail, onboard |
-| 5 | Payment run, state change, QC | Overdue, recovery |
-| 6 | Polish, review, walkthrough build | Users, templates, audit |
+| 01 | Login (no auth — any credentials) | `/login` |
+| 02 | Operations dashboard | `/dashboard` |
+| 03 | Vehicles list — facets, search, paging | `/vehicles` |
+| 04 | Vehicle detail — spec, rider, lifecycle, assignment history | `/vehicles/:vehicleId` |
+| 05 | Add vehicle — RHF + Zod, server-side field errors | `/vehicles/new` |
+| 06 | Bulk upload — validate, preview, commit | `/vehicles/bulk-upload` |
+| 13 | Inspection and state change | `/inspections` |
+| 14 | QC queue — pass, or fail with a reason | `/qc` |
 
-Six weeks. **Showcase set is ready end of week 3:** shell, dashboard, vehicle list and detail,
-rider list and detail, assign, exchange. That is enough to hold a presentation.
+Plus the shell: nav rail, layout, router, theme, mock API, and the shared component set
+(`DataTable`, `SimpleTable`, `StatTiles`, `FacetChips`, `PageHeader`, `Panel`, `StateChip`,
+`DefinitionList`, `SearchField`, `TableFooter`, `BarChart`, `EmptyState`, `Mono`, `SelectField`).
+
+### Abhiram — next
+
+| # | Screen | Route |
+|---|---|---|
+| 07 | Riders list | `/riders` |
+| 08 | Rider detail | `/riders/:riderId` |
+| 09 | Onboard rider | `/riders/onboard` |
+| 10 | Assign vehicle | `/assignments/assign` |
+| 11 | Exchange vehicle | `/assignments/exchange` |
+| 12 | Deboard rider | `/assignments/deboard` |
+
+`src/lib/api/riders.ts` already returns 100 riders paired one-to-one with the deployed bikes, with
+search, status facets and paging. He should not need to touch `src/mocks/`.
+
+### Not yet assigned — say who owns these
+
+| # | Screen | Route |
+|---|---|---|
+| 15 | Weekly payment run | `/payments/run` |
+| 16 | Payment detail and receipt | — |
+| 17 | Overdue riders | `/payments/overdue` |
+| 18 | Users and roles | `/users` |
+| 19 | Audit log | `/audit` |
+
+The fixtures and API modules for 15, 17 and 19 already exist (`payments.ts`, `audit.ts`). Only the
+screens are missing.
 
 ---
 
@@ -95,8 +120,13 @@ rider list and detail, assign, exchange. That is enough to hold a presentation.
 - Nothing invented where a rule is unknown. Show the field, add a visible note, leave the logic out.
 - Every phase 2 section is visible and tagged phase 2. Never present and dead.
 - Mock JSON is shaped as the API response, never shaped for the convenience of one screen.
-- No state management library until a screen actually needs it.
+- Fixtures are derived, not duplicated. Riders are built from the deployed bikes; the dashboard
+  tiles are counted from the fixtures. Two numbers that must agree are computed from one source.
+- Every list paginated. Money is integer paise on the wire, formatted at the edge.
+- No state management library until a screen actually needs it. TanStack Query is the cache.
 - No backend, no ORM, no database, not even locally. Resist it.
+- There is no authentication and it must not look like there is. `src/app/session.tsx` is a stub and
+  says so; the login screen says so on the page.
 
 ---
 
@@ -113,8 +143,17 @@ Only these change whether a screen exists at all.
 
 ---
 
+## Known inconsistency in the wireframe
+
+Artboard 07 shows riders R19 and R26 as *partial*; artboard 17 lists both as *overdue*, and its
+sixteen-rider total does not match the eight rows it draws. The build derives the overdue list from
+the rider fixtures so the dashboard tile, the list and the rider records always agree. Worth raising
+with Ashok — it is the kind of thing he will spot on screen and read as a bug.
+
+---
+
 ## Exit condition
 
 A written sign off from Ashok on the screens and the fields on them. Then we ask for the missing
-data listed in the readiness document, freeze the API contract from the fixtures, and start the
+data listed in the readiness document, freeze the API contract from `src/types/`, and start the
 backend. Not before.

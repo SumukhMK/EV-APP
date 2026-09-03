@@ -60,14 +60,23 @@ so neither person blocks the other. One person, one file set. Never both on one 
 - Notification service + Monday SMS reminder (async via queue)
 - Excel migration for the existing 150 bikes and riders
 
-### Abhiram — admin web app  (`frontend/**`)
+### Frontend split  (`frontend/app/**`)
 
-- React + Vite + TS skeleton, routing, auth/session wiring
-- Shared layer: API client, TanStack Query, forms + validation
-- Screens: login, tenant + subscription management (Super Admin),
-  vehicle registry, rider records, assignment, payments/overdue/receipts,
-  blacklist, inquiry/onboarding form
-- Dashboards + charts: Tenant Admin view and Super Admin roll-up
+The front end is now being built first, against mock JSON, ahead of any backend —
+see `docs/PHASE1_UI_PLAN.md` for the screen-by-screen plan and the path ownership
+table. The split inside it:
+
+**SMK** — the shared layer and the vehicle flow. React + Vite + TS skeleton,
+Material UI theme from the signed-off wireframe, routing, session stub, the mock
+API and types (`src/types/` is the API contract), shared components, dashboard,
+vehicle registry, add vehicle, bulk upload, inspection and QC.
+
+**Abhiram** — the rider flow. Rider list and detail, onboarding, assign vehicle,
+exchange vehicle, deboard and settlement. He builds inside `src/pages/riders/` and
+`src/pages/assignments/` on top of the shared layer, and requests changes to
+`src/types/` rather than editing it.
+
+Payments, users and roles, and the audit log are not yet assigned.
 
 ---
 
