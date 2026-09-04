@@ -19,7 +19,7 @@ import {
   vehicles,
 } from '../../mocks/vehicles';
 import { ApiError, delay, paginate } from './client';
-import { VEHICLE_STATE_LABEL } from '../labels';
+import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE } from '../labels';
 import { riders } from '../../mocks/riders';
 
 export interface VehicleQuery {
@@ -196,3 +196,5 @@ function currentAssignmentOnly(v: Vehicle) {
     },
   ];
 }
+
+export { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE};

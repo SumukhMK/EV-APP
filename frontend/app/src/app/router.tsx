@@ -9,6 +9,12 @@ import { AddVehicle } from '../pages/vehicles/AddVehicle';
 import { BulkUploadVehicles } from '../pages/vehicles/BulkUploadVehicles';
 import { Inspection } from '../pages/workshop/Inspection';
 import { QcQueue } from '../pages/workshop/QcQueue';
+import { RidersList } from '../pages/riders/RidersList';
+import { RiderDetail } from '../pages/riders/RiderDetail';
+import { OnboardRider } from '../pages/riders/OnboardRider';
+import { AssignVehicle } from '../pages/assignments/AssignVehicle';
+import { ExchangeVehicle } from '../pages/assignments/ExchangeVehicle';
+import { DeboardRider } from '../pages/assignments/DeboardRider';
 
 /**
  * Every artboard in the signed-off wireframe has a route. The ones that are
@@ -38,75 +44,27 @@ export const router = createBrowserRouter([
       // Riders — Abhiram
       {
         path: '/riders',
-        element: (
-          <Placeholder
-            section="Riders"
-            title="Riders"
-            artboard={7}
-            owner="abhiram"
-            summary="The rider register: active and inactive filter, search by name, phone or bike, and the payment and KYC state of each rider."
-          />
-        ),
+        element: <RidersList />,
       },
       {
         path: '/riders/onboard',
-        element: (
-          <Placeholder
-            section="Riders"
-            title="Onboard rider"
-            artboard={9}
-            owner="abhiram"
-            summary="Rider details, documents, the weekly plan and the deposit. Ends with the rider on the register but without a bike — assignment is a separate, recorded event."
-          />
-        ),
+        element: <OnboardRider />,
       },
       {
         path: '/riders/:riderId',
-        element: (
-          <Placeholder
-            section="Riders"
-            title="Rider detail"
-            artboard={8}
-            owner="abhiram"
-            summary="Profile, documents, the current bike, and the full assignment and payment history for one rider."
-          />
-        ),
+        element: <RiderDetail />,
       },
       {
         path: '/assignments/assign',
-        element: (
-          <Placeholder
-            section="Riders"
-            title="Assign vehicle"
-            artboard={10}
-            owner="abhiram"
-            summary="Assign a bike to a rider. Only bikes in Ready to deploy can be picked, and a rider can hold only one bike at a time."
-          />
-        ),
+        element: <AssignVehicle />,
       },
       {
         path: '/assignments/exchange',
-        element: (
-          <Placeholder
-            section="Riders"
-            title="Exchange vehicle"
-            artboard={11}
-            owner="abhiram"
-            summary="Swap a rider onto a different bike. Recorded as two events — the old assignment closes and a new one opens — never as an overwrite."
-          />
-        ),
+        element: <ExchangeVehicle />,
       },
       {
         path: '/assignments/deboard',
-        element: (
-          <Placeholder
-            section="Riders"
-            title="Deboard rider"
-            artboard={12}
-            owner="abhiram"
-            summary="Take the bike back: condition capture, outstanding dues, deposit settlement. This is the gate — nothing else closes an assignment."
-          />
-        ),
+        element: <DeboardRider />,
       },
 
       // Money and admin — not yet assigned
