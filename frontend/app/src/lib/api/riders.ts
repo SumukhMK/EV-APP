@@ -1,5 +1,13 @@
-import type { Facet, Page, Rider, RiderStatus } from '../../types';
+import type {
+  Facet,
+  OnboardRiderRequest,
+  Page,
+  Rider,
+  RiderPaymentRow,
+  RiderStatus,
+} from '../../types';
 import { riders } from '../../mocks/riders';
+import { riderPaymentHistory } from '../../mocks/payments';
 import { ApiError, delay, paginate } from './client';
 import { RIDER_STATUS_LABEL } from '../labels';
 
@@ -46,4 +54,67 @@ export async function getRider(id: string): Promise<Rider> {
   const r = riders.find((x) => x.id === id);
   if (!r) throw new ApiError(`No rider with id ${id}`, 404);
   return delay(r);
+}
+
+/**
+ * Riders a bike can be assigned to: on the register and not already holding
+ * one.
+ *
+ * Deliberately not filtered on KYC. Whether a bike may go out to a rider whose
+ * documents are still pending is a rule nobody has stated, and guessing "no"
+ * here would strand every rider the onboarding screen creates — nothing in the
+ * product verifies KYC yet. The screen shows the status instead and lets the
+ * person at the desk decide.
+ */
+export async function listAssignableRiders(): Promise<Rider[]> {
+  return delay(riders.filter((r) => r.status === 'ACTIVE' && !r.currentVehicleId));
+}
+
+/** Riders an exchange or a deboard can act on: those actually holding a bike. */
+export async function listAssignedRiders(): Promise<Rider[]> {
+  return delay(riders.filter((r) => r.currentVehicleId !== null));
+}
+
+export async function listRiderPayments(riderId: string): Promise<RiderPaymentRow[]> {
+  const r = riders.find((x) => x.id === riderId);
+  if (!r) throw new ApiError(`No rider with id ${riderId}`, 404);
+  return delay(riderPaymentHistory(r));
+}
+
+/**
+ * A rider joins the register with no bike and KYC pending — assignment and
+ * verification are separate recorded events, which is why the form offers
+ * neither. Same reasoning as `createVehicle` landing a bike as INDUCTED.
+ */
+export async function onboardRider(body: OnboardRiderRequest): Promise<Rider> {
+  const phone = body.phone.trim();
+  if (riders.some((r) => r.phone === phone)) {
+    throw new ApiError('A rider with this phone number is already on the register', 409, 'phone');
+  }
+  const created: Rider = {
+    id: nextRiderId(),
+    name: body.name.trim(),
+    phone,
+    status: 'ACTIVE',
+    kycStatus: 'PENDING',
+    planAmount: body.planAmount,
+    billingDay: body.billingDay,
+    currentVehicleId: null,
+    onboardedOn: body.onboardedOn,
+    paymentStatus: 'PENDING',
+  };
+  riders.unshift(created);
+  // `depositAmount` is recorded against the rider's ledger server-side; there
+  // is no deposit field on the register itself yet, so it is not invented here.
+  void body.depositAmount;
+  return delay(created, 420);
+}
+
+/** Rider ids are `R` plus a zero-padded counter. Continue the fixture's run. */
+function nextRiderId() {
+  const highest = riders.reduce((max, r) => {
+    const n = Number(r.id.slice(1));
+    return Number.isFinite(n) && n > max ? n : max;
+  }, 0);
+  return `R${String(highest + 1).padStart(2, '0')}`;
 }

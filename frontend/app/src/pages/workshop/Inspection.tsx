@@ -12,6 +12,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { invalidateVehicles } from '../../lib/invalidate';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
@@ -77,7 +78,7 @@ export function Inspection() {
         nextState: outcome,
       }),
     onSuccess: (v) => {
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      invalidateVehicles(queryClient);
       setSaved(`${v.id} moved to ${VEHICLE_STATE_LABEL[v.state]}.`);
       setVehicle(null);
       setNotes('');

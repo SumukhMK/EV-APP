@@ -37,3 +37,23 @@ export interface OverdueRider {
   amountDue: Paise;
   stage: DunningStage;
 }
+
+/**
+ * One period on a single rider's ledger (screen 08's payment history panel).
+ *
+ * A thinner row than `PaymentPeriodRow`: the weekly run needs the whole
+ * calculation because that is the screen where it is argued about, whereas the
+ * rider's own history only has to answer "was this week settled, and how".
+ */
+export interface RiderPaymentRow {
+  id: string;
+  periodStart: Iso8601;
+  periodEnd: Iso8601;
+  totalDue: Paise;
+  amountPaid: Paise;
+  status: PaymentStatus;
+  /** null while nothing has been collected against the period. */
+  method: PaymentMethod | null;
+}
+
+export type PaymentMethod = 'UPI' | 'CASH' | 'BANK_TRANSFER';

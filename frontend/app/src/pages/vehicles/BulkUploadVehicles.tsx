@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import UploadIcon from '@mui/icons-material/UploadFileOutlined';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { invalidateVehicles } from '../../lib/invalidate';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StatTiles } from '../../components/StatTiles';
@@ -39,7 +40,7 @@ export function BulkUploadVehicles() {
     onSuccess: (result) => {
       setDone(result.imported);
       setPreview(null);
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      invalidateVehicles(queryClient);
     },
   });
 

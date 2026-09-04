@@ -1,182 +1,186 @@
+import { useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
-import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
-import { listVehicles } from '../../lib/api/vehicles';
-import { rupees, formatDate } from '../../lib/format';
-import type { Rider } from '../../types';
+import { SelectField } from '../../components/form/SelectField';
+import { onboardRider } from '../../lib/api/riders';
+import { ApiError } from '../../lib/api/client';
+import { invalidateRiders } from '../../lib/invalidate';
+import {
+  ONBOARD_RIDER_DEFAULTS,
+  onboardRiderSchema,
+  type OnboardRiderValues,
+} from '../../lib/schemas/rider';
+import { rupeesWithSymbol } from '../../lib/format';
+import { layout } from '../../theme/tokens';
 
+/**
+ * A rider joins the register ACTIVE with KYC pending and no bike. The form
+ * offers no status, no KYC and no bike field for that reason — all three are
+ * consequences of a workflow step, not things typed in here. Assignment is
+ * screen 10, and it is offered as the next action once the rider exists.
+ *
+ * Same reasoning as AddVehicle landing a bike as INDUCTED.
+ */
 export function OnboardRider() {
-  const { riderId = '' } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [banner, setBanner] = useState<string | null>(null);
 
-  const [rider, setRider] = useState<Rider>({
-    id: riderId || '',
-    name: '',
-    phone: '',
-    status: 'ACTIVE',
-    kycStatus: 'PENDING',
-    planAmount: 175000, // ₹1,750 in paise
-    billingDay: 'MONDAY',
-    currentVehicleId: null,
-    onboardedOn: new Date().toISOString().split('T')[0],
-    paymentStatus: 'PENDING',
+  const form = useForm<OnboardRiderValues>({
+    resolver: zodResolver(onboardRiderSchema),
+    defaultValues: ONBOARD_RIDER_DEFAULTS,
+    mode: 'onBlur',
   });
 
-  // Get bikes that are ready to deploy
-  const vehicles = useQuery({
-    queryKey: ['vehicles', 'ready-to-deploy'],
-    queryFn: () => listVehicles({ state: 'READY_TO_DEPLOY' }),
-    retry: false,
+  const save = useMutation({
+    mutationFn: (values: OnboardRiderValues) =>
+      onboardRider({
+        name: values.name,
+        phone: values.phone,
+        // Rupees at the desk, paise on the wire. Converted once, here.
+        planAmount: values.planRupees * 100,
+        billingDay: values.billingDay,
+        depositAmount: values.depositRupees * 100,
+        onboardedOn: values.onboardedOn,
+      }),
+    onSuccess: () => invalidateRiders(queryClient),
+    onError: (error) => {
+      if (error instanceof ApiError && error.field) {
+        form.setError(error.field as keyof OnboardRiderValues, { message: error.message });
+      } else {
+        setBanner(error instanceof Error ? error.message : 'Could not onboard the rider');
+      }
+    },
   });
 
-  if (vehicles.isLoading) {
-    return (
-      <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 320 }}>
-        <CircularProgress size={22} />
-      </Box>
-    );
-  }
+  const submit = form.handleSubmit(async (values) => {
+    setBanner(null);
+    const created = await save.mutateAsync(values);
+    navigate(`/riders/${created.id}`);
+  });
+
+  const field = (name: keyof OnboardRiderValues) => ({
+    ...form.register(name),
+    error: Boolean(form.formState.errors[name]),
+    helperText: form.formState.errors[name]?.message,
+  });
+
+  /** A number input hands back a string unless it is asked not to. */
+  const amount = (name: 'planRupees' | 'depositRupees') => ({
+    ...form.register(name, { valueAsNumber: true }),
+    type: 'number' as const,
+    error: Boolean(form.formState.errors[name]),
+    helperText: form.formState.errors[name]?.message,
+  });
+
+  // The summary reads the live form rather than a second copy of the state,
+  // so it cannot disagree with the fields above it.
+  const preview = useWatch({ control: form.control });
 
   return (
-    <>
+    <Box component="form" onSubmit={submit} noValidate>
       <PageHeader
         section="Riders"
         title="Onboard rider"
         actions={
-          <Button component={Link} to="/riders">
-            Cancel
-          </Button>
+          <>
+            <Button color="inherit" component={Link} to="/riders">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending ? 'Onboarding…' : 'Onboard rider'}
+            </Button>
+          </>
         }
       />
 
-      <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <Panel label="Rider details">
-          <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <TextField
-              label="Name"
-              value={rider.name}
-              onChange={(e) => setRider({ ...rider, name: e.target.value })}
-              fullWidth
-            />
-            <TextField
-              label="Phone"
-              value={rider.phone}
-              onChange={(e) => setRider({ ...rider, phone: e.target.value })}
-              fullWidth
-            />
-            <TextField
-              select
-              label="Status"
-              value={rider.status}
-              onChange={(e) => setRider({ ...rider, status: e.target.value as Rider['status'] })}
-              fullWidth
-            >
-              <MenuItem value="ACTIVE">Active</MenuItem>
-              <MenuItem value="INACTIVE">Inactive</MenuItem>
-              <MenuItem value="BLACKLISTED">Blacklisted</MenuItem>
-            </TextField>
-            <TextField
-              select
-              label="KYC status"
-              value={rider.kycStatus}
-              onChange={(e) => setRider({ ...rider, kycStatus: e.target.value as Rider['kycStatus'] })}
-              fullWidth
-            >
-              <MenuItem value="PENDING">Pending</MenuItem>
-              <MenuItem value="VERIFIED">Verified</MenuItem>
-              <MenuItem value="REJECTED">Rejected</MenuItem>
-            </TextField>
-            <TextField
-              label="Weekly plan (paise)"
-              type="number"
-              value={rider.planAmount}
-              onChange={(e) => setRider({ ...rider, planAmount: Number(e.target.value) })}
-              fullWidth
-            />
-            <TextField
-              select
-              label="Billing day"
-              value={rider.billingDay}
-              onChange={(e) => setRider({ ...rider, billingDay: e.target.value as Rider['billingDay'] })}
-              fullWidth
-            >
-              <MenuItem value="MONDAY">Monday</MenuItem>
-              <MenuItem value="WEDNESDAY">Wednesday</MenuItem>
-            </TextField>
-          </Box>
-        </Panel>
+      {banner && (
+        <Alert severity="error" variant="outlined" sx={{ mt: 5 }}>
+          {banner}
+        </Alert>
+      )}
 
-        <Panel label="Bike assignment">
-          <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <TextField
-              select
-              label="Assign bike"
-              value={rider.currentVehicleId ?? ''}
-              onChange={(e) => setRider({ ...rider, currentVehicleId: e.target.value || null })}
-              fullWidth
-            >
-              {vehicles.data?.content.length === 0 ? (
-                <MenuItem value="" disabled>
-                  No bikes available
-                </MenuItem>
-              ) : (
-                vehicles.data?.content.map((bike) => (
-                  <MenuItem key={bike.id} value={bike.id}>
-                    {bike.id} — {bike.model}
-                  </MenuItem>
-                ))
-              )}
-            </TextField>
+      <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: layout.readingMax }}>
+        <Panel label="Rider">
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
+            <TextField label="Name" placeholder="Full name" {...field('name')} />
+            <TextField label="Phone" placeholder="10 digits" {...field('phone')} />
             <TextField
               label="Onboarded on"
               type="date"
-              value={rider.onboardedOn}
-              onChange={(e) => setRider({ ...rider, onboardedOn: e.target.value })}
-              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+              {...field('onboardedOn')}
             />
-            <TextField
-              label="Deposit (₹)"
-              type="number"
-              fullWidth
-              placeholder="Enter deposit amount"
+          </Box>
+        </Panel>
+
+        <Panel
+          label="Plan"
+          subtitle="Rent is billed weekly on the rider's billing day. Amounts are in rupees."
+        >
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
+            <TextField label="Weekly rent (₹)" {...amount('planRupees')} />
+            <SelectField
+              control={form.control}
+              name="billingDay"
+              label="Billing day"
+              options={[
+                { value: 'MONDAY', label: 'Monday' },
+                { value: 'WEDNESDAY', label: 'Wednesday' },
+              ]}
             />
+            <TextField label="Deposit (₹)" {...amount('depositRupees')} />
           </Box>
         </Panel>
 
         <Panel label="Summary">
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Typography variant="overline">Rider registration summary</Typography>
-            <DefinitionList
-              columns={2}
-              items={[
-                { label: 'Name', value: <Mono>{rider.name || '—'}</Mono> },
-                { label: 'Phone', value: <Mono>{rider.phone || '—'}</Mono> },
-                { label: 'Plan (₹)', value: <Mono>{rupees(rider.planAmount)}</Mono> },
-                { label: 'Billing', value: <Mono>{rider.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday'}</Mono> },
-                { label: 'Bike', value: <Mono>{rider.currentVehicleId || 'Not assigned'}</Mono> },
-                { label: 'Onboarded', value: <Mono>{formatDate(rider.onboardedOn)}</Mono> },
-              ]}
-            />
-            <Button
-              variant="contained"
-              sx={{ mt: 2, width: '100%' }}
-              component={Link}
-              to={`/riders/${riderId || 'new'}`}
-            >
-              Complete onboarding
-            </Button>
-          </Box>
+          <DefinitionList
+            columns={2}
+            items={[
+              { label: 'Name', value: preview.name || '—' },
+              { label: 'Phone', value: <Mono sx={{ fontSize: 13 }}>{preview.phone || '—'}</Mono> },
+              {
+                label: 'Weekly rent',
+                value: (
+                  <Mono sx={{ fontSize: 13 }}>
+                    {preview.planRupees ? rupeesWithSymbol(preview.planRupees * 100) : '—'}
+                  </Mono>
+                ),
+              },
+              {
+                label: 'Billing day',
+                value: preview.billingDay === 'WEDNESDAY' ? 'Wednesday' : 'Monday',
+              },
+              {
+                label: 'Deposit',
+                value: (
+                  <Mono sx={{ fontSize: 13 }}>
+                    {rupeesWithSymbol((preview.depositRupees ?? 0) * 100)}
+                  </Mono>
+                ),
+              },
+              { label: 'KYC', value: 'Pending — verified separately' },
+              { label: 'Bike', value: 'Assigned separately' },
+            ]}
+          />
+          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
+            The rider lands on the register with no bike and KYC pending. Assign one from their
+            record — the assignment screen shows the KYC status rather than blocking on it, since
+            whether a bike may go out before verification is a rule nobody has stated.
+          </Typography>
         </Panel>
       </Box>
-    </>
+    </Box>
   );
 }

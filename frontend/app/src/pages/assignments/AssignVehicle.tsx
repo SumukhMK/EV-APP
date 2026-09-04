@@ -1,38 +1,91 @@
+import { useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Controller, useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { Mono } from '../../components/Mono';
-import { StateChip } from '../../components/StateChip';
 import { DefinitionList } from '../../components/DefinitionList';
-import { listVehicles, VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE } from '../../lib/api/vehicles';
-import { listRiders } from '../../lib/api/riders';
-import type { Rider } from '../../types';
+import { StateChip } from '../../components/StateChip';
+import { EmptyState } from '../../components/EmptyState';
+import { SelectField } from '../../components/form/SelectField';
+import { VehiclePicker } from './VehiclePicker';
+import { assignVehicle } from '../../lib/api/assignments';
+import { listAssignableRiders } from '../../lib/api/riders';
+import { ApiError } from '../../lib/api/client';
+import { invalidateAssignments } from '../../lib/invalidate';
+import {
+  assignVehicleSchema,
+  today,
+  type AssignVehicleValues,
+} from '../../lib/schemas/assignment';
+import { KYC_STATUS_LABEL, KYC_STATUS_TONE } from '../../lib/labels';
+import { rupeesWithSymbol } from '../../lib/format';
+import { layout } from '../../theme/tokens';
 
+/**
+ * Screen 10. Opens a new assignment.
+ *
+ * The rider comes from `?riderId=` when the screen is reached from a rider
+ * record, and from the dropdown when it is reached from the nav — the id is
+ * never assumed to be there, because this route is linkable and bookmarkable.
+ * Either way it is a form field, so the submit cannot fire without one.
+ *
+ * Only riders with no bike are offered: one rider, one bike is the register's
+ * oldest rule, and a rider who already has one belongs on Exchange. KYC is
+ * shown rather than enforced — see `listAssignableRiders`.
+ */
 export function AssignVehicle() {
-  const { riderId = '' } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [params] = useSearchParams();
+  const [banner, setBanner] = useState<string | null>(null);
 
-  // Get bikes ready to deploy
-  const vehicles = useQuery({
-    queryKey: ['vehicles', 'ready-to-deploy'],
-    queryFn: () => listVehicles({ state: 'READY_TO_DEPLOY' }),
-    retry: false,
+  const riders = useQuery({
+    queryKey: ['riders', 'assignable'],
+    queryFn: listAssignableRiders,
   });
 
-  // Get active riders
-  const ridersList = useQuery({
-    queryKey: ['riders', 'list-all'],
-    queryFn: () => listRiders({ status: 'ACTIVE' }),
-    retry: false,
+  const form = useForm<AssignVehicleValues>({
+    resolver: zodResolver(assignVehicleSchema),
+    defaultValues: {
+      riderId: params.get('riderId') ?? '',
+      vehicleId: '',
+      startedOn: today(),
+      note: '',
+    },
+    mode: 'onBlur',
   });
 
-  if (vehicles.isLoading) {
+  const save = useMutation({
+    mutationFn: assignVehicle,
+    onSuccess: () => invalidateAssignments(queryClient),
+    onError: (error) => {
+      if (error instanceof ApiError && error.field) {
+        form.setError(error.field as keyof AssignVehicleValues, { message: error.message });
+      } else {
+        setBanner(error instanceof Error ? error.message : 'Could not assign the bike');
+      }
+    },
+  });
+
+  const submit = form.handleSubmit(async (values) => {
+    setBanner(null);
+    const rider = await save.mutateAsync(values);
+    navigate(`/riders/${rider.id}`);
+  });
+
+  const picked = useWatch({ control: form.control });
+  const rider = riders.data?.find((r) => r.id === picked.riderId);
+
+  if (riders.isLoading) {
     return (
       <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 320 }}>
         <CircularProgress size={22} />
@@ -40,100 +93,136 @@ export function AssignVehicle() {
     );
   }
 
-  const targetRider = riderId
-    ? { id: riderId, name: 'Loading...', currentVehicleId: null as string | null }
-    : { id: '', name: '', currentVehicleId: null as string | null };
+  // Nobody is waiting for a bike. Better to say so than to render a form whose
+  // only dropdown is empty.
+  if ((riders.data ?? []).length === 0) {
+    return (
+      <>
+        <PageHeader section="Riders" title="Assign vehicle" />
+        <EmptyState
+          title="No rider is waiting for a bike"
+          description="Every active rider on the register already holds one. Onboard a rider, or use Exchange to move someone onto a different bike."
+          action={
+            <Button component={Link} to="/riders/onboard">
+              Onboard rider
+            </Button>
+          }
+        />
+      </>
+    );
+  }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Box component="form" onSubmit={submit} noValidate>
       <PageHeader
         section="Riders"
         title="Assign vehicle"
         actions={
-          <Button component={Link} to="/riders">
-            Cancel
-          </Button>
+          <>
+            <Button color="inherit" component={Link} to="/riders">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending ? 'Assigning…' : 'Assign bike'}
+            </Button>
+          </>
         }
       />
 
-      <Panel label="Rider">
-        {riderId ? (
-          <Box>
-            <Typography variant="h6">Rider: {riderId}</Typography>
-            <Box sx={{ mt: 2 }}>
-              <StateChip label="Active" tone="good" />
-            </Box>
-          </Box>
-        ) : (
-          <Box>
-            <Typography variant="h6">Select a rider</Typography>
-            <TextField
-              select
+      {banner && (
+        <Alert severity="error" variant="outlined" sx={{ mt: 5 }}>
+          {banner}
+        </Alert>
+      )}
+
+      <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
+        <Panel
+          label="Rider"
+          subtitle="Riders on the register who are not already holding a bike. KYC status is shown, not enforced."
+          sx={{ maxWidth: layout.readingMax }}
+        >
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
+            <SelectField
+              control={form.control}
+              name="riderId"
               label="Rider"
-              value={targetRider.id}
-              onChange={() => {}}
-              fullWidth
-              sx={{ mt: 2 }}
-            >
-              {ridersList.data?.content.map((r: Rider) => (
-                <MenuItem key={r.id} value={r.id}>
-                  {r.name} ({r.id})
-                </MenuItem>
-              ))}
-            </TextField>
+              options={(riders.data ?? []).map((r) => ({
+                value: r.id,
+                label: `${r.name} · ${r.id} · ${KYC_STATUS_LABEL[r.kycStatus]}`,
+              }))}
+            />
+            <TextField
+              label="Assigned on"
+              type="date"
+              slotProps={{ inputLabel: { shrink: true } }}
+              {...form.register('startedOn')}
+              error={Boolean(form.formState.errors.startedOn)}
+              helperText={form.formState.errors.startedOn?.message}
+            />
           </Box>
-        )}
-      </Panel>
+        </Panel>
 
-      <Panel label="Available bikes (Ready to deploy)">
-        <Box sx={{ mt: 3 }}>
-          {vehicles.data?.content.length === 0 ? (
-            <Typography sx={{ color: 'text.secondary' }}>No bikes currently ready to deploy.</Typography>
-          ) : (
-            <Box>
-              {/* Header row */}
-              <Box sx={{ display: 'flex', borderBottom: '1px solid', borderColor: 'divider', pb: 1, mb: 1 }}>
-                <Box sx={{ flex: 1, fontWeight: 500, fontSize: 13 }}>Bike id</Box>
-                <Box sx={{ width: 200, fontWeight: 500, fontSize: 13 }}>Model</Box>
-                <Box sx={{ width: 150, fontWeight: 500, fontSize: 13 }}>State</Box>
-              </Box>
-              {/* Data rows */}
-              {vehicles.data.content.map((bike) => (
-                <Box
-                  key={bike.id}
-                  sx={{ display: 'flex', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}
-                >
-                  <Box sx={{ flex: 1 }}><Mono>{bike.id}</Mono></Box>
-                  <Box sx={{ width: 200 }}>{bike.model}</Box>
-                  <Box sx={{ width: 150 }}>
-                    <StateChip
-                      label={VEHICLE_STATE_LABEL[bike.state]}
-                      tone={VEHICLE_STATE_TONE[bike.state]}
-                    />
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          )}
-        </Box>
-      </Panel>
+        <Panel label="Available bikes" subtitle="Ready to deploy.">
+          <Controller
+            control={form.control}
+            name="vehicleId"
+            render={({ field, fieldState }) => (
+              <VehiclePicker
+                value={field.value}
+                onChange={field.onChange}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+        </Panel>
 
-      <Panel label="Assignment summary">
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Typography variant="overline">Assign bike to rider</Typography>
+        <Panel label="Summary" sx={{ maxWidth: layout.readingMax }}>
           <DefinitionList
             columns={2}
             items={[
-              { label: 'Rider', value: <Mono>{targetRider.id || 'Not selected'}</Mono> },
-              { label: 'Bike', value: <Mono>{vehicles.data?.content[0]?.id || 'Not selected'}</Mono> },
-              { label: 'Bike model', value: <Mono>{vehicles.data?.content[0]?.model || '—'}</Mono> },
+              { label: 'Rider', value: rider ? `${rider.name} · ${rider.id}` : 'Not selected' },
+              {
+                label: 'Weekly rent',
+                value: (
+                  <Mono sx={{ fontSize: 13 }}>
+                    {rider ? rupeesWithSymbol(rider.planAmount) : '—'}
+                  </Mono>
+                ),
+              },
+              {
+                label: 'Bike',
+                value: <Mono sx={{ fontSize: 13 }}>{picked.vehicleId || 'Not selected'}</Mono>,
+              },
+              {
+                label: 'KYC',
+                value: rider ? (
+                  <StateChip
+                    label={KYC_STATUS_LABEL[rider.kycStatus]}
+                    tone={KYC_STATUS_TONE[rider.kycStatus]}
+                  />
+                ) : (
+                  '—'
+                ),
+              },
+              { label: 'Bike lands in', value: 'Deployed' },
             ]}
           />
-          <Button variant="contained" sx={{ mt: 2, width: '100%' }} onClick={() => {}}>
-            Assign bike
-          </Button>
-        </Box>
-      </Panel>
+          <TextField
+            label="Note (optional)"
+            multiline
+            minRows={2}
+            fullWidth
+            sx={{ mt: 5 }}
+            {...form.register('note')}
+            error={Boolean(form.formState.errors.note)}
+            helperText={form.formState.errors.note?.message}
+          />
+          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
+            Billing starts from the assignment date. The bike moves to Deployed and cannot be
+            assigned again until it is returned.
+          </Typography>
+        </Panel>
+      </Box>
     </Box>
   );
 }

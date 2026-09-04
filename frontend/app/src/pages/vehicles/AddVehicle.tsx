@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { invalidateVehicles } from '../../lib/invalidate';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { SelectField } from '../../components/form/SelectField';
@@ -42,7 +43,7 @@ export function AddVehicle() {
         hub: values.hub,
         inductedOn: values.purchaseDate,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+    onSuccess: () => invalidateVehicles(queryClient),
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
         form.setError(error.field as keyof AddVehicleValues, { message: error.message });

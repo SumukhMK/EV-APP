@@ -1,5 +1,14 @@
 import type { StatusTone } from '../theme/tokens';
-import type { DunningStage, KycStatus, PaymentStatus, RiderStatus, VehicleState } from '../types';
+import type {
+  DunningStage,
+  ExchangeReason,
+  KycStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ReturnCondition,
+  RiderStatus,
+  VehicleState,
+} from '../types';
 
 /**
  * Wire enum → the words Ashok's team actually uses, plus the one colour each
@@ -93,4 +102,43 @@ export const DUNNING_TONE: Record<DunningStage, StatusTone> = {
   WARNING_1: 'caution',
   WARNING_2: 'warn',
   REPOSSESSION_DUE: 'bad',
+};
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  UPI: 'UPI',
+  CASH: 'Cash',
+  BANK_TRANSFER: 'Bank transfer',
+};
+
+export const RETURN_CONDITION_LABEL: Record<ReturnCondition, string> = {
+  NONE: 'No damage',
+  MINOR: 'Minor damage',
+  MAJOR: 'Major damage',
+  ACCIDENT: 'Accident',
+};
+
+export const RETURN_CONDITION_TONE: Record<ReturnCondition, StatusTone> = {
+  NONE: 'good',
+  MINOR: 'caution',
+  MAJOR: 'warn',
+  ACCIDENT: 'bad',
+};
+
+/**
+ * Where a bike lands when it comes back. This is the whole reason a return
+ * captures a condition: an undamaged bike goes to QC before it can be let out
+ * again, and a damaged one cannot skip the workshop on someone's say-so.
+ */
+export const RETURN_CONDITION_NEXT_STATE: Record<ReturnCondition, VehicleState> = {
+  NONE: 'RETURNED',
+  MINOR: 'UNDER_REPAIR',
+  MAJOR: 'UNDER_REPAIR',
+  ACCIDENT: 'ACCIDENT',
+};
+
+export const EXCHANGE_REASON_LABEL: Record<ExchangeReason, string> = {
+  BREAKDOWN: 'Breakdown',
+  ACCIDENT: 'Accident',
+  RIDER_REQUEST: 'Rider request',
+  UPGRADE: 'Plan upgrade',
 };

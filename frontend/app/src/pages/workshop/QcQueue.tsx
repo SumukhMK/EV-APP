@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidateVehicles } from '../../lib/invalidate';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
@@ -61,8 +62,7 @@ export function QcQueue() {
     mutationFn: ({ vehicleId, pass, why }: { vehicleId: string; pass: boolean; why?: string }) =>
       decideQc(vehicleId, pass, why),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['qc', 'queue'] });
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      invalidateVehicles(queryClient);
       setFailing(null);
       setReason('');
     },

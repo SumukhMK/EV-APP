@@ -14,20 +14,44 @@ import { StateChip } from '../../components/StateChip';
 import { Mono } from '../../components/Mono';
 import { TableFooter } from '../../components/TableFooter';
 import { listRiders, riderFacets } from '../../lib/api/riders';
-import { RIDER_STATUS_LABEL, RIDER_STATUS_TONE, KYC_STATUS_LABEL, KYC_STATUS_TONE, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../../lib/labels';
-import { formatDate, rupees } from '../../lib/format';
-import { neutral, accent } from '../../theme/tokens';
+import {
+  KYC_STATUS_LABEL,
+  KYC_STATUS_TONE,
+  PAYMENT_STATUS_LABEL,
+  PAYMENT_STATUS_TONE,
+  RIDER_STATUS_LABEL,
+  RIDER_STATUS_TONE,
+} from '../../lib/labels';
+import { rupees } from '../../lib/format';
+import { RIDER_STATUSES, type Rider, type RiderStatus } from '../../types';
+import { accent, neutral } from '../../theme/tokens';
 import { useDebounced } from '../../hooks/useDebounced';
 
 const PAGE_SIZE = 12;
 
+/** Anything else in ?status= (a typo, a stale link, a renamed enum) means "all". */
+function parseStatus(raw: string | null): RiderStatus | 'ALL' {
+  return (RIDER_STATUSES as readonly string[]).includes(raw ?? '') ? (raw as RiderStatus) : 'ALL';
+}
+
 export function RidersList() {
   const navigate = useNavigate();
   const theme = useTheme();
+  // Same two-step shed as the vehicles table. What survives to the narrowest
+  // view is what someone chasing a payment actually scans for — who, which
+  // bike, and whether they have paid. Phone and KYC are lookups.
+  const narrow = useMediaQuery(theme.breakpoints.down('lg'));
   const compact = useMediaQuery(theme.breakpoints.down('sm'));
+  // The filter lives in the URL, not in component state, so a filtered
+  // register can be bookmarked, shared, and linked to from the dashboard.
   const [params, setParams] = useSearchParams();
-  const state = params.get('state') ?? 'ACTIVE';
-  const q = useDebounced(params.get('q') ?? '', 250);
+  const status = parseStatus(params.get('status'));
+
+  // The search box keeps its own state so typing stays instant; only the
+  // settled value is written back to the URL.
+  const [search, setSearch] = useState(() => params.get('q') ?? '');
+  const [page, setPage] = useState(0);
+  const q = useDebounced(search, 250);
 
   useEffect(() => {
     setParams(
@@ -37,37 +61,45 @@ export function RidersList() {
         else next.delete('q');
         return next;
       },
+      // Replace, so a back press leaves the list rather than replaying every
+      // keystroke the user typed into it.
       { replace: true },
     );
   }, [q, setParams]);
 
-  const setState = (next: string) => {
+  const setStatus = (next: RiderStatus | 'ALL') => {
     setParams(
       (prev) => {
-        const params = new URLSearchParams(prev);
-        params.set('state', next);
-        return params;
+        const updated = new URLSearchParams(prev);
+        if (next === 'ALL') updated.delete('status');
+        else updated.set('status', next);
+        return updated;
       },
       { replace: true },
     );
   };
 
-  const filterKey = `${state}|${q}`;
+  // A new filter always starts at the first page — page 4 of the old result
+  // set means nothing in the new one. Adjusted during render rather than in an
+  // effect, so the list never paints one frame of the wrong page first.
+  const filterKey = `${status}|${q}`;
   const [lastFilterKey, setLastFilterKey] = useState(filterKey);
   if (filterKey !== lastFilterKey) {
     setLastFilterKey(filterKey);
     setPage(0);
   }
 
+  // Facets are counted over the search but not the status filter, so the chips
+  // keep showing what else is available instead of collapsing to the selection.
   const facets = useQuery({
-    queryKey: ['riders', 'facets', q, state],
-    queryFn: () => riderFacets({ q, status: state }),
+    queryKey: ['riders', 'facets', q],
+    queryFn: () => riderFacets({ q }),
     placeholderData: keepPreviousData,
   });
 
   const list = useQuery({
-    queryKey: ['riders', 'list', { q, state, page: 0 }],
-    queryFn: () => listRiders({ q, state, page: 0, size: PAGE_SIZE }),
+    queryKey: ['riders', 'list', { q, status, page }],
+    queryFn: () => listRiders({ q, status, page, size: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
 
@@ -76,18 +108,14 @@ export function RidersList() {
       {
         field: 'id',
         headerName: 'Rider id',
-        width: compact ? 100 : 120,
+        width: compact ? 92 : 110,
         renderCell: ({ row }) => <Mono sx={{ color: accent[300] }}>{row.id}</Mono>,
       },
-      {
-        field: 'name',
-        headerName: 'Name',
-        width: compact ? 140 : 180,
-      },
+      { field: 'name', headerName: 'Name', flex: 1, minWidth: 140 },
       {
         field: 'phone',
         headerName: 'Phone',
-        width: compact ? 120 : 150,
+        width: 140,
         renderCell: ({ row }) => (
           <Mono sx={{ fontSize: 12, color: neutral[400] }}>{row.phone}</Mono>
         ),
@@ -104,7 +132,7 @@ export function RidersList() {
       {
         field: 'kycStatus',
         headerName: 'KYC',
-        width: compact ? 80 : 100,
+        width: 120,
         sortable: false,
         renderCell: ({ row }) => (
           <StateChip label={KYC_STATUS_LABEL[row.kycStatus]} tone={KYC_STATUS_TONE[row.kycStatus]} />
@@ -112,25 +140,31 @@ export function RidersList() {
       },
       {
         field: 'planAmount',
-        headerName: 'Plan (₹)',
-        width: compact ? 80 : 100,
+        headerName: 'Plan',
+        width: 100,
         align: 'right',
-        valueFormatter: (value) => rupees(value),
+        headerAlign: 'right',
+        valueFormatter: (value: number) => rupees(value),
         cellClassName: 'muted-cell',
       },
       {
         field: 'billingDay',
         headerName: 'Billing',
-        width: compact ? 70 : 90,
-        renderCell: ({ row }) => (row.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday'),
+        width: 110,
+        valueFormatter: (value: Rider['billingDay']) =>
+          value === 'MONDAY' ? 'Monday' : 'Wednesday',
+        cellClassName: 'muted-cell',
       },
       {
         field: 'paymentStatus',
         headerName: 'Payment',
-        width: compact ? 80 : 100,
+        width: compact ? 92 : 110,
         sortable: false,
         renderCell: ({ row }) => (
-          <StateChip label={PAYMENT_STATUS_LABEL[row.paymentStatus]} tone={PAYMENT_STATUS_TONE[row.paymentStatus]} />
+          <StateChip
+            label={PAYMENT_STATUS_LABEL[row.paymentStatus]}
+            tone={PAYMENT_STATUS_TONE[row.paymentStatus]}
+          />
         ),
       },
       {
@@ -138,8 +172,13 @@ export function RidersList() {
         headerName: 'Bike',
         width: compact ? 0 : 130,
         flex: compact ? 1 : undefined,
-        minWidth: compact ? 100 : undefined,
-        renderCell: ({ row }) => row.currentVehicleId ?? <Box sx={{ color: neutral[600] }}>—</Box>,
+        minWidth: compact ? 110 : undefined,
+        renderCell: ({ row }) =>
+          row.currentVehicleId ? (
+            <Mono sx={{ fontSize: 12 }}>{row.currentVehicleId}</Mono>
+          ) : (
+            <Box sx={{ color: neutral[600] }}>—</Box>
+          ),
       },
     ],
     [compact],
@@ -154,11 +193,9 @@ export function RidersList() {
         section="Riders"
         title="Rider register"
         actions={
-          <>
-            <Button color="inherit" component={Link} to="/riders/onboard">
-              Onboard rider
-            </Button>
-          </>
+          <Button component={Link} to="/riders/onboard">
+            Onboard rider
+          </Button>
         }
       />
 
@@ -173,15 +210,15 @@ export function RidersList() {
         }}
       >
         <FacetChips
-          options={facets.data ?? [{ value: 'ACTIVE' as const, label: 'Active', count: 0 }]}
-          value={state as any}
-          onChange={setState}
+          options={facets.data ?? [{ value: 'ALL' as const, label: 'All', count: 0 }]}
+          value={status}
+          onChange={setStatus}
         />
         <Box sx={{ width: { xs: '100%', md: 'auto' }, flex: { md: '0 0 auto' } }}>
           <SearchField
-            value={q}
-            onChange={(e) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('q', e.target.value); return next; })}
-            placeholder="Search id, name, phone"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search id, name, phone, bike"
             fullWidth
           />
         </Box>
@@ -192,30 +229,26 @@ export function RidersList() {
           rows={rows}
           columns={columns}
           loading={list.isLoading}
+          columnVisibilityModel={{
+            phone: !narrow,
+            kycStatus: !narrow,
+            billingDay: !narrow,
+            planAmount: !compact,
+          }}
+          onRowClick={({ row }) => navigate(`/riders/${row.id}`)}
+          hideFooter
           emptyMessage="No riders match this filter"
           sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
         />
       </Box>
 
       <TableFooter
-        page={0}
+        page={page}
         pageSize={PAGE_SIZE}
         total={total}
-        onPageChange={() => {}}
+        onPageChange={setPage}
         noun="riders"
       />
     </>
   );
 }
-
-export type Rider = {
-  id: string;
-  name: string;
-  phone: string;
-  status: 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED';
-  kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
-  planAmount: number;
-  billingDay: 'MONDAY' | 'WEDNESDAY';
-  paymentStatus: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
-  currentVehicleId: string | null;
-};
