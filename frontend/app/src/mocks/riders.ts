@@ -7,8 +7,11 @@ import { vehicles } from './vehicles';
  * riders from the fleet (rather than side by side) is what keeps the two
  * fixtures from drifting: there is exactly one place a pairing is decided.
  *
- * The Monday/Wednesday split is 58/42, matching the "58 riders billed" line in
- * the audit log for the Monday run.
+ * The Monday/Wednesday split is 58/42 among riders who hold a bike, matching
+ * the "58 riders billed" line in the audit log for the Monday run.
+ *
+ * Not every rider holds a bike, though — see NO_BIKE below. The one-to-one
+ * rule says a bike has at most one rider, not that every rider has a bike.
  */
 
 const DESIGNED: ReadonlyArray<
@@ -24,6 +27,46 @@ const DESIGNED: ReadonlyArray<
   ['R14', 'Prakash Bhandari', '9611308452', 'BLRSS0396', 1750, 'WEDNESDAY', 'PAID'],
   ['R38', 'Yash Karkera', '9535667021', 'BLRSS0403', 1999, 'MONDAY', 'OVERDUE'],
   ['R41', 'Girish Poojary', '8899140563', 'FBLSS0097', 1700, 'WEDNESDAY', 'PAID'],
+];
+
+/**
+ * Riders on the register holding no bike. Three real situations, and the
+ * register has always had all three:
+ *
+ *   - onboarded and waiting for a bike to come out of QC. The yard is the
+ *     bottleneck, so this is the normal case, not an edge one.
+ *   - deboarded: bike handed back, rider off the active register.
+ *   - blacklisted: never gets another bike.
+ *
+ * Without these, screen 10 has nothing to assign to on a cold load and the
+ * Inactive and Blacklisted facets on the register are permanently empty, so
+ * three of the six rider states could never be seen.
+ *
+ * They are appended after the generated riders rather than mixed in, which is
+ * what keeps the 58/42 billing split above from moving.
+ */
+const NO_BIKE: ReadonlyArray<
+  [
+    id: string,
+    name: string,
+    phone: string,
+    planRupees: number,
+    day: BillingDay,
+    status: Rider['status'],
+    kyc: Rider['kycStatus'],
+    onboardedOn: string,
+  ]
+> = [
+  // Waiting for a bike. KYC is not a blocker on assignment — the desk decides.
+  ['R02', 'Anil Shetty', '9845012277', 1750, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-24'],
+  ['R13', 'Faisal Khan', '7012238890', 1900, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-26'],
+  ['R21', 'Mahesh Gowda', '8891447203', 1600, 'WEDNESDAY', 'ACTIVE', 'VERIFIED', '2026-08-27'],
+  ['R40', 'Deepak Rawat', '9632188054', 1999, 'MONDAY', 'ACTIVE', 'PENDING', '2026-08-31'],
+  // Deboarded — the bike came back and the plan closed.
+  ['R05', 'Vinod Naik', '9008773412', 1700, 'MONDAY', 'INACTIVE', 'VERIFIED', '2025-11-03'],
+  ['R28', 'Suresh Pillai', '8123409965', 1750, 'WEDNESDAY', 'INACTIVE', 'VERIFIED', '2026-01-19'],
+  // Off the register for good.
+  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'BLACKLISTED', 'REJECTED', '2025-09-15'],
 ];
 
 /** Overdue riders the dashboard counts: 16. Two of them are designed rows. */
@@ -87,6 +130,24 @@ function buildRiders(): Rider[] {
     } else {
       r.paymentStatus = rng() < 0.08 ? 'PARTIAL' : 'PAID';
     }
+  }
+
+  // Appended after the overdue spread above, which rewrites every rider still
+  // marked PENDING — a rider with no bike has nothing billed against them and
+  // must not be handed one of the sixteen overdue flags.
+  for (const [id, name, phone, plan, billingDay, status, kycStatus, onboardedOn] of NO_BIKE) {
+    out.push({
+      id,
+      name,
+      phone,
+      status,
+      kycStatus,
+      planAmount: plan * 100,
+      billingDay,
+      currentVehicleId: null,
+      onboardedOn,
+      paymentStatus: 'PENDING',
+    });
   }
 
   // Close the loop: every deployed bike now names its rider.

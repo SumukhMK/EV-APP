@@ -201,8 +201,10 @@ export function RiderDetail() {
                 </>
               ) : (
                 <>
-                  This rider is {RIDER_STATUS_LABEL[r.status].toLowerCase()} and cannot hold a bike.
-                  Re-onboarding is what puts a deboarded rider back on the register.
+                  This rider is {RIDER_STATUS_LABEL[r.status].toLowerCase()} and cannot hold a bike.{' '}
+                  {r.status === 'BLACKLISTED'
+                    ? 'A blacklisted rider is not re-onboarded.'
+                    : 'Re-onboarding is what puts a deboarded rider back on the register.'}
                 </>
               )}
             </Typography>
@@ -212,7 +214,9 @@ export function RiderDetail() {
 
       <Panel
         label="Payment history"
-        subtitle="The eight most recent billing periods, newest first."
+        subtitle={
+          holdsBike ? 'The eight most recent billing periods, newest first.' : undefined
+        }
         sx={{ mt: 5 }}
       >
         {payments.isLoading ? (
@@ -221,7 +225,9 @@ export function RiderDetail() {
           </Box>
         ) : (payments.data ?? []).length === 0 ? (
           <Typography sx={{ fontSize: 14, color: 'text.secondary', py: 4 }}>
-            No billing period has closed for this rider yet.
+            {holdsBike
+              ? 'No billing period has closed for this rider yet.'
+              : 'No open plan. Rent is billed for as long as a bike is assigned.'}
           </Typography>
         ) : (
           <SimpleTable

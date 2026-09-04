@@ -54,11 +54,30 @@ function row(
   };
 }
 
+/**
+ * The Monday run is the Monday riders — one row each, no more and no fewer.
+ *
+ * It used to be `[...DESIGNED_ROWS, ...rest]`, which appended all ten rows
+ * drawn on artboard 15 and then the Monday riders who were not among them.
+ * Five of those ten (R14, R19, R22, R26, R41) bill on Wednesday, so the Monday
+ * run carried 63 rows while the audit log recorded "58 riders billed" for the
+ * same period — and it listed riders who are not in that cycle at all.
+ *
+ * Deriving the rows from the riders in the cycle and looking up the designed
+ * amounts by id makes the two numbers one number. A designed row now applies
+ * only when its rider is actually in the run; the Wednesday ones wait for the
+ * Wednesday run to be built.
+ */
 function buildRun(): PaymentRun {
-  const designedIds = new Set(DESIGNED_ROWS.map((r) => r.riderId));
-  const rest = riders
-    .filter((r) => r.billingDay === 'MONDAY' && !designedIds.has(r.id))
+  const designed = new Map(DESIGNED_ROWS.map((r) => [r.riderId, r]));
+
+  const rows = riders
+    // A rider with no bike has no open plan, so there is nothing to bill.
+    .filter((r) => r.currentVehicleId && r.billingDay === 'MONDAY')
     .map<PaymentPeriodRow>((r) => {
+      const asDrawn = designed.get(r.id);
+      if (asDrawn) return asDrawn;
+
       const paid = r.paymentStatus === 'PAID';
       const partial = r.paymentStatus === 'PARTIAL';
       return {
@@ -81,7 +100,7 @@ function buildRun(): PaymentRun {
     periodStart: '2026-08-24',
     periodEnd: '2026-08-30',
     billingDay: 'MONDAY',
-    rows: [...DESIGNED_ROWS, ...rest],
+    rows,
   };
 }
 
@@ -147,6 +166,12 @@ const DAY_MS = 86_400_000;
 const CURRENT_PERIOD_START = Date.parse('2026-08-24T00:00:00+05:30');
 
 export function riderPaymentHistory(rider: Rider): RiderPaymentRow[] {
+  // No bike, no open plan, so nothing is being billed. For a deboarded rider
+  // this under-reports — they do have a past ledger — but the fixture records
+  // no deboard date, and deriving weeks up to a date we do not have would be
+  // inventing the history rather than showing it.
+  if (!rider.currentVehicleId) return [];
+
   // Wednesday riders are billed three days later in the same week.
   const offset = rider.billingDay === 'WEDNESDAY' ? 2 * DAY_MS : 0;
   const onboarded = Date.parse(rider.onboardedOn);
