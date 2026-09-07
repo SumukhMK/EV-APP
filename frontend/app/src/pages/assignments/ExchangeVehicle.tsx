@@ -127,7 +127,7 @@ export function ExchangeVehicle() {
         <PageHeader section="Riders" title="Exchange vehicle" />
         <EmptyState
           title="No rider is holding a bike"
-          description="An exchange closes one assignment and opens another, so it needs a rider who already has a bike."
+          description="An exchange swaps one bike for another, so it needs a rider who already has one. Assign a bike first."
           action={
             <Button component={Link} to="/assignments/assign">
               Assign a bike
@@ -166,7 +166,7 @@ export function ExchangeVehicle() {
       <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
         <Panel
           label="Current assignment"
-          subtitle="Only riders currently holding a bike are listed."
+          subtitle="Only riders who currently have a bike."
           sx={{ maxWidth: layout.readingMax }}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
@@ -174,6 +174,8 @@ export function ExchangeVehicle() {
               control={form.control}
               name="riderId"
               label="Rider"
+              searchable
+              placeholder="Type a name or rider id"
               options={(riders.data ?? []).map((r) => ({
                 value: r.id,
                 label: `${r.name} · ${r.id}`,
@@ -205,7 +207,7 @@ export function ExchangeVehicle() {
 
         <Panel
           label="Return"
-          subtitle="The bike coming back takes its next state from its condition. It cannot go straight back into the yard."
+          subtitle="The condition decides where the returned bike goes next. It never goes straight back to the ready pool."
           sx={{ maxWidth: layout.readingMax }}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
@@ -233,7 +235,7 @@ export function ExchangeVehicle() {
           </Box>
         </Panel>
 
-        <Panel label="Replacement bike" subtitle="Ready to deploy.">
+        <Panel label="Replacement bike" subtitle="Bikes that passed QC and are ready to go out.">
           <Controller
             control={form.control}
             name="toVehicleId"
@@ -266,7 +268,7 @@ export function ExchangeVehicle() {
                 value: <Mono sx={{ fontSize: 13 }}>{picked.toVehicleId || 'Not selected'}</Mono>,
               },
               { label: 'Condition', value: RETURN_CONDITION_LABEL[condition] },
-              { label: 'Recorded as', value: 'Two events — one closed, one opened' },
+              { label: 'Recorded as', value: 'Old assignment closed, new one opened' },
             ]}
           />
           <TextField

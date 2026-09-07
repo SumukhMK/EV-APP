@@ -101,7 +101,7 @@ export function AssignVehicle() {
         <PageHeader section="Riders" title="Assign vehicle" />
         <EmptyState
           title="No rider is waiting for a bike"
-          description="Every active rider on the register already holds one. Onboard a rider, or use Exchange to move someone onto a different bike."
+          description="Every active rider already has a bike. Onboard a new rider, or use Exchange to move someone onto a different bike."
           action={
             <Button component={Link} to="/riders/onboard">
               Onboard rider
@@ -138,7 +138,7 @@ export function AssignVehicle() {
       <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
         <Panel
           label="Rider"
-          subtitle="Riders on the register who are not already holding a bike. KYC status is shown, not enforced."
+          subtitle="Riders who do not have a bike yet. KYC is shown here, but it does not block the assignment."
           sx={{ maxWidth: layout.readingMax }}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
@@ -146,6 +146,8 @@ export function AssignVehicle() {
               control={form.control}
               name="riderId"
               label="Rider"
+              searchable
+              placeholder="Type a name or rider id"
               options={(riders.data ?? []).map((r) => ({
                 value: r.id,
                 label: `${r.name} · ${r.id} · ${KYC_STATUS_LABEL[r.kycStatus]}`,
@@ -162,7 +164,7 @@ export function AssignVehicle() {
           </Box>
         </Panel>
 
-        <Panel label="Available bikes" subtitle="Ready to deploy.">
+        <Panel label="Available bikes" subtitle="Bikes that passed QC and are ready to go out.">
           <Controller
             control={form.control}
             name="vehicleId"
@@ -204,7 +206,7 @@ export function AssignVehicle() {
                   '—'
                 ),
               },
-              { label: 'Bike lands in', value: 'Deployed' },
+              { label: 'Bike becomes', value: 'Deployed' },
             ]}
           />
           <TextField
@@ -218,8 +220,8 @@ export function AssignVehicle() {
             helperText={form.formState.errors.note?.message}
           />
           <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-            Billing starts from the assignment date. The bike moves to Deployed and cannot be
-            assigned again until it is returned.
+            Rent starts on the assignment date. The bike stays with this rider until it is
+            returned.
           </Typography>
         </Panel>
       </Box>

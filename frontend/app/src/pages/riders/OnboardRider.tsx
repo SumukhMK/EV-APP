@@ -175,9 +175,8 @@ export function OnboardRider() {
             ]}
           />
           <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-            The rider lands on the register with no bike and KYC pending. Assign one from their
-            record — the assignment screen shows the KYC status rather than blocking on it, since
-            whether a bike may go out before verification is a rule nobody has stated.
+            The rider joins the register with no bike and KYC pending. Assign a bike from their
+            record — a pending KYC is shown there, but it does not block the assignment.
           </Typography>
         </Panel>
       </Box>

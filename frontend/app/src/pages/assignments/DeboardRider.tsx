@@ -129,7 +129,7 @@ export function DeboardRider() {
         <PageHeader section="Riders" title="Deboard rider" />
         <EmptyState
           title="No rider is holding a bike"
-          description="A deboard closes an open assignment, so there has to be one to close."
+          description="Deboarding closes an open assignment, and no rider has one open right now."
           action={
             <Button component={Link} to="/riders">
               Back to the register
@@ -174,6 +174,8 @@ export function DeboardRider() {
               control={form.control}
               name="riderId"
               label="Rider"
+              searchable
+              placeholder="Type a name or rider id"
               options={(riders.data ?? []).map((r) => ({
                 value: r.id,
                 label: `${r.name} · ${r.id}`,
@@ -217,7 +219,7 @@ export function DeboardRider() {
 
         <Panel
           label="Condition on return"
-          subtitle="This decides where the bike goes next. An undamaged bike still passes QC before it can be let out again."
+          subtitle="The condition decides where the bike goes next. Even an undamaged bike goes through QC before it can go out again."
         >
           <SelectField
             control={form.control}
@@ -249,7 +251,7 @@ export function DeboardRider() {
 
         <Panel
           label="Settlement"
-          subtitle="What is deducted for damage is a call made at the desk, so the refund is entered rather than calculated."
+          subtitle="Type in the refund yourself. How much to hold back for damage is a call made at the desk, not a formula."
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
             {/* A number input hands back a string unless it is asked not to. */}
@@ -286,8 +288,8 @@ export function DeboardRider() {
             ]}
           />
           <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-            The rider comes off the active register and the bike is released. Re-onboarding puts
-            them back.
+            The rider becomes inactive and the bike is freed up. Onboard them again to bring them
+            back.
           </Typography>
         </Panel>
       </Box>
