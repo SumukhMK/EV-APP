@@ -97,7 +97,7 @@ export function VehicleDetail() {
               { label: 'Chassis', value: <Mono sx={{ fontSize: 13 }}>{v.chassisNumber}</Mono> },
               { label: 'Make', value: v.make },
               { label: 'Model', value: v.model },
-              { label: 'Battery', value: v.batteryType === 'SWAPPABLE' ? 'Sun Mobility' : 'Fixed pack' },
+              { label: 'Battery', value: v.batteryType },
               { label: 'Motor number', value: <Mono sx={{ fontSize: 13 }}>{v.motorNumber ?? '—'}</Mono> },
               { label: 'Controller number', value: <Mono sx={{ fontSize: 13 }}>{v.controllerNumber ?? '—'}</Mono> },
               { label: 'RFID tag', value: <Mono sx={{ fontSize: 13 }}>{v.rfidTag ?? '—'}</Mono> },

@@ -18,7 +18,7 @@ export const VEHICLE_STATES = [
 
 export type VehicleState = (typeof VEHICLE_STATES)[number];
 
-export type BatteryType = 'SWAPPABLE' | 'FIXED';
+export type BatteryType = 'Sun Mobility' | 'Battery Smart' | 'Yuma' | 'Honda Swap';
 
 export interface Vehicle {
   /** Human-facing registry id, e.g. "BLRSS0428". Unique per tenant. */

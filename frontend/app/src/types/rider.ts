@@ -7,6 +7,21 @@ export type KycStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 /** Ashok runs two billing cycles today. Both must survive to the backend. */
 export type BillingDay = 'MONDAY' | 'WEDNESDAY';
 
+export type Platform =
+  | 'Zomato'
+  | 'Swiggy'
+  | 'Swiggy Instamart'
+  | 'Zepto'
+  | 'Blinkit'
+  | 'Flipkart Minutes'
+  | 'Porter'
+  | 'Dunzo'
+  | 'Ownly'
+  | 'EatSure'
+  | 'BigBasket'
+  | 'Borzo'
+  | 'Other';
+
 export interface Rider {
   id: string;
   name: string;
@@ -20,6 +35,7 @@ export interface Rider {
   onboardedOn: Iso8601;
   /** Derived from the current period; the list screen colours a chip with it. */
   paymentStatus: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
+  platform: Platform;
 }
 
 /**

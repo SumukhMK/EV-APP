@@ -1,6 +1,12 @@
-import type { BillingDay, Rider } from '../types';
+import type { BillingDay, Platform, Rider } from '../types';
 import { FIRST_NAMES, LAST_NAMES, STAFF, mulberry32, pick } from './seed';
 import { vehicles } from './vehicles';
+
+const PLATFORMS: readonly Platform[] = [
+  'Zomato', 'Swiggy', 'Swiggy Instamart', 'Zepto', 'Blinkit',
+  'Flipkart Minutes', 'Porter', 'Dunzo', 'Ownly', 'EatSure',
+  'BigBasket', 'Borzo', 'Other',
+];
 
 /**
  * One rider per deployed bike — the registry's one-to-one rule. Building the
@@ -15,18 +21,18 @@ import { vehicles } from './vehicles';
  */
 
 const DESIGNED: ReadonlyArray<
-  [id: string, name: string, phone: string, vehicleId: string, planRupees: number, day: BillingDay, pay: Rider['paymentStatus']]
+  [id: string, name: string, phone: string, vehicleId: string, planRupees: number, day: BillingDay, pay: Rider['paymentStatus'], platform: Platform]
 > = [
-  ['R03', 'Dulan Hajong', '8453679575', 'BLRSS0428', 1750, 'MONDAY', 'PAID'],
-  ['R19', 'Raju Debnath', '9862340117', 'FBLSS003B', 1999, 'WEDNESDAY', 'PARTIAL'],
-  ['R07', 'Ashwin Kamath', '9945128830', 'FBLSS0112', 1900, 'MONDAY', 'PAID'],
-  ['R22', 'Nabam Tada', '8974551206', 'FBLSS0086', 2099, 'WEDNESDAY', 'PAID'],
-  ['R11', 'Imran Shaikh', '7760043915', 'FBLSS0129', 1700, 'MONDAY', 'OVERDUE'],
-  ['R26', 'Lalit Chhetri', '8014772390', 'BLRSS0412', 1600, 'WEDNESDAY', 'PARTIAL'],
-  ['R31', 'Sohail Ahmed', '9008216744', 'FBLSS0141', 1950, 'MONDAY', 'PAID'],
-  ['R14', 'Prakash Bhandari', '9611308452', 'BLRSS0396', 1750, 'WEDNESDAY', 'PAID'],
-  ['R38', 'Yash Karkera', '9535667021', 'BLRSS0403', 1999, 'MONDAY', 'OVERDUE'],
-  ['R41', 'Girish Poojary', '8899140563', 'FBLSS0097', 1700, 'WEDNESDAY', 'PAID'],
+  ['R03', 'Dulan Hajong', '8453679575', 'BLRSS0428', 1750, 'MONDAY', 'PAID', 'Zomato'],
+  ['R19', 'Raju Debnath', '9862340117', 'FBLSS003B', 1999, 'WEDNESDAY', 'PARTIAL', 'Zepto'],
+  ['R07', 'Ashwin Kamath', '9945128830', 'FBLSS0112', 1900, 'MONDAY', 'PAID', 'Swiggy'],
+  ['R22', 'Nabam Tada', '8974551206', 'FBLSS0086', 2099, 'WEDNESDAY', 'PAID', 'Blinkit'],
+  ['R11', 'Imran Shaikh', '7760043915', 'FBLSS0129', 1700, 'MONDAY', 'OVERDUE', 'Swiggy Instamart'],
+  ['R26', 'Lalit Chhetri', '8014772390', 'BLRSS0412', 1600, 'WEDNESDAY', 'PARTIAL', 'Porter'],
+  ['R31', 'Sohail Ahmed', '9008216744', 'FBLSS0141', 1950, 'MONDAY', 'PAID', 'Flipkart Minutes'],
+  ['R14', 'Prakash Bhandari', '9611308452', 'BLRSS0396', 1750, 'WEDNESDAY', 'PAID', 'Dunzo'],
+  ['R38', 'Yash Karkera', '9535667021', 'BLRSS0403', 1999, 'MONDAY', 'OVERDUE', 'Zomato'],
+  ['R41', 'Girish Poojary', '8899140563', 'FBLSS0097', 1700, 'WEDNESDAY', 'PAID', 'EatSure'],
 ];
 
 /**
@@ -55,18 +61,19 @@ const NO_BIKE: ReadonlyArray<
     status: Rider['status'],
     kyc: Rider['kycStatus'],
     onboardedOn: string,
+    platform: Platform,
   ]
 > = [
   // Waiting for a bike. KYC is not a blocker on assignment — the desk decides.
-  ['R02', 'Anil Shetty', '9845012277', 1750, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-24'],
-  ['R13', 'Faisal Khan', '7012238890', 1900, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-26'],
-  ['R21', 'Mahesh Gowda', '8891447203', 1600, 'WEDNESDAY', 'ACTIVE', 'VERIFIED', '2026-08-27'],
-  ['R40', 'Deepak Rawat', '9632188054', 1999, 'MONDAY', 'ACTIVE', 'PENDING', '2026-08-31'],
+  ['R02', 'Anil Shetty', '9845012277', 1750, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-24', 'Zomato'],
+  ['R13', 'Faisal Khan', '7012238890', 1900, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-26', 'Swiggy'],
+  ['R21', 'Mahesh Gowda', '8891447203', 1600, 'WEDNESDAY', 'ACTIVE', 'VERIFIED', '2026-08-27', 'Zepto'],
+  ['R40', 'Deepak Rawat', '9632188054', 1999, 'MONDAY', 'ACTIVE', 'PENDING', '2026-08-31', 'Blinkit'],
   // Deboarded — the bike came back and the plan closed.
-  ['R05', 'Vinod Naik', '9008773412', 1700, 'MONDAY', 'INACTIVE', 'VERIFIED', '2025-11-03'],
-  ['R28', 'Suresh Pillai', '8123409965', 1750, 'WEDNESDAY', 'INACTIVE', 'VERIFIED', '2026-01-19'],
+  ['R05', 'Vinod Naik', '9008773412', 1700, 'MONDAY', 'INACTIVE', 'VERIFIED', '2025-11-03', 'Porter'],
+  ['R28', 'Suresh Pillai', '8123409965', 1750, 'WEDNESDAY', 'INACTIVE', 'VERIFIED', '2026-01-19', 'Dunzo'],
   // Off the register for good.
-  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'BLACKLISTED', 'REJECTED', '2025-09-15'],
+  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'BLACKLISTED', 'REJECTED', '2025-09-15', 'Ownly'],
 ];
 
 /** Overdue riders the dashboard counts: 16. Two of them are designed rows. */
@@ -83,7 +90,7 @@ function buildRiders(): Rider[] {
   // deployed pool rather than invented.
   const spare = deployed.filter((v) => !v.currentRiderName);
   let spareIdx = 0;
-  for (const [id, name, phone, vehicleId, plan, billingDay, paymentStatus] of DESIGNED) {
+  for (const [id, name, phone, vehicleId, plan, billingDay, paymentStatus, platform] of DESIGNED) {
     const known = deployed.find((v) => v.id === vehicleId);
     const bike = known ?? spare[spareIdx++];
     takenVehicles.add(bike.id);
@@ -98,6 +105,7 @@ function buildRiders(): Rider[] {
       currentVehicleId: bike.id,
       onboardedOn: '2026-04-08',
       paymentStatus,
+      platform,
     });
   }
 
@@ -117,6 +125,7 @@ function buildRiders(): Rider[] {
       currentVehicleId: bike.id,
       onboardedOn: `202${5 + Math.floor(rng() * 2)}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 28)).padStart(2, '0')}`,
       paymentStatus: 'PENDING',
+      platform: pick(rng, PLATFORMS),
     });
   }
 
@@ -135,7 +144,7 @@ function buildRiders(): Rider[] {
   // Appended after the overdue spread above, which rewrites every rider still
   // marked PENDING — a rider with no bike has nothing billed against them and
   // must not be handed one of the sixteen overdue flags.
-  for (const [id, name, phone, plan, billingDay, status, kycStatus, onboardedOn] of NO_BIKE) {
+  for (const [id, name, phone, plan, billingDay, status, kycStatus, onboardedOn, platform] of NO_BIKE) {
     out.push({
       id,
       name,
@@ -147,6 +156,7 @@ function buildRiders(): Rider[] {
       currentVehicleId: null,
       onboardedOn,
       paymentStatus: 'PENDING',
+      platform,
     });
   }
 

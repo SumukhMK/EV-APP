@@ -7,7 +7,7 @@ export function SearchField({
   value,
   onChange,
   placeholder = 'Search',
-  width = 246,
+  width = 340,
   fullWidth = false,
 }: {
   value: string;

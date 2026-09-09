@@ -214,7 +214,7 @@ export function Inspection() {
                   />
                 </Box>
                 <Typography sx={{ fontSize: 13, color: neutral[400], mb: 3 }}>
-                  {resolved.model} · {resolved.batteryType === 'SWAPPABLE' ? 'Sun Mobility' : 'Fixed pack'}
+                  {resolved.model} · {resolved.batteryType}
                 </Typography>
                 <DefinitionList
                   divider="top"

@@ -1,4 +1,5 @@
 import type {
+  BatteryType,
   BulkUploadPreview,
   CreateVehicleRequest,
   Facet,
@@ -22,17 +23,26 @@ import { ApiError, delay, paginate } from './client';
 import { VEHICLE_STATE_LABEL } from '../labels';
 import { riders } from '../../mocks/riders';
 
+/** Derive the make from the model name. */
+export function deriveMake(model: string): string {
+  return model.startsWith('Eagle') ? 'e-Connects' : 'e-Sprinto';
+}
+
 export interface VehicleQuery {
   page?: number;
   size?: number;
   q?: string;
   state?: VehicleState | 'ALL';
   hub?: string | 'ALL';
+  make?: string | 'ALL';
+  batteryType?: BatteryType | 'ALL';
 }
 
 function match(v: Vehicle, query: VehicleQuery) {
   if (query.state && query.state !== 'ALL' && v.state !== query.state) return false;
   if (query.hub && query.hub !== 'ALL' && v.hub !== query.hub) return false;
+  if (query.make && query.make !== 'ALL' && deriveMake(v.model) !== query.make) return false;
+  if (query.batteryType && query.batteryType !== 'ALL' && v.batteryType !== query.batteryType) return false;
   const q = query.q?.trim().toLowerCase();
   if (!q) return true;
   return (
@@ -60,6 +70,13 @@ export async function vehicleFacets(query: Omit<VehicleQuery, 'state'> = {}): Pr
     facets.push({ value: state, label: VEHICLE_STATE_LABEL[state], count });
   }
   return delay(facets);
+}
+
+/** Unique make and battery type values for filter dropdowns. */
+export async function vehicleFilterOptions(): Promise<{ makes: string[]; batteryTypes: BatteryType[] }> {
+  const makes = [...new Set(vehicles.map((v) => deriveMake(v.model)))].sort();
+  const batteryTypes = [...new Set(vehicles.map((v) => v.batteryType))].sort() as BatteryType[];
+  return delay({ makes, batteryTypes });
 }
 
 export async function getVehicle(id: string): Promise<VehicleDetail> {

@@ -27,18 +27,18 @@ export const FLEET_MIX: Record<VehicleState, number> = {
 const DESIGNED: ReadonlyArray<
   [id: string, chassis: string, model: string, battery: BatteryType, state: VehicleState, rider: string | null]
 > = [
-  ['BLRSS0428', 'SESEAG03202300490', 'Eagle-SunM', 'SWAPPABLE', 'DEPLOYED', 'Dulan Hajong'],
-  ['FBLSS003B', 'MD9ESLM1225873232', 'Sprinto-SunM', 'SWAPPABLE', 'DEPLOYED', 'Raju Debnath'],
-  ['BLRSS0431', 'SESEAG03202300497', 'Eagle-SunM', 'SWAPPABLE', 'READY_TO_DEPLOY', null],
-  ['FBLSS0112', 'MD9ESLM1225873418', 'Sprinto-SunM Plus', 'SWAPPABLE', 'DEPLOYED', 'Ashwin Kamath'],
-  ['BLRSS0407', 'SESEAG03202300402', 'Eagle-SunM', 'SWAPPABLE', 'UNDER_REPAIR', null],
-  ['FBLSS0086', 'MD9ESLM1225873101', 'Sprinto-SunM Pro', 'SWAPPABLE', 'DEPLOYED', 'Nabam Tada'],
-  ['BLRSS0419', 'SESEAG03202300455', 'Eagle-SunM', 'SWAPPABLE', 'QC_PENDING', null],
-  ['FBLSS0129', 'MD9ESLM1225873560', 'Sprinto-BS', 'FIXED', 'DEPLOYED', 'Imran Shaikh'],
-  ['BLRSS0436', 'SESEAG03202300508', 'Eagle-SunM', 'SWAPPABLE', 'READY_TO_DEPLOY', null],
-  ['FBLSS0074', 'MD9ESLM1225872944', 'Sprinto-SunM', 'SWAPPABLE', 'ACCIDENT', null],
-  ['BLRSS0412', 'SESEAG03202300428', 'Eagle-SunM', 'SWAPPABLE', 'DEPLOYED', 'Lalit Chhetri'],
-  ['FBLSS0141', 'MD9ESLM1225873677', 'Sprinto-SunM Plus', 'SWAPPABLE', 'DEPLOYED', 'Sohail Ahmed'],
+  ['BLRSS0428', 'SESEAG03202300490', 'Eagle-SunM', 'Sun Mobility', 'DEPLOYED', 'Dulan Hajong'],
+  ['FBLSS003B', 'MD9ESLM1225873232', 'Sprinto-SunM', 'Sun Mobility', 'DEPLOYED', 'Raju Debnath'],
+  ['BLRSS0431', 'SESEAG03202300497', 'Eagle-SunM', 'Sun Mobility', 'READY_TO_DEPLOY', null],
+  ['FBLSS0112', 'MD9ESLM1225873418', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Ashwin Kamath'],
+  ['BLRSS0407', 'SESEAG03202300402', 'Eagle-SunM', 'Sun Mobility', 'UNDER_REPAIR', null],
+  ['FBLSS0086', 'MD9ESLM1225873101', 'Sprinto-SunM Pro', 'Sun Mobility', 'DEPLOYED', 'Nabam Tada'],
+  ['BLRSS0419', 'SESEAG03202300455', 'Eagle-SunM', 'Sun Mobility', 'QC_PENDING', null],
+  ['FBLSS0129', 'MD9ESLM1225873560', 'Sprinto-BS', 'Battery Smart', 'DEPLOYED', 'Imran Shaikh'],
+  ['BLRSS0436', 'SESEAG03202300508', 'Eagle-SunM', 'Sun Mobility', 'READY_TO_DEPLOY', null],
+  ['FBLSS0074', 'MD9ESLM1225872944', 'Sprinto-SunM', 'Sun Mobility', 'ACCIDENT', null],
+  ['BLRSS0412', 'SESEAG03202300428', 'Eagle-SunM', 'Sun Mobility', 'DEPLOYED', 'Lalit Chhetri'],
+  ['FBLSS0141', 'MD9ESLM1225873677', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Sohail Ahmed'],
 ];
 
 function buildFleet(): Vehicle[] {
@@ -74,7 +74,7 @@ function buildFleet(): Vehicle[] {
           ? `SESEAG032023${String(500 + Math.floor(rng() * 400)).padStart(5, '0')}`
           : `MD9ESLM12258${String(70000 + Math.floor(rng() * 9000))}`,
         model,
-        batteryType: model === 'Sprinto-BS' ? 'FIXED' : 'SWAPPABLE',
+        batteryType: model === 'Sprinto-BS' ? 'Battery Smart' : 'Sun Mobility',
         hub: pick(rng, HUBS),
         state,
         currentRiderId: null,

@@ -131,8 +131,10 @@ export function AddVehicle() {
               name="batteryType"
               label="Battery"
               options={[
-                { value: 'SWAPPABLE', label: 'Sun Mobility' },
-                { value: 'FIXED', label: 'Fixed pack' },
+                { value: 'Sun Mobility', label: 'Sun Mobility' },
+                { value: 'Battery Smart', label: 'Battery Smart' },
+                { value: 'Yuma', label: 'Yuma' },
+                { value: 'Honda Swap', label: 'Honda Swap' },
               ]}
             />
             <TextField label="Motor number" {...field('motorNumber')} />

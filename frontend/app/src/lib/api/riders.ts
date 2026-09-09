@@ -2,11 +2,14 @@ import type {
   Facet,
   OnboardRiderRequest,
   Page,
+  Platform,
   Rider,
   RiderPaymentRow,
   RiderStatus,
+  VehicleState,
 } from '../../types';
 import { riders } from '../../mocks/riders';
+import { vehicles } from '../../mocks/vehicles';
 import { riderPaymentHistory } from '../../mocks/payments';
 import { ApiError, delay, paginate } from './client';
 import { RIDER_STATUS_LABEL } from '../labels';
@@ -22,10 +25,23 @@ export interface RiderQuery {
   size?: number;
   q?: string;
   status?: RiderStatus | 'ALL';
+  platform?: Platform | 'ALL';
+  vehicleState?: VehicleState | 'ALL';
+}
+
+/** Quick lookup: rider id → vehicle state (cross-referenced from the fleet). */
+const riderVehicleState = new Map<string, VehicleState>();
+for (const v of vehicles) {
+  if (v.currentRiderId) riderVehicleState.set(v.currentRiderId, v.state);
 }
 
 function match(r: Rider, query: RiderQuery) {
   if (query.status && query.status !== 'ALL' && r.status !== query.status) return false;
+  if (query.platform && query.platform !== 'ALL' && r.platform !== query.platform) return false;
+  if (query.vehicleState && query.vehicleState !== 'ALL') {
+    const vs = r.currentVehicleId ? riderVehicleState.get(r.id) : undefined;
+    if (vs !== query.vehicleState) return false;
+  }
   const q = query.q?.trim().toLowerCase();
   if (!q) return true;
   return (
@@ -102,6 +118,7 @@ export async function onboardRider(body: OnboardRiderRequest): Promise<Rider> {
     currentVehicleId: null,
     onboardedOn: body.onboardedOn,
     paymentStatus: 'PENDING',
+    platform: 'Other',
   };
   riders.unshift(created);
   // `depositAmount` is recorded against the rider's ledger server-side; there

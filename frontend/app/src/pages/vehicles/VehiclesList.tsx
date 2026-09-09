@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
@@ -13,9 +15,9 @@ import { DataTable } from '../../components/DataTable';
 import { StateChip } from '../../components/StateChip';
 import { Mono } from '../../components/Mono';
 import { TableFooter } from '../../components/TableFooter';
-import { listVehicles, vehicleFacets } from '../../lib/api/vehicles';
+import { listVehicles, vehicleFacets, vehicleFilterOptions, deriveMake } from '../../lib/api/vehicles';
 import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE } from '../../lib/labels';
-import { VEHICLE_STATES, type Vehicle, type VehicleState } from '../../types';
+import { VEHICLE_STATES, type BatteryType, type Vehicle, type VehicleState } from '../../types';
 import { accent, neutral } from '../../theme/tokens';
 import { useDebounced } from '../../hooks/useDebounced';
 
@@ -41,6 +43,8 @@ export function VehiclesList() {
   // own back button.
   const [params, setParams] = useSearchParams();
   const state = parseState(params.get('state'));
+  const make = (params.get('make') ?? 'ALL') as string | 'ALL';
+  const batteryType = (params.get('batteryType') ?? 'ALL') as BatteryType | 'ALL';
 
   // The search box keeps its own state so typing stays instant; only the
   // settled value is written back to the URL.
@@ -74,10 +78,34 @@ export function VehiclesList() {
     );
   };
 
+  const setMake = (next: string | 'ALL') => {
+    setParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next === 'ALL') params.delete('make');
+        else params.set('make', next);
+        return params;
+      },
+      { replace: true },
+    );
+  };
+
+  const setBatteryType = (next: BatteryType | 'ALL') => {
+    setParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next === 'ALL') params.delete('batteryType');
+        else params.set('batteryType', next);
+        return params;
+      },
+      { replace: true },
+    );
+  };
+
   // A new filter always starts at the first page — page 4 of the old result
   // set means nothing in the new one. Adjusted during render rather than in an
   // effect, so the list never paints one frame of the wrong page first.
-  const filterKey = `${state}|${q}`;
+  const filterKey = `${state}|${make}|${batteryType}|${q}`;
   const [lastFilterKey, setLastFilterKey] = useState(filterKey);
   if (filterKey !== lastFilterKey) {
     setLastFilterKey(filterKey);
@@ -92,9 +120,14 @@ export function VehiclesList() {
     placeholderData: keepPreviousData,
   });
 
+  const filterOpts = useQuery({
+    queryKey: ['vehicles', 'filter-options'],
+    queryFn: vehicleFilterOptions,
+  });
+
   const list = useQuery({
-    queryKey: ['vehicles', 'list', { q, state, page }],
-    queryFn: () => listVehicles({ q, state, page, size: PAGE_SIZE }),
+    queryKey: ['vehicles', 'list', { q, state, make, batteryType, page }],
+    queryFn: () => listVehicles({ q, state, make, batteryType, page, size: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
 
@@ -114,12 +147,11 @@ export function VehiclesList() {
           <Mono sx={{ fontSize: 12, color: neutral[400] }}>{row.chassisNumber}</Mono>
         ),
       },
-      { field: 'model', headerName: 'Model', flex: 1, minWidth: 140 },
+      { field: 'model', headerName: 'Make / Model', flex: 1, minWidth: 180, renderCell: ({ row }) => `${deriveMake(row.model)} ${row.model}` },
       {
         field: 'batteryType',
         headerName: 'Battery',
         width: 130,
-        valueFormatter: (value) => (value === 'SWAPPABLE' ? 'Sun Mobility' : 'Fixed pack'),
         cellClassName: 'muted-cell',
       },
       { field: 'hub', headerName: 'Hub', width: 130, cellClassName: 'muted-cell' },
@@ -189,6 +221,35 @@ export function VehiclesList() {
             fullWidth
           />
         </Box>
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
+        <TextField
+          select
+          size="small"
+          label="Make"
+          value={make}
+          onChange={(e) => setMake(e.target.value)}
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="ALL">All Makes</MenuItem>
+          {(filterOpts.data?.makes ?? []).map((m) => (
+            <MenuItem key={m} value={m}>{m}</MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Battery type"
+          value={batteryType}
+          onChange={(e) => setBatteryType(e.target.value as BatteryType | 'ALL')}
+          sx={{ minWidth: 170 }}
+        >
+          <MenuItem value="ALL">All Battery Types</MenuItem>
+          {(filterOpts.data?.batteryTypes ?? []).map((bt) => (
+            <MenuItem key={bt} value={bt}>{bt}</MenuItem>
+          ))}
+        </TextField>
       </Box>
 
       <Box sx={{ mt: 3.5, '& .muted-cell': { color: neutral[400] } }}>

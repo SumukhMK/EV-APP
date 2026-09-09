@@ -141,7 +141,7 @@ export function VehiclePicker({
             width: 140,
             render: (v) => (
               <Box component="span" sx={{ color: neutral[400] }}>
-                {v.batteryType === 'SWAPPABLE' ? 'Sun Mobility' : 'Fixed pack'}
+                {v.batteryType}
               </Box>
             ),
           },
