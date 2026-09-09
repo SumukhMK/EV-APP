@@ -1,9 +1,7 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import UploadIcon from '@mui/icons-material/UploadFileOutlined';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { invalidateVehicles } from '../../lib/invalidate';
@@ -12,9 +10,36 @@ import { Panel } from '../../components/Panel';
 import { StatTiles } from '../../components/StatTiles';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
+import { FlowStrip } from '../../components/FlowStrip';
+import { UploadBox } from '../../components/UploadBox';
 import { commitBulkUpload, previewBulkUpload } from '../../lib/api/vehicles';
 import type { BulkUploadPreview } from '../../types';
 import { neutral, status as tones } from '../../theme/tokens';
+
+/** The stages the import walks, drawn under the header so the operator knows
+ * how many more times it will ask before it commits. */
+const IMPORT_STAGES = [
+  'Upload',
+  'Map columns',
+  'Validate',
+  'Duplicate check',
+  'Preview',
+  'Confirm import',
+] as const;
+
+/** What a row must carry. Told before the upload so mapping is the exception,
+ * not the job. */
+const EXPECTED_COLUMNS = [
+  'Vehicle ID',
+  'Chassis number',
+  'IoT number',
+  'Controller number',
+  'Motor number',
+  'Battery type',
+  'Vehicle make',
+  'Model',
+  'Purchase date',
+] as const;
 
 /**
  * Two-stage import: validate first, then commit. The preview is what makes
@@ -26,7 +51,6 @@ import { neutral, status as tones } from '../../theme/tokens';
 export function BulkUploadVehicles() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<BulkUploadPreview | null>(null);
   const [done, setDone] = useState<number | null>(null);
 
@@ -44,6 +68,10 @@ export function BulkUploadVehicles() {
     },
   });
 
+  // Before a file: at Upload. Once a preview is loaded: at Preview. While the
+  // clean rows are being written: at Confirm import.
+  const activeStage = commit.isPending ? 5 : preview ? 4 : 0;
+
   return (
     <>
       <PageHeader
@@ -55,6 +83,10 @@ export function BulkUploadVehicles() {
           </Button>
         }
       />
+
+      <Box sx={{ mt: 5 }}>
+        <FlowStrip stages={IMPORT_STAGES} activeIndex={activeStage} />
+      </Box>
 
       {done !== null && (
         <Alert severity="success" variant="outlined" sx={{ mt: 5 }}>
@@ -69,39 +101,17 @@ export function BulkUploadVehicles() {
         subtitle="A .xlsx or .csv export of the registry. One bike per row."
         sx={{ mt: 5 }}
       >
-        <Box
-          onClick={() => inputRef.current?.click()}
-          sx={{
-            border: `1px dashed ${neutral[800]}`,
-            borderRadius: 2,
-            py: 10,
-            textAlign: 'center',
-            cursor: 'pointer',
-            transition: 'border-color 120ms, background 120ms',
-            '&:hover': { borderColor: neutral[700], background: 'rgba(255,255,255,0.015)' },
-          }}
-        >
-          <UploadIcon sx={{ fontSize: 22, color: neutral[600] }} />
-          <Typography sx={{ fontSize: 14, mt: 2 }}>
-            {validate.isPending ? 'Validating…' : 'Choose a file'}
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: neutral[500], mt: 1 }}>
-            Columns: vehicle id, chassis number, model, battery, hub, purchase date
-          </Typography>
-        </Box>
-        <input
-          ref={inputRef}
-          type="file"
+        <UploadBox
+          title={validate.isPending ? 'Validating…' : 'Drop a file or choose one'}
+          description="A .xlsx or .csv export of the registry, one bike per row."
           accept=".csv,.xlsx"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              setDone(null);
-              validate.mutate(file);
-            }
-            e.target.value = '';
+          buttonLabel="Choose a file"
+          onFile={(file) => {
+            setDone(null);
+            validate.mutate(file);
           }}
+          expectedColumns={EXPECTED_COLUMNS}
+          columnNote="Column names need not match exactly — you can map differing headers after upload."
         />
       </Panel>
 
