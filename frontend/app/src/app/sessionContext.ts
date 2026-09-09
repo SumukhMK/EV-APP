@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { UserRole } from '../types';
 
 /**
  * Context and hook live apart from the provider component so the module that
@@ -8,16 +9,21 @@ import { createContext, useContext } from 'react';
 
 export interface DemoUser {
   name: string;
-  role: string;
+  /** Drives which nav sections the rail shows. Not a security boundary. */
+  roleKey: UserRole;
   email: string;
 }
 
 export interface SessionValue {
   user: DemoUser;
   tenant: string;
+  /** The demo personas the rail can switch between, so a walkthrough can show
+   * each role's view without a real login. */
+  personas: DemoUser[];
   signedIn: boolean;
   signIn: () => void;
   signOut: () => void;
+  switchPersona: (email: string) => void;
 }
 
 export const SessionContext = createContext<SessionValue | null>(null);

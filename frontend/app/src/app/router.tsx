@@ -2,7 +2,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
 import { Login } from '../pages/Login';
 import { Dashboard } from '../pages/Dashboard';
-import { Placeholder } from '../pages/Placeholder';
 import { VehiclesList } from '../pages/vehicles/VehiclesList';
 import { VehicleDetail } from '../pages/vehicles/VehicleDetail';
 import { AddVehicle } from '../pages/vehicles/AddVehicle';
@@ -15,6 +14,11 @@ import { OnboardRider } from '../pages/riders/OnboardRider';
 import { AssignVehicle } from '../pages/assignments/AssignVehicle';
 import { ExchangeVehicle } from '../pages/assignments/ExchangeVehicle';
 import { DeboardRider } from '../pages/assignments/DeboardRider';
+import { PaymentRun } from '../pages/payments/PaymentRun';
+import { PaymentReceipt } from '../pages/payments/PaymentReceipt';
+import { OverdueRiders } from '../pages/payments/OverdueRiders';
+import { Users } from '../pages/users/Users';
+import { AuditLog } from '../pages/admin/AuditLog';
 
 /**
  * Every artboard in the signed-off wireframe has a route. The ones that are
@@ -67,55 +71,14 @@ export const router = createBrowserRouter([
         element: <DeboardRider />,
       },
 
-      // Money and admin — not yet assigned
-      {
-        path: '/payments/run',
-        element: (
-          <Placeholder
-            section="Money"
-            title="Weekly payment run"
-            artboard={15}
-            owner="unassigned"
-            summary="The Monday and Wednesday billing cycles: what each rider owes, what was paid, and what rolls into arrears."
-          />
-        ),
-      },
-      {
-        path: '/payments/overdue',
-        element: (
-          <Placeholder
-            section="Money"
-            title="Overdue riders"
-            artboard={17}
-            owner="unassigned"
-            summary="Everyone behind on rent, ordered by days overdue, with the reminder or repossession stage each has reached."
-          />
-        ),
-      },
-      {
-        path: '/users',
-        element: (
-          <Placeholder
-            section="Admin"
-            title="Users & roles"
-            artboard={18}
-            owner="unassigned"
-            summary="Who can use the system and what each role may do. Enforced server-side once the API exists."
-          />
-        ),
-      },
-      {
-        path: '/audit',
-        element: (
-          <Placeholder
-            section="Admin"
-            title="Audit log"
-            artboard={19}
-            owner="unassigned"
-            summary="Append-only record of every change to money, KYC and assignments: who, when, before and after."
-          />
-        ),
-      },
+      // Money — SMK
+      { path: '/payments/run', element: <PaymentRun /> },
+      { path: '/payments/run/:riderId', element: <PaymentReceipt /> },
+      { path: '/payments/overdue', element: <OverdueRiders /> },
+
+      // Admin — SMK
+      { path: '/users', element: <Users /> },
+      { path: '/audit', element: <AuditLog /> },
 
       { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],

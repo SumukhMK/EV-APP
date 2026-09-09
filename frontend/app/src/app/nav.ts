@@ -1,4 +1,5 @@
 import type { SvgIconComponent } from '@mui/icons-material';
+import type { UserRole } from '../types';
 import SpeedIcon from '@mui/icons-material/SpeedOutlined';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheelerOutlined';
 import BuildIcon from '@mui/icons-material/BuildOutlined';
@@ -36,11 +37,22 @@ export interface NavItem {
 export interface NavSection {
   heading: string;
   items: NavItem[];
+  /**
+   * Which roles see this section. The rail hides a section a role has no
+   * business in — a service manager never sees Money, a fleet hand never sees
+   * Admin — so nobody scans past screens they cannot use. This mirrors the
+   * server-side rules that will gate the same routes for real once auth lands;
+   * it is a convenience here, not a control.
+   */
+  roles: UserRole[];
 }
+
+const ALL_ROLES: UserRole[] = ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF', 'SERVICE_MANAGER'];
 
 export const NAV: NavSection[] = [
   {
     heading: 'Fleet',
+    roles: ALL_ROLES,
     items: [
       { label: 'Dashboard', path: '/dashboard', icon: SpeedIcon, owner: 'smk', artboard: 2 },
       { label: 'Vehicles', path: '/vehicles', icon: TwoWheelerIcon, owner: 'smk', artboard: 3 },
@@ -50,6 +62,8 @@ export const NAV: NavSection[] = [
   },
   {
     heading: 'Riders',
+    // The workshop role (service manager) works bikes, not riders.
+    roles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF'],
     items: [
       { label: 'Riders', path: '/riders', icon: PeopleIcon, owner: 'abhiram', artboard: 7 },
       { label: 'Onboard rider', path: '/riders/onboard', icon: PersonAddIcon, owner: 'abhiram', artboard: 9 },
@@ -60,18 +74,26 @@ export const NAV: NavSection[] = [
   },
   {
     heading: 'Money',
+    // Money is an admin responsibility; staff and workshop never touch it.
+    roles: ['SUPER_ADMIN', 'TENANT_ADMIN'],
     items: [
-      { label: 'Weekly payment run', path: '/payments/run', icon: ReceiptIcon, owner: 'unassigned', artboard: 15 },
-      { label: 'Overdue riders', path: '/payments/overdue', icon: WarningIcon, owner: 'unassigned', artboard: 17 },
+      { label: 'Weekly payment run', path: '/payments/run', icon: ReceiptIcon, owner: 'smk', artboard: 15 },
+      { label: 'Overdue riders', path: '/payments/overdue', icon: WarningIcon, owner: 'smk', artboard: 17 },
     ],
   },
   {
     heading: 'Admin',
+    roles: ['SUPER_ADMIN', 'TENANT_ADMIN'],
     items: [
-      { label: 'Users & roles', path: '/users', icon: AdminIcon, owner: 'unassigned', artboard: 18 },
-      { label: 'Audit log', path: '/audit', icon: HistoryIcon, owner: 'unassigned', artboard: 19 },
+      { label: 'Users & roles', path: '/users', icon: AdminIcon, owner: 'smk', artboard: 18 },
+      { label: 'Audit log', path: '/audit', icon: HistoryIcon, owner: 'smk', artboard: 19 },
     ],
   },
 ];
 
 export const ALL_NAV_ITEMS = NAV.flatMap((s) => s.items);
+
+/** The sections a role is allowed to see, in rail order. */
+export function navForRole(role: UserRole): NavSection[] {
+  return NAV.filter((section) => section.roles.includes(role));
+}

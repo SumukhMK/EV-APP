@@ -7,6 +7,8 @@ import type {
   PaymentStatus,
   ReturnCondition,
   RiderStatus,
+  UserRole,
+  UserStatus,
   VehicleState,
 } from '../types';
 
@@ -141,4 +143,42 @@ export const EXCHANGE_REASON_LABEL: Record<ExchangeReason, string> = {
   ACCIDENT: 'Accident',
   RIDER_REQUEST: 'Rider request',
   UPGRADE: 'Plan upgrade',
+};
+
+export const USER_ROLE_LABEL: Record<UserRole, string> = {
+  SUPER_ADMIN: 'Super admin',
+  TENANT_ADMIN: 'Tenant admin',
+  FLEET_STAFF: 'Fleet staff',
+  SERVICE_MANAGER: 'Service manager',
+};
+
+export const USER_ROLE_TONE: Record<UserRole, StatusTone> = {
+  SUPER_ADMIN: 'accent',
+  TENANT_ADMIN: 'good',
+  FLEET_STAFF: 'neutral',
+  SERVICE_MANAGER: 'caution',
+};
+
+/**
+ * A one-line description of what each role is for. Enforced server-side later;
+ * shown here so the screen explains the roles it lists rather than assuming
+ * the reader already knows them.
+ */
+export const USER_ROLE_SCOPE: Record<UserRole, string> = {
+  SUPER_ADMIN: 'The platform owner. Every tenant, every bike, plans and the shared blacklist.',
+  TENANT_ADMIN: 'Runs one fleet end to end — bikes, riders, rent, service, dashboards.',
+  FLEET_STAFF: 'Day-to-day fleet work: inductions, inspections, recording returns.',
+  SERVICE_MANAGER: 'The workshop: repairs, QC decisions and service charges.',
+};
+
+export const USER_STATUS_LABEL: Record<UserStatus, string> = {
+  ACTIVE: 'Active',
+  INVITED: 'Invited',
+  DISABLED: 'Disabled',
+};
+
+export const USER_STATUS_TONE: Record<UserStatus, StatusTone> = {
+  ACTIVE: 'good',
+  INVITED: 'caution',
+  DISABLED: 'neutral',
 };

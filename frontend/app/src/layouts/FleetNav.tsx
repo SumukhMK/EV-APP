@@ -1,7 +1,10 @@
 import Box from '@mui/material/Box';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import { NavLink } from 'react-router-dom';
-import { NAV } from '../app/nav';
+import { navForRole } from '../app/nav';
+import { USER_ROLE_LABEL } from '../lib/labels';
 import { base, layout, neutral } from '../theme/tokens';
 import { useSession } from '../app/sessionContext';
 
@@ -9,9 +12,15 @@ import { useSession } from '../app/sessionContext';
  * The fixed left rail. Sections are labelled rather than separated by rules —
  * a dark ground already reads as grouped, and rules would compete with the
  * table rules that are the product's actual signature.
+ *
+ * The rail is filtered to the current role, so a service manager and a fleet
+ * hand see only the screens their job touches. The persona switch at the foot
+ * is a demo affordance — it stands in for logging in as a different person and
+ * disappears the day real auth arrives.
  */
 export function FleetNav({ onNavigate }: { onNavigate?: () => void } = {}) {
-  const { user, tenant } = useSession();
+  const { user, tenant, personas, switchPersona } = useSession();
+  const sections = navForRole(user.roleKey);
 
   return (
     <Box
@@ -41,7 +50,7 @@ export function FleetNav({ onNavigate }: { onNavigate?: () => void } = {}) {
       </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5, overflowY: 'auto', flex: 1 }}>
-        {NAV.map((section) => (
+        {sections.map((section) => (
           <Box key={section.heading}>
             <Typography variant="overline" sx={{ px: 2.5, mb: 1.5 }}>
               {section.heading}
@@ -83,8 +92,30 @@ export function FleetNav({ onNavigate }: { onNavigate?: () => void } = {}) {
       </Box>
 
       <Box sx={{ pt: 5, mt: 3, borderTop: `1px solid ${neutral[900]}`, px: 2.5 }}>
-        <Typography sx={{ fontSize: 13 }}>{user.name}</Typography>
-        <Typography variant="overline">{user.role}</Typography>
+        <Typography variant="overline" sx={{ color: neutral[600] }}>
+          Viewing as
+        </Typography>
+        <Select
+          value={user.email}
+          onChange={(e) => switchPersona(e.target.value)}
+          variant="standard"
+          disableUnderline
+          fullWidth
+          sx={{
+            mt: 0.5,
+            '& .MuiSelect-select': { p: 0, fontSize: 13, color: base.text },
+            '& .MuiSvgIcon-root': { color: neutral[500] },
+          }}
+        >
+          {personas.map((p) => (
+            <MenuItem key={p.email} value={p.email} sx={{ fontSize: 13 }}>
+              {p.name} · {USER_ROLE_LABEL[p.roleKey]}
+            </MenuItem>
+          ))}
+        </Select>
+        <Typography variant="overline" sx={{ mt: 0.5, display: 'block' }}>
+          {USER_ROLE_LABEL[user.roleKey]}
+        </Typography>
       </Box>
     </Box>
   );

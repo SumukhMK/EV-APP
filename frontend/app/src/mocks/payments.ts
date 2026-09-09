@@ -1,8 +1,10 @@
 import type {
   DunningStage,
   OverdueRider,
+  Paise,
   PaymentMethod,
   PaymentPeriodRow,
+  PaymentReceipt,
   PaymentRun,
   Rider,
   RiderPaymentRow,
@@ -107,6 +109,64 @@ function buildRun(): PaymentRun {
 export const mondayRun: PaymentRun = buildRun();
 
 /**
+ * A receipt for one rider's line in the current run (screen 16).
+ *
+ * Derived from that rider's row, never stored separately, for the same reason
+ * the overdue list is derived: the run is the single source of the numbers, so
+ * a receipt cannot drift from the run it came out of. The method, date and
+ * reference are the only things a receipt adds, and they are seeded off the
+ * rider id so a reload does not reissue a different receipt for the same week.
+ *
+ * Returns null when the rider is not in this run at all — the screen turns that
+ * into a "no line in this period" state rather than inventing one.
+ */
+export function paymentReceiptFor(riderId: string): PaymentReceipt | null {
+  const row = mondayRun.rows.find((r) => r.riderId === riderId);
+  if (!row) return null;
+
+  const rng = mulberry32(hash(`receipt-${riderId}`));
+  const collected = row.amountPaid > 0;
+  const override = recordedPayments.get(riderId);
+  const method = override?.method ?? (collected ? pick(rng, PAYMENT_METHODS) : null);
+
+  // Payment lands within the billing week; a Wednesday-billed rider three days
+  // later. Only a settled or part-settled row carries a date at all.
+  const paidOn = override?.paidOn ?? (collected
+    ? iso(Date.parse(mondayRun.periodStart) + Math.floor(rng() * 4) * DAY_MS)
+    : null);
+
+  return {
+    receiptNo: collected
+      ? `RCPT-${mondayRun.periodStart.slice(0, 4)}-${hash(riderId).toString().slice(0, 4)}`
+      : null,
+    riderId: row.riderId,
+    riderName: row.riderName,
+    vehicleId: row.vehicleId,
+    periodStart: mondayRun.periodStart,
+    periodEnd: mondayRun.periodEnd,
+    billingDay: mondayRun.billingDay,
+    planAmount: row.planAmount,
+    daysBilled: row.daysBilled,
+    perDayAmount: row.perDayAmount,
+    billedAmount: row.billedAmount,
+    serviceCharges: row.serviceCharges,
+    arrears: row.arrears,
+    totalDue: row.totalDue,
+    amountPaid: row.amountPaid,
+    balance: row.totalDue - row.amountPaid,
+    status: row.status,
+    method,
+    paidOn,
+    reference:
+      method === 'UPI'
+        ? `${Math.floor(rng() * 1e12)}@okhdfcbank`
+        : method === 'BANK_TRANSFER'
+          ? `NEFT${Math.floor(rng() * 1e9)}`
+          : null,
+  };
+}
+
+/**
  * Overdue is derived from the riders fixture, never listed separately — the
  * wireframe's own two artboards disagree (07 shows R19 and R26 as partial, 17
  * lists them as overdue), and a dashboard tile that contradicts the list under
@@ -140,6 +200,7 @@ export const overdueRiders: OverdueRider[] = riders
     return {
       riderId: r.id,
       riderName: r.name,
+      phone: r.phone,
       vehicleId: r.currentVehicleId ?? '—',
       daysOverdue: days,
       amountDue: designed ? designed.amountRupees * 100 : Math.round((r.planAmount / 7) * days),
@@ -147,6 +208,34 @@ export const overdueRiders: OverdueRider[] = riders
     };
   })
   .sort((a, b) => b.daysOverdue - a.daysOverdue);
+
+/**
+ * Recording a payment against the current run.
+ *
+ * The run and the receipts both read from `mondayRun.rows`, so mutating the row
+ * in place is what makes the collection show up everywhere at once — the run
+ * line flips, the receipt reissues, and the dashboard's outstanding figure
+ * follows on the next read. This is the same simulated-write shape the QC and
+ * assignment screens already use; it is not a real ledger, just a live cache.
+ *
+ * `recordedPayments` overrides the seeded method/date on the receipt so the
+ * receipt shows how the money actually came in, not the fixture's guess.
+ */
+const recordedPayments = new Map<string, { method: PaymentMethod; paidOn: string }>();
+
+export function recordPaymentInRun(
+  riderId: string,
+  amount: Paise,
+  method: PaymentMethod,
+): PaymentPeriodRow {
+  const row = mondayRun.rows.find((r) => r.riderId === riderId);
+  if (!row) throw new Error(`No run line for ${riderId}`);
+
+  row.amountPaid = Math.min(row.totalDue, row.amountPaid + amount);
+  row.status = row.amountPaid >= row.totalDue ? 'PAID' : row.amountPaid > 0 ? 'PARTIAL' : row.status;
+  recordedPayments.set(riderId, { method, paidOn: iso(Date.now()) });
+  return { ...row };
+}
 
 /**
  * A rider's own ledger, derived from their plan and billing day rather than

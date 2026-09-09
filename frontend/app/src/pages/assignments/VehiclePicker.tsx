@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormHelperText from '@mui/material/FormHelperText';
@@ -7,6 +8,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { SimpleTable } from '../../components/SimpleTable';
 import { StateChip } from '../../components/StateChip';
+import { FacetChips } from '../../components/FacetChips';
+import { SearchField } from '../../components/SearchField';
+import { EmptyState } from '../../components/EmptyState';
 import { Mono } from '../../components/Mono';
 import { listVehicles } from '../../lib/api/vehicles';
 import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE } from '../../lib/labels';
@@ -41,6 +45,12 @@ export function VehiclePicker({
     queryFn: () => listVehicles({ state: 'READY_TO_DEPLOY', size: 50 }),
   });
 
+  // Whoever assigns a bike is matching it to where the rider actually rides, so
+  // the hub is the filter that matters — a yard spread across four hubs is a
+  // scroll otherwise. The id search is for when they already know the bike.
+  const [hub, setHub] = useState<string>('ALL');
+  const [search, setSearch] = useState('');
+
   if (vehicles.isLoading) {
     return (
       <Box sx={{ display: 'grid', placeItems: 'center', py: 8 }}>
@@ -49,9 +59,9 @@ export function VehiclePicker({
     );
   }
 
-  const rows = (vehicles.data?.content ?? []).filter((v) => v.id !== excludeId);
+  const ready = (vehicles.data?.content ?? []).filter((v) => v.id !== excludeId);
 
-  if (rows.length === 0) {
+  if (ready.length === 0) {
     return (
       <Typography sx={{ fontSize: 14, color: 'text.secondary', py: 4 }}>
         No bikes are ready to deploy. A bike becomes ready once it passes{' '}
@@ -63,9 +73,49 @@ export function VehiclePicker({
     );
   }
 
+  const hubFacets = (() => {
+    const counts = new Map<string, number>();
+    ready.forEach((v) => counts.set(v.hub, (counts.get(v.hub) ?? 0) + 1));
+    return [
+      { value: 'ALL', label: 'All hubs', count: ready.length },
+      ...[...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([h, count]) => ({ value: h, label: h, count })),
+    ];
+  })();
+
+  const q = search.trim().toLowerCase();
+  const rows = ready.filter(
+    (v) =>
+      (hub === 'ALL' || v.hub === hub) &&
+      (q === '' || v.id.toLowerCase().includes(q) || v.model.toLowerCase().includes(q)),
+  );
+
   return (
     <>
-      <SimpleTable
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column-reverse', md: 'row' },
+          alignItems: { xs: 'stretch', md: 'center' },
+          justifyContent: 'space-between',
+          gap: { xs: 2.5, md: 4 },
+          mb: 3.5,
+        }}
+      >
+        <FacetChips options={hubFacets} value={hub} onChange={setHub} />
+        <Box sx={{ width: { xs: '100%', md: 'auto' } }}>
+          <SearchField value={search} onChange={setSearch} placeholder="Search bike id or model" fullWidth />
+        </Box>
+      </Box>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          title="No ready bikes match"
+          description="Clear the hub filter or the search to see the rest of the yard."
+        />
+      ) : (
+        <SimpleTable
         rows={rows}
         getRowKey={(v) => v.id}
         rowSx={(v) => (v.id === value ? { background: neutral[900] } : undefined)}
@@ -111,6 +161,7 @@ export function VehiclePicker({
           },
         ]}
       />
+      )}
       {error && <FormHelperText error sx={{ mt: 2 }}>{error}</FormHelperText>}
     </>
   );

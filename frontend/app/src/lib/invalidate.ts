@@ -36,3 +36,14 @@ export function invalidateAssignments(qc: QueryClient) {
   invalidateRiders(qc);
   invalidateVehicles(qc);
 }
+
+/**
+ * A collection was recorded. The run line, the rider's receipt, the overdue
+ * list and the dashboard's outstanding tile all read from the same figures,
+ * so all four are refetched — never just the screen the payment was taken on.
+ */
+export function invalidatePayments(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ['payments'] });
+  qc.invalidateQueries({ queryKey: ['dashboard'] });
+  qc.invalidateQueries({ queryKey: ['rider'] });
+}
