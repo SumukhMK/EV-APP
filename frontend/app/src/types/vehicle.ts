@@ -10,6 +10,7 @@ export const VEHICLE_STATES = [
   'READY_TO_DEPLOY',
   'DEPLOYED',
   'RETURNED',
+  'RECOVERY',
   'UNDER_REPAIR',
   'QC_PENDING',
   'ACCIDENT',
@@ -26,6 +27,13 @@ export interface Vehicle {
   chassisNumber: string;
   model: string;
   batteryType: BatteryType;
+  /**
+   * Whose swap network the pack belongs to — Sun Mobility, Battery Smart,
+   * Yuma, Honda Swap. Distinct from `batteryType`: the type says whether a
+   * pack comes out, the vendor says where it can be exchanged, and a
+   * breakdown needs the second one.
+   */
+  batteryVendor: string | null;
   /** Free text today; becomes a hub reference when hubs are modelled. */
   hub: string;
   state: VehicleState;
@@ -62,6 +70,8 @@ export interface VehicleDetail extends Vehicle {
   motorNumber: string | null;
   controllerNumber: string | null;
   rfidTag: string | null;
+  /** Telematics unit id. Printed on the bike; searched by the hubs. */
+  iotNumber: string | null;
   purchaseDate: Iso8601 | null;
   lifecycle: VehicleLifecycleEvent[];
   assignments: AssignmentHistoryRow[];
@@ -72,6 +82,7 @@ export interface CreateVehicleRequest {
   chassisNumber: string;
   model: string;
   batteryType: BatteryType;
+  batteryVendor?: string | null;
   hub: string;
   registrationNumber?: string;
   inductedOn: Iso8601;

@@ -4,11 +4,11 @@ import type {
   ExchangeVehicleRequest,
   Rider,
   Vehicle,
+  VehicleState,
 } from '../../types';
 import { riders } from '../../mocks/riders';
 import { vehicles } from '../../mocks/vehicles';
 import { ApiError, delay } from './client';
-import { RETURN_CONDITION_NEXT_STATE } from '../labels';
 
 /**
  * OWNER: SMK (contract + mock). The three assignment events, screens 10–12.
@@ -48,9 +48,9 @@ function open(rider: Rider, vehicle: Vehicle) {
 }
 
 /** Closes an assignment and sends the bike where its condition says it goes. */
-function close(rider: Rider, vehicle: Vehicle, condition: DeboardRiderRequest['returnCondition']) {
+function close(rider: Rider, vehicle: Vehicle, nextState: VehicleState) {
   rider.currentVehicleId = null;
-  vehicle.state = RETURN_CONDITION_NEXT_STATE[condition];
+  vehicle.state = nextState;
   vehicle.currentRiderId = null;
   vehicle.currentRiderName = null;
 }
@@ -94,11 +94,12 @@ export async function exchangeVehicle(body: ExchangeVehicleRequest): Promise<Rid
   if (!from) throw new ApiError(`No vehicle with id ${body.fromVehicleId}`, 404, 'fromVehicleId');
   const to = requireDeployable(body.toVehicleId, 'toVehicleId');
 
-  close(rider, from, body.returnCondition);
+  close(rider, from, body.nextVehicleState);
   open(rider, to);
   void body.occurredOn;
   void body.reason;
   void body.note;
+  void body.returnCondition;
   return delay(rider, 460);
 }
 
@@ -116,11 +117,13 @@ export async function deboardRider(body: DeboardRiderRequest): Promise<Rider> {
   const vehicle = vehicles.find((v) => v.id === body.vehicleId);
   if (!vehicle) throw new ApiError(`No vehicle with id ${body.vehicleId}`, 404, 'vehicleId');
 
-  close(rider, vehicle, body.returnCondition);
+  close(rider, vehicle, body.nextVehicleState);
   rider.status = 'INACTIVE';
   void body.returnedOn;
+  void body.reason;
   void body.outstandingRent;
   void body.depositRefund;
   void body.note;
+  void body.returnCondition;
   return delay(rider, 460);
 }

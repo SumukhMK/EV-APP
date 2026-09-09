@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
-import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
-import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -18,11 +17,12 @@ import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
 import { DefinitionList } from '../../components/DefinitionList';
 import { Mono } from '../../components/Mono';
+import { RecordSearchSelect } from '../../components/RecordSearchSelect';
 import { listInspectableVehicles, recordInspection } from '../../lib/api/vehicles';
 import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE } from '../../lib/labels';
 import { formatNumber } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
-import type { DamageCategory, Vehicle, VehicleState } from '../../types';
+import type { DamageCategory, VehicleState } from '../../types';
 
 /**
  * The one place a bike changes state by hand.
@@ -51,7 +51,7 @@ export function Inspection() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
 
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [vehicleId, setVehicleId] = useState('');
   const [outcome, setOutcome] = useState<VehicleState>('UNDER_REPAIR');
   const [category, setCategory] = useState<DamageCategory>('MINOR');
   const [technician, setTechnician] = useState(TECHNICIANS[0]);
@@ -63,10 +63,10 @@ export function Inspection() {
   // Deep link from a vehicle's detail page: ?vehicle=BLRSS0388
   const preselected = params.get('vehicle');
   const resolved = useMemo(() => {
-    if (vehicle) return vehicle;
+    if (vehicleId) return options.data?.find((v) => v.id === vehicleId) ?? null;
     if (!preselected) return null;
     return options.data?.find((v) => v.id === preselected) ?? null;
-  }, [vehicle, preselected, options.data]);
+  }, [vehicleId, preselected, options.data]);
 
   const save = useMutation({
     mutationFn: () =>
@@ -80,7 +80,7 @@ export function Inspection() {
     onSuccess: (v) => {
       invalidateVehicles(queryClient);
       setSaved(`${v.id} moved to ${VEHICLE_STATE_LABEL[v.state]}.`);
-      setVehicle(null);
+      setVehicleId('');
       setNotes('');
     },
   });
@@ -124,13 +124,18 @@ export function Inspection() {
         }}>
         <Box sx={{ display: 'grid', gap: 5 }}>
           <Panel label="Vehicle">
-            <Autocomplete
-              options={options.data ?? []}
-              value={resolved}
-              onChange={(_, next) => setVehicle(next)}
-              getOptionLabel={(v) => `${v.id} — ${v.model}`}
-              isOptionEqualToValue={(a, b) => a.id === b.id}
-              renderInput={(p) => <TextField {...p} label="Vehicle id" placeholder="Search a bike" />}
+            <RecordSearchSelect
+              label="Vehicle id"
+              placeholder="Search a bike"
+              value={vehicleId}
+              onChange={setVehicleId}
+              options={(options.data ?? []).map((v) => ({
+                id: v.id,
+                primary: v.model,
+                secondary: VEHICLE_STATE_LABEL[v.state],
+                trailing: v.chassisNumber,
+              }))}
+              loading={options.isLoading}
             />
           </Panel>
 
@@ -194,7 +199,7 @@ export function Inspection() {
                 multiline
                 minRows={3}
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNotes(e.target.value)}
                 placeholder="What is wrong, what is needed, how long"
                 helperText="Required — this is what the technician works from."
               />

@@ -1,4 +1,5 @@
 import type { Iso8601, Paise } from './common';
+import type { VehicleState } from './vehicle';
 
 /**
  * OWNER: SMK (contract). The three recorded assignment events — assign,
@@ -13,7 +14,34 @@ import type { Iso8601, Paise } from './common';
 /** Condition a bike comes back in. Decides the state it lands in. */
 export type ReturnCondition = 'NONE' | 'MINOR' | 'MAJOR' | 'ACCIDENT';
 
-export type ExchangeReason = 'BREAKDOWN' | 'ACCIDENT' | 'RIDER_REQUEST' | 'UPGRADE';
+export type ExchangeReason =
+  | 'BREAKDOWN'
+  | 'BATTERY_ISSUE'
+  | 'ACCIDENT'
+  | 'SERVICE_REQUIRED'
+  | 'RIDER_REQUEST'
+  | 'UPGRADE'
+  | 'OTHER';
+
+/**
+ * Why a rider gave the bike back.
+ *
+ * Separate from `ReturnCondition`, which is what shape the bike is in. "Went
+ * to hometown" and "Minor damage" are answers to different questions, and the
+ * prototype asks both — a reason and an explicit next status — because the
+ * operator routinely overrides the obvious routing. Collapsing them would make
+ * that override impossible to express.
+ */
+export type DeboardReason =
+  | 'RECOVERED_BY_TEAM'
+  | 'ACCIDENT'
+  | 'LEFT_AT_HUB'
+  | 'LEFT_AT_ROADSIDE'
+  | 'SERVICE_ISSUE'
+  | 'PAYMENT_ISSUE'
+  | 'WENT_HOME'
+  | 'RETURNED'
+  | 'OTHER';
 
 export interface AssignVehicleRequest {
   riderId: string;
@@ -34,6 +62,8 @@ export interface ExchangeVehicleRequest {
   occurredOn: Iso8601;
   reason: ExchangeReason;
   returnCondition: ReturnCondition;
+  /** Defaulted from `returnCondition`, overridable by the operator. */
+  nextVehicleState: VehicleState;
   note?: string;
 }
 
@@ -42,6 +72,9 @@ export interface DeboardRiderRequest {
   vehicleId: string;
   returnedOn: Iso8601;
   returnCondition: ReturnCondition;
+  reason: DeboardReason;
+  /** Defaulted from `returnCondition`, overridable by the operator. */
+  nextVehicleState: VehicleState;
   /** Rent still owed at the point the bike comes back. */
   outstandingRent: Paise;
   /** Deposit handed back after deductions. */

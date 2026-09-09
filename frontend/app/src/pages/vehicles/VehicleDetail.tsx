@@ -98,6 +98,8 @@ export function VehicleDetail() {
               { label: 'Make', value: v.make },
               { label: 'Model', value: v.model },
               { label: 'Battery', value: v.batteryType },
+              { label: 'Battery vendor', value: v.batteryVendor ?? '—' },
+              { label: 'IoT number', value: <Mono sx={{ fontSize: 13 }}>{v.iotNumber ?? '—'}</Mono> },
               { label: 'Motor number', value: <Mono sx={{ fontSize: 13 }}>{v.motorNumber ?? '—'}</Mono> },
               { label: 'Controller number', value: <Mono sx={{ fontSize: 13 }}>{v.controllerNumber ?? '—'}</Mono> },
               { label: 'RFID tag', value: <Mono sx={{ fontSize: 13 }}>{v.rfidTag ?? '—'}</Mono> },

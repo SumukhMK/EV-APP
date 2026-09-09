@@ -30,7 +30,7 @@ export const exchangeVehicleSchema = z
     fromVehicleId: z.string().min(1, 'This rider has no bike to exchange'),
     toVehicleId: z.string().min(1, 'Pick the replacement bike'),
     occurredOn: z.string().min(1, 'Exchange date is required'),
-    reason: z.enum(['BREAKDOWN', 'ACCIDENT', 'RIDER_REQUEST', 'UPGRADE']),
+    reason: z.enum(['BREAKDOWN', 'BATTERY_ISSUE', 'ACCIDENT', 'SERVICE_REQUIRED', 'RIDER_REQUEST', 'UPGRADE', 'OTHER']),
     returnCondition: RETURN_CONDITION,
     note: z.string().trim().max(500, 'Keep the note under 500 characters').optional(),
   })
@@ -45,6 +45,10 @@ export const deboardRiderSchema = z.object({
   riderId: z.string().min(1, 'Pick a rider'),
   vehicleId: z.string().min(1, 'This rider has no bike to return'),
   returnedOn: z.string().min(1, 'Return date is required'),
+  reason: z.enum([
+    'RECOVERED_BY_TEAM', 'ACCIDENT', 'LEFT_AT_HUB', 'LEFT_AT_ROADSIDE',
+    'SERVICE_ISSUE', 'PAYMENT_ISSUE', 'WENT_HOME', 'RETURNED', 'OTHER',
+  ]),
   returnCondition: RETURN_CONDITION,
   outstandingRentRupees: z
     .number({ message: 'Enter an amount in rupees' })

@@ -88,6 +88,7 @@ export async function getVehicle(id: string): Promise<VehicleDetail> {
     motorNumber: deviceNumbers[v.id]?.motor ?? null,
     controllerNumber: deviceNumbers[v.id]?.controller ?? null,
     rfidTag: deviceNumbers[v.id]?.rfid ?? null,
+    iotNumber: deviceNumbers[v.id]?.iot ?? null,
     purchaseDate: v.inductedOn,
     lifecycle: lifecycleByVehicle[v.id] ?? [
       // Migrated bikes have no recorded history; we show the two facts we do
@@ -109,6 +110,7 @@ export async function createVehicle(body: CreateVehicleRequest): Promise<Vehicle
   const created: Vehicle = {
     ...body,
     registrationNumber: body.registrationNumber ?? null,
+    batteryVendor: body.batteryVendor ?? null,
     state: 'INDUCTED',
     currentRiderId: null,
     currentRiderName: null,

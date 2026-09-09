@@ -1,8 +1,10 @@
 import type { StatusTone } from '../theme/tokens';
 import type {
+  DeboardReason,
   DunningStage,
   ExchangeReason,
   KycStatus,
+  PaymentDay,
   PaymentMethod,
   PaymentStatus,
   ReturnCondition,
@@ -22,10 +24,11 @@ export const VEHICLE_STATE_LABEL: Record<VehicleState, string> = {
   READY_TO_DEPLOY: 'Ready to deploy',
   DEPLOYED: 'Deployed',
   RETURNED: 'Returned',
+  RECOVERY: 'Recovery',
   UNDER_REPAIR: 'Under repair',
   QC_PENDING: 'QC pending',
   ACCIDENT: 'Accident',
-  RETIRED: 'Retired',
+  RETIRED: 'Scrapped',
 };
 
 export const VEHICLE_STATE_TONE: Record<VehicleState, StatusTone> = {
@@ -33,6 +36,7 @@ export const VEHICLE_STATE_TONE: Record<VehicleState, StatusTone> = {
   READY_TO_DEPLOY: 'good',
   DEPLOYED: 'accent',
   RETURNED: 'neutral',
+  RECOVERY: 'warn',
   UNDER_REPAIR: 'warn',
   QC_PENDING: 'caution',
   ACCIDENT: 'bad',
@@ -46,8 +50,9 @@ export const VEHICLE_STATE_TONE: Record<VehicleState, StatusTone> = {
 export const VEHICLE_TRANSITIONS: Record<VehicleState, VehicleState[]> = {
   INDUCTED: ['READY_TO_DEPLOY', 'UNDER_REPAIR'],
   READY_TO_DEPLOY: ['DEPLOYED', 'UNDER_REPAIR', 'RETIRED'],
-  DEPLOYED: ['RETURNED', 'ACCIDENT'],
+  DEPLOYED: ['RETURNED', 'ACCIDENT', 'RECOVERY'],
   RETURNED: ['UNDER_REPAIR', 'QC_PENDING', 'READY_TO_DEPLOY'],
+  RECOVERY: ['UNDER_REPAIR', 'QC_PENDING', 'READY_TO_DEPLOY', 'RETIRED'],
   UNDER_REPAIR: ['QC_PENDING', 'ACCIDENT', 'RETIRED'],
   QC_PENDING: ['READY_TO_DEPLOY', 'UNDER_REPAIR'],
   ACCIDENT: ['UNDER_REPAIR', 'RETIRED'],
@@ -140,9 +145,12 @@ export const RETURN_CONDITION_NEXT_STATE: Record<ReturnCondition, VehicleState> 
 
 export const EXCHANGE_REASON_LABEL: Record<ExchangeReason, string> = {
   BREAKDOWN: 'Breakdown',
+  BATTERY_ISSUE: 'Battery issue',
   ACCIDENT: 'Accident',
+  SERVICE_REQUIRED: 'Service required',
   RIDER_REQUEST: 'Rider request',
   UPGRADE: 'Plan upgrade',
+  OTHER: 'Other',
 };
 
 export const USER_ROLE_LABEL: Record<UserRole, string> = {
@@ -181,4 +189,64 @@ export const USER_STATUS_TONE: Record<UserStatus, StatusTone> = {
   ACTIVE: 'good',
   INVITED: 'caution',
   DISABLED: 'neutral',
+};
+
+/** Today's swap networks. A price list, not a schema — hence not an enum. */
+export const BATTERY_VENDORS = [
+  'Sun Mobility',
+  'Battery Smart',
+  'Yuma',
+  'Honda Swap',
+] as const;
+
+/** Today's OEMs, same reasoning. */
+export const VEHICLE_MAKES = ['e-Connects', 'e-Sprinto', 'OPG Mobility', 'Odysee', 'Stella'] as const;
+
+export const DEBOARD_REASON_LABEL: Record<DeboardReason, string> = {
+  RECOVERED_BY_TEAM: 'Recovered by team',
+  ACCIDENT: 'Accident',
+  LEFT_AT_HUB: 'Rider left it at the hub',
+  LEFT_AT_ROADSIDE: 'Rider left it at the roadside',
+  SERVICE_ISSUE: 'Service issue',
+  PAYMENT_ISSUE: 'Payment issue',
+  WENT_HOME: 'Gone to hometown',
+  RETURNED: 'Returned',
+  OTHER: 'Other',
+};
+
+export const PAYMENT_DAY_LABEL: Record<PaymentDay, string> = {
+  MONDAY: 'Monday',
+  TUESDAY: 'Tuesday',
+  WEDNESDAY: 'Wednesday',
+  THURSDAY: 'Thursday',
+  FRIDAY: 'Friday',
+  SATURDAY: 'Saturday',
+  SUNDAY: 'Sunday',
+};
+
+/**
+ * Today's price list, in paise, offered as suggestions in a combobox that
+ * still accepts a typed amount. Not an enum: a tier change would otherwise be
+ * a repo change, and Ashok changes them.
+ */
+export const WEEKLY_PLAN_TIERS = [179900, 189900, 199900, 209900, 219900] as const;
+export const DEPOSIT_TIERS = [500000, 1000000] as const;
+
+/** The gig platforms riders work for. Free text is allowed alongside. */
+export const WORKING_PLATFORMS = [
+  'Zomato', 'Swiggy', 'Ownly', 'EatSure', 'Zepto', 'Blinkit',
+  'Swiggy Instamart', 'Flipkart Minutes', 'BigBasket', 'Porter',
+  'Borzo', 'Dunzo', 'Other',
+] as const;
+
+/**
+ * Where a bike lands when it comes back. This is the whole reason a return
+ * captures a condition: an undamaged bike goes to QC before it can be let out
+ * again, and a damaged one cannot skip the workshop on someone's say-so.
+ */
+export const CONDITION_DEFAULT_STATE: Record<ReturnCondition, VehicleState> = {
+  NONE: 'QC_PENDING',
+  MINOR: 'UNDER_REPAIR',
+  MAJOR: 'UNDER_REPAIR',
+  ACCIDENT: 'ACCIDENT',
 };

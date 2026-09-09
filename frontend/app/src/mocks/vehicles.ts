@@ -10,44 +10,46 @@ import { HUBS, MODELS, mulberry32, pick } from './seed';
 
 /**
  * Fleet composition is pinned to the dashboard tiles in artboard 02:
- * 137 total = 100 deployed + 22 ready + 9 under repair + 4 QC + 2 accident.
+ * 137 total = 97 deployed + 22 ready + 9 under repair + 4 QC + 2 accident + 3 recovery.
  */
 export const FLEET_MIX: Record<VehicleState, number> = {
-  DEPLOYED: 100,
+  DEPLOYED: 97,
   READY_TO_DEPLOY: 22,
   UNDER_REPAIR: 9,
   QC_PENDING: 4,
   ACCIDENT: 2,
   INDUCTED: 0,
   RETURNED: 0,
+  RECOVERY: 3,
   RETIRED: 0,
 };
 
 /** The twelve rows drawn on artboard 03, verbatim. These lead the list. */
 const DESIGNED: ReadonlyArray<
-  [id: string, chassis: string, model: string, battery: BatteryType, state: VehicleState, rider: string | null]
+  [id: string, chassis: string, model: string, battery: BatteryType, state: VehicleState, rider: string | null, vendor: string | null]
 > = [
-  ['BLRSS0428', 'SESEAG03202300490', 'Eagle-SunM', 'Sun Mobility', 'DEPLOYED', 'Dulan Hajong'],
-  ['FBLSS003B', 'MD9ESLM1225873232', 'Sprinto-SunM', 'Sun Mobility', 'DEPLOYED', 'Raju Debnath'],
-  ['BLRSS0431', 'SESEAG03202300497', 'Eagle-SunM', 'Sun Mobility', 'READY_TO_DEPLOY', null],
-  ['FBLSS0112', 'MD9ESLM1225873418', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Ashwin Kamath'],
-  ['BLRSS0407', 'SESEAG03202300402', 'Eagle-SunM', 'Sun Mobility', 'UNDER_REPAIR', null],
-  ['FBLSS0086', 'MD9ESLM1225873101', 'Sprinto-SunM Pro', 'Sun Mobility', 'DEPLOYED', 'Nabam Tada'],
-  ['BLRSS0419', 'SESEAG03202300455', 'Eagle-SunM', 'Sun Mobility', 'QC_PENDING', null],
-  ['FBLSS0129', 'MD9ESLM1225873560', 'Sprinto-BS', 'Battery Smart', 'DEPLOYED', 'Imran Shaikh'],
-  ['BLRSS0436', 'SESEAG03202300508', 'Eagle-SunM', 'Sun Mobility', 'READY_TO_DEPLOY', null],
-  ['FBLSS0074', 'MD9ESLM1225872944', 'Sprinto-SunM', 'Sun Mobility', 'ACCIDENT', null],
-  ['BLRSS0412', 'SESEAG03202300428', 'Eagle-SunM', 'Sun Mobility', 'DEPLOYED', 'Lalit Chhetri'],
-  ['FBLSS0141', 'MD9ESLM1225873677', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Sohail Ahmed'],
+  ['BLRSS0428', 'SESEAG03202300490', 'Eagle-SunM', 'Sun Mobility', 'DEPLOYED', 'Dulan Hajong', 'Sun Mobility'],
+  ['FBLSS003B', 'MD9ESLM1225873232', 'Sprinto-SunM', 'Sun Mobility', 'DEPLOYED', 'Raju Debnath', 'Sun Mobility'],
+  ['BLRSS0431', 'SESEAG03202300497', 'Eagle-SunM', 'Sun Mobility', 'READY_TO_DEPLOY', null, 'Sun Mobility'],
+  ['FBLSS0112', 'MD9ESLM1225873418', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Ashwin Kamath', 'Sun Mobility'],
+  ['BLRSS0407', 'SESEAG03202300402', 'Eagle-SunM', 'Sun Mobility', 'UNDER_REPAIR', null, 'Sun Mobility'],
+  ['FBLSS0086', 'MD9ESLM1225873101', 'Sprinto-SunM Pro', 'Sun Mobility', 'DEPLOYED', 'Nabam Tada', 'Sun Mobility'],
+  ['BLRSS0419', 'SESEAG03202300455', 'Eagle-SunM', 'Sun Mobility', 'QC_PENDING', null, 'Sun Mobility'],
+  ['FBLSS0129', 'MD9ESLM1225873560', 'Sprinto-BS', 'Battery Smart', 'DEPLOYED', 'Imran Shaikh', 'Battery Smart'],
+  ['BLRSS0436', 'SESEAG03202300508', 'Eagle-SunM', 'Sun Mobility', 'READY_TO_DEPLOY', null, 'Sun Mobility'],
+  ['FBLSS0074', 'MD9ESLM1225872944', 'Sprinto-SunM', 'Sun Mobility', 'ACCIDENT', null, 'Sun Mobility'],
+  ['BLRSS0412', 'SESEAG03202300428', 'Eagle-SunM', 'Sun Mobility', 'DEPLOYED', 'Lalit Chhetri', 'Sun Mobility'],
+  ['FBLSS0141', 'MD9ESLM1225873677', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Sohail Ahmed', 'Sun Mobility'],
 ];
 
 function buildFleet(): Vehicle[] {
   const rng = mulberry32(20260824);
-  const out: Vehicle[] = DESIGNED.map(([id, chassisNumber, model, batteryType, state, currentRiderName], i) => ({
+  const out: Vehicle[] = DESIGNED.map(([id, chassisNumber, model, batteryType, state, currentRiderName, batteryVendor], i) => ({
     id,
     chassisNumber,
     model,
     batteryType,
+    batteryVendor,
     hub: 'Bengaluru',
     state,
     currentRiderId: currentRiderName ? `R${String(3 + i * 4).padStart(2, '0')}` : null,
@@ -75,6 +77,7 @@ function buildFleet(): Vehicle[] {
           : `MD9ESLM12258${String(70000 + Math.floor(rng() * 9000))}`,
         model,
         batteryType: model === 'Sprinto-BS' ? 'Battery Smart' : 'Sun Mobility',
+        batteryVendor: model === 'Sprinto-BS' ? 'Battery Smart' : 'Sun Mobility',
         hub: pick(rng, HUBS),
         state,
         currentRiderId: null,
@@ -118,8 +121,8 @@ export const bulkUploadRows = [
 ];
 
 /** Device numbers exist only for the bikes drawn on artboard 04. */
-export const deviceNumbers: Record<string, { motor: string; controller: string; rfid: string }> = {
-  BLRSS0428: { motor: 'MTR-EG-88213', controller: 'CTL-49-201774', rfid: '0004 7712 9930' },
+export const deviceNumbers: Record<string, { motor: string; controller: string; rfid: string; iot: string | null }> = {
+  BLRSS0428: { motor: 'MTR-EG-88213', controller: 'CTL-49-201774', rfid: '0004 7712 9930', iot: 'IOT-428-001' },
 };
 
 /** Assignment history for artboard 04, verbatim. */

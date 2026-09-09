@@ -96,7 +96,11 @@ export function ExchangeVehicle() {
   }, [rider, picked.fromVehicleId, picked.toVehicleId, form]);
 
   const save = useMutation({
-    mutationFn: exchangeVehicle,
+    mutationFn: (values: ExchangeVehicleValues) =>
+      exchangeVehicle({
+        ...values,
+        nextVehicleState: RETURN_CONDITION_NEXT_STATE[values.returnCondition],
+      }),
     onSuccess: () => invalidateAssignments(queryClient),
     onError: (error) => {
       if (error instanceof ApiError && error.field) {

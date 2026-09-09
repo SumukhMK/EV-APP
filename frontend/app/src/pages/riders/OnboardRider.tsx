@@ -46,13 +46,43 @@ export function OnboardRider() {
   const save = useMutation({
     mutationFn: (values: OnboardRiderValues) =>
       onboardRider({
+        // Identity — simplified form provides name and phone only; full
+        // identity step is Task 16 (Abhiram).
+        aadhaarNumber: '',
         name: values.name,
+        permanentAddress: '',
+        // Contact
         phone: values.phone,
+        whatsappNumber: values.phone,
+        alternateNumber1: '',
+        alternateNumber2: '',
+        // Local address
+        localAddress: '',
+        city: '',
+        state: '',
+        pinCode: '',
+        locationCoordinates: null,
+        // Documents
+        panNumber: null,
+        drivingLicence: null,
+        // Commercial
+        workingPlatform: 'Other',
+        platformRiderId: null,
         // Rupees at the desk, paise on the wire. Converted once, here.
         planAmount: values.planRupees * 100,
         billingDay: values.billingDay,
-        depositAmount: values.depositRupees * 100,
+        paymentDay: 'MONDAY',
+        depositPlan: values.depositRupees * 100,
+        depositPaid: values.depositRupees * 100,
         onboardedOn: values.onboardedOn,
+        verification: {
+          aadhaarVerified: false,
+          primaryVerified: false,
+          whatsappVerified: false,
+          alternate1Verified: false,
+          alternate2Verified: false,
+        },
+        vehicleId: null,
       }),
     onSuccess: () => invalidateRiders(queryClient),
     onError: (error) => {

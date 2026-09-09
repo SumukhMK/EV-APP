@@ -67,6 +67,7 @@ export function DeboardRider() {
       riderId: params.get('riderId') ?? '',
       vehicleId: '',
       returnedOn: today(),
+      reason: 'OTHER',
       returnCondition: 'NONE',
       outstandingRentRupees: 0,
       depositRefundRupees: 0,
@@ -93,11 +94,13 @@ export function DeboardRider() {
         riderId: values.riderId,
         vehicleId: values.vehicleId,
         returnedOn: values.returnedOn,
+        reason: values.reason,
         returnCondition: values.returnCondition,
         // Rupees at the desk, paise on the wire. Converted once, here.
         outstandingRent: values.outstandingRentRupees * 100,
         depositRefund: values.depositRefundRupees * 100,
         note: values.note,
+        nextVehicleState: RETURN_CONDITION_NEXT_STATE[values.returnCondition],
       }),
     onSuccess: () => invalidateAssignments(queryClient),
     onError: (error) => {
@@ -215,6 +218,25 @@ export function DeboardRider() {
               {form.formState.errors.vehicleId.message}
             </Typography>
           )}
+        </Panel>
+
+        <Panel label="Why the bike is coming back">
+          <SelectField
+            control={form.control}
+            name="reason"
+            label="Deboard reason"
+            options={[
+              { value: 'RECOVERED_BY_TEAM', label: 'Recovered by team' },
+              { value: 'ACCIDENT', label: 'Accident' },
+              { value: 'LEFT_AT_HUB', label: 'Rider left it at the hub' },
+              { value: 'LEFT_AT_ROADSIDE', label: 'Rider left it at the roadside' },
+              { value: 'SERVICE_ISSUE', label: 'Service issue' },
+              { value: 'PAYMENT_ISSUE', label: 'Payment issue' },
+              { value: 'WENT_HOME', label: 'Gone to hometown' },
+              { value: 'RETURNED', label: 'Returned' },
+              { value: 'OTHER', label: 'Other' },
+            ]}
+          />
         </Panel>
 
         <Panel

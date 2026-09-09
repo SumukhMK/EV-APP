@@ -24,7 +24,6 @@ import {
   RIDER_STATUS_LABEL,
   RIDER_STATUS_TONE,
   VEHICLE_STATE_LABEL,
-  VEHICLE_STATE_TONE,
 } from '../../lib/labels';
 import { rupees } from '../../lib/format';
 import { RIDER_STATUSES, VEHICLE_STATES, type Platform, type Rider, type RiderStatus, type VehicleState } from '../../types';

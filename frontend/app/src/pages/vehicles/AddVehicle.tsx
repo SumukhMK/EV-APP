@@ -137,6 +137,7 @@ export function AddVehicle() {
                 { value: 'Honda Swap', label: 'Honda Swap' },
               ]}
             />
+            <TextField label="Battery vendor" placeholder="e.g. Sun Mobility" {...field('batteryVendor')} />
             <TextField label="Motor number" {...field('motorNumber')} />
           </Box>
         </Panel>

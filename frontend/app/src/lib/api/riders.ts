@@ -118,12 +118,15 @@ export async function onboardRider(body: OnboardRiderRequest): Promise<Rider> {
     currentVehicleId: null,
     onboardedOn: body.onboardedOn,
     paymentStatus: 'PENDING',
-    platform: 'Other',
+    platform: (body.workingPlatform as Platform) || 'Other',
+    paymentDay: body.paymentDay,
   };
   riders.unshift(created);
-  // `depositAmount` is recorded against the rider's ledger server-side; there
-  // is no deposit field on the register itself yet, so it is not invented here.
-  void body.depositAmount;
+  // `depositPlan` and `depositPaid` are recorded against the rider's ledger
+  // server-side; there is no deposit field on the register itself yet, so they
+  // are not invented here.
+  void body.depositPlan;
+  void body.depositPaid;
   return delay(created, 420);
 }
 
