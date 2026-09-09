@@ -20,6 +20,7 @@ import { OverdueRiders } from '../pages/payments/OverdueRiders';
 import { Users } from '../pages/users/Users';
 import { AuditLog } from '../pages/admin/AuditLog';
 import { TodayOperations } from '../pages/operations/TodayOperations';
+import { ServiceManagement } from '../pages/service/ServiceManagement';
 
 /**
  * Every artboard in the signed-off wireframe has a route. The ones that are
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
       { path: '/vehicles/:vehicleId', element: <VehicleDetail /> },
       { path: '/inspections', element: <Inspection /> },
       { path: '/qc', element: <QcQueue /> },
+      { path: '/service', element: <ServiceManagement /> },
 
       // Riders — Abhiram
       {

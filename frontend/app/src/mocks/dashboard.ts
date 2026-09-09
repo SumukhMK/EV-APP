@@ -1,4 +1,9 @@
-import type { FleetSummary, MonthlyDeployments, OperationsPeriodSummary } from '../types';
+import type {
+  FleetSummary,
+  MonthlyDeployments,
+  OperationsPeriodSummary,
+  ServiceQueueCounts,
+} from '../types';
 import dayjs from 'dayjs';
 import { overdueRiders } from './payments';
 import { vehicles } from './vehicles';
@@ -89,4 +94,29 @@ export function operationsSummary(startIso: string, endIso: string): OperationsP
     cur = cur.add(1, 'day');
   }
   return acc;
+}
+
+/**
+ * Service queues, derived from the fleet where a real state backs the row so
+ * the box cannot contradict the vehicles list — the under-repair total is the
+ * bikes actually in `UNDER_REPAIR`, split across the prototype's repair kinds;
+ * QC pending and the accident kind track their own states. The live-service
+ * sources have no state of their own yet and are seeded.
+ */
+export function serviceQueues(): ServiceQueueCounts {
+  const under = vehicles.filter((v) => v.state === 'UNDER_REPAIR').length;
+  const qcPending = vehicles.filter((v) => v.state === 'QC_PENDING').length;
+  const accident = vehicles.filter((v) => v.state === 'ACCIDENT').length;
+
+  // Partition the under-repair total so the seven rows sum to it.
+  const minor = Math.round(under * 0.4);
+  const major = Math.round(under * 0.25);
+  const warranty = Math.round(under * 0.15);
+  const insurance = Math.round(under * 0.1);
+  const partsWaiting = Math.max(0, under - minor - major - warranty - insurance);
+
+  return {
+    underRepair: { minor, major, accident, warranty, insurance, partsWaiting, qcPending },
+    inService: { walkIn: 5, rsa: 3, qrt: 2 },
+  };
 }

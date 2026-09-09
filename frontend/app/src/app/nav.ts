@@ -4,6 +4,7 @@ import SpeedIcon from '@mui/icons-material/SpeedOutlined';
 import TodayIcon from '@mui/icons-material/TodayOutlined';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheelerOutlined';
 import BuildIcon from '@mui/icons-material/BuildOutlined';
+import HandymanIcon from '@mui/icons-material/HandymanOutlined';
 import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
 import PeopleIcon from '@mui/icons-material/PeopleOutlineOutlined';
 import PersonAddIcon from '@mui/icons-material/PersonAddAltOutlined';
@@ -65,6 +66,7 @@ export const NAV: NavSection[] = [
       { label: 'Dashboard', path: '/dashboard', icon: SpeedIcon, owner: 'smk', artboard: 2 },
       { label: 'Vehicles', path: '/vehicles', icon: TwoWheelerIcon, owner: 'smk', artboard: 3 },
       { label: 'Inspection', path: '/inspections', icon: BuildIcon, owner: 'smk', artboard: 13 },
+      { label: 'Service queues', path: '/service', icon: HandymanIcon, owner: 'smk', artboard: 22 },
       { label: 'QC queue', path: '/qc', icon: FactCheckIcon, owner: 'smk', artboard: 14 },
     ],
   },

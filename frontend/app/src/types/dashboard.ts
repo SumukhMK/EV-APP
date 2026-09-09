@@ -26,3 +26,21 @@ export interface OperationsPeriodSummary {
   outcome: { readyToDeploy: number; underRepair: number; qcPending: number; accident: number };
   source: { rsa: number; walkIn: number; qrt: number };
 }
+
+/**
+ * The service queues (screen 22): everything stuck in the workshop, split the
+ * way the prototype splits it — seven kinds of repair on one side, three
+ * sources of a live service call on the other.
+ */
+export interface ServiceQueueCounts {
+  underRepair: {
+    minor: number;
+    major: number;
+    accident: number;
+    warranty: number;
+    insurance: number;
+    partsWaiting: number;
+    qcPending: number;
+  };
+  inService: { walkIn: number; rsa: number; qrt: number };
+}
