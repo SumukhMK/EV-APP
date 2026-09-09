@@ -1,4 +1,4 @@
-import type { User } from '../types';
+import type { UpdateUserRequest, User } from '../types';
 
 /**
  * The operator accounts behind artboard 18. Names and the one @g1 email
@@ -29,4 +29,20 @@ function u(
   createdOn: string,
 ): User {
   return { id, name, email, role, status, lastActiveAt, createdOn };
+}
+
+/**
+ * Apply an edit to an account. The row is mutated in place so the change shows
+ * up the moment the list refetches — the same simulated-write shape the QC,
+ * assignment and payment screens use. It is not a real directory, just a live
+ * fixture; the audit row a real backend would write is implied, not stored.
+ */
+export function updateUserInPlace(req: UpdateUserRequest): User {
+  const user = users.find((x) => x.id === req.id);
+  if (!user) throw new Error(`No user ${req.id}`);
+  user.name = req.name.trim();
+  user.email = req.email.trim();
+  user.role = req.role;
+  user.status = req.status;
+  return { ...user };
 }

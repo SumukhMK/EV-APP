@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -11,6 +13,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
 import { TableFooter } from '../../components/TableFooter';
+import { EditUserDialog } from './EditUserDialog';
 import { listUsers } from '../../lib/api/users';
 import {
   USER_ROLE_LABEL,
@@ -30,14 +33,20 @@ const PAGE_SIZE = 12;
  *
  * The reference block at the top says plainly what each role is for, because
  * the table only lists names against roles and a client reading it should not
- * have to guess what "Fleet staff" is allowed to touch. None of it grants
- * anything: the rules are enforced server-side once the API exists, and the
- * page says so rather than pretending the buttons do something.
+ * have to guess what "Fleet staff" is allowed to touch. Editing an account —
+ * name, email, role, status — is a simulated write, the same as the QC and
+ * payment screens; the server-side rules that actually enforce a role arrive
+ * with the API.
  */
 export function Users() {
   const theme = useTheme();
-  const compact = useMediaQuery(theme.breakpoints.down('md'));
+  // "Last active" is a secondary detail; it is dropped before the Edit action
+  // would be pushed off a mid-size screen, so editing an account is always in
+  // reach without a sideways scroll.
+  const narrow = useMediaQuery(theme.breakpoints.down('lg'));
   const [page, setPage] = useState(0);
+  const [editing, setEditing] = useState<User | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const list = useQuery({
     queryKey: ['users', 'list', page],
@@ -124,7 +133,7 @@ export function Users() {
                   <StateChip label={USER_STATUS_LABEL[x.status]} tone={USER_STATUS_TONE[x.status]} />
                 ),
               },
-              ...(compact
+              ...(narrow
                 ? []
                 : [
                     {
@@ -139,6 +148,17 @@ export function Users() {
                       ),
                     },
                   ]),
+              {
+                key: 'edit',
+                header: '',
+                align: 'right',
+                width: 84,
+                render: (x) => (
+                  <Button color="inherit" size="small" onClick={() => setEditing(x)}>
+                    Edit
+                  </Button>
+                ),
+              },
             ]}
           />
         )}
@@ -154,9 +174,23 @@ export function Users() {
       </Panel>
 
       <Typography sx={{ fontSize: 12, color: neutral[500], mt: 3 }}>
-        Inviting, disabling and changing a role are backend actions and are not wired in the
-        prototype. Every such change is written to the audit log.
+        Editing an account is an in-session write in the prototype — the change holds until reload.
+        The real directory, and the audit row every such change writes, arrive with the backend.
       </Typography>
+
+      <EditUserDialog
+        target={editing}
+        onClose={() => setEditing(null)}
+        onSaved={(name) => setToast(`Saved changes to ${name}`)}
+      />
+
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={2600}
+        onClose={() => setToast(null)}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </>
   );
 }

@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
@@ -263,33 +264,53 @@ export function RidersList() {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
-        <TextField
-          select
-          size="small"
-          label="Platform"
-          value={platform}
-          onChange={(e) => setPlatform(e.target.value as Platform | 'ALL')}
-          sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="ALL">All Platforms</MenuItem>
-          {['Zomato', 'Swiggy', 'Swiggy Instamart', 'Zepto', 'Blinkit', 'Flipkart Minutes', 'Porter', 'Dunzo', 'Ownly', 'EatSure', 'BigBasket', 'Borzo', 'Other'].map((p) => (
-            <MenuItem key={p} value={p}>{p}</MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label="Vehicle status"
-          value={vehicleState}
-          onChange={(e) => setVehicleState(e.target.value as VehicleState | 'ALL')}
-          sx={{ minWidth: 180 }}
-        >
-          <MenuItem value="ALL">All Vehicle Status</MenuItem>
-          {VEHICLE_STATES.map((s) => (
-            <MenuItem key={s} value={s}>{VEHICLE_STATE_LABEL[s]}</MenuItem>
-          ))}
-        </TextField>
+      {/*
+        Secondary refinements sit as a compact pair under the primary row. The
+        field name is a tracked-out caption above each control, not MUI's
+        floating notch label — on the dark ground the notch reads like a
+        validation error, and a caption matches how the rest of the app labels
+        things (the section eyebrow, the panel titles, the nav footer).
+      */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2.5,
+          mt: 3,
+        }}
+      >
+        <Box sx={{ width: { xs: '100%', sm: 220 } }}>
+          <Typography variant="overline" sx={{ mb: 0.75 }}>
+            Platform
+          </Typography>
+          <TextField
+            select
+            size="small"
+            value={platform}
+            onChange={(e) => setPlatform(e.target.value as Platform | 'ALL')}
+          >
+            <MenuItem value="ALL">All platforms</MenuItem>
+            {['Zomato', 'Swiggy', 'Swiggy Instamart', 'Zepto', 'Blinkit', 'Flipkart Minutes', 'Porter', 'Dunzo', 'Ownly', 'EatSure', 'BigBasket', 'Borzo', 'Other'].map((p) => (
+              <MenuItem key={p} value={p}>{p}</MenuItem>
+            ))}
+          </TextField>
+        </Box>
+        <Box sx={{ width: { xs: '100%', sm: 220 } }}>
+          <Typography variant="overline" sx={{ mb: 0.75 }}>
+            Vehicle status
+          </Typography>
+          <TextField
+            select
+            size="small"
+            value={vehicleState}
+            onChange={(e) => setVehicleState(e.target.value as VehicleState | 'ALL')}
+          >
+            <MenuItem value="ALL">All vehicle statuses</MenuItem>
+            {VEHICLE_STATES.map((s) => (
+              <MenuItem key={s} value={s}>{VEHICLE_STATE_LABEL[s]}</MenuItem>
+            ))}
+          </TextField>
+        </Box>
       </Box>
 
       <Box sx={{ mt: 3.5, '& .muted-cell': { color: neutral[400] } }}>

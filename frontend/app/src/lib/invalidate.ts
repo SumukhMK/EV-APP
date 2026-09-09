@@ -47,3 +47,8 @@ export function invalidatePayments(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ['dashboard'] });
   qc.invalidateQueries({ queryKey: ['rider'] });
 }
+
+/** An account was edited — refetch the accounts list. */
+export function invalidateUsers(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ['users'] });
+}

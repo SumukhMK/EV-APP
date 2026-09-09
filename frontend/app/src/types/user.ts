@@ -22,3 +22,16 @@ export interface User {
   lastActiveAt: Iso8601 | null;
   createdOn: Iso8601;
 }
+
+/**
+ * What the edit form sends (screen 18). Only the four fields an admin actually
+ * changes at the desk — the rest of the record (when they joined, when they
+ * were last seen) is history, not something edited by hand.
+ */
+export interface UpdateUserRequest {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+}

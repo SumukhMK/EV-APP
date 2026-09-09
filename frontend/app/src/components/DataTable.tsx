@@ -69,6 +69,17 @@ export function DataTable<R extends GridValidRowModel>({
               borderBottom: 0,
               '&:focus, &:focus-within': { outline: 'none' },
             },
+
+            // Breathing room at the extreme ends so the first and last columns
+            // do not butt against the table edge — the content then lines up
+            // with where the row rule fades in rather than hugging the border.
+            '& .MuiDataGrid-columnHeader:first-of-type, & .MuiDataGrid-cell:first-of-type': {
+              paddingLeft: '22px',
+            },
+            '& .MuiDataGrid-columnHeader:last-of-type, & .MuiDataGrid-cell:last-of-type': {
+              paddingRight: '22px',
+            },
+
             '& .MuiDataGrid-row': {
               background: fadingRule(alpha(base.text, 0.08)),
               '&:hover': {

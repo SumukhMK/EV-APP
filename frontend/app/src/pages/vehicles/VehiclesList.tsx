@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
@@ -223,33 +224,53 @@ export function VehiclesList() {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
-        <TextField
-          select
-          size="small"
-          label="Make"
-          value={make}
-          onChange={(e) => setMake(e.target.value)}
-          sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="ALL">All Makes</MenuItem>
-          {(filterOpts.data?.makes ?? []).map((m) => (
-            <MenuItem key={m} value={m}>{m}</MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label="Battery type"
-          value={batteryType}
-          onChange={(e) => setBatteryType(e.target.value as BatteryType | 'ALL')}
-          sx={{ minWidth: 170 }}
-        >
-          <MenuItem value="ALL">All Battery Types</MenuItem>
-          {(filterOpts.data?.batteryTypes ?? []).map((bt) => (
-            <MenuItem key={bt} value={bt}>{bt}</MenuItem>
-          ))}
-        </TextField>
+      {/*
+        Secondary refinements sit as a compact pair under the primary row. The
+        field name is a tracked-out caption above each control, not MUI's
+        floating notch label — on the dark ground the notch reads like a
+        validation error, and a caption matches how the rest of the app labels
+        things (the section eyebrow, the panel titles, the nav footer).
+      */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2.5,
+          mt: 3,
+        }}
+      >
+        <Box sx={{ width: { xs: '100%', sm: 220 } }}>
+          <Typography variant="overline" sx={{ mb: 0.75 }}>
+            Make
+          </Typography>
+          <TextField
+            select
+            size="small"
+            value={make}
+            onChange={(e) => setMake(e.target.value)}
+          >
+            <MenuItem value="ALL">All makes</MenuItem>
+            {(filterOpts.data?.makes ?? []).map((m) => (
+              <MenuItem key={m} value={m}>{m}</MenuItem>
+            ))}
+          </TextField>
+        </Box>
+        <Box sx={{ width: { xs: '100%', sm: 220 } }}>
+          <Typography variant="overline" sx={{ mb: 0.75 }}>
+            Battery type
+          </Typography>
+          <TextField
+            select
+            size="small"
+            value={batteryType}
+            onChange={(e) => setBatteryType(e.target.value as BatteryType | 'ALL')}
+          >
+            <MenuItem value="ALL">All battery types</MenuItem>
+            {(filterOpts.data?.batteryTypes ?? []).map((bt) => (
+              <MenuItem key={bt} value={bt}>{bt}</MenuItem>
+            ))}
+          </TextField>
+        </Box>
       </Box>
 
       <Box sx={{ mt: 3.5, '& .muted-cell': { color: neutral[400] } }}>

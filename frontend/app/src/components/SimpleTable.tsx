@@ -67,7 +67,7 @@ export function SimpleTable<R>({
         </Box>
         <Box component="thead">
           <Box component="tr">
-            {columns.map((c) => (
+            {columns.map((c, i) => (
               <Box
                 component="th"
                 key={c.key}
@@ -79,7 +79,10 @@ export function SimpleTable<R>({
                   fontWeight: 400,
                   color: neutral[500],
                   py: 3,
-                  px: 2,
+                  // Extra room at the extreme ends so the outer columns are not
+                  // flush against the table edge.
+                  pl: i === 0 ? 4 : 2,
+                  pr: i === columns.length - 1 ? 4 : 2,
                   borderBottom: `1px solid ${neutral[900]}`,
                   whiteSpace: 'nowrap',
                 }}
@@ -92,14 +95,15 @@ export function SimpleTable<R>({
         <Box component="tbody">
           {rows.map((row, i) => (
             <Box component="tr" key={getRowKey(row, i)} sx={rowSx?.(row)}>
-              {columns.map((c) => (
+              {columns.map((c, j) => (
                 <Box
                   component="td"
                   key={c.key}
                   sx={{
                     textAlign: c.align ?? 'left',
                     py: 3,
-                    px: 2,
+                    pl: j === 0 ? 4 : 2,
+                    pr: j === columns.length - 1 ? 4 : 2,
                     borderBottom: `1px solid ${neutral[900]}`,
                     verticalAlign: 'middle',
                   }}
