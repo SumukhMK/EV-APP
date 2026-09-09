@@ -14,6 +14,8 @@ import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { SelectField } from '../../components/form/SelectField';
 import { InfoStrip } from '../../components/InfoStrip';
+import { StepSection } from '../../components/StepSection';
+import { StateChip } from '../../components/StateChip';
 import { onboardRider } from '../../lib/api/riders';
 import { ApiError } from '../../lib/api/client';
 import { invalidateRiders } from '../../lib/invalidate';
@@ -23,7 +25,9 @@ import {
   type OnboardRiderValues,
 } from '../../lib/schemas/rider';
 import { rupeesWithSymbol } from '../../lib/format';
-import { useRiderVerification } from './_components/useRiderVerification';
+import type { StatusTone } from '../../theme/tokens';
+import type { VerificationState } from '../../components/VerifyField';
+import { useRiderVerification, type VerifiableField } from './_components/useRiderVerification';
 import { RiderIdentityStep } from './_components/RiderIdentityStep';
 import { RiderContactStep } from './_components/RiderContactStep';
 
@@ -121,12 +125,22 @@ export function OnboardRider() {
   // so it cannot disagree with the fields above it.
   const preview = useWatch({ control: form.control });
 
-  const outstandingLabels: Record<string, string> = {
-    aadhaar: 'Aadhaar number',
-    primary: 'Primary mobile',
-    whatsapp: 'WhatsApp number',
-    alt1: 'Alternate number 1',
-    alt2: 'Alternate number 2',
+  const verifiedCount = 5 - verification.outstanding.length;
+
+  const verificationFields: { field: VerifiableField; label: string }[] = [
+    { field: 'aadhaar', label: 'Aadhaar number' },
+    { field: 'primary', label: 'Primary mobile' },
+    { field: 'whatsapp', label: 'WhatsApp number' },
+    { field: 'alt1', label: 'Alternate number 1' },
+    { field: 'alt2', label: 'Alternate number 2' },
+  ];
+
+  const verificationChip: Record<VerificationState, { label: string; tone: StatusTone }> = {
+    UNVERIFIED: { label: 'Pending', tone: 'neutral' },
+    CODE_SENT: { label: 'Code sent', tone: 'caution' },
+    VERIFYING: { label: 'Checking…', tone: 'caution' },
+    VERIFIED: { label: 'Verified', tone: 'good' },
+    FAILED: { label: 'Failed', tone: 'bad' },
   };
 
   return (
@@ -162,32 +176,31 @@ export function OnboardRider() {
             assigned during onboarding.
           </InfoStrip>
 
-          {/* 2×2 grid: left = identity + contact, right = plan + summary */}
+          {/* Form column + sticky review sidebar — same split as the detail pages. */}
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' },
+              gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 372px' },
               gap: 5,
               alignItems: 'start',
             }}
           >
-            {/* Left column — verification steps */}
+            {/* The steps, top to bottom. All stay visible and editable — the
+                number is orientation, not a gate (see StepSection). */}
             <Box sx={{ display: 'grid', gap: 5 }}>
               {/* Step 1: Identity — Aadhaar + name + permanent address */}
               <RiderIdentityStep step={1} verification={verification} />
 
               {/* Step 2: Contact — four verified numbers */}
               <RiderContactStep step={2} verification={verification} />
-            </Box>
 
-            {/* Right column — plan + review */}
-            <Box sx={{ display: 'grid', gap: 5 }}>
-              {/* Step 3: Plan — rent, billing day, deposit (existing) */}
-              <Panel
-                label="Plan"
+              {/* Step 3: Plan — rent, billing day, deposit */}
+              <StepSection
+                step={3}
+                title="Plan"
                 subtitle="Rent is billed weekly on the rider's billing day. Amounts are in rupees."
               >
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
                   <TextField label="Weekly rent (₹)" {...amount('planRupees')} />
                   <SelectField
                     control={form.control}
@@ -206,9 +219,12 @@ export function OnboardRider() {
                     {...field('onboardedOn')}
                   />
                 </Box>
-              </Panel>
+              </StepSection>
+            </Box>
 
-              {/* Summary */}
+            {/* Review sidebar — sticky, so the operator sees the result of
+                every keystroke without scrolling back up. */}
+            <Box sx={{ position: { lg: 'sticky' }, top: { lg: 5 }, display: 'grid', gap: 5 }}>
               <Panel label="Summary">
                 <DefinitionList
                   columns={2}
@@ -258,19 +274,41 @@ export function OnboardRider() {
                 </Typography>
               </Panel>
 
-              {/* Verification gate */}
-              {!verification.allVerified && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+              <Panel label="Verification">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 2,
+                    mb: 3,
+                  }}
+                >
                   <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-                    Still waiting for verification:
+                    {verifiedCount} of 5 fields verified
                   </Typography>
-                  {verification.outstanding.map((f) => (
-                    <Typography key={f} sx={{ fontSize: 13, color: 'warning.main' }}>
-                      {outstandingLabels[f]}
-                    </Typography>
+                  <StateChip
+                    label={verification.allVerified ? 'Ready to onboard' : 'Pending'}
+                    tone={verification.allVerified ? 'good' : 'warn'}
+                  />
+                </Box>
+                <Box sx={{ display: 'grid', gap: 2 }}>
+                  {verificationFields.map(({ field, label }) => (
+                    <Box
+                      key={field}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
+                    >
+                      <Typography sx={{ fontSize: 13 }}>{label}</Typography>
+                      <StateChip {...verificationChip[verification.stateOf(field)]} />
+                    </Box>
                   ))}
                 </Box>
-              )}
+              </Panel>
             </Box>
           </Box>
         </Box>
