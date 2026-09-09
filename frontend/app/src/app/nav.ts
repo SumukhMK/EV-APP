@@ -13,6 +13,7 @@ import SwapIcon from '@mui/icons-material/SwapHorizOutlined';
 import LogoutIcon from '@mui/icons-material/AssignmentReturnedOutlined';
 import ReceiptIcon from '@mui/icons-material/ReceiptLongOutlined';
 import WarningIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import RecoveryIcon from '@mui/icons-material/ReplayCircleFilledOutlined';
 import AdminIcon from '@mui/icons-material/ManageAccountsOutlined';
 import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 
@@ -89,6 +90,7 @@ export const NAV: NavSection[] = [
     items: [
       { label: 'Weekly payment run', path: '/payments/run', icon: ReceiptIcon, owner: 'smk', artboard: 15 },
       { label: 'Overdue riders', path: '/payments/overdue', icon: WarningIcon, owner: 'smk', artboard: 17 },
+      { label: 'Recovery', path: '/recovery', icon: RecoveryIcon, owner: 'smk', artboard: 23 },
     ],
   },
   {

@@ -44,3 +44,19 @@ export interface ServiceQueueCounts {
   };
   inService: { walkIn: number; rsa: number; qrt: number };
 }
+
+/**
+ * The recovery board (screen 23): bikes that need chasing down and the ones
+ * already back. Two of the "need to recover" rows are payment-driven — a rider
+ * behind on rent — and the rest are about where the bike physically is.
+ */
+export interface RecoveryCounts {
+  needToRecover: {
+    partiallyPaid: number;
+    notPaid: number;
+    leftAtRoadside: number;
+    missing: number;
+    accident: number;
+  };
+  recovered: { recovered: number };
+}

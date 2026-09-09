@@ -2,6 +2,7 @@ import type {
   FleetSummary,
   MonthlyDeployments,
   OperationsPeriodSummary,
+  RecoveryCounts,
   ServiceQueueCounts,
 } from '../types';
 import dayjs from 'dayjs';
@@ -118,5 +119,31 @@ export function serviceQueues(): ServiceQueueCounts {
   return {
     underRepair: { minor, major, accident, warranty, insurance, partsWaiting, qcPending },
     inService: { walkIn: 5, rsa: 3, qrt: 2 },
+  };
+}
+
+/**
+ * Recovery counts, derived so the board agrees with the rest: the two
+ * payment-driven rows come out of the overdue riders (worst arrears first),
+ * and the physical-location rows come out of the bikes actually in `RECOVERY`
+ * and `ACCIDENT`. "Missing" has no state of its own yet — it is carved off the
+ * recovery bikes and flagged on the screen rather than invented as a state.
+ */
+export function recoveryCounts(): RecoveryCounts {
+  const inRecovery = vehicles.filter((v) => v.state === 'RECOVERY').length;
+  const accident = vehicles.filter((v) => v.state === 'ACCIDENT').length;
+
+  // The deep arrears are the ones with nothing paid; the rest are part-paid.
+  const notPaid = overdueRiders.filter((o) => o.stage === 'REPOSSESSION_DUE').length;
+  const partiallyPaid = Math.max(0, overdueRiders.length - notPaid);
+
+  // Split the recovery bikes across roadside / missing / already-recovered.
+  const leftAtRoadside = Math.round(inRecovery * 0.4);
+  const missing = Math.round(inRecovery * 0.2);
+  const recovered = Math.max(0, inRecovery - leftAtRoadside - missing);
+
+  return {
+    needToRecover: { partiallyPaid, notPaid, leftAtRoadside, missing, accident },
+    recovered: { recovered },
   };
 }

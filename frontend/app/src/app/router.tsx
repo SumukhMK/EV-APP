@@ -21,6 +21,7 @@ import { Users } from '../pages/users/Users';
 import { AuditLog } from '../pages/admin/AuditLog';
 import { TodayOperations } from '../pages/operations/TodayOperations';
 import { ServiceManagement } from '../pages/service/ServiceManagement';
+import { RecoverySummary } from '../pages/recovery/RecoverySummary';
 
 /**
  * Every artboard in the signed-off wireframe has a route. The ones that are
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
       { path: '/payments/run', element: <PaymentRun /> },
       { path: '/payments/run/:riderId', element: <PaymentReceipt /> },
       { path: '/payments/overdue', element: <OverdueRiders /> },
+      { path: '/recovery', element: <RecoverySummary /> },
 
       // Admin — SMK
       { path: '/users', element: <Users /> },
