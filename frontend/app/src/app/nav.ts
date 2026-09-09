@@ -1,6 +1,7 @@
 import type { SvgIconComponent } from '@mui/icons-material';
 import type { UserRole } from '../types';
 import SpeedIcon from '@mui/icons-material/SpeedOutlined';
+import TodayIcon from '@mui/icons-material/TodayOutlined';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheelerOutlined';
 import BuildIcon from '@mui/icons-material/BuildOutlined';
 import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
@@ -50,6 +51,13 @@ export interface NavSection {
 const ALL_ROLES: UserRole[] = ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF', 'SERVICE_MANAGER'];
 
 export const NAV: NavSection[] = [
+  {
+    heading: 'Operations',
+    roles: ALL_ROLES,
+    items: [
+      { label: "Today's operations", path: '/operations/today', icon: TodayIcon, owner: 'smk', artboard: 21 },
+    ],
+  },
   {
     heading: 'Fleet',
     roles: ALL_ROLES,

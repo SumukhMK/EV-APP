@@ -19,6 +19,7 @@ import { PaymentReceipt } from '../pages/payments/PaymentReceipt';
 import { OverdueRiders } from '../pages/payments/OverdueRiders';
 import { Users } from '../pages/users/Users';
 import { AuditLog } from '../pages/admin/AuditLog';
+import { TodayOperations } from '../pages/operations/TodayOperations';
 
 /**
  * Every artboard in the signed-off wireframe has a route. The ones that are
@@ -36,6 +37,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: '/dashboard', element: <Dashboard /> },
+
+      // Operations — SMK
+      { path: '/operations/today', element: <TodayOperations /> },
 
       // Fleet — SMK
       { path: '/vehicles', element: <VehiclesList /> },
