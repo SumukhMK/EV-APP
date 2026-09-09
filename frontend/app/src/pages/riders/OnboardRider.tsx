@@ -23,7 +23,6 @@ import {
   type OnboardRiderValues,
 } from '../../lib/schemas/rider';
 import { rupeesWithSymbol } from '../../lib/format';
-import { layout } from '../../theme/tokens';
 import { useRiderVerification } from './_components/useRiderVerification';
 import { RiderIdentityStep } from './_components/RiderIdentityStep';
 import { RiderContactStep } from './_components/RiderContactStep';
@@ -157,107 +156,123 @@ export function OnboardRider() {
           </Alert>
         )}
 
-        <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: layout.readingMax }}>
+        <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
           <InfoStrip>
             The rider id is generated on deployment. Only vehicles in Ready to Deploy status can be
             assigned during onboarding.
           </InfoStrip>
 
-          {/* Step 1: Identity — Aadhaar + name + permanent address */}
-          <RiderIdentityStep step={1} verification={verification} />
-
-          {/* Step 2: Contact — four verified numbers */}
-          <RiderContactStep step={2} verification={verification} />
-
-          {/* Step 3: Plan — rent, billing day, deposit (existing) */}
-          <Panel
-            label="Plan"
-            subtitle="Rent is billed weekly on the rider's billing day. Amounts are in rupees."
+          {/* 2×2 grid: left = identity + contact, right = plan + summary */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' },
+              gap: 5,
+              alignItems: 'start',
+            }}
           >
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-              <TextField label="Weekly rent (₹)" {...amount('planRupees')} />
-              <SelectField
-                control={form.control}
-                name="billingDay"
-                label="Billing day"
-                options={[
-                  { value: 'MONDAY', label: 'Monday' },
-                  { value: 'WEDNESDAY', label: 'Wednesday' },
-                ]}
-              />
-              <TextField label="Deposit (₹)" {...amount('depositRupees')} />
-              <TextField
-                label="Onboarded on"
-                type="date"
-                slotProps={{ inputLabel: { shrink: true } }}
-                {...field('onboardedOn')}
-              />
+            {/* Left column — verification steps */}
+            <Box sx={{ display: 'grid', gap: 5 }}>
+              {/* Step 1: Identity — Aadhaar + name + permanent address */}
+              <RiderIdentityStep step={1} verification={verification} />
+
+              {/* Step 2: Contact — four verified numbers */}
+              <RiderContactStep step={2} verification={verification} />
             </Box>
-          </Panel>
 
-          {/* Summary */}
-          <Panel label="Summary">
-            <DefinitionList
-              columns={2}
-              items={[
-                { label: 'Name', value: preview.name || '—' },
-                {
-                  label: 'Aadhaar',
-                  value: (
-                    <Mono sx={{ fontSize: 13 }}>
-                      {verification.stateOf('aadhaar') === 'VERIFIED'
-                        ? 'Verified'
-                        : 'Not verified'}
-                    </Mono>
-                  ),
-                },
-                { label: 'Phone', value: <Mono sx={{ fontSize: 13 }}>{preview.phone || '—'}</Mono> },
-                {
-                  label: 'Weekly rent',
-                  value: (
-                    <Mono sx={{ fontSize: 13 }}>
-                      {preview.planRupees ? rupeesWithSymbol(preview.planRupees * 100) : '—'}
-                    </Mono>
-                  ),
-                },
-                {
-                  label: 'Billing day',
-                  value: preview.billingDay === 'WEDNESDAY' ? 'Wednesday' : 'Monday',
-                },
-                {
-                  label: 'Deposit',
-                  value: (
-                    <Mono sx={{ fontSize: 13 }}>
-                      {rupeesWithSymbol((preview.depositRupees ?? 0) * 100)}
-                    </Mono>
-                  ),
-                },
-                {
-                  label: 'KYC',
-                  value: verification.allVerified ? 'All fields verified' : 'Pending — complete the verification steps above',
-                },
-                { label: 'Bike', value: 'Assigned separately' },
-              ]}
-            />
-            <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-              The rider joins the register with no bike and KYC pending. Assign a bike from their
-              record — a pending KYC is shown there, but it does not block the assignment.
-            </Typography>
-          </Panel>
+            {/* Right column — plan + review */}
+            <Box sx={{ display: 'grid', gap: 5 }}>
+              {/* Step 3: Plan — rent, billing day, deposit (existing) */}
+              <Panel
+                label="Plan"
+                subtitle="Rent is billed weekly on the rider's billing day. Amounts are in rupees."
+              >
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+                  <TextField label="Weekly rent (₹)" {...amount('planRupees')} />
+                  <SelectField
+                    control={form.control}
+                    name="billingDay"
+                    label="Billing day"
+                    options={[
+                      { value: 'MONDAY', label: 'Monday' },
+                      { value: 'WEDNESDAY', label: 'Wednesday' },
+                    ]}
+                  />
+                  <TextField label="Deposit (₹)" {...amount('depositRupees')} />
+                  <TextField
+                    label="Onboarded on"
+                    type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    {...field('onboardedOn')}
+                  />
+                </Box>
+              </Panel>
 
-          {/* Verification gate */}
-          {!verification.allVerified && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-                Still waiting for verification:
-              </Typography>
-              {verification.outstanding.map((f) => (
-                <Typography key={f} sx={{ fontSize: 13, color: 'warning.main' }}>
-                  {outstandingLabels[f]}
+              {/* Summary */}
+              <Panel label="Summary">
+                <DefinitionList
+                  columns={2}
+                  items={[
+                    { label: 'Name', value: preview.name || '—' },
+                    {
+                      label: 'Aadhaar',
+                      value: (
+                        <Mono sx={{ fontSize: 13 }}>
+                          {verification.stateOf('aadhaar') === 'VERIFIED'
+                            ? 'Verified'
+                            : 'Not verified'}
+                        </Mono>
+                      ),
+                    },
+                    { label: 'Phone', value: <Mono sx={{ fontSize: 13 }}>{preview.phone || '—'}</Mono> },
+                    {
+                      label: 'Weekly rent',
+                      value: (
+                        <Mono sx={{ fontSize: 13 }}>
+                          {preview.planRupees ? rupeesWithSymbol(preview.planRupees * 100) : '—'}
+                        </Mono>
+                      ),
+                    },
+                    {
+                      label: 'Billing day',
+                      value: preview.billingDay === 'WEDNESDAY' ? 'Wednesday' : 'Monday',
+                    },
+                    {
+                      label: 'Deposit',
+                      value: (
+                        <Mono sx={{ fontSize: 13 }}>
+                          {rupeesWithSymbol((preview.depositRupees ?? 0) * 100)}
+                        </Mono>
+                      ),
+                    },
+                    {
+                      label: 'KYC',
+                      value: verification.allVerified ? 'All fields verified' : 'Pending — complete the verification steps above',
+                    },
+                    { label: 'Bike', value: 'Assigned separately' },
+                  ]}
+                />
+                <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
+                  The rider joins the register with no bike and KYC pending. Assign a bike from their
+                  record — a pending KYC is shown there, but it does not block the assignment.
                 </Typography>
-              ))}
+              </Panel>
+
+              {/* Verification gate */}
+              {!verification.allVerified && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                  <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                    Still waiting for verification:
+                  </Typography>
+                  {verification.outstanding.map((f) => (
+                    <Typography key={f} sx={{ fontSize: 13, color: 'warning.main' }}>
+                      {outstandingLabels[f]}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
             </Box>
-          )}
+          </Box>
         </Box>
       </Box>
     </FormProvider>
