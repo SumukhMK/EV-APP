@@ -8,6 +8,7 @@ import { useLocation } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
 import { FleetNav } from './FleetNav';
 import { base, layout, neutral } from '../theme/tokens';
+import { riseIn } from '../theme/motion';
 
 /**
  * Two shells, one nav.
@@ -75,7 +76,11 @@ export function AppLayout() {
             pb: 16,
           }}
         >
-          <Outlet />
+          {/* Keyed on the path so the fade-up replays on every navigation —
+              each screen arrives rather than blinks into place. */}
+          <Box key={location.pathname} sx={riseIn()}>
+            <Outlet />
+          </Box>
         </Box>
       </Box>
     </Box>

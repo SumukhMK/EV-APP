@@ -1,6 +1,14 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
+import SpeedIcon from '@mui/icons-material/SpeedOutlined';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheelerOutlined';
+import RocketIcon from '@mui/icons-material/RocketLaunchOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
+import BuildIcon from '@mui/icons-material/BuildOutlined';
+import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
+import PeopleAlertIcon from '@mui/icons-material/PersonOffOutlined';
+import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupeeOutlined';
 import { PageHeader } from '../components/PageHeader';
 import { Panel } from '../components/Panel';
 import { StatTiles } from '../components/StatTiles';
@@ -38,6 +46,7 @@ export function Dashboard() {
       <PageHeader
         section="Operations"
         title="Dashboard"
+        icon={SpeedIcon}
         meta={
           <Mono sx={{ fontSize: 12, color: neutral[500] }}>{now.format(new Date())}</Mono>
         }
@@ -53,40 +62,46 @@ export function Dashboard() {
         */}
         <StatTiles
           tiles={[
-            { label: 'Total fleet', value: s ? formatNumber(s.totalFleet) : '—', to: '/vehicles' },
+            { label: 'Total fleet', value: s ? formatNumber(s.totalFleet) : '—', icon: TwoWheelerIcon, to: '/vehicles' },
             {
               label: 'Deployed',
               value: s ? formatNumber(s.deployed) : '—',
+              icon: RocketIcon,
               to: '/vehicles?state=DEPLOYED',
             },
             {
               label: 'Ready',
               value: s ? formatNumber(s.readyToDeploy) : '—',
               tone: 'good',
+              icon: CheckCircleIcon,
               to: '/vehicles?state=READY_TO_DEPLOY',
             },
             {
               label: 'Under repair',
               value: s ? formatNumber(s.underRepair) : '—',
               tone: 'warn',
+              icon: BuildIcon,
               to: '/vehicles?state=UNDER_REPAIR',
             },
             {
               label: 'QC pending',
               value: s ? formatNumber(s.qcPending) : '—',
               tone: 'caution',
+              icon: FactCheckIcon,
               to: '/vehicles?state=QC_PENDING',
             },
             {
               label: 'Overdue riders',
               value: s ? formatNumber(s.overdueRiders) : '—',
               tone: 'bad',
+              icon: PeopleAlertIcon,
               to: '/payments/overdue',
             },
             {
               label: 'Overdue value',
               value: s ? rupees(s.overdueValue) : '—',
               tone: 'bad',
+              icon: CurrencyRupeeIcon,
               to: '/payments/overdue',
             },
           ]}

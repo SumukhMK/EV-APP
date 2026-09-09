@@ -1,6 +1,18 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import TodayIcon from '@mui/icons-material/TodayOutlined';
+import RocketIcon from '@mui/icons-material/RocketLaunchOutlined';
+import SwapIcon from '@mui/icons-material/SwapHorizOutlined';
+import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturnedOutlined';
+import ReplayIcon from '@mui/icons-material/ReplayCircleFilledOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
+import BuildIcon from '@mui/icons-material/BuildOutlined';
+import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
+import CarCrashIcon from '@mui/icons-material/CarCrashOutlined';
+import SupportAgentIcon from '@mui/icons-material/SupportAgentOutlined';
+import StorefrontIcon from '@mui/icons-material/StorefrontOutlined';
+import BoltIcon from '@mui/icons-material/BoltOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StatTiles } from '../../components/StatTiles';
@@ -45,6 +57,7 @@ export function TodayOperations() {
       <PageHeader
         section="Operations"
         title="Today's operations"
+        icon={TodayIcon}
         meta={<Mono sx={{ fontSize: 12, color: neutral[500] }}>{resolved.label}</Mono>}
       />
 
@@ -55,13 +68,14 @@ export function TodayOperations() {
       <Panel label="Vehicle movement" sx={{ mt: 5 }}>
         <StatTiles
           tiles={[
-            { label: 'Deployed', value: n(s?.movement.deployed), to: '/vehicles?state=DEPLOYED' },
-            { label: 'Exchanged', value: n(s?.movement.exchanged) },
-            { label: 'Returned', value: n(s?.movement.returned), to: '/vehicles?state=RETURNED' },
+            { label: 'Deployed', value: n(s?.movement.deployed), icon: RocketIcon, to: '/vehicles?state=DEPLOYED' },
+            { label: 'Exchanged', value: n(s?.movement.exchanged), icon: SwapIcon },
+            { label: 'Returned', value: n(s?.movement.returned), icon: AssignmentReturnIcon, to: '/vehicles?state=RETURNED' },
             {
               label: 'Recovered',
               value: n(s?.movement.recovered),
               tone: 'warn',
+              icon: ReplayIcon,
               to: '/vehicles?state=RECOVERY',
             },
           ]}
@@ -75,24 +89,28 @@ export function TodayOperations() {
               label: 'Ready to deploy',
               value: n(s?.outcome.readyToDeploy),
               tone: 'good',
+              icon: CheckCircleIcon,
               to: '/vehicles?state=READY_TO_DEPLOY',
             },
             {
               label: 'Under repair',
               value: n(s?.outcome.underRepair),
               tone: 'warn',
+              icon: BuildIcon,
               to: '/vehicles?state=UNDER_REPAIR',
             },
             {
               label: 'QC pending',
               value: n(s?.outcome.qcPending),
               tone: 'caution',
+              icon: FactCheckIcon,
               to: '/vehicles?state=QC_PENDING',
             },
             {
               label: 'Accident',
               value: n(s?.outcome.accident),
               tone: 'bad',
+              icon: CarCrashIcon,
               to: '/vehicles?state=ACCIDENT',
             },
           ]}
@@ -102,9 +120,9 @@ export function TodayOperations() {
       <Panel label="Service source" sx={{ mt: 5 }}>
         <StatTiles
           tiles={[
-            { label: 'Roadside assistance', value: n(s?.source.rsa) },
-            { label: 'Walk-in', value: n(s?.source.walkIn) },
-            { label: 'Quick response team', value: n(s?.source.qrt) },
+            { label: 'Roadside assistance', value: n(s?.source.rsa), icon: SupportAgentIcon },
+            { label: 'Walk-in', value: n(s?.source.walkIn), icon: StorefrontIcon },
+            { label: 'Quick response team', value: n(s?.source.qrt), icon: BoltIcon },
           ]}
         />
       </Panel>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -76,6 +77,7 @@ export function QcQueue() {
       <PageHeader
         section="Workshop"
         title="QC queue"
+        icon={FactCheckIcon}
         meta={
           <Mono sx={{ fontSize: 12, color: neutral[500] }}>
             {items.length} awaiting QC{items.length > 0 ? ` · oldest ${oldest} days` : ''}

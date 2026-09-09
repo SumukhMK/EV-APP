@@ -5,6 +5,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import ArrowIcon from '@mui/icons-material/ArrowRightAltOutlined';
+import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { EmptyState } from '../../components/EmptyState';
@@ -59,6 +60,7 @@ export function AuditLog() {
       <PageHeader
         section="Admin"
         title="Audit log"
+        icon={HistoryIcon}
         meta={
           <Mono sx={{ fontSize: 12, color: neutral[500] }}>
             {total > 0 ? `${total} events` : ''}

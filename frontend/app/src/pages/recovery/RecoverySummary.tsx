@@ -1,5 +1,12 @@
 import Box from '@mui/material/Box';
 import { useQuery } from '@tanstack/react-query';
+import ReplayIcon from '@mui/icons-material/ReplayCircleFilledOutlined';
+import PaidIcon from '@mui/icons-material/PaidOutlined';
+import MoneyOffIcon from '@mui/icons-material/MoneyOffOutlined';
+import PinDropIcon from '@mui/icons-material/PinDropOutlined';
+import HelpIcon from '@mui/icons-material/HelpOutlineOutlined';
+import CarCrashIcon from '@mui/icons-material/CarCrashOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { QueueBox } from '../../components/QueueBox';
 import { InfoStrip } from '../../components/InfoStrip';
@@ -20,20 +27,20 @@ export function RecoverySummary() {
   const c = counts.data;
 
   const needRows = [
-    { label: 'Partially paid', count: c?.needToRecover.partiallyPaid ?? 0, tone: 'caution' as const, to: '/payments/overdue' },
-    { label: 'Not paid', count: c?.needToRecover.notPaid ?? 0, tone: 'bad' as const, to: '/payments/overdue' },
-    { label: 'Left at roadside', count: c?.needToRecover.leftAtRoadside ?? 0, tone: 'warn' as const, to: '/vehicles?state=RECOVERY' },
-    { label: 'Vehicle missing', count: c?.needToRecover.missing ?? 0, tone: 'bad' as const, to: '/vehicles?state=RECOVERY' },
-    { label: 'Accident', count: c?.needToRecover.accident ?? 0, tone: 'bad' as const, to: '/vehicles?state=ACCIDENT' },
+    { label: 'Partially paid', count: c?.needToRecover.partiallyPaid ?? 0, tone: 'caution' as const, icon: PaidIcon, to: '/payments/overdue' },
+    { label: 'Not paid', count: c?.needToRecover.notPaid ?? 0, tone: 'bad' as const, icon: MoneyOffIcon, to: '/payments/overdue' },
+    { label: 'Left at roadside', count: c?.needToRecover.leftAtRoadside ?? 0, tone: 'warn' as const, icon: PinDropIcon, to: '/vehicles?state=RECOVERY' },
+    { label: 'Vehicle missing', count: c?.needToRecover.missing ?? 0, tone: 'bad' as const, icon: HelpIcon, to: '/vehicles?state=RECOVERY' },
+    { label: 'Accident', count: c?.needToRecover.accident ?? 0, tone: 'bad' as const, icon: CarCrashIcon, to: '/vehicles?state=ACCIDENT' },
   ];
 
   const recoveredRows = [
-    { label: 'Recovered', count: c?.recovered.recovered ?? 0, tone: 'good' as const, to: '/vehicles?state=RECOVERY' },
+    { label: 'Recovered', count: c?.recovered.recovered ?? 0, tone: 'good' as const, icon: CheckCircleIcon, to: '/vehicles?state=RECOVERY' },
   ];
 
   return (
     <>
-      <PageHeader section="Money" title="Recovery" />
+      <PageHeader section="Money" title="Recovery" icon={ReplayIcon} />
 
       <Box
         sx={{

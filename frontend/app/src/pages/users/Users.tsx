@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccountsOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
@@ -62,6 +63,7 @@ export function Users() {
       <PageHeader
         section="Admin"
         title="Users & roles"
+        icon={ManageAccountsIcon}
         meta={
           <Mono sx={{ fontSize: 12, color: neutral[500] }}>
             {total > 0 ? `${total} accounts` : ''}

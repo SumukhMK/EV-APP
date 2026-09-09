@@ -7,6 +7,12 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLongOutlined';
+import GroupsIcon from '@mui/icons-material/GroupsOutlined';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuoteOutlined';
+import PriceCheckIcon from '@mui/icons-material/PriceCheckOutlined';
+import PendingIcon from '@mui/icons-material/PendingActionsOutlined';
+import DoneAllIcon from '@mui/icons-material/DoneAllOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StatTiles } from '../../components/StatTiles';
@@ -68,6 +74,7 @@ export function PaymentRun() {
       <PageHeader
         section="Money"
         title="Weekly payment run"
+        icon={ReceiptLongIcon}
         meta={
           run.data ? (
             <Mono sx={{ fontSize: 12, color: neutral[500] }}>
@@ -80,15 +87,16 @@ export function PaymentRun() {
       <Box sx={{ mt: 4.5 }}>
         <StatTiles
           tiles={[
-            { label: 'Riders billed', value: run.data ? String(rows.length) : '—' },
-            { label: 'Total billed', value: run.data ? rupees(billed) : '—' },
-            { label: 'Collected', value: run.data ? rupees(collected) : '—', tone: 'good' },
+            { label: 'Riders billed', value: run.data ? String(rows.length) : '—', icon: GroupsIcon },
+            { label: 'Total billed', value: run.data ? rupees(billed) : '—', icon: RequestQuoteIcon },
+            { label: 'Collected', value: run.data ? rupees(collected) : '—', tone: 'good', icon: PriceCheckIcon },
             {
               label: 'Outstanding',
               value: run.data ? rupees(outstanding) : '—',
               tone: outstanding > 0 ? 'bad' : 'good',
+              icon: PendingIcon,
             },
-            { label: 'Fully paid', value: run.data ? `${settled}/${rows.length}` : '—' },
+            { label: 'Fully paid', value: run.data ? `${settled}/${rows.length}` : '—', icon: DoneAllIcon },
           ]}
         />
       </Box>

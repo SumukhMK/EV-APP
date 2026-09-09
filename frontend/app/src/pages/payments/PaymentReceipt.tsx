@@ -6,6 +6,7 @@ import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
+import ReceiptIcon from '@mui/icons-material/ReceiptLongOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
@@ -74,6 +75,7 @@ export function PaymentReceipt() {
     <>
       <PageHeader
         section="Money"
+        icon={ReceiptIcon}
         title={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
             <Box component="span">Receipt</Box>

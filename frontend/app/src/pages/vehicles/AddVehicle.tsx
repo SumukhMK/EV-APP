@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import AddIcon from '@mui/icons-material/AddCircleOutlineOutlined';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -76,6 +77,7 @@ export function AddVehicle() {
       <PageHeader
         section="Fleet / Vehicles"
         title="Add vehicle"
+        icon={AddIcon}
         actions={
           <>
             <Button color="inherit" onClick={() => navigate('/vehicles')}>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import BuildIcon from '@mui/icons-material/BuildOutlined';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -92,6 +93,7 @@ export function Inspection() {
       <PageHeader
         section="Workshop"
         title="Inspection and state change"
+        icon={BuildIcon}
         actions={
           <>
             <Button color="inherit" onClick={() => navigate('/vehicles')}>

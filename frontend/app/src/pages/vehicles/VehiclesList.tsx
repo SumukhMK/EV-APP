@@ -9,6 +9,7 @@ import { useTheme } from '@mui/material/styles';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { GridColDef } from '@mui/x-data-grid';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheelerOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { FacetChips } from '../../components/FacetChips';
 import { SearchField } from '../../components/SearchField';
@@ -185,6 +186,7 @@ export function VehiclesList() {
       <PageHeader
         section="Fleet"
         title="Vehicles"
+        icon={TwoWheelerIcon}
         actions={
           <>
             <Button color="inherit" component={Link} to="/vehicles/bulk-upload">

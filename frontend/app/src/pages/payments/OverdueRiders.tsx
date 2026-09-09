@@ -6,6 +6,10 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import CheckIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
+import ErrorIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import PersonOffIcon from '@mui/icons-material/PersonOffOutlined';
+import MoneyOffIcon from '@mui/icons-material/MoneyOffOutlined';
+import GavelIcon from '@mui/icons-material/GavelOutlined';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
@@ -60,6 +64,7 @@ export function OverdueRiders() {
       <PageHeader
         section="Money"
         title="Overdue riders"
+        icon={ErrorIcon}
         actions={
           rows.length > 0 ? (
             <Button
@@ -85,12 +90,13 @@ export function OverdueRiders() {
       <Box sx={{ mt: 4.5 }}>
         <StatTiles
           tiles={[
-            { label: 'Overdue riders', value: overdue.data ? String(rows.length) : '—', tone: 'bad' },
-            { label: 'Amount outstanding', value: overdue.data ? rupees(totalDue) : '—', tone: 'bad' },
+            { label: 'Overdue riders', value: overdue.data ? String(rows.length) : '—', tone: 'bad', icon: PersonOffIcon },
+            { label: 'Amount outstanding', value: overdue.data ? rupees(totalDue) : '—', tone: 'bad', icon: MoneyOffIcon },
             {
               label: 'Repossession due',
               value: overdue.data ? String(repossession) : '—',
               tone: repossession > 0 ? 'bad' : 'good',
+              icon: GavelIcon,
             },
           ]}
         />

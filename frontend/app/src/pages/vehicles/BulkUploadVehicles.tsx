@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import UploadIcon from '@mui/icons-material/UploadFileOutlined';
 import { invalidateVehicles } from '../../lib/invalidate';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
@@ -77,6 +78,7 @@ export function BulkUploadVehicles() {
       <PageHeader
         section="Fleet / Vehicles"
         title="Bulk upload vehicles"
+        icon={UploadIcon}
         actions={
           <Button color="inherit" onClick={() => navigate('/vehicles')}>
             Cancel
