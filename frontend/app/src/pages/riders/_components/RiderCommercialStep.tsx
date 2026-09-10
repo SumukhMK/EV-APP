@@ -4,6 +4,7 @@ import TextField from '@mui/material/TextField';
 import { Controller, useFormContext } from 'react-hook-form';
 import { StepSection } from '../../../components/StepSection';
 import { DerivedField } from '../../../components/DerivedField';
+import { DateField } from '../../../components/form/DateField';
 import { SelectField } from '../../../components/form/SelectField';
 import { InfoStrip } from '../../../components/InfoStrip';
 import {
@@ -28,7 +29,7 @@ import type { PaymentDay } from '../../../types';
  * a box that looks like an input invites someone to correct the arithmetic.
  */
 export function RiderCommercialStep({ step }: { step: number }) {
-  const { control, register, formState, watch } = useFormContext();
+  const { control, register, formState, watch, setValue } = useFormContext();
 
   const fieldError = (name: string) => {
     const err = formState.errors[name] as { message?: string } | undefined;
@@ -140,11 +141,12 @@ export function RiderCommercialStep({ step }: { step: number }) {
             value={rupeesWithSymbol(Math.max(0, (depositRupees - depositPaidRupees) * 100))}
             derivation={`Plan ${rupeesWithSymbol(depositRupees * 100)} − paid ${rupeesWithSymbol(depositPaidRupees * 100)}`}
           />
-          <TextField
+          <DateField
             label="Onboarded on"
-            type="date"
-            slotProps={{ inputLabel: { shrink: true } }}
-            {...register('onboardedOn')}
+            value={(watch('onboardedOn') as string) ?? ''}
+            onChange={(next) =>
+              setValue('onboardedOn', next, { shouldValidate: formState.isSubmitted })
+            }
             error={fieldError('onboardedOn').error}
             helperText={fieldError('onboardedOn').helperText}
           />

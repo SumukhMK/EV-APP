@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import { useFormContext } from 'react-hook-form';
 import { StepSection } from '../../../components/StepSection';
+import { digitsOnly, licenceMask, panMask } from '../../../lib/inputFormat';
 
 /**
  * Step 3 — Address: where the rider lives, and where a bike can be recovered
@@ -63,7 +64,9 @@ export function RiderAddressStep({ step }: { step: number }) {
             inputMode="numeric"
             slotProps={{ htmlInput: { maxLength: 6 } }}
             {...register('pinCode', {
-              pattern: { value: /^\d{6}$/, message: 'PIN must be exactly 6 digits' },
+              onChange: (e) => {
+                e.target.value = digitsOnly(e.target.value, 6);
+              },
             })}
             error={fieldError('pinCode').error}
             helperText={fieldError('pinCode').helperText}
@@ -81,20 +84,28 @@ export function RiderAddressStep({ step }: { step: number }) {
           <TextField
             label="PAN number (optional)"
             placeholder="ABCDE1234F"
+            // Each position only takes the kind of character that belongs
+            // there — five letters, four digits, one letter.
             {...register('panNumber', {
-              // Empty is fine; a filled PAN must look like one.
-              validate: (v) =>
-                !v || /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v) || 'Enter PAN as ABCDE1234F',
+              onChange: (e) => {
+                e.target.value = panMask(e.target.value);
+              },
             })}
             error={fieldError('panNumber').error}
-            helperText={fieldError('panNumber').helperText}
+            helperText={fieldError('panNumber').helperText ?? 'Five letters, four digits, one letter'}
           />
           <TextField
             label="Driving licence (optional)"
-            placeholder="Licence number"
-            {...register('drivingLicence')}
+            placeholder="KA0120239876543"
+            {...register('drivingLicence', {
+              onChange: (e) => {
+                e.target.value = licenceMask(e.target.value);
+              },
+            })}
             error={fieldError('drivingLicence').error}
-            helperText={fieldError('drivingLicence').helperText}
+            helperText={
+              fieldError('drivingLicence').helperText ?? 'State code, RTO, year, then the serial'
+            }
           />
         </Box>
       </Box>

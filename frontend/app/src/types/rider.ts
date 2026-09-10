@@ -34,13 +34,12 @@ export type Platform =
   | 'Borzo'
   | 'Other';
 
-/** Which of the five identity fields have completed their OTP round-trip. */
+/** Which of the four identity fields have completed their OTP round-trip. */
 export interface RiderVerification {
   aadhaarVerified: boolean;
   primaryVerified: boolean;
   whatsappVerified: boolean;
   alternate1Verified: boolean;
-  alternate2Verified: boolean;
 }
 
 export interface Rider {
@@ -83,12 +82,11 @@ export interface OnboardRiderRequest {
   name: string;
   permanentAddress: string;
 
-  // Contact — step 2. Four numbers because one rider is reachable on none of
-  // them by the time a bike needs recovering.
+  // Contact — step 2. One spare number beside the rider's own: the counter
+  // asks for a single alternate, and a second slot only ever came back empty.
   phone: string;
   whatsappNumber: string;
   alternateNumber1: string;
-  alternateNumber2: string;
 
   // Local address — step 3.
   localAddress: string;

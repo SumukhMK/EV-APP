@@ -2,21 +2,20 @@ import { useCallback, useMemo, useState } from 'react';
 import type { RiderVerification } from '../../../types';
 import type { VerificationState } from '../../../components/VerifyField';
 
-export type VerifiableField = 'aadhaar' | 'primary' | 'whatsapp' | 'alt1' | 'alt2';
+export type VerifiableField = 'aadhaar' | 'primary' | 'whatsapp' | 'alt1';
 
-const ALL_FIELDS: VerifiableField[] = ['aadhaar', 'primary', 'whatsapp', 'alt1', 'alt2'];
+const ALL_FIELDS: VerifiableField[] = ['aadhaar', 'primary', 'whatsapp', 'alt1'];
 
-/** Maps the five verification slots to their corresponding form field names. */
+/** Maps the four verification slots to their corresponding form field names. */
 export const FIELD_FORM_MAP: Record<VerifiableField, string> = {
   aadhaar: 'aadhaarNumber',
   primary: 'phone',
   whatsapp: 'whatsappNumber',
   alt1: 'alternateNumber1',
-  alt2: 'alternateNumber2',
 };
 
 /**
- * State machine for the five identity fields that must be proved before a
+ * State machine for the four identity fields that must be proved before a
  * rider can be onboarded. Each field goes through:
  *
  *   UNVERIFIED → CODE_SENT → VERIFYING → VERIFIED
@@ -35,7 +34,6 @@ export function useRiderVerification() {
     primary: 'UNVERIFIED',
     whatsapp: 'UNVERIFIED',
     alt1: 'UNVERIFIED',
-    alt2: 'UNVERIFIED',
   });
 
   const [codes, setCodes] = useState<Record<VerifiableField, string>>({
@@ -43,7 +41,6 @@ export function useRiderVerification() {
     primary: '',
     whatsapp: '',
     alt1: '',
-    alt2: '',
   });
 
   /** If a field was verified, editing resets it so the proof cannot go stale. */
@@ -93,28 +90,50 @@ export function useRiderVerification() {
     setCodes((prev) => ({ ...prev, [field]: code }));
   }, []);
 
+  /**
+   * Mirror one field's proof onto another — used when WhatsApp is ticked as
+   * "same as primary". It is the same number, so it carries the same state
+   * rather than asking the counter to send a second code to it, and it keeps
+   * tracking the primary if that is verified later. Unticking drops it back to
+   * unverified, because the field is then empty again.
+   */
+  const [mirrorsPrimary, setMirrorsPrimary] = useState(false);
+
+  const setSameAsPrimary = useCallback((field: VerifiableField, same: boolean) => {
+    if (field !== 'whatsapp') return;
+    setMirrorsPrimary(same);
+    if (!same) setStates((prev) => ({ ...prev, whatsapp: 'UNVERIFIED' }));
+  }, []);
+
+  /** The effective state of a field, after mirroring. */
+  const stateOf = useCallback(
+    (f: VerifiableField): VerificationState =>
+      f === 'whatsapp' && mirrorsPrimary ? states.primary : states[f],
+    [mirrorsPrimary, states],
+  );
+
   const allVerified = useMemo(
-    () => ALL_FIELDS.every((f) => states[f] === 'VERIFIED'),
-    [states],
+    () => ALL_FIELDS.every((f) => stateOf(f) === 'VERIFIED'),
+    [stateOf],
   );
 
   const asRequest = useCallback((): RiderVerification => ({
-    aadhaarVerified: states.aadhaar === 'VERIFIED',
-    primaryVerified: states.primary === 'VERIFIED',
-    whatsappVerified: states.whatsapp === 'VERIFIED',
-    alternate1Verified: states.alt1 === 'VERIFIED',
-    alternate2Verified: states.alt2 === 'VERIFIED',
-  }), [states]);
+    aadhaarVerified: stateOf('aadhaar') === 'VERIFIED',
+    primaryVerified: stateOf('primary') === 'VERIFIED',
+    whatsappVerified: stateOf('whatsapp') === 'VERIFIED',
+    alternate1Verified: stateOf('alt1') === 'VERIFIED',
+  }), [stateOf]);
 
   const outstanding = useMemo(
-    () => ALL_FIELDS.filter((f) => states[f] !== 'VERIFIED'),
-    [states],
+    () => ALL_FIELDS.filter((f) => stateOf(f) !== 'VERIFIED'),
+    [stateOf],
   );
 
   return {
-    stateOf: (f: VerifiableField) => states[f],
+    stateOf,
     codeOf: (f: VerifiableField) => codes[f],
     setCode,
+    setSameAsPrimary,
     onValueChange,
     send,
     verify,

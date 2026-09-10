@@ -32,8 +32,7 @@ export const onboardRiderSchema = z.object({
     .min(5, 'Permanent address is required')
     .max(200, 'Address is too long'),
 
-  // Contact — step 2. Four numbers because one rider is reachable on none of
-  // them by the time a bike needs recovering.
+  // Contact — step 2. One spare number beside the rider's own.
   phone: z
     .string()
     .trim()
@@ -43,10 +42,6 @@ export const onboardRiderSchema = z.object({
     .trim()
     .regex(/^[6-9]\d{9}$/, 'Enter a 10 digit Indian mobile number'),
   alternateNumber1: z
-    .string()
-    .trim()
-    .regex(/^[6-9]\d{9}$/, 'Enter a 10 digit Indian mobile number'),
-  alternateNumber2: z
     .string()
     .trim()
     .regex(/^[6-9]\d{9}$/, 'Enter a 10 digit Indian mobile number'),
@@ -63,13 +58,27 @@ export const onboardRiderSchema = z.object({
   /** "12.892425,77.649213" as captured on the phone. Optional. */
   locationCoordinates: z.string().trim().optional(),
 
-  // Documents — step 3, both optional. Empty is fine; a filled PAN must look
-  // like one.
+  // Documents — step 3, both optional. Empty is fine; a filled one has to be
+  // the real shape, because a half-typed PAN or licence is worse than none —
+  // it looks captured and is not.
   panNumber: z
     .string()
     .trim()
-    .regex(/^([A-Z]{5}[0-9]{4}[A-Z])?$/, 'Enter PAN as ABCDE1234F'),
-  drivingLicence: z.string().trim().optional(),
+    .toUpperCase()
+    .regex(/^([A-Z]{5}[0-9]{4}[A-Z])?$/, 'PAN must look like ABCDE1234F'),
+  /**
+   * Indian driving licence: two-letter state, two-digit RTO, four-digit year,
+   * then a seven-digit serial — "KA0120239876543". A space or hyphen after the
+   * RTO code is accepted because that is how it is printed on the card.
+   */
+  drivingLicence: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(
+      /^([A-Z]{2}[0-9]{2}[ -]?(19|20)[0-9]{2}[0-9]{7})?$/,
+      'Licence must look like KA0120239876543',
+    ),
 
   // Commercial — step 4.
   workingPlatform: z.string().trim().min(1, 'Working platform is required'),
@@ -122,7 +131,6 @@ export const ONBOARD_RIDER_DEFAULTS: OnboardRiderValues = {
   phone: '',
   whatsappNumber: '',
   alternateNumber1: '',
-  alternateNumber2: '',
   localAddress: '',
   city: '',
   state: '',

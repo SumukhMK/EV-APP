@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
 import {
   useFormContext,
   type Control,
@@ -8,6 +7,7 @@ import {
   type Path,
 } from 'react-hook-form';
 import { SelectField, type SelectOption } from '../../../components/form/SelectField';
+import { DateField } from '../../../components/form/DateField';
 import {
   CONDITION_DEFAULT_STATE,
   VEHICLE_STATE_LABEL,
@@ -51,7 +51,7 @@ export function DispositionFields<T extends FieldValues>({
   /** Drives the default next state; the operator can still override. */
   condition?: ReturnCondition;
 }) {
-  const { register, formState, setValue } = useFormContext();
+  const { formState, setValue, watch } = useFormContext();
 
   const dateError = formState.errors[dateName as string] as { message?: string } | undefined;
 
@@ -78,11 +78,10 @@ export function DispositionFields<T extends FieldValues>({
     <Box sx={{ display: 'grid', gap: 5 }}>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
         <SelectField control={control} name={reasonName} label={reasonLabel} options={reasonOptions} />
-        <TextField
+        <DateField
           label={dateLabel}
-          type="date"
-          slotProps={{ inputLabel: { shrink: true } }}
-          {...register(dateName as string)}
+          value={(watch(dateName) as string) ?? ''}
+          onChange={(next) => setValue(dateName, next as never, { shouldValidate: true })}
           error={Boolean(dateError)}
           helperText={dateError?.message}
         />

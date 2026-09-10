@@ -38,6 +38,8 @@ export interface VerifyFieldProps {
   maxLength?: number;
   error?: string;
   note?: string;
+  /** The value is mirrored from another field, so it cannot be edited here. */
+  readOnly?: boolean;
 }
 
 /**
@@ -64,6 +66,7 @@ export function VerifyField({
   maxLength,
   error,
   note,
+  readOnly = false,
 }: VerifyFieldProps) {
   const verified = state === 'VERIFIED';
   const busy = state === 'VERIFYING';
@@ -86,7 +89,7 @@ export function VerifyField({
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
         placeholder={placeholder}
-        disabled={verified}
+        disabled={verified || readOnly}
         error={Boolean(error)}
         helperText={error}
         slotProps={{ htmlInput: { inputMode: 'numeric', maxLength } }}
@@ -97,13 +100,13 @@ export function VerifyField({
           value={code}
           onChange={(e) => onCodeChange(e.target.value)}
           placeholder={`Enter ${codeLabel}`}
-          disabled={verified || state === 'UNVERIFIED'}
+          disabled={verified || readOnly || state === 'UNVERIFIED'}
           sx={{ flex: 1 }}
         />
-        <Button variant="outlined" onClick={onSend} disabled={verified || busy || !value}>
+        <Button variant="outlined" onClick={onSend} disabled={verified || readOnly || busy || !value}>
           {state === 'UNVERIFIED' ? `Send ${codeLabel}` : `Resend ${codeLabel}`}
         </Button>
-        <Button variant="outlined" onClick={onVerify} disabled={verified || busy || !code}>
+        <Button variant="outlined" onClick={onVerify} disabled={verified || readOnly || busy || !code}>
           Verify
         </Button>
       </Box>

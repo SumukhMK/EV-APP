@@ -62,7 +62,6 @@ export function OnboardRider() {
         phone: values.phone,
         whatsappNumber: values.whatsappNumber,
         alternateNumber1: values.alternateNumber1,
-        alternateNumber2: values.alternateNumber2,
         // Address — step 3.
         localAddress: values.localAddress,
         city: values.city,
@@ -105,14 +104,13 @@ export function OnboardRider() {
   // so it cannot disagree with the fields above it.
   const preview = useWatch({ control: form.control });
 
-  const verifiedCount = 5 - verification.outstanding.length;
+  const verifiedCount = 4 - verification.outstanding.length;
 
   const verificationFields: { field: VerifiableField; label: string }[] = [
     { field: 'aadhaar', label: 'Aadhaar number' },
     { field: 'primary', label: 'Primary mobile' },
     { field: 'whatsapp', label: 'WhatsApp number' },
-    { field: 'alt1', label: 'Alternate number 1' },
-    { field: 'alt2', label: 'Alternate number 2' },
+    { field: 'alt1', label: 'Alternate number' },
   ];
 
   const verificationChip: Record<VerificationState, { label: string; tone: StatusTone }> = {
@@ -248,7 +246,7 @@ export function OnboardRider() {
                   }}
                 >
                   <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-                    {verifiedCount} of 5 fields verified
+                    {verifiedCount} of 4 fields verified
                   </Typography>
                   <StateChip
                     label={verification.allVerified ? 'Ready to onboard' : 'Pending'}

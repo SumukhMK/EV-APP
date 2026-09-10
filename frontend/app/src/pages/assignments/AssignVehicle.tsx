@@ -16,6 +16,7 @@ import { DefinitionList } from '../../components/DefinitionList';
 import { StateChip } from '../../components/StateChip';
 import { EmptyState } from '../../components/EmptyState';
 import { SelectField } from '../../components/form/SelectField';
+import { DateField } from '../../components/form/DateField';
 import { VehiclePicker } from './VehiclePicker';
 import { assignVehicle } from '../../lib/api/assignments';
 import { listAssignableRiders } from '../../lib/api/riders';
@@ -153,13 +154,18 @@ export function AssignVehicle() {
                 label: `${r.name} · ${r.id} · ${KYC_STATUS_LABEL[r.kycStatus]}`,
               }))}
             />
-            <TextField
-              label="Assigned on"
-              type="date"
-              slotProps={{ inputLabel: { shrink: true } }}
-              {...form.register('startedOn')}
-              error={Boolean(form.formState.errors.startedOn)}
-              helperText={form.formState.errors.startedOn?.message}
+            <Controller
+              control={form.control}
+              name="startedOn"
+              render={({ field: f, fieldState }) => (
+                <DateField
+                  label="Assigned on"
+                  value={f.value ?? ''}
+                  onChange={f.onChange}
+                  error={Boolean(fieldState.error)}
+                  helperText={fieldState.error?.message}
+                />
+              )}
             />
           </Box>
         </Panel>

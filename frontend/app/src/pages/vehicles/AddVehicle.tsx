@@ -4,7 +4,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ import { invalidateVehicles } from '../../lib/invalidate';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { SelectField } from '../../components/form/SelectField';
+import { DateField } from '../../components/form/DateField';
 import { createVehicle } from '../../lib/api/vehicles';
 import { ApiError } from '../../lib/api/client';
 import { ADD_VEHICLE_DEFAULTS, addVehicleSchema, type AddVehicleValues } from '../../lib/schemas/vehicle';
@@ -110,11 +111,18 @@ export function AddVehicle() {
               label="Hub"
               options={HUBS.map((h) => ({ value: h, label: h }))}
             />
-            <TextField
-              label="Purchase date"
-              type="date"
-              slotProps={{ inputLabel: { shrink: true } }}
-              {...field('purchaseDate')}
+            <Controller
+              control={form.control}
+              name="purchaseDate"
+              render={({ field: f, fieldState }) => (
+                <DateField
+                  label="Purchase date"
+                  value={f.value ?? ''}
+                  onChange={f.onChange}
+                  error={Boolean(fieldState.error)}
+                  helperText={fieldState.error?.message}
+                />
+              )}
             />
           </Box>
         </Panel>

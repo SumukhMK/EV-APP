@@ -3,6 +3,7 @@ import TextField from '@mui/material/TextField';
 import { useFormContext } from 'react-hook-form';
 import { StepSection } from '../../../components/StepSection';
 import { VerifyField } from '../../../components/VerifyField';
+import { digitsOnly } from '../../../lib/inputFormat';
 import type { useRiderVerification } from './useRiderVerification';
 
 interface Props {
@@ -31,7 +32,9 @@ export function RiderIdentityStep({ step, verification }: Props) {
   };
 
   const handleAadhaarChange = (next: string) => {
-    setValue('aadhaarNumber', next, { shouldValidate: formState.isSubmitted });
+    // Aadhaar is twelve digits and nothing else, so the box refuses anything
+    // else rather than colouring red once it has been typed.
+    setValue('aadhaarNumber', digitsOnly(next, 12), { shouldValidate: formState.isSubmitted });
     verification.onValueChange('aadhaar');
   };
 
@@ -43,7 +46,7 @@ export function RiderIdentityStep({ step, verification }: Props) {
           value={aadhaarValue}
           onValueChange={handleAadhaarChange}
           code={verification.codeOf('aadhaar')}
-          onCodeChange={(c) => verification.setCode('aadhaar', c)}
+          onCodeChange={(c) => verification.setCode('aadhaar', digitsOnly(c, 6))}
           state={verification.stateOf('aadhaar')}
           onSend={() => verification.send('aadhaar')}
           onVerify={() => verification.verify('aadhaar')}
