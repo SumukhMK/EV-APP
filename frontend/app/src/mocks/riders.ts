@@ -25,18 +25,18 @@ const PAYMENT_DAYS: readonly PaymentDay[] = [
  */
 
 const DESIGNED: ReadonlyArray<
-  [id: string, name: string, phone: string, vehicleId: string, planRupees: number, day: BillingDay, pay: Rider['paymentStatus'], platform: Platform, paymentDay: PaymentDay]
+  [id: string, name: string, phone: string, vehicleId: string, planRupees: number, day: BillingDay, pay: Rider['paymentStatus'], platform: Platform, paymentDay: PaymentDay, depositRupees: number]
 > = [
-  ['R03', 'Dulan Hajong', '8453679575', 'BLRSS0428', 1750, 'MONDAY', 'PAID', 'Zomato', 'MONDAY'],
-  ['R19', 'Raju Debnath', '9862340117', 'FBLSS003B', 1999, 'WEDNESDAY', 'PARTIAL', 'Zepto', 'WEDNESDAY'],
-  ['R07', 'Ashwin Kamath', '9945128830', 'FBLSS0112', 1900, 'MONDAY', 'PAID', 'Swiggy', 'TUESDAY'],
-  ['R22', 'Nabam Tada', '8974551206', 'FBLSS0086', 2099, 'WEDNESDAY', 'PAID', 'Blinkit', 'THURSDAY'],
-  ['R11', 'Imran Shaikh', '7760043915', 'FBLSS0129', 1700, 'MONDAY', 'OVERDUE', 'Swiggy Instamart', 'FRIDAY'],
-  ['R26', 'Lalit Chhetri', '8014772390', 'BLRSS0412', 1600, 'WEDNESDAY', 'PARTIAL', 'Porter', 'SATURDAY'],
-  ['R31', 'Sohail Ahmed', '9008216744', 'FBLSS0141', 1950, 'MONDAY', 'PAID', 'Flipkart Minutes', 'SUNDAY'],
-  ['R14', 'Prakash Bhandari', '9611308452', 'BLRSS0396', 1750, 'WEDNESDAY', 'PAID', 'Dunzo', 'MONDAY'],
-  ['R38', 'Yash Karkera', '9535667021', 'BLRSS0403', 1999, 'MONDAY', 'OVERDUE', 'Zomato', 'WEDNESDAY'],
-  ['R41', 'Girish Poojary', '8899140563', 'FBLSS0097', 1700, 'WEDNESDAY', 'PAID', 'EatSure', 'FRIDAY'],
+  ['R03', 'Dulan Hajong', '8453679575', 'BLRSS0428', 1750, 'MONDAY', 'PAID', 'Zomato', 'MONDAY', 3000],
+  ['R19', 'Raju Debnath', '9862340117', 'FBLSS003B', 1999, 'WEDNESDAY', 'PARTIAL', 'Zepto', 'WEDNESDAY', 3000],
+  ['R07', 'Ashwin Kamath', '9945128830', 'FBLSS0112', 1900, 'MONDAY', 'PAID', 'Swiggy', 'TUESDAY', 3000],
+  ['R22', 'Nabam Tada', '8974551206', 'FBLSS0086', 2099, 'WEDNESDAY', 'PAID', 'Blinkit', 'THURSDAY', 5000],
+  ['R11', 'Imran Shaikh', '7760043915', 'FBLSS0129', 1700, 'MONDAY', 'OVERDUE', 'Swiggy Instamart', 'FRIDAY', 3000],
+  ['R26', 'Lalit Chhetri', '8014772390', 'BLRSS0412', 1600, 'WEDNESDAY', 'PARTIAL', 'Porter', 'SATURDAY', 2000],
+  ['R31', 'Sohail Ahmed', '9008216744', 'FBLSS0141', 1950, 'MONDAY', 'PAID', 'Flipkart Minutes', 'SUNDAY', 3000],
+  ['R14', 'Prakash Bhandari', '9611308452', 'BLRSS0396', 1750, 'WEDNESDAY', 'PAID', 'Dunzo', 'MONDAY', 3000],
+  ['R38', 'Yash Karkera', '9535667021', 'BLRSS0403', 1999, 'MONDAY', 'OVERDUE', 'Zomato', 'WEDNESDAY', 3000],
+  ['R41', 'Girish Poojary', '8899140563', 'FBLSS0097', 1700, 'WEDNESDAY', 'PAID', 'EatSure', 'FRIDAY', 2000],
 ];
 
 /**
@@ -67,18 +67,19 @@ const NO_BIKE: ReadonlyArray<
     onboardedOn: string,
     platform: Platform,
     paymentDay: PaymentDay,
+    depositRupees: number,
   ]
 > = [
   // Waiting for a bike. KYC is not a blocker on assignment — the desk decides.
-  ['R02', 'Anil Shetty', '9845012277', 1750, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-24', 'Zomato', 'MONDAY'],
-  ['R13', 'Faisal Khan', '7012238890', 1900, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-26', 'Swiggy', 'WEDNESDAY'],
-  ['R21', 'Mahesh Gowda', '8891447203', 1600, 'WEDNESDAY', 'ACTIVE', 'VERIFIED', '2026-08-27', 'Zepto', 'FRIDAY'],
-  ['R40', 'Deepak Rawat', '9632188054', 1999, 'MONDAY', 'ACTIVE', 'PENDING', '2026-08-31', 'Blinkit', 'TUESDAY'],
-  // Deboarded — the bike came back and the plan closed.
-  ['R05', 'Vinod Naik', '9008773412', 1700, 'MONDAY', 'INACTIVE', 'VERIFIED', '2025-11-03', 'Porter', 'SATURDAY'],
-  ['R28', 'Suresh Pillai', '8123409965', 1750, 'WEDNESDAY', 'INACTIVE', 'VERIFIED', '2026-01-19', 'Dunzo', 'SUNDAY'],
+  ['R02', 'Anil Shetty', '9845012277', 1750, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-24', 'Zomato', 'MONDAY', 3000],
+  ['R13', 'Faisal Khan', '7012238890', 1900, 'MONDAY', 'ACTIVE', 'VERIFIED', '2026-08-26', 'Swiggy', 'WEDNESDAY', 3000],
+  ['R21', 'Mahesh Gowda', '8891447203', 1600, 'WEDNESDAY', 'ACTIVE', 'VERIFIED', '2026-08-27', 'Zepto', 'FRIDAY', 2000],
+  ['R40', 'Deepak Rawat', '9632188054', 1999, 'MONDAY', 'ACTIVE', 'PENDING', '2026-08-31', 'Blinkit', 'TUESDAY', 3000],
+  // Deboarded — the bike came back, the plan closed, the deposit was settled.
+  ['R05', 'Vinod Naik', '9008773412', 1700, 'MONDAY', 'INACTIVE', 'VERIFIED', '2025-11-03', 'Porter', 'SATURDAY', 0],
+  ['R28', 'Suresh Pillai', '8123409965', 1750, 'WEDNESDAY', 'INACTIVE', 'VERIFIED', '2026-01-19', 'Dunzo', 'SUNDAY', 0],
   // Off the register for good.
-  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'BLACKLISTED', 'REJECTED', '2025-09-15', 'Ownly', 'MONDAY'],
+  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'BLACKLISTED', 'REJECTED', '2025-09-15', 'Ownly', 'MONDAY', 0],
 ];
 
 /** Overdue riders the dashboard counts: 16. Two of them are designed rows. */
@@ -95,7 +96,7 @@ function buildRiders(): Rider[] {
   // deployed pool rather than invented.
   const spare = deployed.filter((v) => !v.currentRiderName);
   let spareIdx = 0;
-  for (const [id, name, phone, vehicleId, plan, billingDay, paymentStatus, platform, paymentDay] of DESIGNED) {
+  for (const [id, name, phone, vehicleId, plan, billingDay, paymentStatus, platform, paymentDay, deposit] of DESIGNED) {
     const known = deployed.find((v) => v.id === vehicleId);
     const bike = known ?? spare[spareIdx++];
     takenVehicles.add(bike.id);
@@ -106,6 +107,7 @@ function buildRiders(): Rider[] {
       status: 'ACTIVE',
       kycStatus: 'VERIFIED',
       planAmount: plan * 100,
+      depositHeld: deposit * 100,
       billingDay,
       currentVehicleId: bike.id,
       onboardedOn: '2026-04-08',
@@ -127,6 +129,7 @@ function buildRiders(): Rider[] {
       status: 'ACTIVE',
       kycStatus: rng() < 0.06 ? 'PENDING' : 'VERIFIED',
       planAmount: pick(rng, [1600, 1700, 1750, 1900, 1950, 1999, 2099]) * 100,
+      depositHeld: pick(rng, [2000, 3000, 5000]) * 100,
       billingDay: out.filter((r) => r.billingDay === 'MONDAY').length < 58 ? 'MONDAY' : 'WEDNESDAY',
       currentVehicleId: bike.id,
       onboardedOn: `202${5 + Math.floor(rng() * 2)}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 28)).padStart(2, '0')}`,
@@ -151,7 +154,7 @@ function buildRiders(): Rider[] {
   // Appended after the overdue spread above, which rewrites every rider still
   // marked PENDING — a rider with no bike has nothing billed against them and
   // must not be handed one of the sixteen overdue flags.
-  for (const [id, name, phone, plan, billingDay, status, kycStatus, onboardedOn, platform, paymentDay] of NO_BIKE) {
+  for (const [id, name, phone, plan, billingDay, status, kycStatus, onboardedOn, platform, paymentDay, deposit] of NO_BIKE) {
     out.push({
       id,
       name,
@@ -159,6 +162,7 @@ function buildRiders(): Rider[] {
       status,
       kycStatus,
       planAmount: plan * 100,
+      depositHeld: deposit * 100,
       billingDay,
       currentVehicleId: null,
       onboardedOn,

@@ -51,6 +51,15 @@ export interface Rider {
   kycStatus: KycStatus;
   /** Weekly rent in paise. */
   planAmount: Paise;
+  /**
+   * The deposit held against this rider, in paise. Settled on deboard — the
+   * deboard screen computes the refund from it.
+   *
+   * NOTE FOR SMK REVIEW: added for Task 19. The deposit previously lived only
+   * in `OnboardRiderRequest`; the deboard screen needs it on the record to
+   * show what is held and what comes back.
+   */
+  depositHeld: Paise;
   billingDay: BillingDay;
   currentVehicleId: string | null;
   onboardedOn: Iso8601;

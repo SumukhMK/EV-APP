@@ -114,6 +114,7 @@ export async function onboardRider(body: OnboardRiderRequest): Promise<Rider> {
     status: 'ACTIVE',
     kycStatus: 'PENDING',
     planAmount: body.planAmount,
+    depositHeld: body.depositPlan,
     billingDay: body.billingDay,
     currentVehicleId: null,
     onboardedOn: body.onboardedOn,
@@ -122,10 +123,8 @@ export async function onboardRider(body: OnboardRiderRequest): Promise<Rider> {
     paymentDay: body.paymentDay,
   };
   riders.unshift(created);
-  // `depositPlan` and `depositPaid` are recorded against the rider's ledger
-  // server-side; there is no deposit field on the register itself yet, so they
-  // are not invented here.
-  void body.depositPlan;
+  // `depositPaid` is recorded against the rider's ledger server-side; the
+  // register holds the deposit plan, which is what a deboard settles against.
   void body.depositPaid;
   return delay(created, 420);
 }

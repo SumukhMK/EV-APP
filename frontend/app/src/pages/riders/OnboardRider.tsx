@@ -2,7 +2,6 @@ import { useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,9 +11,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
-import { SelectField } from '../../components/form/SelectField';
 import { InfoStrip } from '../../components/InfoStrip';
-import { StepSection } from '../../components/StepSection';
 import { StateChip } from '../../components/StateChip';
 import { onboardRider } from '../../lib/api/riders';
 import { ApiError } from '../../lib/api/client';
@@ -30,12 +27,15 @@ import type { VerificationState } from '../../components/VerifyField';
 import { useRiderVerification, type VerifiableField } from './_components/useRiderVerification';
 import { RiderIdentityStep } from './_components/RiderIdentityStep';
 import { RiderContactStep } from './_components/RiderContactStep';
+import { RiderAddressStep } from './_components/RiderAddressStep';
+import { RiderCommercialStep } from './_components/RiderCommercialStep';
 
 /**
  * A rider joins the register ACTIVE with KYC pending and no bike. The form
  * offers no status, no KYC and no bike field for that reason — all three are
- * consequences of a workflow step, not things typed in here. Assignment is
- * screen 10, and it is offered as the next action once the rider exists.
+ * consequences of a workflow step, not things typed in here. A rider can
+ * exist with nothing to ride; assignment is screen 10, offered as the next
+ * action once the rider exists.
  *
  * Same reasoning as AddVehicle landing a bike as INDUCTED.
  */
@@ -52,45 +52,39 @@ export function OnboardRider() {
   });
 
   const save = useMutation({
-    mutationFn: (values: OnboardRiderValues) => {
-      // The identity and contact fields are written into RHF's internal state
-      // by the child steps via setValue(), but they are not in the typed schema
-      // (which is an SMK file). Read them with a narrow assertion — the
-      // form only ever stores strings at these keys.
-      const extra = form.getValues() as unknown as Record<string, string>;
-      return onboardRider({
-        // Identity — from Step 1.
-        aadhaarNumber: extra.aadhaarNumber ?? '',
+    mutationFn: (values: OnboardRiderValues) =>
+      onboardRider({
+        // Identity — step 1.
+        aadhaarNumber: values.aadhaarNumber,
         name: values.name,
-        permanentAddress: extra.permanentAddress ?? '',
-        // Contact — from Step 2.
+        permanentAddress: values.permanentAddress,
+        // Contact — step 2.
         phone: values.phone,
-        whatsappNumber: extra.whatsappNumber ?? values.phone,
-        alternateNumber1: extra.alternateNumber1 ?? '',
-        alternateNumber2: extra.alternateNumber2 ?? '',
-        // Local address — will be wired in Task 15 (address step).
-        localAddress: '',
-        city: '',
-        state: '',
-        pinCode: '',
-        locationCoordinates: null,
-        // Documents — will be wired in Task 15.
-        panNumber: null,
-        drivingLicence: null,
-        // Commercial
-        workingPlatform: 'Other',
-        platformRiderId: null,
+        whatsappNumber: values.whatsappNumber,
+        alternateNumber1: values.alternateNumber1,
+        alternateNumber2: values.alternateNumber2,
+        // Address — step 3.
+        localAddress: values.localAddress,
+        city: values.city,
+        state: values.state,
+        pinCode: values.pinCode,
+        locationCoordinates: values.locationCoordinates || null,
+        // Documents — step 3, optional.
+        panNumber: values.panNumber || null,
+        drivingLicence: values.drivingLicence || null,
+        // Commercial — step 4.
+        workingPlatform: values.workingPlatform,
+        platformRiderId: values.platformRiderId || null,
         // Rupees at the desk, paise on the wire. Converted once, here.
         planAmount: values.planRupees * 100,
         billingDay: values.billingDay,
-        paymentDay: 'MONDAY',
+        paymentDay: values.paymentDay,
         depositPlan: values.depositRupees * 100,
-        depositPaid: values.depositRupees * 100,
+        depositPaid: values.depositPaidRupees * 100,
         onboardedOn: values.onboardedOn,
         verification: verification.asRequest(),
         vehicleId: null,
-      });
-    },
+      }),
     onSuccess: () => invalidateRiders(queryClient),
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
@@ -105,20 +99,6 @@ export function OnboardRider() {
     setBanner(null);
     const created = await save.mutateAsync(values);
     navigate(`/riders/${created.id}`);
-  });
-
-  const field = (name: keyof OnboardRiderValues) => ({
-    ...form.register(name),
-    error: Boolean(form.formState.errors[name]),
-    helperText: form.formState.errors[name]?.message,
-  });
-
-  /** A number input hands back a string unless it is asked not to. */
-  const amount = (name: 'planRupees' | 'depositRupees') => ({
-    ...form.register(name, { valueAsNumber: true }),
-    type: 'number' as const,
-    error: Boolean(form.formState.errors[name]),
-    helperText: form.formState.errors[name]?.message,
   });
 
   // The summary reads the live form rather than a second copy of the state,
@@ -172,8 +152,8 @@ export function OnboardRider() {
 
         <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
           <InfoStrip>
-            The rider id is generated on deployment. Only vehicles in Ready to Deploy status can be
-            assigned during onboarding.
+            The rider id is generated on deployment. A rider joins the register with no bike — a
+            bike is assigned from their record afterwards.
           </InfoStrip>
 
           {/* Form column + sticky review sidebar — same split as the detail pages. */}
@@ -194,32 +174,11 @@ export function OnboardRider() {
               {/* Step 2: Contact — four verified numbers */}
               <RiderContactStep step={2} verification={verification} />
 
-              {/* Step 3: Plan — rent, billing day, deposit */}
-              <StepSection
-                step={3}
-                title="Plan"
-                subtitle="Rent is billed weekly on the rider's billing day. Amounts are in rupees."
-              >
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-                  <TextField label="Weekly rent (₹)" {...amount('planRupees')} />
-                  <SelectField
-                    control={form.control}
-                    name="billingDay"
-                    label="Billing day"
-                    options={[
-                      { value: 'MONDAY', label: 'Monday' },
-                      { value: 'WEDNESDAY', label: 'Wednesday' },
-                    ]}
-                  />
-                  <TextField label="Deposit (₹)" {...amount('depositRupees')} />
-                  <TextField
-                    label="Onboarded on"
-                    type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    {...field('onboardedOn')}
-                  />
-                </Box>
-              </StepSection>
+              {/* Step 3: Address — local address, city/state/PIN, documents */}
+              <RiderAddressStep step={3} />
+
+              {/* Step 4: Commercial — platform, plan, payment day, deposit */}
+              <RiderCommercialStep step={4} />
             </Box>
 
             {/* Review sidebar — sticky, so the operator sees the result of
@@ -260,6 +219,10 @@ export function OnboardRider() {
                           {rupeesWithSymbol((preview.depositRupees ?? 0) * 100)}
                         </Mono>
                       ),
+                    },
+                    {
+                      label: 'Platform',
+                      value: preview.workingPlatform || '—',
                     },
                     {
                       label: 'KYC',

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { VEHICLE_STATES } from '../../types/vehicle';
 
 /**
  * Validation for the three assignment forms (screens 10–12).
@@ -11,9 +12,16 @@ import { z } from 'zod';
  * Money is in rupees here and converted to paise at the edge, matching the
  * onboarding form, and registered with `valueAsNumber` so the field and the
  * schema agree on the type.
+ *
+ * NOTE FOR SMK REVIEW: `nextVehicleState` was added to exchange and deboard
+ * (Tasks 18–19). It used to be computed silently from the return condition in
+ * the mutation; it is now an operator-overridable form field, bounded by the
+ * vehicle transitions on the screen.
  */
 
 const RETURN_CONDITION = z.enum(['NONE', 'MINOR', 'MAJOR', 'ACCIDENT']);
+
+const NEXT_VEHICLE_STATE = z.enum(VEHICLE_STATES);
 
 export const assignVehicleSchema = z.object({
   riderId: z.string().min(1, 'Pick a rider'),
@@ -32,6 +40,8 @@ export const exchangeVehicleSchema = z
     occurredOn: z.string().min(1, 'Exchange date is required'),
     reason: z.enum(['BREAKDOWN', 'BATTERY_ISSUE', 'ACCIDENT', 'SERVICE_REQUIRED', 'RIDER_REQUEST', 'UPGRADE', 'OTHER']),
     returnCondition: RETURN_CONDITION,
+    /** Defaulted from the condition, overridable by the operator. */
+    nextVehicleState: NEXT_VEHICLE_STATE,
     note: z.string().trim().max(500, 'Keep the note under 500 characters').optional(),
   })
   .refine((v) => v.toVehicleId !== v.fromVehicleId, {
@@ -50,6 +60,8 @@ export const deboardRiderSchema = z.object({
     'SERVICE_ISSUE', 'PAYMENT_ISSUE', 'WENT_HOME', 'RETURNED', 'OTHER',
   ]),
   returnCondition: RETURN_CONDITION,
+  /** Defaulted from the condition, overridable by the operator. */
+  nextVehicleState: NEXT_VEHICLE_STATE,
   outstandingRentRupees: z
     .number({ message: 'Enter an amount in rupees' })
     .int('Enter whole rupees')
@@ -57,7 +69,7 @@ export const deboardRiderSchema = z.object({
   depositRefundRupees: z
     .number({ message: 'Enter an amount in rupees' })
     .int('Enter whole rupees')
-    .min(0, 'A refund cannot be negative'),
+    .min(0, 'A refund cannot be negative — a deduction larger than the deposit is an amount owed, and how that is recorded has not been decided yet'),
   note: z.string().trim().max(500, 'Keep the note under 500 characters').optional(),
 });
 

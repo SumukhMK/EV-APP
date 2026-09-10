@@ -5,19 +5,23 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useForm, useWatch } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { Mono } from '../../components/Mono';
-import { StateChip } from '../../components/StateChip';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
+import { InfoStrip } from '../../components/InfoStrip';
+import { DerivedField } from '../../components/DerivedField';
 import { SelectField } from '../../components/form/SelectField';
+import { RiderSearchSelect } from './_components/RiderSearchSelect';
+import { SelectionSummary } from './_components/SelectionSummary';
+import { DispositionFields } from './_components/DispositionFields';
 import { deboardRider } from '../../lib/api/assignments';
-import { listAssignedRiders } from '../../lib/api/riders';
+import { listAssignedRiders, listRiderPayments } from '../../lib/api/riders';
 import { ApiError } from '../../lib/api/client';
 import { invalidateAssignments } from '../../lib/invalidate';
 import {
@@ -26,13 +30,18 @@ import {
   type DeboardRiderValues,
 } from '../../lib/schemas/assignment';
 import {
+  DEBOARD_REASON_LABEL,
   RETURN_CONDITION_LABEL,
-  RETURN_CONDITION_NEXT_STATE,
-  RETURN_CONDITION_TONE,
   VEHICLE_STATE_LABEL,
 } from '../../lib/labels';
 import { rupeesWithSymbol } from '../../lib/format';
 import { layout } from '../../theme/tokens';
+import type { DeboardReason } from '../../types';
+
+const REASONS = (Object.keys(DEBOARD_REASON_LABEL) as DeboardReason[]).map((r) => ({
+  value: r,
+  label: DEBOARD_REASON_LABEL[r],
+}));
 
 const CONDITIONS = (['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const).map((c) => ({
   value: c,
@@ -69,6 +78,9 @@ export function DeboardRider() {
       returnedOn: today(),
       reason: 'OTHER',
       returnCondition: 'NONE',
+      // The condition default for a DEPLOYED bike with no damage is RETURNED;
+      // DispositionFields re-derives it from the condition on mount.
+      nextVehicleState: 'RETURNED',
       outstandingRentRupees: 0,
       depositRefundRupees: 0,
       note: '',
@@ -88,6 +100,15 @@ export function DeboardRider() {
     }
   }, [rider, picked.vehicleId, form]);
 
+  // What the record says is owed this period — shown in the summary, typed
+  // again in the settlement, because the settlement is what the desk agrees.
+  const payments = useQuery({
+    queryKey: ['rider-payments', rider?.id],
+    queryFn: () => listRiderPayments(rider!.id),
+    enabled: Boolean(rider),
+  });
+  const outstanding = (payments.data?.[0]?.totalDue ?? 0) - (payments.data?.[0]?.amountPaid ?? 0);
+
   const save = useMutation({
     mutationFn: (values: DeboardRiderValues) =>
       deboardRider({
@@ -96,11 +117,11 @@ export function DeboardRider() {
         returnedOn: values.returnedOn,
         reason: values.reason,
         returnCondition: values.returnCondition,
+        nextVehicleState: values.nextVehicleState,
         // Rupees at the desk, paise on the wire. Converted once, here.
         outstandingRent: values.outstandingRentRupees * 100,
         depositRefund: values.depositRefundRupees * 100,
         note: values.note,
-        nextVehicleState: RETURN_CONDITION_NEXT_STATE[values.returnCondition],
       }),
     onSuccess: () => invalidateAssignments(queryClient),
     onError: (error) => {
@@ -143,178 +164,176 @@ export function DeboardRider() {
     );
   }
 
-  const condition = picked.returnCondition ?? 'NONE';
-  const outstanding = (picked.outstandingRentRupees ?? 0) * 100;
-  const refund = (picked.depositRefundRupees ?? 0) * 100;
+  // What the deposit covers after the outstanding rent. Shown unclamped: a
+  // negative figure means the rider owes more than the deposit covers, and
+  // hiding that would be hiding the argument the desk needs to have.
+  const net = (rider?.depositHeld ?? 0) - outstanding;
+  const netLabel = net >= 0 ? rupeesWithSymbol(net) : `−${rupeesWithSymbol(-net)}`;
 
   return (
-    <Box component="form" onSubmit={submit} noValidate>
-      <PageHeader
-        section="Riders"
-        title="Deboard rider"
-        actions={
-          <>
-            <Button color="inherit" component={Link} to="/riders">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? 'Deboarding…' : 'Finalise deboard'}
-            </Button>
-          </>
-        }
-      />
+    <FormProvider {...form}>
+      <Box component="form" onSubmit={submit} noValidate>
+        <PageHeader
+          section="Riders"
+          title="Deboard rider"
+          actions={
+            <>
+              <Button color="inherit" component={Link} to="/riders">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={save.isPending}>
+                {save.isPending ? 'Deboarding…' : 'Finalise deboard'}
+              </Button>
+            </>
+          }
+        />
 
-      {banner && (
-        <Alert severity="error" variant="outlined" sx={{ mt: 5 }}>
-          {banner}
-        </Alert>
-      )}
+        {banner && (
+          <Alert severity="error" variant="outlined" sx={{ mt: 5 }}>
+            {banner}
+          </Alert>
+        )}
 
-      <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: layout.readingMax }}>
-        <Panel label="Assignment being closed">
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-            <SelectField
-              control={form.control}
-              name="riderId"
+        <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: layout.readingMax }}>
+          <Panel label="Assignment being closed">
+            <RiderSearchSelect
               label="Rider"
-              searchable
-              placeholder="Type a name or rider id"
-              options={(riders.data ?? []).map((r) => ({
-                value: r.id,
-                label: `${r.name} · ${r.id}`,
-              }))}
+              placeholder="Search by name, rider id, phone or bike id"
+              value={picked.riderId ?? ''}
+              onChange={(id) => form.setValue('riderId', id, { shouldValidate: true })}
+              riders={riders.data ?? []}
+              loading={riders.isLoading}
+              error={form.formState.errors.riderId?.message}
             />
+            <Box sx={{ mt: 5 }}>
+              <SelectionSummary
+                rider={rider}
+                variant="deboard"
+                outstandingRent={payments.isLoading ? undefined : outstanding}
+              />
+            </Box>
+            {form.formState.errors.vehicleId && (
+              <Typography sx={{ fontSize: 13, color: 'error.main', mt: 3 }}>
+                {form.formState.errors.vehicleId.message}
+              </Typography>
+            )}
+          </Panel>
+
+          <Panel
+            label="Why the bike is coming back"
+            subtitle="The condition decides where the bike goes next. Even an undamaged bike goes through QC before it can go out again."
+          >
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
+              <SelectField
+                control={form.control}
+                name="returnCondition"
+                label="Condition on return"
+                options={CONDITIONS}
+              />
+            </Box>
+            <Box sx={{ mt: 4 }}>
+              <InfoStrip>
+                Recovery is deliberately not an option in this flow — a bike that needs recovering
+                is a different process. The returned bike goes to QC or the workshop.
+              </InfoStrip>
+            </Box>
+            <Box sx={{ mt: 5 }}>
+              <DispositionFields
+                control={form.control}
+                reasonName="reason"
+                reasonLabel="Deboard reason"
+                reasonOptions={REASONS}
+                dateName="returnedOn"
+                dateLabel="Returned on"
+                nextStateName="nextVehicleState"
+                // A rider holding a bike means it is DEPLOYED — the register's
+                // one-to-one rule, enforced by the assignment API.
+                currentState="DEPLOYED"
+                condition={picked.returnCondition}
+              />
+            </Box>
             <TextField
-              label="Returned on"
-              type="date"
-              slotProps={{ inputLabel: { shrink: true } }}
-              {...form.register('returnedOn')}
-              error={Boolean(form.formState.errors.returnedOn)}
-              helperText={form.formState.errors.returnedOn?.message}
+              label="Note (optional)"
+              multiline
+              minRows={3}
+              fullWidth
+              placeholder="Describe any damage, missing parts or dispute"
+              sx={{ mt: 5 }}
+              {...form.register('note')}
+              error={Boolean(form.formState.errors.note)}
+              helperText={form.formState.errors.note?.message}
             />
-          </Box>
-          <DefinitionList
-            divider="top"
-            columns={2}
-            items={[
-              {
-                label: 'Bike returned',
-                value: (
-                  <Mono sx={{ fontSize: 13 }}>{rider?.currentVehicleId ?? 'No rider selected'}</Mono>
-                ),
-              },
-              {
-                label: 'Weekly rent',
-                value: (
-                  <Mono sx={{ fontSize: 13 }}>
-                    {rider ? rupeesWithSymbol(rider.planAmount) : '—'}
-                  </Mono>
-                ),
-              },
-            ]}
-          />
-          {form.formState.errors.vehicleId && (
-            <Typography sx={{ fontSize: 13, color: 'error.main', mt: 3 }}>
-              {form.formState.errors.vehicleId.message}
+          </Panel>
+
+          <Panel
+            label="Settlement"
+            subtitle="Type in the refund yourself. How much to hold back for damage is a call made at the desk, not a formula."
+          >
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
+              {/* A number input hands back a string unless it is asked not to. */}
+              <TextField
+                label="Outstanding rent (₹)"
+                type="number"
+                {...form.register('outstandingRentRupees', { valueAsNumber: true })}
+                error={Boolean(form.formState.errors.outstandingRentRupees)}
+                helperText={form.formState.errors.outstandingRentRupees?.message}
+              />
+              <TextField
+                label="Deposit refunded (₹)"
+                type="number"
+                {...form.register('depositRefundRupees', { valueAsNumber: true })}
+                error={Boolean(form.formState.errors.depositRefundRupees)}
+                helperText={form.formState.errors.depositRefundRupees?.message}
+              />
+            </Box>
+            <Box sx={{ mt: 5 }}>
+              <DerivedField
+                label="Net after outstanding rent"
+                value={netLabel}
+                derivation="Deposit held − outstanding rent. Negative means the deposit does not cover what is owed."
+              />
+            </Box>
+            <DefinitionList
+              divider="top"
+              columns={2}
+              items={[
+                { label: 'Rider', value: rider ? `${rider.name} · ${rider.id}` : 'Not selected' },
+                {
+                  label: 'Condition',
+                  value: RETURN_CONDITION_LABEL[picked.returnCondition ?? 'NONE'],
+                },
+                {
+                  label: 'Returned bike goes to',
+                  value: picked.nextVehicleState
+                    ? VEHICLE_STATE_LABEL[picked.nextVehicleState]
+                    : '—',
+                },
+                {
+                  label: 'Outstanding rent',
+                  value: (
+                    <Mono sx={{ fontSize: 13 }}>
+                      {rupeesWithSymbol((picked.outstandingRentRupees ?? 0) * 100)}
+                    </Mono>
+                  ),
+                },
+                {
+                  label: 'Deposit refunded',
+                  value: (
+                    <Mono sx={{ fontSize: 13 }}>
+                      {rupeesWithSymbol((picked.depositRefundRupees ?? 0) * 100)}
+                    </Mono>
+                  ),
+                },
+                { label: 'Rider becomes', value: 'Inactive' },
+              ]}
+            />
+            <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
+              The rider becomes inactive and the bike is freed up. Onboard them again to bring them
+              back.
             </Typography>
-          )}
-        </Panel>
-
-        <Panel label="Why the bike is coming back">
-          <SelectField
-            control={form.control}
-            name="reason"
-            label="Deboard reason"
-            options={[
-              { value: 'RECOVERED_BY_TEAM', label: 'Recovered by team' },
-              { value: 'ACCIDENT', label: 'Accident' },
-              { value: 'LEFT_AT_HUB', label: 'Rider left it at the hub' },
-              { value: 'LEFT_AT_ROADSIDE', label: 'Rider left it at the roadside' },
-              { value: 'SERVICE_ISSUE', label: 'Service issue' },
-              { value: 'PAYMENT_ISSUE', label: 'Payment issue' },
-              { value: 'WENT_HOME', label: 'Gone to hometown' },
-              { value: 'RETURNED', label: 'Returned' },
-              { value: 'OTHER', label: 'Other' },
-            ]}
-          />
-        </Panel>
-
-        <Panel
-          label="Condition on return"
-          subtitle="The condition decides where the bike goes next. Even an undamaged bike goes through QC before it can go out again."
-        >
-          <SelectField
-            control={form.control}
-            name="returnCondition"
-            label="Condition"
-            options={CONDITIONS}
-          />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mt: 4, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-              {rider?.currentVehicleId ?? 'The bike'} will move to
-            </Typography>
-            <StateChip
-              label={VEHICLE_STATE_LABEL[RETURN_CONDITION_NEXT_STATE[condition]]}
-              tone={RETURN_CONDITION_TONE[condition]}
-            />
-          </Box>
-          <TextField
-            label="Note (optional)"
-            multiline
-            minRows={3}
-            fullWidth
-            placeholder="Describe any damage, missing parts or dispute"
-            sx={{ mt: 5 }}
-            {...form.register('note')}
-            error={Boolean(form.formState.errors.note)}
-            helperText={form.formState.errors.note?.message}
-          />
-        </Panel>
-
-        <Panel
-          label="Settlement"
-          subtitle="Type in the refund yourself. How much to hold back for damage is a call made at the desk, not a formula."
-        >
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-            {/* A number input hands back a string unless it is asked not to. */}
-            <TextField
-              label="Outstanding rent (₹)"
-              type="number"
-              {...form.register('outstandingRentRupees', { valueAsNumber: true })}
-              error={Boolean(form.formState.errors.outstandingRentRupees)}
-              helperText={form.formState.errors.outstandingRentRupees?.message}
-            />
-            <TextField
-              label="Deposit refunded (₹)"
-              type="number"
-              {...form.register('depositRefundRupees', { valueAsNumber: true })}
-              error={Boolean(form.formState.errors.depositRefundRupees)}
-              helperText={form.formState.errors.depositRefundRupees?.message}
-            />
-          </Box>
-          <DefinitionList
-            divider="top"
-            columns={2}
-            items={[
-              { label: 'Rider', value: rider ? `${rider.name} · ${rider.id}` : 'Not selected' },
-              { label: 'Condition', value: RETURN_CONDITION_LABEL[condition] },
-              {
-                label: 'Outstanding rent',
-                value: <Mono sx={{ fontSize: 13 }}>{rupeesWithSymbol(outstanding)}</Mono>,
-              },
-              {
-                label: 'Deposit refunded',
-                value: <Mono sx={{ fontSize: 13 }}>{rupeesWithSymbol(refund)}</Mono>,
-              },
-              { label: 'Rider becomes', value: 'Inactive' },
-            ]}
-          />
-          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-            The rider becomes inactive and the bike is freed up. Onboard them again to bring them
-            back.
-          </Typography>
-        </Panel>
+          </Panel>
+        </Box>
       </Box>
-    </Box>
+    </FormProvider>
   );
 }
