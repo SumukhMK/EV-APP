@@ -1,1 +1,7 @@
 .gstack/
+
+# Local tooling config — machine-specific absolute paths, not shared.
+opencode.jsonc
+
+# Scratch notes and pasted transcripts kept beside the repo, never in it.
+gpt.txt
