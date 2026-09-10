@@ -137,19 +137,25 @@ export function RidersList() {
     placeholderData: keepPreviousData,
   });
 
+  // Every column is flex-weighted, never fixed: the grid then divides the
+  // width it actually has instead of overflowing it, so the register never
+  // scrolls sideways at any breakpoint. `minWidth` is only a floor to keep a
+  // chip or an id legible once the columns get tight.
   const columns = useMemo<GridColDef<Rider>[]>(
     () => [
       {
         field: 'id',
         headerName: 'Rider id',
-        width: compact ? 92 : 110,
+        flex: 0.7,
+        minWidth: 76,
         renderCell: ({ row }) => <Mono sx={{ color: accent[300] }}>{row.id}</Mono>,
       },
-      { field: 'name', headerName: 'Name', flex: 1, minWidth: 140 },
+      { field: 'name', headerName: 'Name', flex: 1.5, minWidth: 110 },
       {
         field: 'phone',
         headerName: 'Phone',
-        width: 140,
+        flex: 1,
+        minWidth: 100,
         renderCell: ({ row }) => (
           <Mono sx={{ fontSize: 12, color: neutral[400] }}>{row.phone}</Mono>
         ),
@@ -157,13 +163,15 @@ export function RidersList() {
       {
         field: 'platform',
         headerName: 'Platform',
-        width: 140,
+        flex: 1,
+        minWidth: 90,
         cellClassName: 'muted-cell',
       },
       {
         field: 'status',
         headerName: 'Status',
-        width: compact ? 100 : 120,
+        flex: 0.9,
+        minWidth: 82,
         sortable: false,
         renderCell: ({ row }) => (
           <StateChip label={RIDER_STATUS_LABEL[row.status]} tone={RIDER_STATUS_TONE[row.status]} />
@@ -172,7 +180,8 @@ export function RidersList() {
       {
         field: 'kycStatus',
         headerName: 'KYC',
-        width: 120,
+        flex: 0.9,
+        minWidth: 82,
         sortable: false,
         renderCell: ({ row }) => (
           <StateChip label={KYC_STATUS_LABEL[row.kycStatus]} tone={KYC_STATUS_TONE[row.kycStatus]} />
@@ -181,7 +190,8 @@ export function RidersList() {
       {
         field: 'planAmount',
         headerName: 'Plan',
-        width: 100,
+        flex: 0.7,
+        minWidth: 68,
         align: 'right',
         headerAlign: 'right',
         valueFormatter: (value: number) => rupees(value),
@@ -190,7 +200,8 @@ export function RidersList() {
       {
         field: 'billingDay',
         headerName: 'Billing',
-        width: 110,
+        flex: 0.8,
+        minWidth: 82,
         valueFormatter: (value: Rider['billingDay']) =>
           value === 'MONDAY' ? 'Monday' : 'Wednesday',
         cellClassName: 'muted-cell',
@@ -198,7 +209,8 @@ export function RidersList() {
       {
         field: 'paymentStatus',
         headerName: 'Payment',
-        width: compact ? 92 : 110,
+        flex: 0.9,
+        minWidth: 82,
         sortable: false,
         renderCell: ({ row }) => (
           <StateChip
@@ -210,9 +222,8 @@ export function RidersList() {
       {
         field: 'currentVehicleId',
         headerName: 'Bike',
-        width: compact ? 0 : 130,
-        flex: compact ? 1 : undefined,
-        minWidth: compact ? 110 : undefined,
+        flex: 1,
+        minWidth: 96,
         renderCell: ({ row }) =>
           row.currentVehicleId ? (
             <Mono sx={{ fontSize: 12 }}>{row.currentVehicleId}</Mono>
@@ -221,7 +232,7 @@ export function RidersList() {
           ),
       },
     ],
-    [compact],
+    [],
   );
 
   const rows = list.data?.content ?? [];

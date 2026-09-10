@@ -133,34 +133,46 @@ export function VehiclesList() {
     placeholderData: keepPreviousData,
   });
 
+  // Flex-weighted, never fixed — the grid divides the width it has instead of
+  // overflowing it, so the registry never scrolls sideways.
   const columns = useMemo<GridColDef<Vehicle>[]>(
     () => [
       {
         field: 'id',
         headerName: 'Vehicle id',
-        width: compact ? 108 : 130,
+        flex: 1,
+        minWidth: 96,
         renderCell: ({ row }) => <Mono sx={{ color: accent[300] }}>{row.id}</Mono>,
       },
       {
         field: 'chassisNumber',
         headerName: 'Chassis',
-        width: 190,
+        flex: 1.3,
+        minWidth: 120,
         renderCell: ({ row }) => (
           <Mono sx={{ fontSize: 12, color: neutral[400] }}>{row.chassisNumber}</Mono>
         ),
       },
-      { field: 'model', headerName: 'Make / Model', flex: 1, minWidth: 180, renderCell: ({ row }) => `${deriveMake(row.model)} ${row.model}` },
+      {
+        field: 'model',
+        headerName: 'Make / Model',
+        flex: 1.6,
+        minWidth: 140,
+        renderCell: ({ row }) => `${deriveMake(row.model)} ${row.model}`,
+      },
       {
         field: 'batteryType',
         headerName: 'Battery',
-        width: 130,
+        flex: 1,
+        minWidth: 96,
         cellClassName: 'muted-cell',
       },
-      { field: 'hub', headerName: 'Hub', width: 130, cellClassName: 'muted-cell' },
+      { field: 'hub', headerName: 'Hub', flex: 1, minWidth: 92, cellClassName: 'muted-cell' },
       {
         field: 'state',
         headerName: 'State',
-        width: compact ? 124 : 140,
+        flex: 1.1,
+        minWidth: 104,
         sortable: false,
         renderCell: ({ row }) => (
           <StateChip label={VEHICLE_STATE_LABEL[row.state]} tone={VEHICLE_STATE_TONE[row.state]} />
@@ -169,9 +181,8 @@ export function VehiclesList() {
       {
         field: 'currentRiderName',
         headerName: compact ? 'Rider' : 'Current rider',
-        width: compact ? 0 : 170,
-        flex: compact ? 1 : undefined,
-        minWidth: compact ? 120 : undefined,
+        flex: 1.3,
+        minWidth: 110,
         renderCell: ({ row }) => row.currentRiderName ?? <Box sx={{ color: neutral[600] }}>—</Box>,
       },
     ],

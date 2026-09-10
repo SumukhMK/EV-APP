@@ -31,21 +31,28 @@ export function DataTable<R extends GridValidRowModel>({
   ...rest
 }: DataTableProps<R>) {
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', maxWidth: '100%' }}>
       <DataGrid<R>
         rows={rows}
         density="standard"
         disableColumnMenu
         disableRowSelectionOnClick
-        rowHeight={44}
-        columnHeaderHeight={38}
+        rowHeight={42}
+        columnHeaderHeight={36}
         localeText={{ noRowsLabel: emptyMessage }}
         sx={[
           {
             border: 0,
-            fontSize: 14,
+            fontSize: 13.5,
             color: 'text.primary',
             '--DataGrid-rowBorderColor': 'transparent',
+
+            // The grid never scrolls sideways. Columns are sized with `flex`
+            // by the list screens so they divide the width instead of
+            // overflowing it; this is the backstop that keeps a stray fixed
+            // width from reintroducing the scrollbar operators complain about.
+            '& .MuiDataGrid-virtualScroller': { overflowX: 'hidden' },
+            '& .MuiDataGrid-main': { overflow: 'hidden' },
 
             '& .MuiDataGrid-columnHeaders': { borderBottom: 0 },
             '& .MuiDataGrid-columnHeader': {

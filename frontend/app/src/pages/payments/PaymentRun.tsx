@@ -5,8 +5,10 @@ import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLongOutlined';
 import GroupsIcon from '@mui/icons-material/GroupsOutlined';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuoteOutlined';
@@ -25,7 +27,7 @@ import { getCurrentPaymentRun } from '../../lib/api/payments';
 import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
 import { accent, neutral } from '../../theme/tokens';
-import type { PaymentPeriodRow } from '../../types';
+import type { BillingDay, PaymentPeriodRow } from '../../types';
 
 /**
  * The weekly billing run (artboard 15): every rider due in the current period,
@@ -47,8 +49,15 @@ export function PaymentRun() {
 
   const [collect, setCollect] = useState<CollectTarget | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Both cycles are billed; the screen shows one at a time so the totals on it
+  // always describe a single period rather than a blend of two.
+  const [cycle, setCycle] = useState<BillingDay>('MONDAY');
 
-  const run = useQuery({ queryKey: ['payments', 'run'], queryFn: getCurrentPaymentRun });
+  const run = useQuery({
+    queryKey: ['payments', 'run', cycle],
+    queryFn: () => getCurrentPaymentRun(cycle),
+    placeholderData: keepPreviousData,
+  });
 
   const rows = run.data?.rows ?? [];
   const billed = rows.reduce((t, r) => t + r.totalDue, 0);
@@ -103,8 +112,19 @@ export function PaymentRun() {
 
       <Panel
         label="This period"
-        subtitle={run.data ? `${rows.length} riders in the ${run.data.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday'} cycle` : undefined}
+        subtitle={run.data ? `${rows.length} riders in the ${run.data.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday'} cycle · ${period}` : undefined}
         sx={{ mt: 5, p: { xs: '16px 12px 12px', sm: '18px 20px 14px' } }}
+        action={
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={cycle}
+            onChange={(_, next: BillingDay | null) => next && setCycle(next)}
+          >
+            <ToggleButton value="MONDAY">Monday cycle</ToggleButton>
+            <ToggleButton value="WEDNESDAY">Wednesday cycle</ToggleButton>
+          </ToggleButtonGroup>
+        }
       >
         {run.isLoading ? (
           <EmptyState title="Loading the run…" />
@@ -167,19 +187,26 @@ export function PaymentRun() {
               {
                 key: 'rider',
                 header: 'Rider',
-                width: 200,
+                width: 190,
+                // One line: the name, then the id beside it. Two stacked lines
+                // doubled the row height for information that reads fine inline.
                 render: (r) => (
-                  <Box onClick={() => navigate(`/payments/run/${r.riderId}`)}>
-                    <Box component="span" sx={{ display: 'block' }}>{r.riderName}</Box>
-                    <Mono sx={{ fontSize: 12, color: accent[300] }}>{r.riderId}</Mono>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, minWidth: 0 }}>
+                    <Box
+                      component="span"
+                      sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    >
+                      {r.riderName}
+                    </Box>
+                    <Mono sx={{ fontSize: 11, color: accent[300], flex: '0 0 auto' }}>{r.riderId}</Mono>
                   </Box>
                 ),
               },
               {
                 key: 'vehicle',
                 header: 'Vehicle',
-                width: 120,
-                render: (r) => <Mono sx={{ fontSize: 13, color: neutral[400] }}>{r.vehicleId}</Mono>,
+                width: 110,
+                render: (r) => <Mono sx={{ fontSize: 12.5, color: neutral[400] }}>{r.vehicleId}</Mono>,
               },
               ...(compact
                 ? []
@@ -188,21 +215,21 @@ export function PaymentRun() {
                       key: 'days',
                       header: 'Days',
                       align: 'right' as const,
-                      width: 70,
+                      width: 56,
                       render: (r: PaymentPeriodRow) => <Mono sx={{ color: neutral[400] }}>{r.daysBilled}</Mono>,
                     },
                     {
                       key: 'billed',
                       header: 'Billed',
                       align: 'right' as const,
-                      width: 100,
+                      width: 82,
                       render: (r: PaymentPeriodRow) => <Mono>{rupees(r.billedAmount)}</Mono>,
                     },
                     {
                       key: 'service',
                       header: 'Service',
                       align: 'right' as const,
-                      width: 90,
+                      width: 74,
                       render: (r: PaymentPeriodRow) => (
                         <Mono sx={{ color: r.serviceCharges === 0 ? neutral[600] : undefined }}>
                           {rupees(r.serviceCharges)}
@@ -213,7 +240,7 @@ export function PaymentRun() {
                       key: 'arrears',
                       header: 'Arrears',
                       align: 'right' as const,
-                      width: 90,
+                      width: 74,
                       render: (r: PaymentPeriodRow) => (
                         <Mono sx={{ color: r.arrears === 0 ? neutral[600] : 'inherit' }}>
                           {rupees(r.arrears)}
@@ -225,14 +252,14 @@ export function PaymentRun() {
                 key: 'due',
                 header: 'Total due',
                 align: 'right',
-                width: 110,
+                width: 88,
                 render: (r) => <Mono>{rupees(r.totalDue)}</Mono>,
               },
               {
                 key: 'paid',
                 header: 'Paid',
                 align: 'right',
-                width: 110,
+                width: 88,
                 render: (r) => (
                   <Mono sx={{ color: r.amountPaid === 0 ? neutral[600] : undefined }}>
                     {rupees(r.amountPaid)}
@@ -242,7 +269,7 @@ export function PaymentRun() {
               {
                 key: 'status',
                 header: 'Status',
-                width: 110,
+                width: 92,
                 render: (r) => (
                   <StateChip label={PAYMENT_STATUS_LABEL[r.status]} tone={PAYMENT_STATUS_TONE[r.status]} />
                 ),
@@ -251,7 +278,7 @@ export function PaymentRun() {
                 key: 'action',
                 header: '',
                 align: 'right',
-                width: 150,
+                width: 84,
                 render: (r) =>
                   owing(r) ? (
                     <Button
@@ -261,11 +288,20 @@ export function PaymentRun() {
                         e.stopPropagation();
                         openCollect(r);
                       }}
+                      sx={{
+                        // Small enough to sit on one row without stretching it.
+                        minWidth: 0,
+                        px: 2,
+                        py: 0.5,
+                        fontSize: 12,
+                        lineHeight: 1.4,
+                        whiteSpace: 'nowrap',
+                      }}
                     >
-                      Record payment
+                      Collect
                     </Button>
                   ) : (
-                    <Box component="span" sx={{ color: neutral[700], fontSize: 13 }}>Settled</Box>
+                    <Box component="span" sx={{ color: neutral[700], fontSize: 12 }}>Settled</Box>
                   ),
               },
             ]}

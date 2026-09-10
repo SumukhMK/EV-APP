@@ -1,15 +1,17 @@
 import type {
+  BillingDay,
   OverdueRider,
   PaymentPeriodRow,
   PaymentReceipt,
   PaymentRun,
   RecordPaymentRequest,
 } from '../../types';
-import { mondayRun, overdueRiders, paymentReceiptFor, recordPaymentInRun } from '../../mocks/payments';
+import { overdueRiders, paymentReceiptFor, recordPaymentInRun, runsByDay } from '../../mocks/payments';
 import { delay } from './client';
 
-export async function getCurrentPaymentRun(): Promise<PaymentRun> {
-  return delay(mondayRun);
+/** The run for one billing cycle. Both cycles are real; the screen picks one. */
+export async function getCurrentPaymentRun(billingDay: BillingDay = 'MONDAY'): Promise<PaymentRun> {
+  return delay(runsByDay[billingDay]);
 }
 
 export async function listOverdueRiders(): Promise<OverdueRider[]> {

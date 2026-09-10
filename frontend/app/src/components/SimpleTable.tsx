@@ -6,10 +6,19 @@ export interface Column<R> {
   key: string;
   header: string;
   align?: 'left' | 'right';
-  /** Any CSS width. Left off, the column takes its share of what is left. */
+  /**
+   * A width *weight*, not a hard size. Columns are laid out as percentages of
+   * the table, so a column declared 200 simply gets twice the share of one
+   * declared 100. Left off, the column takes an average share.
+   */
   width?: string | number;
+  /** Let this cell wrap onto a second line instead of truncating. */
+  wrap?: boolean;
   render: (row: R) => ReactNode;
 }
+
+/** The share a column with no declared width asks for. */
+const DEFAULT_WEIGHT = 140;
 
 /**
  * A static table for the small, fixed lists inside a panel — assignment
@@ -18,51 +27,47 @@ export interface Column<R> {
  * DataTable (the DataGrid) is for the paginated list screens; reaching for it
  * here would bring virtualisation and a footer to render four rows. This gives
  * the same type, rules and alignment without any of that.
+ *
+ * It never scrolls sideways. Declared widths are turned into percentages of
+ * the table so the columns always add up to exactly the space available, and
+ * a cell that runs out of room truncates rather than pushing the table wider.
+ * A horizontal scrollbar inside a page is the thing operators complain about
+ * first, so the trade is made here once instead of per screen.
  */
-/** A column with no declared width still needs room for its content. */
-const FLEXIBLE_COLUMN_WIDTH = 180;
-
 export function SimpleTable<R>({
   columns,
   rows,
   getRowKey,
   rowSx,
-  minWidth,
 }: {
   columns: Column<R>[];
   rows: R[];
   getRowKey: (row: R, index: number) => string;
   /** Per-row styling, e.g. tinting an import row that failed validation. */
   rowSx?: (row: R) => object | undefined;
-  /** Override the derived scroll threshold. Rarely needed. */
-  minWidth?: number;
 }) {
-  // Derived, not guessed. `table-layout: fixed` honours the colgroup even when
-  // the declared widths exceed the table, and the columns then overlap rather
-  // than overflow — so the threshold has to be at least what the columns ask
-  // for. Getting this wrong is invisible until someone opens a phone.
-  const derivedMinWidth = columns.reduce(
-    (total, c) => total + (typeof c.width === 'number' ? c.width : FLEXIBLE_COLUMN_WIDTH),
-    0,
-  );
+  // Percentages, so the columns divide the table rather than overflow it.
+  const weights = columns.map((c) => (typeof c.width === 'number' ? c.width : DEFAULT_WEIGHT));
+  const totalWeight = weights.reduce((t, w) => t + w, 0) || 1;
 
   return (
-    // The scroll lives on the table, not the page: a narrow screen should
-    // still scroll the document vertically without the whole layout sliding.
-    <Box sx={{ width: '100%', overflowX: 'auto' }}>
+    <Box sx={{ width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
       <Box
         component="table"
         sx={{
           width: '100%',
-          minWidth: minWidth ?? derivedMinWidth,
-          borderCollapse: 'collapse',
-          fontSize: 14,
           tableLayout: 'fixed',
+          borderCollapse: 'collapse',
+          fontSize: 13.5,
         }}
       >
         <Box component="colgroup">
-          {columns.map((c) => (
-            <Box component="col" key={c.key} sx={c.width ? { width: c.width } : undefined} />
+          {columns.map((c, i) => (
+            <Box
+              component="col"
+              key={c.key}
+              sx={{ width: `${((weights[i] / totalWeight) * 100).toFixed(4)}%` }}
+            />
           ))}
         </Box>
         <Box component="thead">
@@ -73,18 +78,20 @@ export function SimpleTable<R>({
                 key={c.key}
                 sx={{
                   textAlign: c.align ?? 'left',
-                  fontSize: 11,
-                  letterSpacing: '0.08em',
+                  fontSize: 10.5,
+                  letterSpacing: '0.07em',
                   textTransform: 'uppercase',
                   fontWeight: 400,
                   color: neutral[500],
-                  py: 3,
+                  py: 2.5,
                   // Extra room at the extreme ends so the outer columns are not
                   // flush against the table edge.
-                  pl: i === 0 ? 4 : 2,
-                  pr: i === columns.length - 1 ? 4 : 2,
+                  pl: i === 0 ? 3 : 1.5,
+                  pr: i === columns.length - 1 ? 3 : 1.5,
                   borderBottom: `1px solid ${neutral[900]}`,
                   whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
                 {c.header}
@@ -101,11 +108,15 @@ export function SimpleTable<R>({
                   key={c.key}
                   sx={{
                     textAlign: c.align ?? 'left',
-                    py: 3,
-                    pl: j === 0 ? 4 : 2,
-                    pr: j === columns.length - 1 ? 4 : 2,
+                    py: 2.5,
+                    pl: j === 0 ? 3 : 1.5,
+                    pr: j === columns.length - 1 ? 3 : 1.5,
                     borderBottom: `1px solid ${neutral[900]}`,
                     verticalAlign: 'middle',
+                    overflow: 'hidden',
+                    ...(c.wrap
+                      ? {}
+                      : { whiteSpace: 'nowrap', textOverflow: 'ellipsis' }),
                   }}
                 >
                   {c.render(row)}

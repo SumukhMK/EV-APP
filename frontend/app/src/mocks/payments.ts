@@ -1,4 +1,5 @@
 import type {
+  BillingDay,
   DunningStage,
   OverdueRider,
   Paise,
@@ -57,7 +58,7 @@ function row(
 }
 
 /**
- * The Monday run is the Monday riders — one row each, no more and no fewer.
+ * A run is the riders in that cycle — one row each, no more and no fewer.
  *
  * It used to be `[...DESIGNED_ROWS, ...rest]`, which appended all ten rows
  * drawn on artboard 15 and then the Monday riders who were not among them.
@@ -66,16 +67,16 @@ function row(
  * same period — and it listed riders who are not in that cycle at all.
  *
  * Deriving the rows from the riders in the cycle and looking up the designed
- * amounts by id makes the two numbers one number. A designed row now applies
- * only when its rider is actually in the run; the Wednesday ones wait for the
- * Wednesday run to be built.
+ * amounts by id makes the two numbers one number. Both cycles are built the
+ * same way, so the Wednesday run is as real as the Monday one and the screen
+ * can be switched between them.
  */
-function buildRun(): PaymentRun {
+function buildRun(billingDay: BillingDay): PaymentRun {
   const designed = new Map(DESIGNED_ROWS.map((r) => [r.riderId, r]));
 
   const rows = riders
     // A rider with no bike has no open plan, so there is nothing to bill.
-    .filter((r) => r.currentVehicleId && r.billingDay === 'MONDAY')
+    .filter((r) => r.currentVehicleId && r.billingDay === billingDay)
     .map<PaymentPeriodRow>((r) => {
       const asDrawn = designed.get(r.id);
       if (asDrawn) return asDrawn;
@@ -98,15 +99,24 @@ function buildRun(): PaymentRun {
       };
     });
 
+  // The Wednesday cycle bills the same week, three days later.
+  const monday = billingDay === 'MONDAY';
   return {
-    periodStart: '2026-08-24',
-    periodEnd: '2026-08-30',
-    billingDay: 'MONDAY',
+    periodStart: monday ? '2026-08-24' : '2026-08-26',
+    periodEnd: monday ? '2026-08-30' : '2026-09-01',
+    billingDay,
     rows,
   };
 }
 
-export const mondayRun: PaymentRun = buildRun();
+export const mondayRun: PaymentRun = buildRun('MONDAY');
+export const wednesdayRun: PaymentRun = buildRun('WEDNESDAY');
+
+/** Both cycles, so a screen can ask for either by billing day. */
+export const runsByDay: Record<BillingDay, PaymentRun> = {
+  MONDAY: mondayRun,
+  WEDNESDAY: wednesdayRun,
+};
 
 /**
  * A receipt for one rider's line in the current run (screen 16).
@@ -121,30 +131,34 @@ export const mondayRun: PaymentRun = buildRun();
  * into a "no line in this period" state rather than inventing one.
  */
 export function paymentReceiptFor(riderId: string): PaymentReceipt | null {
-  const row = mondayRun.rows.find((r) => r.riderId === riderId);
-  if (!row) return null;
+  // A rider sits in exactly one cycle, so find the run that actually bills
+  // them rather than assuming Monday — otherwise every Wednesday rider's
+  // receipt reads "no line in this period".
+  const run = Object.values(runsByDay).find((r) => r.rows.some((x) => x.riderId === riderId));
+  const row = run?.rows.find((r) => r.riderId === riderId);
+  if (!run || !row) return null;
 
   const rng = mulberry32(hash(`receipt-${riderId}`));
   const collected = row.amountPaid > 0;
   const override = recordedPayments.get(riderId);
   const method = override?.method ?? (collected ? pick(rng, PAYMENT_METHODS) : null);
 
-  // Payment lands within the billing week; a Wednesday-billed rider three days
-  // later. Only a settled or part-settled row carries a date at all.
+  // Payment lands within the billing week. Only a settled or part-settled row
+  // carries a date at all.
   const paidOn = override?.paidOn ?? (collected
-    ? iso(Date.parse(mondayRun.periodStart) + Math.floor(rng() * 4) * DAY_MS)
+    ? iso(Date.parse(run.periodStart) + Math.floor(rng() * 4) * DAY_MS)
     : null);
 
   return {
     receiptNo: collected
-      ? `RCPT-${mondayRun.periodStart.slice(0, 4)}-${hash(riderId).toString().slice(0, 4)}`
+      ? `RCPT-${run.periodStart.slice(0, 4)}-${hash(riderId).toString().slice(0, 4)}`
       : null,
     riderId: row.riderId,
     riderName: row.riderName,
     vehicleId: row.vehicleId,
-    periodStart: mondayRun.periodStart,
-    periodEnd: mondayRun.periodEnd,
-    billingDay: mondayRun.billingDay,
+    periodStart: run.periodStart,
+    periodEnd: run.periodEnd,
+    billingDay: run.billingDay,
     planAmount: row.planAmount,
     daysBilled: row.daysBilled,
     perDayAmount: row.perDayAmount,
@@ -210,12 +224,12 @@ export const overdueRiders: OverdueRider[] = riders
   .sort((a, b) => b.daysOverdue - a.daysOverdue);
 
 /**
- * Recording a payment against the current run.
+ * Recording a payment against whichever run bills this rider.
  *
- * The run and the receipts both read from `mondayRun.rows`, so mutating the row
- * in place is what makes the collection show up everywhere at once — the run
- * line flips, the receipt reissues, and the dashboard's outstanding figure
- * follows on the next read. This is the same simulated-write shape the QC and
+ * The runs and the receipts read the same row objects, so mutating one in
+ * place is what makes the collection show up everywhere at once — the run line
+ * flips, the receipt reissues, and the dashboard's outstanding figure follows
+ * on the next read. This is the same simulated-write shape the QC and
  * assignment screens already use; it is not a real ledger, just a live cache.
  *
  * `recordedPayments` overrides the seeded method/date on the receipt so the
@@ -228,7 +242,9 @@ export function recordPaymentInRun(
   amount: Paise,
   method: PaymentMethod,
 ): PaymentPeriodRow {
-  const row = mondayRun.rows.find((r) => r.riderId === riderId);
+  const row = Object.values(runsByDay)
+    .flatMap((r) => r.rows)
+    .find((r) => r.riderId === riderId);
   if (!row) throw new Error(`No run line for ${riderId}`);
 
   row.amountPaid = Math.min(row.totalDue, row.amountPaid + amount);
