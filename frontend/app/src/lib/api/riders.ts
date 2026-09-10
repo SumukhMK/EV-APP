@@ -44,10 +44,13 @@ function match(r: Rider, query: RiderQuery) {
   }
   const q = query.q?.trim().toLowerCase();
   if (!q) return true;
+  // Everything on the row is searchable, including the platform — the same
+  // reason the vehicle search matches its hub.
   return (
     r.name.toLowerCase().includes(q) ||
     r.id.toLowerCase().includes(q) ||
     r.phone.includes(q) ||
+    (r.platform ?? '').toLowerCase().includes(q) ||
     (r.currentVehicleId ?? '').toLowerCase().includes(q)
   );
 }

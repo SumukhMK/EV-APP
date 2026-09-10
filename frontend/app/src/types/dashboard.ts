@@ -6,6 +6,9 @@ export interface FleetSummary {
   readyToDeploy: number;
   underRepair: number;
   qcPending: number;
+  /** Current fleet counts, so any tile that links to a filtered list agrees with it. */
+  accident: number;
+  recovery: number;
   overdueRiders: number;
   overdueValue: Paise;
 }

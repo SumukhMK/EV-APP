@@ -20,7 +20,7 @@ import { InfoStrip } from '../../components/InfoStrip';
 import { PeriodToggle } from '../../components/PeriodToggle';
 import { Mono } from '../../components/Mono';
 import { resolvePeriod, type PeriodGrain } from '../../lib/period';
-import { getOperationsSummary } from '../../lib/api/dashboard';
+import { getOperationsSummary, getFleetSummary } from '../../lib/api/dashboard';
 import { formatNumber } from '../../lib/format';
 import { neutral } from '../../theme/tokens';
 
@@ -49,7 +49,14 @@ export function TodayOperations() {
     placeholderData: keepPreviousData,
   });
 
+  // The outcome strip reads the live fleet, not the period, because those
+  // tiles link to a filtered vehicle list and a tile must agree with the list
+  // it opens. Movement and source stay period figures and therefore do not
+  // link anywhere — there is no period-scoped list for them to be honest about.
+  const fleet = useQuery({ queryKey: ['dashboard', 'summary'], queryFn: getFleetSummary });
+
   const s = summary.data;
+  const f = fleet.data;
   const n = (v: number | undefined) => (v === undefined ? '—' : formatNumber(v));
 
   return (
@@ -65,50 +72,49 @@ export function TodayOperations() {
         <PeriodToggle grain={period.grain} anchorIso={period.anchorIso} onChange={setPeriod} />
       </Panel>
 
-      <Panel label="Vehicle movement" sx={{ mt: 5 }}>
+      <Panel label="Vehicle movement" subtitle={`Events in ${resolved.label}`} sx={{ mt: 5 }}>
         <StatTiles
           tiles={[
-            { label: 'Deployed', value: n(s?.movement.deployed), icon: RocketIcon, to: '/vehicles?state=DEPLOYED' },
+            { label: 'Deployed', value: n(s?.movement.deployed), icon: RocketIcon },
             { label: 'Exchanged', value: n(s?.movement.exchanged), icon: SwapIcon },
-            { label: 'Returned', value: n(s?.movement.returned), icon: AssignmentReturnIcon, to: '/vehicles?state=RETURNED' },
+            { label: 'Returned', value: n(s?.movement.returned), icon: AssignmentReturnIcon },
             {
               label: 'Recovered',
               value: n(s?.movement.recovered),
               tone: 'warn',
               icon: ReplayIcon,
-              to: '/vehicles?state=RECOVERY',
             },
           ]}
         />
       </Panel>
 
-      <Panel label="Vehicle outcome" sx={{ mt: 5 }}>
+      <Panel label="Vehicle outcome" subtitle="The fleet right now" sx={{ mt: 5 }}>
         <StatTiles
           tiles={[
             {
               label: 'Ready to deploy',
-              value: n(s?.outcome.readyToDeploy),
+              value: n(f?.readyToDeploy),
               tone: 'good',
               icon: CheckCircleIcon,
               to: '/vehicles?state=READY_TO_DEPLOY',
             },
             {
               label: 'Under repair',
-              value: n(s?.outcome.underRepair),
+              value: n(f?.underRepair),
               tone: 'warn',
               icon: BuildIcon,
               to: '/vehicles?state=UNDER_REPAIR',
             },
             {
               label: 'QC pending',
-              value: n(s?.outcome.qcPending),
+              value: n(f?.qcPending),
               tone: 'caution',
               icon: FactCheckIcon,
               to: '/vehicles?state=QC_PENDING',
             },
             {
               label: 'Accident',
-              value: n(s?.outcome.accident),
+              value: n(f?.accident),
               tone: 'bad',
               icon: CarCrashIcon,
               to: '/vehicles?state=ACCIDENT',
@@ -117,7 +123,7 @@ export function TodayOperations() {
         />
       </Panel>
 
-      <Panel label="Service source" sx={{ mt: 5 }}>
+      <Panel label="Service source" subtitle={`Events in ${resolved.label}`} sx={{ mt: 5 }}>
         <StatTiles
           tiles={[
             { label: 'Roadside assistance', value: n(s?.source.rsa), icon: SupportAgentIcon },
@@ -129,9 +135,10 @@ export function TodayOperations() {
 
       <Box sx={{ mt: 5 }}>
         <InfoStrip tone="caution">
-          Figures are counted for the selected period. The tiles link to the matching current fleet
-          state — the vehicle list is not yet period-scoped, so a tile opens today's list, not the
-          period's. Service-source tiles have no list of their own yet.
+          Movement and service source count events inside the selected period, so they change with
+          the toggle and do not link anywhere — there is no period-scoped vehicle list yet. Vehicle
+          outcome is the fleet as it stands now, which is why those tiles open a list that matches
+          them exactly.
         </InfoStrip>
       </Box>
     </>

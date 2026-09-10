@@ -45,10 +45,19 @@ function match(v: Vehicle, query: VehicleQuery) {
   if (query.batteryType && query.batteryType !== 'ALL' && v.batteryType !== query.batteryType) return false;
   const q = query.q?.trim().toLowerCase();
   if (!q) return true;
+  // Everything printed on the row is searchable, because that is what the box
+  // appears to promise. The hub is the one people actually type — "Koramangala"
+  // is how a dispatcher asks which bikes are at their yard — and leaving it out
+  // made the search look broken.
   return (
     v.id.toLowerCase().includes(q) ||
     v.chassisNumber.toLowerCase().includes(q) ||
     v.model.toLowerCase().includes(q) ||
+    deriveMake(v.model).toLowerCase().includes(q) ||
+    v.hub.toLowerCase().includes(q) ||
+    v.batteryType.toLowerCase().includes(q) ||
+    (v.batteryVendor ?? '').toLowerCase().includes(q) ||
+    (v.currentRiderId ?? '').toLowerCase().includes(q) ||
     (v.currentRiderName ?? '').toLowerCase().includes(q)
   );
 }

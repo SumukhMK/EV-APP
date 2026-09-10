@@ -7,6 +7,7 @@ import RocketIcon from '@mui/icons-material/RocketLaunchOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import BuildIcon from '@mui/icons-material/BuildOutlined';
 import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
+import ReplayIcon from '@mui/icons-material/ReplayCircleFilledOutlined';
 import PeopleAlertIcon from '@mui/icons-material/PersonOffOutlined';
 import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupeeOutlined';
 import { PageHeader } from '../components/PageHeader';
@@ -89,6 +90,13 @@ export function Dashboard() {
               tone: 'caution',
               icon: FactCheckIcon,
               to: '/vehicles?state=QC_PENDING',
+            },
+            {
+              label: 'Recovery',
+              value: s ? formatNumber(s.recovery) : '—',
+              tone: 'warn',
+              icon: ReplayIcon,
+              to: '/vehicles?state=RECOVERY',
             },
             {
               label: 'Overdue riders',

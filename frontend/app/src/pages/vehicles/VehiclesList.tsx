@@ -231,7 +231,7 @@ export function VehiclesList() {
           <SearchField
             value={search}
             onChange={setSearch}
-            placeholder="Search id, chassis, rider"
+            placeholder="Search id, chassis, hub, model, rider"
             fullWidth
           />
         </Box>

@@ -20,6 +20,8 @@ export const fleetSummary = (): FleetSummary => ({
   readyToDeploy: vehicles.filter((v) => v.state === 'READY_TO_DEPLOY').length,
   underRepair: vehicles.filter((v) => v.state === 'UNDER_REPAIR').length,
   qcPending: vehicles.filter((v) => v.state === 'QC_PENDING').length,
+  accident: vehicles.filter((v) => v.state === 'ACCIDENT').length,
+  recovery: vehicles.filter((v) => v.state === 'RECOVERY').length,
   overdueRiders: overdueRiders.length,
   overdueValue: overdueRiders.reduce((sum, o) => sum + o.amountDue, 0),
 });
