@@ -5,6 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FleeTech OS</title>
+    <script>
+      // Paint the saved scheme before React boots. Without this the app renders
+      // one frame of dark before switching, and a white screen that flashes
+      // navy is worse than either mode on its own.
+      (function () {
+        try {
+          var m = localStorage.getItem('fleetech-mode');
+          document.documentElement.setAttribute('data-mode', m === 'light' ? 'light' : 'dark');
+        } catch (e) {
+          document.documentElement.setAttribute('data-mode', 'dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

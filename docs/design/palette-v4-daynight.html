@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Saffron Day / Nocturne Night — the chosen pair · FleeTech OS</title>
+<style>
+  :root{--font:"Inter",-apple-system,system-ui,sans-serif;--mono:ui-monospace,Menlo,"SF Mono",monospace}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);background:#08090F;color:#EDEFF7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1560px;margin:0 auto;padding:36px 26px 90px}
+  h1{font-size:30px;margin:0 0 8px;letter-spacing:-.02em}
+  .lede{color:#A3ACCC;font-size:14px;line-height:1.65;margin:0;max-width:1040px}
+  .lede b{color:#FFB347} .lede i{color:#B5ABFC;font-style:normal}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0 0;max-width:1040px}
+  @media(max-width:900px){.split{grid-template-columns:1fr}}
+  .card{border-radius:9px;padding:12px 14px;font-size:13px;line-height:1.6}
+  .card.l{background:#FFFFFF;color:#1A1614;border:1px solid #E5E2DD}
+  .card.l b{color:#C2410C} .card.l .dot{background:#FFA500}
+  .card.d{background:#12152A;color:#EDEFF7;border:1px solid #2F3760}
+  .card.d b{color:#B5ABFC} .card.d .dot{background:#B5ABFC}
+  .dots{display:flex;gap:5px;margin-top:8px}
+  .dots i{width:26px;height:12px;border-radius:3px;display:block}
+  h2{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#7C86A8;margin:48px 0 4px;font-weight:600}
+  .why{color:#A3ACCC;font-size:13px;margin:0 0 14px;line-height:1.55;max-width:1040px}
+  .why em{color:#FFB347;font-style:normal;font-family:var(--mono);font-size:12px}
+  .strip{display:flex;gap:5px;margin:0 0 14px;flex-wrap:wrap}
+  .sw{width:74px;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.09)}
+  .sw .c{height:32px}.sw .m{background:#101322;padding:4px 5px}
+  .sw .n{font-size:8.5px;color:#7C86A8;letter-spacing:.04em}
+  .sw .h{font-family:var(--mono);font-size:9.5px;color:#C3CAE4}
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:1180px){.modes{grid-template-columns:1fr}}
+  .mode{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.11)}
+  .mh{display:flex;justify-content:space-between;align-items:baseline;padding:8px 13px;background:#101322}
+  .mh b{font-size:12.5px}.mh span{font-size:10.5px;color:#7C86A8;font-family:var(--mono)}
+
+  .app{background:var(--bg);color:var(--text);display:flex;min-height:530px}
+  .rail{width:142px;flex:0 0 142px;background:var(--bgDeep);border-right:1px solid var(--line);padding:13px 9px}
+  .bm{font-size:13.5px;font-weight:600;padding:0 6px 13px}.bm i{color:var(--brandText);font-style:normal}
+  .nav a{display:block;font-size:12px;color:var(--text2);text-decoration:none;padding:6px 8px;border-radius:6px;margin-bottom:1px}
+  .nav a.on{background:var(--navTint);color:var(--navOn);font-weight:700;box-shadow:inset 2px 0 0 var(--navBar)}
+  .main{flex:1;padding:15px 17px;min-width:0}
+  .row{display:flex;gap:8px;align-items:center}.sp{flex:1}
+  .kick{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text3)}
+  .ttl{font-size:19px;margin:2px 0 0;letter-spacing:-.015em}
+  .lnk{color:var(--link);text-decoration:underline;text-underline-offset:3px;
+       text-decoration-thickness:1.5px;font-size:11.5px;font-weight:500}
+  .btn{font:inherit;font-size:11.5px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);
+       background:transparent;color:var(--text);cursor:pointer}
+  .btn.pri{background:var(--fill);border-color:var(--fill);color:var(--onFill);font-weight:700}
+  .btn.sec{color:var(--link);border-color:var(--linkEdge)}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:13px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+  .tile .k{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+  .tile .v{font-family:var(--mono);font-size:20px;margin-top:2px}
+  .tile .v.g{color:var(--good)}.tile .v.b{color:var(--bad)}.tile .v.a{color:var(--accentNum)}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin-top:11px}
+  .panel h4{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 8px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}
+  th{text-align:left;font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);padding:0 0 6px;font-weight:700}
+  td{padding:6px 0;border-top:1px solid var(--line)}
+  td.n{font-family:var(--mono);text-align:right}
+  .id{font-family:var(--mono);font-size:11px}
+  .chip{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:100px;font-weight:700}
+  .chip.g{color:var(--good);background:var(--goodBg)}
+  .chip.c{color:var(--caution);background:var(--cautionBg)}
+  .chip.w{color:var(--warn);background:var(--warnBg)}
+  .chip.b{color:var(--bad);background:var(--badBg)}
+  .chip.a{color:var(--chipA);background:var(--chipABg)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .fl{font-size:9.5px;color:var(--text2);margin-bottom:3px;display:block}
+  .in{background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:11.5px}
+  .in.foc{border-color:var(--focus);box-shadow:0 0 0 2px var(--focusRing)}
+  .bars{display:flex;align-items:flex-end;gap:5px;height:56px;margin-top:2px}
+  .bars i{flex:1;border-radius:3px 3px 0 0}
+  .audit{width:100%;border-collapse:collapse;font-size:12.5px;background:#101322;border-radius:10px;overflow:hidden}
+  .audit th{color:#7C86A8;padding:9px 12px;font-size:10px}
+  .audit td{padding:8px 12px;border-top:1px solid #232842}
+  .audit td.r{font-family:var(--mono);text-align:right}
+  .pass{color:#7FD694;font-weight:700}.fail{color:#FF8A9B;font-weight:700}
+  .ask{background:#101322;border:1px solid #2F3760;border-left:3px solid #FFB347;border-radius:8px;
+       padding:14px 16px;margin:14px 0 0;font-size:13.5px;color:#C3CAE4;line-height:1.65;max-width:1040px}
+  .ask b{color:#FFCB6B}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Saffron Day · Nocturne Night</h1>
+<p class="lede">
+  The pairing you picked, built out. Two modes with deliberately different characters: light is
+  <b>warm — orange, green, yellow on pure white</b>. Dark keeps the navy the client already signed off and
+  works in <i>purple and greys</i>. Same product, same components, two moods.
+</p>
+<div class="split">
+  <div class="card l"><b>Light — Saffron Day</b><br>White page. Orange does the doing (buttons, the active nav bar),
+    green does the reading (links, healthy figures), yellow does the flagging.
+    <div class="dots"><i class="dot"></i><i style="background:#FFD700"></i><i style="background:#15803D"></i><i style="background:#C2410C"></i><i style="background:#E5E2DD"></i></div></div>
+  <div class="card d"><b>Dark — Nocturne Night</b><br>The navy stays. Purple is the accent it always was,
+    greys carry structure and secondary type, and the status hues are the only warmth.
+    <div class="dots"><i class="dot"></i><i style="background:#8F98B8"></i><i style="background:#2F3760"></i><i style="background:#7FD694"></i><i style="background:#FFD24A"></i></div></div>
+</div>
+
+<h2>The pair</h2>
+<p class="why">Same screen, both modes. Light leans on <em>#FFA500</em> / <em>#15803D</em> / <em>#FFD700</em>; dark on <em>#B5ABFC</em> plus the grey ramp.</p>
+<div class="strip" id="strip"></div>
+<div class="modes">
+  <div class="mode"><div class="mh"><b>Light — Saffron Day</b><span>#FFFFFF</span></div><div class="app" id="app-light"></div></div>
+  <div class="mode"><div class="mh"><b>Dark — Nocturne Night</b><span>#12152A</span></div><div class="app" id="app-dark"></div></div>
+</div>
+
+<h2>One decision left — the primary button in dark</h2>
+<p class="why">If dark is purely purple and grey, the brand colour changes between modes: orange by day, purple by night. That is legitimate, but it does mean "the button you press to commit" is a different colour depending on the time of day. The alternative keeps one amber thread running through both.</p>
+<div class="modes">
+  <div class="mode"><div class="mh"><b>1 — purple primary</b><span>brand shifts per mode</span></div><div class="app" id="app-dark-a"></div></div>
+  <div class="mode"><div class="mh"><b>2 — amber primary, purple everything else</b><span>one brand thread</span></div><div class="app" id="app-dark-b"></div></div>
+</div>
+<div class="ask"><b>My read:</b> option 2. Purple still owns links, nav and charts so the dark mode still reads as Nocturne,
+  but "Finalise deboard" is the same amber in both modes — and on this app the commit button is the one thing that should
+  never be ambiguous. Option 1 is the cleaner theory; option 2 is the safer product.</div>
+
+<h2>Contrast audit — computed live</h2>
+<table class="audit" id="audit">
+  <thead><tr><th>Mode</th><th>Pairs</th><th style="text-align:right">Worst text pair</th><th style="text-align:right">Result</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const LIGHT={
+  bg:'#FFFFFF',bgDeep:'#FFFFFF',surface:'#FFFFFF',raised:'#FAFAF9',line:'#E5E2DD',
+  text:'#1A1614',text2:'#57534E',text3:'#6B6560',
+  link:'#166534',linkEdge:'#A7D9B9',brandText:'#C2410C',
+  navOn:'#1A1614',navTint:'#FFF4E0',navBar:'#FFA500',
+  fill:'#FFA500',onFill:'#241A08',focus:'#FFA500',focusRing:'rgba(255,165,0,.35)',
+  accentNum:'#15803D',chipA:'#166534',chipABg:'#DCFCE7',
+  good:'#15803D',goodBg:'#DCFCE7',caution:'#B45309',cautionBg:'#FEF3C7',
+  warn:'#C2410C',warnBg:'#FFEDD5',bad:'#BE1E3C',badBg:'#FFE4E9',
+  c1:'#FFA500',c2:'#FFD700',c3:'#15803D'
+};
+const DARK={
+  bg:'#12152A',bgDeep:'#0C0F1F',surface:'#1B203A',raised:'#232948',line:'#2F3760',
+  text:'#EDEFF7',text2:'#A3ACCC',text3:'#8F98B8',
+  link:'#B5ABFC',linkEdge:'rgba(181,171,252,.45)',brandText:'#B5ABFC',
+  navOn:'#B5ABFC',navTint:'rgba(181,171,252,.14)',navBar:'#B5ABFC',
+  fill:'#B5ABFC',onFill:'#171331',focus:'#B5ABFC',focusRing:'rgba(181,171,252,.32)',
+  accentNum:'#B5ABFC',chipA:'#C3CAE4',chipABg:'#262C48',
+  good:'#7FD694',goodBg:'#14301E',caution:'#FFD24A',cautionBg:'#33280A',
+  warn:'#FFA14A',warnBg:'#362310',bad:'#FF8A9B',badBg:'#361A24',
+  c1:'#B5ABFC',c2:'#8F98B8',c3:'#C3CAE4'
+};
+const DARK_BRIDGE={...DARK, fill:'#FFB347', onFill:'#241A08', navBar:'#FFB347',
+  focus:'#FFB347', focusRing:'rgba(255,179,71,.35)'};
+
+const APP=`
+  <div class="rail">
+    <div class="bm">FleeTech <i>OS</i></div>
+    <nav class="nav"><a class="on">Dashboard</a><a>Vehicles</a><a>Riders</a><a>Assignments</a><a>Payments</a></nav>
+  </div>
+  <div class="main">
+    <div class="row">
+      <div><div class="kick">Riders</div><div class="ttl">Deboard rider</div></div>
+      <div class="sp"></div><button class="btn">Cancel</button><button class="btn pri">Finalise deboard</button>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="k">Fleet</div><div class="v">137</div></div>
+      <div class="tile"><div class="k">Deployed</div><div class="v a">97</div></div>
+      <div class="tile"><div class="k">Ready</div><div class="v g">22</div></div>
+      <div class="tile"><div class="k">Overdue</div><div class="v b">16</div></div>
+    </div>
+    <div class="panel"><h4>Fleet</h4>
+      <table><thead><tr><th>Vehicle</th><th>Hub</th><th>State</th><th style="text-align:right">Weekly</th></tr></thead>
+      <tbody>
+        <tr><td class="id">BLRSS0428</td><td>Whitefield</td><td><span class="chip g">Ready</span></td><td class="n">₹1,400</td></tr>
+        <tr><td class="id">BLRSS0451</td><td>HSR</td><td><span class="chip a">Deployed</span></td><td class="n">₹1,400</td></tr>
+        <tr><td class="id">BLRSS0463</td><td>Koramangala</td><td><span class="chip c">QC pending</span></td><td class="n">₹1,250</td></tr>
+        <tr><td class="id">BLRSS0477</td><td>Indiranagar</td><td><span class="chip w">Under repair</span></td><td class="n">₹1,400</td></tr>
+        <tr><td class="id">BLRSS0482</td><td>Whitefield</td><td><span class="chip b">Recovery</span></td><td class="n">₹0</td></tr>
+      </tbody></table>
+    </div>
+    <div class="panel"><h4>Settlement</h4>
+      <div class="fields">
+        <div><span class="fl">Outstanding rent (₹)</span><div class="in">2,500</div></div>
+        <div><span class="fl">Deposit refunded (₹)</span><div class="in foc">4,000</div></div>
+      </div>
+      <div class="row" style="margin-top:9px"><a class="lnk">View rider R03</a><div class="sp"></div>
+        <button class="btn sec">Preview run</button></div>
+    </div>
+    <div class="panel"><h4>Deployments</h4>
+      <div class="bars">
+        <i style="height:38%;background:var(--c1);opacity:.4"></i>
+        <i style="height:55%;background:var(--c1);opacity:.6"></i>
+        <i style="height:32%;background:var(--c1);opacity:.45"></i>
+        <i style="height:70%;background:var(--c1);opacity:.8"></i>
+        <i style="height:86%;background:var(--c2)"></i>
+        <i style="height:100%;background:var(--c1)"></i>
+        <i style="height:60%;background:var(--c3);opacity:.9"></i>
+        <i style="height:45%;background:var(--c3);opacity:.65"></i>
+      </div>
+    </div>
+  </div>`;
+
+const mount=(id,vars)=>{const el=document.getElementById(id);el.innerHTML=APP;
+  Object.entries(vars).forEach(([k,v])=>el.style.setProperty('--'+k,v));};
+mount('app-light',LIGHT); mount('app-dark',DARK);
+mount('app-dark-a',DARK); mount('app-dark-b',DARK_BRIDGE);
+
+const sw=(n,h)=>`<div class="sw"><div class="c" style="background:${h}"></div>
+  <div class="m"><div class="n">${n}</div><div class="h">${h.toUpperCase()}</div></div></div>`;
+document.getElementById('strip').innerHTML=
+  sw('orange',' #FFA500')+sw('gold','#FFD700')+sw('green','#15803D')+sw('rust','#C2410C')+
+  sw('paper','#FFFFFF')+sw('navy','#12152A')+sw('surface','#1B203A')+sw('purple','#B5ABFC')+
+  sw('grey 400','#A3ACCC')+sw('grey 600','#6E7490');
+
+function lum(x){const h=x.replace('#','').trim();const v=[0,2,4].map(i=>parseInt(h.substr(i,2),16)/255)
+  .map(c=>c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4));return .2126*v[0]+.7152*v[1]+.0722*v[2];}
+const ratio=(a,b)=>{const[x,y]=[lum(a),lum(b)].sort((m,n)=>n-m);return(x+.05)/(y+.05);};
+const rows=[];let total=0;
+[['Light — Saffron Day',LIGHT],['Dark — purple primary',DARK],['Dark — amber primary',DARK_BRIDGE]]
+.forEach(([name,p])=>{
+  const pairs=[['body text',p.text,p.bg,4.5],['text on panel',p.text,p.surface,4.5],
+    ['secondary text',p.text2,p.surface,4.5],['muted label',p.text3,p.surface,4.5],
+    ['link',p.link,p.surface,4.5],['primary button label',p.onFill,p.fill,4.5],
+    ['deployed chip',p.chipA,p.chipABg,4.5],['chip good',p.good,p.goodBg,4.5],
+    ['chip caution',p.caution,p.cautionBg,4.5],['chip warn',p.warn,p.warnBg,4.5],
+    ['chip bad',p.bad,p.badBg,4.5],['hairline',p.line,p.bg,1.25]];
+  const res=pairs.map(([n,f,b,need])=>({n,r:ratio(f,b),need,ok:ratio(f,b)>=need}));
+  const fails=res.filter(r=>!r.ok);total+=fails.length;
+  const worst=res.filter(r=>r.need>=4.5).sort((a,b)=>a.r-b.r)[0];
+  rows.push({name,c:res.length,f:fails.length,wn:worst.n,w:+worst.r.toFixed(2),
+             fl:fails.map(x=>`${x.n} ${x.r.toFixed(2)}`)});
+});
+document.querySelector('#audit tbody').innerHTML=rows.map(r=>`<tr><td>${r.name}</td><td>${r.c}</td>
+  <td class="r">${r.wn} — ${r.w}:1</td>
+  <td class="r ${r.f?'fail':'pass'}">${r.f?('FAIL: '+r.fl.join(', ')):'ALL PASS'}</td></tr>`).join('');
+window.__fails=total;window.__rows=rows;
+</script>
+</div></body></html>

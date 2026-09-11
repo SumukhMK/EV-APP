@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Saffron v2 — complementary schemes · FleeTech OS</title>
+<style>
+  :root{
+    --brand-50:#FFF9EC; --brand-100:#FFEFCE; --brand-200:#FFDFA0; --brand-300:#FFCB6B;
+    --brand-400:#FFB347; --brand-500:#FFA500; --brand-600:#E88A00; --brand-700:#C2410C;
+    --font:"Inter",-apple-system,system-ui,sans-serif;
+    --mono:ui-monospace,Menlo,"SF Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);background:#0A0A0C;color:#EDEFF2;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1560px;margin:0 auto;padding:36px 26px 90px}
+  h1{font-size:29px;margin:0 0 8px;letter-spacing:-0.02em}
+  .lede{color:#A8B0BD;font-size:14px;line-height:1.65;margin:0;max-width:980px}
+  .lede b{color:#FFB347}
+  .fixed{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 0}
+  .fixed div{background:#14151A;border:1px solid #262a33;border-left:3px solid #FFB347;
+             border-radius:7px;padding:9px 13px;font-size:12.5px;color:#C7CEDA;line-height:1.5}
+  .fixed b{color:#FFCB6B}
+
+  h2{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#8C93A1;
+     margin:46px 0 4px;font-weight:600}
+  .why{color:#A8B0BD;font-size:13px;margin:0 0 14px;line-height:1.55}
+  .why em{color:#FFB347;font-style:normal;font-family:var(--mono);font-size:12px}
+
+  .strip{display:flex;gap:5px;margin:0 0 14px;flex-wrap:wrap}
+  .sw{width:76px;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.09)}
+  .sw .c{height:34px}
+  .sw .m{background:#121317;padding:4px 5px}
+  .sw .m .n{font-size:9px;color:#7d8492;letter-spacing:.04em}
+  .sw .m .h{font-family:var(--mono);font-size:9.5px;color:#C7CEDA}
+
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:1180px){.modes{grid-template-columns:1fr}}
+  .mode{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.11)}
+  .mh{display:flex;justify-content:space-between;align-items:baseline;padding:8px 13px;background:#121317}
+  .mh b{font-size:12.5px}.mh span{font-size:10.5px;color:#7d8492;font-family:var(--mono)}
+
+  /* ---- mini product ---- */
+  .app{background:var(--bg);color:var(--text);display:flex;min-height:520px}
+  .rail{width:142px;flex:0 0 142px;background:var(--bgDeep);border-right:1px solid var(--line);padding:13px 9px}
+  .bm{font-size:13.5px;font-weight:600;padding:0 6px 13px}
+  .bm i{color:var(--link);font-style:normal}
+  .nav a{display:block;font-size:12px;color:var(--text2);text-decoration:none;padding:6px 8px;border-radius:6px;margin-bottom:1px}
+  .nav a.on{background:var(--linkTint);color:var(--link);font-weight:600;box-shadow:inset 2px 0 0 var(--fill)}
+  .main{flex:1;padding:15px 17px;min-width:0}
+  .row{display:flex;gap:8px;align-items:center}.sp{flex:1}
+  .kick{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text3)}
+  .ttl{font-size:19px;margin:2px 0 0;letter-spacing:-0.015em}
+  .btn{font:inherit;font-size:11.5px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);
+       background:transparent;color:var(--text);cursor:pointer}
+  .btn.pri{background:var(--fill);border-color:var(--fill);color:var(--onFill);font-weight:700}
+  .btn.sec{color:var(--link);border-color:var(--linkEdge)}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:13px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+  .tile .k{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+  .tile .v{font-family:var(--mono);font-size:20px;margin-top:2px}
+  .tile .v.g{color:var(--good)}.tile .v.b{color:var(--bad)}.tile .v.a{color:var(--link)}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin-top:11px}
+  .panel h4{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 8px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}
+  th{text-align:left;font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);padding:0 0 6px;font-weight:700}
+  td{padding:6px 0;border-top:1px solid var(--line)}
+  td.n{font-family:var(--mono);text-align:right}
+  .id{font-family:var(--mono);font-size:11px}
+  .chip{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:100px;font-weight:700}
+  .chip.g{color:var(--good);background:var(--goodBg)}
+  .chip.c{color:var(--caution);background:var(--cautionBg)}
+  .chip.w{color:var(--warn);background:var(--warnBg)}
+  .chip.b{color:var(--bad);background:var(--badBg)}
+  .chip.a{color:var(--link);background:var(--linkTint)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px}
+  .fl{font-size:9.5px;color:var(--text2);margin-bottom:3px;display:block}
+  .in{background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:11.5px}
+  .in.foc{border-color:var(--fill);box-shadow:0 0 0 2px var(--fillRing)}
+  .bars{display:flex;align-items:flex-end;gap:5px;height:56px;margin-top:2px}
+  .bars i{flex:1;border-radius:3px 3px 0 0}
+
+  .audit{width:100%;border-collapse:collapse;font-size:12.5px;background:#121317;border-radius:10px;overflow:hidden}
+  .audit th{color:#7d8492;padding:9px 12px;font-size:10px}
+  .audit td{padding:8px 12px;border-top:1px solid #24262e}
+  .audit td.r{font-family:var(--mono);text-align:right}
+  .pass{color:#7FD694;font-weight:700}.fail{color:#FF8A9B;font-weight:700}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Saffron v2 — amber, paired</h1>
+<p class="lede">
+  Four complementary schemes. The amber stays <b>vivid</b> in every one, because the job it was doing badly —
+  being readable type on white — is now done by the cool partner. Amber is a <b>fill</b>: buttons, bars, the active
+  nav marker. That is the whole point of pairing it.
+</p>
+<div class="fixed">
+  <div><b>Backgrounds are pure #FFFFFF.</b> Panels separate with hairlines, not grey fills.</div>
+  <div><b>The brown is gone.</b> Links/labels use the complement; where a warm accent is wanted it is rust <b>#C2410C</b>, not mud.</div>
+  <div><b>Still audited.</b> Every text pair computed below — no eyeballing.</div>
+</div>
+
+<div id="schemes"></div>
+
+<h2>Contrast audit — all four schemes, computed live</h2>
+<table class="audit" id="audit">
+  <thead><tr><th>Scheme</th><th>Mode</th><th>Pairs</th><th style="text-align:right">Worst text pair</th><th style="text-align:right">Result</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const AMBER = { f400:'#FFB347', f500:'#FFA500', f600:'#E88A00', rust:'#C2410C' };
+
+const SCHEMES = [
+  {
+    id:'indigo', name:'A · Saffron × Indigo', angle:'39° ↔ 219° — direct complement',
+    why:'The textbook pair. Indigo is the true opposite of orange, so amber looks its most orange here. Closest in spirit to the navy the app already sits on — <em>#161826</em> becomes a deliberate blue instead of an accident.',
+    light:{ bg:'#FFFFFF', bgDeep:'#FFFFFF', surface:'#FFFFFF', raised:'#F7F8FC', line:'#DCE0EA',
+      text:'#141829', text2:'#5A6180', text3:'#6A7190',
+      link:'#3B49C4', linkTint:'#EEF0FD', linkEdge:'#BFC7F2',
+      fill:'#FFA500', onFill:'#241A08', fillRing:'rgba(255,165,0,.35)',
+      good:'#15803D', goodBg:'#DCFCE7', caution:'#B45309', cautionBg:'#FEF3C7',
+      warn:'#C2410C', warnBg:'#FFEDD5', bad:'#C2253C', badBg:'#FFE4E9' },
+    dark:{ bg:'#12152A', bgDeep:'#0C0F1F', surface:'#1B203A', raised:'#232948', line:'#2F3760',
+      text:'#EDEFF7', text2:'#A3ACCC', text3:'#8F98B8',
+      link:'#8FA0FF', linkTint:'rgba(143,160,255,.14)', linkEdge:'rgba(143,160,255,.45)',
+      fill:'#FFB347', onFill:'#241A08', fillRing:'rgba(255,179,71,.35)',
+      good:'#7FD694', goodBg:'#14301E', caution:'#FFD24A', cautionBg:'#33280A',
+      warn:'#FFA14A', warnBg:'#362310', bad:'#FF8A9B', badBg:'#361A24' }
+  },
+  {
+    id:'teal', name:'B · Saffron × Teal', angle:'39° ↔ 189° — split complement',
+    why:'Softer than indigo and the best of the four for charts: amber and teal stay apart at any size, even one pixel wide. Teal also reads "operational" rather than "corporate blue".',
+    light:{ bg:'#FFFFFF', bgDeep:'#FFFFFF', surface:'#FFFFFF', raised:'#F5FAF9', line:'#D7E3E1',
+      text:'#10201F', text2:'#4F6B69', text3:'#5C7271',
+      link:'#0A6E67', linkTint:'#E6F6F4', linkEdge:'#A8D8D3',
+      fill:'#FFA500', onFill:'#241A08', fillRing:'rgba(255,165,0,.35)',
+      good:'#4E7A0B', goodBg:'#EFF7DC', caution:'#B45309', cautionBg:'#FEF3C7',
+      warn:'#C2410C', warnBg:'#FFEDD5', bad:'#B3321F', badBg:'#FDE7E2' },
+    dark:{ bg:'#0E1A1D', bgDeep:'#091315', surface:'#142529', raised:'#1B3238', line:'#24424A',
+      text:'#E9F2F1', text2:'#9DB5B4', text3:'#7A9695',
+      link:'#3FD0C9', linkTint:'rgba(63,208,201,.14)', linkEdge:'rgba(63,208,201,.45)',
+      fill:'#FFB347', onFill:'#241A08', fillRing:'rgba(255,179,71,.35)',
+      good:'#9BD84F', goodBg:'#1E2E10', caution:'#FFD24A', cautionBg:'#33280A',
+      warn:'#FFA14A', warnBg:'#37230F', bad:'#FF8A72', badBg:'#38201A' }
+  },
+  {
+    id:'violet', name:'C · Saffron × Violet', angle:'39° ↔ 249° — split complement',
+    why:'The migration path. Keeps Nocturne\'s existing violet <em>#9184d9</em> as the cool partner and hands the brand role to amber — so this is a re-balance of what is already built, not a repaint.',
+    light:{ bg:'#FFFFFF', bgDeep:'#FFFFFF', surface:'#FFFFFF', raised:'#F9F7FD', line:'#E0DAEE',
+      text:'#181429', text2:'#5F5880', text3:'#6F6890',
+      link:'#6246C8', linkTint:'#F1EDFD', linkEdge:'#CDC2F0',
+      fill:'#FFA500', onFill:'#241A08', fillRing:'rgba(255,165,0,.35)',
+      good:'#15803D', goodBg:'#DCFCE7', caution:'#B45309', cautionBg:'#FEF3C7',
+      warn:'#C2410C', warnBg:'#FFEDD5', bad:'#C2253C', badBg:'#FFE4E9' },
+    dark:{ bg:'#17142A', bgDeep:'#100E1F', surface:'#201C36', raised:'#282343', line:'#332C54',
+      text:'#EFECF9', text2:'#ADA5C9', text3:'#9A92B6',
+      link:'#B5ABFC', linkTint:'rgba(181,171,252,.14)', linkEdge:'rgba(181,171,252,.45)',
+      fill:'#FFB347', onFill:'#241A08', fillRing:'rgba(255,179,71,.35)',
+      good:'#7FD694', goodBg:'#15301F', caution:'#FFD24A', cautionBg:'#33280A',
+      warn:'#FFA14A', warnBg:'#362310', bad:'#FF8A9B', badBg:'#361A26' }
+  },
+  {
+    id:'graphite', name:'D · Saffron × Graphite', angle:'39° + neutral — amber alone',
+    why:'No second hue at all. Graphite everywhere, amber the only colour on the screen, so every orange thing is by definition important. The most restrained, and the least risky for a dense table.',
+    light:{ bg:'#FFFFFF', bgDeep:'#FFFFFF', surface:'#FFFFFF', raised:'#F7F8FA', line:'#DDE1E8',
+      text:'#14171C', text2:'#59616E', text3:'#687080',
+      link:'#44506A', linkTint:'#F0F2F6', linkEdge:'#C3C9D6',
+      fill:'#FFA500', onFill:'#241A08', fillRing:'rgba(255,165,0,.35)',
+      good:'#15803D', goodBg:'#DCFCE7', caution:'#B45309', cautionBg:'#FEF3C7',
+      warn:'#C2410C', warnBg:'#FFEDD5', bad:'#C2253C', badBg:'#FFE4E9' },
+    dark:{ bg:'#14171C', bgDeep:'#0E1115', surface:'#1D2128', raised:'#252B34', line:'#313945',
+      text:'#EDEFF2', text2:'#A8B0BD', text3:'#838C9A',
+      link:'#C3CCDA', linkTint:'rgba(195,204,218,.12)', linkEdge:'rgba(195,204,218,.40)',
+      fill:'#FFB347', onFill:'#241A08', fillRing:'rgba(255,179,71,.35)',
+      good:'#7FD694', goodBg:'#16301F', caution:'#FFD24A', cautionBg:'#33280A',
+      warn:'#FFA14A', warnBg:'#362310', bad:'#FF8A8A', badBg:'#361E1E' }
+  },
+];
+
+const APP = `
+  <div class="rail">
+    <div class="bm">FleeTech <i>OS</i></div>
+    <nav class="nav">
+      <a class="on">Dashboard</a><a>Vehicles</a><a>Riders</a><a>Assignments</a><a>Payments</a>
+    </nav>
+  </div>
+  <div class="main">
+    <div class="row">
+      <div><div class="kick">Operations</div><div class="ttl">Today's operations</div></div>
+      <div class="sp"></div>
+      <button class="btn">Cancel</button>
+      <button class="btn pri">Finalise</button>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="k">Fleet</div><div class="v">137</div></div>
+      <div class="tile"><div class="k">Deployed</div><div class="v a">97</div></div>
+      <div class="tile"><div class="k">Ready</div><div class="v g">22</div></div>
+      <div class="tile"><div class="k">Overdue</div><div class="v b">16</div></div>
+    </div>
+    <div class="panel">
+      <h4>Fleet</h4>
+      <table>
+        <thead><tr><th>Vehicle</th><th>Hub</th><th>State</th><th style="text-align:right">Weekly</th></tr></thead>
+        <tbody>
+          <tr><td class="id">BLRSS0428</td><td>Whitefield</td><td><span class="chip g">Ready</span></td><td class="n">₹1,400</td></tr>
+          <tr><td class="id">BLRSS0451</td><td>HSR</td><td><span class="chip a">Deployed</span></td><td class="n">₹1,400</td></tr>
+          <tr><td class="id">BLRSS0463</td><td>Koramangala</td><td><span class="chip c">QC pending</span></td><td class="n">₹1,250</td></tr>
+          <tr><td class="id">BLRSS0477</td><td>Indiranagar</td><td><span class="chip w">Under repair</span></td><td class="n">₹1,400</td></tr>
+          <tr><td class="id">BLRSS0482</td><td>Whitefield</td><td><span class="chip b">Recovery</span></td><td class="n">₹0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h4>Settlement</h4>
+      <div class="fields">
+        <div><span class="fl">Outstanding rent (₹)</span><div class="in">2,500</div></div>
+        <div><span class="fl">Deposit refunded (₹)</span><div class="in foc">4,000</div></div>
+      </div>
+      <div class="row" style="margin-top:9px"><div class="sp"></div><button class="btn sec">Preview run</button></div>
+    </div>
+    <div class="panel">
+      <h4>Deployments</h4>
+      <div class="bars">
+        <i style="height:38%;background:var(--fill);opacity:.35"></i>
+        <i style="height:55%;background:var(--fill);opacity:.5"></i>
+        <i style="height:32%;background:var(--fill);opacity:.4"></i>
+        <i style="height:70%;background:var(--fill);opacity:.7"></i>
+        <i style="height:86%;background:var(--fill);opacity:.85"></i>
+        <i style="height:100%;background:var(--fill)"></i>
+        <i style="height:60%;background:var(--link);opacity:.8"></i>
+        <i style="height:45%;background:var(--link);opacity:.6"></i>
+      </div>
+    </div>
+  </div>`;
+
+const swatch = (n,h) => `<div class="sw"><div class="c" style="background:${h}"></div>
+  <div class="m"><div class="n">${n}</div><div class="h">${h.startsWith('#')?h.toUpperCase():'tint'}</div></div></div>`;
+
+const host = document.getElementById('schemes');
+SCHEMES.forEach(s => {
+  const sec = document.createElement('section');
+  sec.innerHTML = `
+    <h2>${s.name} — ${s.angle}</h2>
+    <p class="why">${s.why}</p>
+    <div class="strip">
+      ${swatch('fill 400', AMBER.f400)}${swatch('fill 500', AMBER.f500)}${swatch('rust', AMBER.rust)}
+      ${swatch('link · light', s.light.link)}${swatch('link · dark', s.dark.link)}
+      ${swatch('surface · dk', s.dark.surface)}${swatch('bg · dark', s.dark.bg)}
+      ${swatch('good', s.light.good)}${swatch('caution', s.light.caution)}${swatch('warn', s.light.warn)}${swatch('bad', s.light.bad)}
+    </div>
+    <div class="modes">
+      <div class="mode"><div class="mh"><b>Light — pure white</b><span>#FFFFFF</span></div>
+        <div class="app" id="app-${s.id}-light">${APP}</div></div>
+      <div class="mode"><div class="mh"><b>Dark</b><span>${s.dark.bg}</span></div>
+        <div class="app" id="app-${s.id}-dark">${APP}</div></div>
+    </div>`;
+  host.appendChild(sec);
+  ['light','dark'].forEach(m => {
+    const el = sec.querySelector(`#app-${s.id}-${m}`);
+    Object.entries(s[m]).forEach(([k,v]) => el.style.setProperty('--'+k, v));
+  });
+});
+
+/* ---------- audit ---------- */
+function lum(hex){
+  const h=hex.replace('#','');
+  const v=[0,2,4].map(i=>parseInt(h.substr(i,2),16)/255)
+    .map(c=>c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4));
+  return .2126*v[0]+.7152*v[1]+.0722*v[2];
+}
+const ratio=(a,b)=>{const [x,y]=[lum(a),lum(b)].sort((m,n)=>n-m);return (x+.05)/(y+.05);};
+const rows=[]; let totalFail=0;
+SCHEMES.forEach(s=>['light','dark'].forEach(m=>{
+  const p=s[m];
+  const pairs=[
+    ['body text',p.text,p.bg,4.5],['text on panel',p.text,p.surface,4.5],
+    ['secondary text',p.text2,p.surface,4.5],['muted label',p.text3,p.surface,4.5],
+    ['link / brand text',p.link,p.surface,4.5],['button label on amber',p.onFill,p.fill,4.5],
+    ['chip good',p.good,p.goodBg,4.5],['chip caution',p.caution,p.cautionBg,4.5],
+    ['chip warn',p.warn,p.warnBg,4.5],['chip bad',p.bad,p.badBg,4.5],
+    ['hairline',p.line,p.bg,1.25],
+  ];
+  const res=pairs.map(([n,f,b,need])=>({n,r:ratio(f,b),need,ok:ratio(f,b)>=need}));
+  const fails=res.filter(r=>!r.ok); totalFail+=fails.length;
+  const worst=res.filter(r=>r.need>=4.5).sort((a,b)=>a.r-b.r)[0];
+  rows.push({scheme:s.name,mode:m,count:res.length,fails:fails.length,
+             worstName:worst.n,worst:+worst.r.toFixed(2),
+             failing:fails.map(f=>`${f.n} ${f.r.toFixed(2)}`)});
+}));
+document.querySelector('#audit tbody').innerHTML = rows.map(r=>`
+  <tr><td>${r.scheme}</td><td>${r.mode}</td><td>${r.count}</td>
+  <td class="r">${r.worstName} — ${r.worst}:1</td>
+  <td class="r ${r.fails?'fail':'pass'}">${r.fails?('FAIL: '+r.failing.join(', ')):'ALL PASS'}</td></tr>`).join('');
+window.__fails=totalFail; window.__rows=rows;
+</script>
+</div></body></html>

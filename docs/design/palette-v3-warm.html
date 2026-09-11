@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Saffron v3 — warm &amp; neutral pairings · FleeTech OS</title>
+<style>
+  :root{--font:"Inter",-apple-system,system-ui,sans-serif;--mono:ui-monospace,Menlo,"SF Mono",monospace}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);background:#0A0A0A;color:#EDEBE9;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1560px;margin:0 auto;padding:36px 26px 90px}
+  h1{font-size:29px;margin:0 0 8px;letter-spacing:-.02em}
+  .lede{color:#A8A29E;font-size:14px;line-height:1.65;margin:0;max-width:1000px}
+  .lede b{color:#FFB347}
+  .rule{background:#16140F;border:1px solid #2A2521;border-left:3px solid #FFB347;border-radius:8px;
+        padding:13px 15px;margin:18px 0 0;font-size:13.5px;color:#C9C2BB;line-height:1.6;max-width:1000px}
+  .rule b{color:#FFCB6B}
+  .gone{display:inline-block;padding:1px 7px;border-radius:4px;background:#2A2521;color:#8A8078;
+        font-size:12px;text-decoration:line-through;margin-right:4px}
+  h2{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#8A8078;margin:46px 0 4px;font-weight:600}
+  .why{color:#A8A29E;font-size:13px;margin:0 0 14px;line-height:1.55;max-width:1000px}
+  .why em{color:#FFB347;font-style:normal;font-family:var(--mono);font-size:12px}
+  .strip{display:flex;gap:5px;margin:0 0 14px;flex-wrap:wrap}
+  .sw{width:74px;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.09)}
+  .sw .c{height:32px}.sw .m{background:#121110;padding:4px 5px}
+  .sw .n{font-size:8.5px;color:#7d756d;letter-spacing:.04em}
+  .sw .h{font-family:var(--mono);font-size:9.5px;color:#C9C2BB}
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:1180px){.modes{grid-template-columns:1fr}}
+  .mode{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.11)}
+  .mh{display:flex;justify-content:space-between;align-items:baseline;padding:8px 13px;background:#121110}
+  .mh b{font-size:12.5px}.mh span{font-size:10.5px;color:#7d756d;font-family:var(--mono)}
+
+  .app{background:var(--bg);color:var(--text);display:flex;min-height:520px}
+  .rail{width:142px;flex:0 0 142px;background:var(--bgDeep);border-right:1px solid var(--line);padding:13px 9px}
+  .bm{font-size:13.5px;font-weight:600;padding:0 6px 13px}.bm i{color:var(--brandText);font-style:normal}
+  .nav a{display:block;font-size:12px;color:var(--text2);text-decoration:none;padding:6px 8px;border-radius:6px;margin-bottom:1px}
+  .nav a.on{background:var(--fillTint);color:var(--navOn);font-weight:700;box-shadow:inset 2px 0 0 var(--fill)}
+  .main{flex:1;padding:15px 17px;min-width:0}
+  .row{display:flex;gap:8px;align-items:center}.sp{flex:1}
+  .kick{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text3)}
+  .ttl{font-size:19px;margin:2px 0 0;letter-spacing:-.015em}
+  .lnk{color:var(--linkText);text-decoration:underline;text-decoration-color:var(--fill);
+       text-underline-offset:3px;text-decoration-thickness:2px;font-size:11.5px}
+  .btn{font:inherit;font-size:11.5px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);
+       background:transparent;color:var(--text);cursor:pointer}
+  .btn.pri{background:var(--fill);border-color:var(--fill);color:var(--onFill);font-weight:700}
+  .btn.sec{color:var(--btnSecText);border-color:var(--fill)}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:13px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+  .tile .k{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+  .tile .v{font-family:var(--mono);font-size:20px;margin-top:2px}
+  .tile .v.g{color:var(--good)}.tile .v.b{color:var(--bad)}.tile .v.p{color:var(--partnerText)}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin-top:11px}
+  .panel h4{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 8px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}
+  th{text-align:left;font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);padding:0 0 6px;font-weight:700}
+  td{padding:6px 0;border-top:1px solid var(--line)}
+  td.n{font-family:var(--mono);text-align:right}
+  .id{font-family:var(--mono);font-size:11px}
+  .chip{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:100px;font-weight:700}
+  .chip.g{color:var(--good);background:var(--goodBg)}
+  .chip.c{color:var(--caution);background:var(--cautionBg)}
+  .chip.w{color:var(--warn);background:var(--warnBg)}
+  .chip.b{color:var(--bad);background:var(--badBg)}
+  .chip.p{color:var(--partnerText);background:var(--partnerTint)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .fl{font-size:9.5px;color:var(--text2);margin-bottom:3px;display:block}
+  .in{background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:11.5px}
+  .in.foc{border-color:var(--fill);box-shadow:0 0 0 2px var(--fillRing)}
+  .bars{display:flex;align-items:flex-end;gap:5px;height:56px;margin-top:2px}
+  .bars i{flex:1;border-radius:3px 3px 0 0}
+  .audit{width:100%;border-collapse:collapse;font-size:12.5px;background:#121110;border-radius:10px;overflow:hidden}
+  .audit th{color:#7d756d;padding:9px 12px;font-size:10px}
+  .audit td{padding:8px 12px;border-top:1px solid #25221F}
+  .audit td.r{font-family:var(--mono);text-align:right}
+  .pass{color:#6EE7A0;font-weight:700}.fail{color:#FF8A9B;font-weight:700}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Saffron v3 — warm and neutral pairings</h1>
+<p class="lede">
+  <span class="gone">indigo</span><span class="gone">violet</span><span class="gone">teal</span>
+  Gone. Every partner below is from the <b>warm half of the wheel or neutral</b>, so nothing fights the orange.
+  Light mode is <b>pure #FFFFFF</b> in all four.
+</p>
+<div class="rule">
+  <b>The rule that removes the brown entirely.</b> Amber only ever failed in one place — as small text on white.
+  On a dark background it is 10:1, easily readable. So: <b>dark mode links are amber</b>; <b>light mode links are
+  near-black with an amber underline</b>; and amber is a <b>fill</b> everywhere else — buttons, the active nav bar,
+  chart bars. No muddy link colour is ever needed, in any scheme.
+</div>
+
+<div id="schemes"></div>
+
+<h2>Contrast audit — computed live</h2>
+<table class="audit" id="audit">
+  <thead><tr><th>Scheme</th><th>Mode</th><th>Pairs</th><th style="text-align:right">Worst text pair</th><th style="text-align:right">Result</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<script>
+/* light base is shared — the schemes differ in their dark surfaces and partner hue */
+const L = { bg:'#FFFFFF', bgDeep:'#FFFFFF', surface:'#FFFFFF', raised:'#FAF9F7', line:'#E2DED8',
+  text:'#1C1917', text2:'#57534E', text3:'#6B6560',
+  linkText:'#1C1917', navOn:'#1C1917', btnSecText:'#1C1917', brandText:'#C2410C',
+  fill:'#FFA500', onFill:'#241A08', fillTint:'#FFF4E0', fillRing:'rgba(255,165,0,.35)',
+  good:'#15803D', goodBg:'#DCFCE7', caution:'#B45309', cautionBg:'#FEF3C7',
+  warn:'#C2410C', warnBg:'#FFEDD5', bad:'#BE1E3C', badBg:'#FFE4E9' };
+
+const SCHEMES = [
+  { id:'forest', name:'A · Saffron × Forest', angle:'amber + deep green — the harvest pair',
+    why:'Green is the partner the source set already contains (<em>#ADFF2F</em>). Orange against green is autumn, not corporate — warm, high-contrast, and nothing about it reads blue. Best of the four at making amber look rich rather than loud.',
+    light:{ partnerText:'#15803D', partnerTint:'#DCFCE7', chart2:'#15803D' },
+    dark:{ bg:'#0D1711', bgDeep:'#081009', surface:'#142019', raised:'#1B2B21', line:'#24382B',
+      text:'#E8F0EA', text2:'#A2B7A9', text3:'#93AB9A',
+      linkText:'#FFB347', navOn:'#FFB347', btnSecText:'#FFB347', brandText:'#FFB347',
+      fill:'#FFB347', onFill:'#241A08', fillTint:'rgba(255,179,71,.14)', fillRing:'rgba(255,179,71,.35)',
+      partnerText:'#4ADE80', partnerTint:'rgba(74,222,128,.15)', chart2:'#4ADE80',
+      good:'#6EE7A0', goodBg:'#0F2A1B', caution:'#FFD24A', cautionBg:'#33280A',
+      warn:'#FFA14A', warnBg:'#362310', bad:'#FF8A9B', badBg:'#361A24' } },
+
+  { id:'olive', name:'B · Saffron × Olive', angle:'amber + khaki olive — earthy, one family',
+    why:'Olive is yellow that has been taken down and desaturated, so this is very nearly a monochrome — the quietest scheme here. Reads utilitarian and a bit industrial, which suits a fleet yard.',
+    light:{ partnerText:'#4D7C0F', partnerTint:'#F0F7DC', chart2:'#4D7C0F' },
+    dark:{ bg:'#16170E', bgDeep:'#101108', surface:'#1F2114', raised:'#292C1B', line:'#363A25',
+      text:'#F0F1E6', text2:'#B3B79D', text3:'#A2A68C',
+      linkText:'#FFB347', navOn:'#FFB347', btnSecText:'#FFB347', brandText:'#FFB347',
+      fill:'#FFB347', onFill:'#241A08', fillTint:'rgba(255,179,71,.14)', fillRing:'rgba(255,179,71,.35)',
+      partnerText:'#B8CC55', partnerTint:'rgba(184,204,85,.15)', chart2:'#B8CC55',
+      good:'#6EE7A0', goodBg:'#0F2A1B', caution:'#FFD24A', cautionBg:'#33280A',
+      warn:'#FFA14A', warnBg:'#362310', bad:'#FF8A9B', badBg:'#361A24' } },
+
+  { id:'espresso', name:'C · Saffron × Espresso', angle:'amber on coffee — warm monochrome',
+    why:'The partner is the same hue as the amber, just taken almost to black. Dark mode glows; light mode stays pure white so none of that brown ever becomes text — it exists only as a surface.',
+    light:{ partnerText:'#9A3412', partnerTint:'#FFEDE3', chart2:'#9A3412' },
+    dark:{ bg:'#17110D', bgDeep:'#100C09', surface:'#221A14', raised:'#2D231B', line:'#3A2E24',
+      text:'#F3EDE7', text2:'#BBA99B', text3:'#A89485',
+      linkText:'#FFB347', navOn:'#FFB347', btnSecText:'#FFB347', brandText:'#FFB347',
+      fill:'#FFB347', onFill:'#241A08', fillTint:'rgba(255,179,71,.14)', fillRing:'rgba(255,179,71,.35)',
+      partnerText:'#E0A272', partnerTint:'rgba(224,162,114,.16)', chart2:'#E0A272',
+      good:'#6EE7A0', goodBg:'#0F2A1B', caution:'#FFD24A', cautionBg:'#33280A',
+      warn:'#FFA14A', warnBg:'#362310', bad:'#FF8A9B', badBg:'#361A24' } },
+
+  { id:'ink', name:'D · Saffron × Ink', angle:'amber + warm charcoal — no second hue at all',
+    why:'Neutral everywhere, amber the only colour on the screen. Anything orange is therefore important by definition, and the status chips have the hue space entirely to themselves. Safest for dense tables, and the least likely to date.',
+    light:{ partnerText:'#44403C', partnerTint:'#F2F0EE', chart2:'#57534E' },
+    dark:{ bg:'#141312', bgDeep:'#0D0C0C', surface:'#1E1C1A', raised:'#272422', line:'#332F2C',
+      text:'#F2F0EE', text2:'#B0A9A3', text3:'#9C948E',
+      linkText:'#FFB347', navOn:'#FFB347', btnSecText:'#FFB347', brandText:'#FFB347',
+      fill:'#FFB347', onFill:'#241A08', fillTint:'rgba(255,179,71,.14)', fillRing:'rgba(255,179,71,.35)',
+      partnerText:'#CFC7C0', partnerTint:'rgba(207,199,192,.14)', chart2:'#CFC7C0',
+      good:'#6EE7A0', goodBg:'#0F2A1B', caution:'#FFD24A', cautionBg:'#33280A',
+      warn:'#FFA14A', warnBg:'#362310', bad:'#FF8A9B', badBg:'#361A24' } },
+];
+
+const APP = `
+  <div class="rail">
+    <div class="bm">FleeTech <i>OS</i></div>
+    <nav class="nav"><a class="on">Dashboard</a><a>Vehicles</a><a>Riders</a><a>Assignments</a><a>Payments</a></nav>
+  </div>
+  <div class="main">
+    <div class="row">
+      <div><div class="kick">Operations</div><div class="ttl">Today's operations</div></div>
+      <div class="sp"></div><button class="btn">Cancel</button><button class="btn pri">Finalise</button>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="k">Fleet</div><div class="v">137</div></div>
+      <div class="tile"><div class="k">Deployed</div><div class="v p">97</div></div>
+      <div class="tile"><div class="k">Ready</div><div class="v g">22</div></div>
+      <div class="tile"><div class="k">Overdue</div><div class="v b">16</div></div>
+    </div>
+    <div class="panel"><h4>Fleet</h4>
+      <table><thead><tr><th>Vehicle</th><th>Hub</th><th>State</th><th style="text-align:right">Weekly</th></tr></thead>
+      <tbody>
+        <tr><td class="id">BLRSS0428</td><td>Whitefield</td><td><span class="chip g">Ready</span></td><td class="n">₹1,400</td></tr>
+        <tr><td class="id">BLRSS0451</td><td>HSR</td><td><span class="chip p">Deployed</span></td><td class="n">₹1,400</td></tr>
+        <tr><td class="id">BLRSS0463</td><td>Koramangala</td><td><span class="chip c">QC pending</span></td><td class="n">₹1,250</td></tr>
+        <tr><td class="id">BLRSS0477</td><td>Indiranagar</td><td><span class="chip w">Under repair</span></td><td class="n">₹1,400</td></tr>
+        <tr><td class="id">BLRSS0482</td><td>Whitefield</td><td><span class="chip b">Recovery</span></td><td class="n">₹0</td></tr>
+      </tbody></table>
+    </div>
+    <div class="panel"><h4>Settlement</h4>
+      <div class="fields">
+        <div><span class="fl">Outstanding rent (₹)</span><div class="in">2,500</div></div>
+        <div><span class="fl">Deposit refunded (₹)</span><div class="in foc">4,000</div></div>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <a class="lnk">View rider R03</a><div class="sp"></div><button class="btn sec">Preview run</button>
+      </div>
+    </div>
+    <div class="panel"><h4>Deployments</h4>
+      <div class="bars">
+        <i style="height:38%;background:var(--fill);opacity:.4"></i>
+        <i style="height:55%;background:var(--fill);opacity:.55"></i>
+        <i style="height:32%;background:var(--fill);opacity:.45"></i>
+        <i style="height:70%;background:var(--fill);opacity:.75"></i>
+        <i style="height:86%;background:var(--fill);opacity:.9"></i>
+        <i style="height:100%;background:var(--fill)"></i>
+        <i style="height:60%;background:var(--chart2);opacity:.85"></i>
+        <i style="height:45%;background:var(--chart2);opacity:.6"></i>
+      </div>
+    </div>
+  </div>`;
+
+const sw=(n,h)=>`<div class="sw"><div class="c" style="background:${h}"></div>
+  <div class="m"><div class="n">${n}</div><div class="h">${h[0]==='#'?h.toUpperCase():'tint'}</div></div></div>`;
+
+const host=document.getElementById('schemes');
+SCHEMES.forEach(s=>{
+  const light={...L, ...s.light};
+  const sec=document.createElement('section');
+  sec.innerHTML=`
+    <h2>${s.name} — ${s.angle}</h2><p class="why">${s.why}</p>
+    <div class="strip">
+      ${sw('amber fill','#FFA500')}${sw('amber dark','#FFB347')}
+      ${sw('partner · lt',light.partnerText)}${sw('partner · dk',s.dark.partnerText)}
+      ${sw('bg · dark',s.dark.bg)}${sw('surface · dk',s.dark.surface)}
+      ${sw('good',light.good)}${sw('caution',light.caution)}${sw('warn',light.warn)}${sw('bad',light.bad)}
+    </div>
+    <div class="modes">
+      <div class="mode"><div class="mh"><b>Light — pure white</b><span>#FFFFFF</span></div>
+        <div class="app" id="a-${s.id}-l">${APP}</div></div>
+      <div class="mode"><div class="mh"><b>Dark</b><span>${s.dark.bg}</span></div>
+        <div class="app" id="a-${s.id}-d">${APP}</div></div>
+    </div>`;
+  host.appendChild(sec);
+  const apply=(el,vars)=>Object.entries(vars).forEach(([k,v])=>el.style.setProperty('--'+k,v));
+  apply(sec.querySelector(`#a-${s.id}-l`), light);
+  apply(sec.querySelector(`#a-${s.id}-d`), s.dark);
+  s._light=light;
+});
+
+function lum(x){const h=x.replace('#','');const v=[0,2,4].map(i=>parseInt(h.substr(i,2),16)/255)
+  .map(c=>c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4));return .2126*v[0]+.7152*v[1]+.0722*v[2];}
+const ratio=(a,b)=>{const[x,y]=[lum(a),lum(b)].sort((m,n)=>n-m);return(x+.05)/(y+.05);};
+const rows=[];let total=0;
+SCHEMES.forEach(s=>[['light',s._light],['dark',s.dark]].forEach(([m,p])=>{
+  const pairs=[['body text',p.text,p.bg,4.5],['text on panel',p.text,p.surface,4.5],
+    ['secondary text',p.text2,p.surface,4.5],['muted label',p.text3,p.surface,4.5],
+    ['link text',p.linkText,p.surface,4.5],['button label on amber',p.onFill,p.fill,4.5],
+    ['partner chip',p.partnerText,p.partnerTint.startsWith('#')?p.partnerTint:p.surface,4.5],
+    ['chip good',p.good,p.goodBg,4.5],['chip caution',p.caution,p.cautionBg,4.5],
+    ['chip warn',p.warn,p.warnBg,4.5],['chip bad',p.bad,p.badBg,4.5],
+    ['hairline',p.line,p.bg,1.25]];
+  const res=pairs.map(([n,f,b,need])=>({n,r:ratio(f,b),need,ok:ratio(f,b)>=need}));
+  const fails=res.filter(r=>!r.ok);total+=fails.length;
+  const worst=res.filter(r=>r.need>=4.5).sort((a,b)=>a.r-b.r)[0];
+  rows.push({s:s.name,m,c:res.length,f:fails.length,wn:worst.n,w:+worst.r.toFixed(2),
+             fl:fails.map(x=>`${x.n} ${x.r.toFixed(2)}`)});
+}));
+document.querySelector('#audit tbody').innerHTML=rows.map(r=>`<tr>
+  <td>${r.s}</td><td>${r.m}</td><td>${r.c}</td>
+  <td class="r">${r.wn} — ${r.w}:1</td>
+  <td class="r ${r.f?'fail':'pass'}">${r.f?('FAIL: '+r.fl.join(', ')):'ALL PASS'}</td></tr>`).join('');
+window.__fails=total;window.__rows=rows;
+</script>
+</div></body></html>

@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Saffron — light &amp; dark palette proposal · FleeTech OS</title>
+<style>
+  /* ---------------------------------------------------------------
+     SAFFRON — derived from the Piktochart yellow-orange set.
+     Source anchors: #FFD700 #FFA500 #FFB347 #FF8C00 #FF4500
+                     #FF6347 #FF7F50 #ADFF2F #FFDEAD #FFE4B5 #FFFFE0
+     Everything below is those anchors tuned for a dense ops UI:
+     ramps built around them, neutrals warmed to the same hue family,
+     and every text pair checked against WCAG (audit at the bottom).
+     ---------------------------------------------------------------- */
+
+  :root {
+    /* brand ramp — 400/500 are the untouched source colours */
+    --brand-50:#FFF9EC;  --brand-100:#FFEFCE; --brand-200:#FFDFA0;
+    --brand-300:#FFCB6B; --brand-400:#FFB347; --brand-500:#FFA500;
+    --brand-600:#E88A00; --brand-700:#BF6D05; --brand-800:#94540A;
+    --brand-900:#6B3C0B;
+
+    /* warm neutrals — hue-matched so grey never reads blue beside amber */
+    --n-0:#FFFFFF;   --n-50:#FDFAF4;  --n-100:#F6F0E6; --n-200:#E9E0D1;
+    --n-300:#D6C9B5; --n-400:#B3A491; --n-500:#8C8071; --n-600:#6B6155;
+    --n-700:#4A423A; --n-800:#2E2822; --n-900:#1D1813; --n-950:#14100B;
+
+    --font: "Inter", -apple-system, system-ui, sans-serif;
+    --mono: ui-monospace, Menlo, "SF Mono", monospace;
+    --r: 8px;
+  }
+
+  /* ---------------- DARK — "Saffron Night" ---------------- */
+  .t-dark {
+    --bg:#16120C; --bg-deep:#0E0B07; --surface:#201A12; --raised:#2A2318;
+    --line:#372F22; --text:#F7F1E6; --text-2:#B3A491; --text-3:#8C8071;
+    --accent:#FFB347; --accent-hi:#FFCB6B; --accent-line:#FFB347;
+    --accent-fill:#FFB347; --on-accent:#241A08;
+    --good-fg:#A3D948; --good-bg:#1E2A0E;
+    --caution-fg:#FFD24A; --caution-bg:#2E2308;
+    --warn-fg:#FFA14A; --warn-bg:#34210E;
+    --bad-fg:#FF8A72; --bad-bg:#331A16;
+    --chip-n-fg:#D6C9B5; --chip-n-bg:#2E2822;
+  }
+
+  /* ---------------- LIGHT — "Saffron Day" ---------------- */
+  .t-light {
+    --bg:#FDFAF4; --bg-deep:#F6F0E6; --surface:#FFFFFF; --raised:#FFF9EC;
+    --line:#E4DAC8; --text:#1D1813; --text-2:#6B6155; --text-3:#8C8071;
+    /* amber cannot be both a readable label and a bright fill on white, so it
+       is two tokens: a darkened one for type, the source orange for fills. */
+    --accent:#A85F04; --accent-hi:#8A4E02; --accent-line:#FFA500;
+    --accent-fill:#FFA500; --on-accent:#241A08;
+    --good-fg:#4E7A0B; --good-bg:#EFF7DC;
+    --caution-fg:#8A6500; --caution-bg:#FFF6D9;
+    --warn-fg:#A34A00; --warn-bg:#FFEEDC;
+    --bad-fg:#B3321F; --bad-bg:#FDE7E2;
+    --chip-n-fg:#4A423A; --chip-n-bg:#F6F0E6;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin:0; font-family:var(--font); background:#0B0906; color:#F7F1E6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:1500px; margin:0 auto; padding:40px 28px 80px; }
+  h1 { font-size:30px; margin:0 0 6px; letter-spacing:-0.02em; }
+  h2 { font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+       color:#B3A491; margin:44px 0 14px; font-weight:600; }
+  .sub { color:#B3A491; font-size:14px; margin:0 0 4px; line-height:1.6; }
+  .sub a { color:#FFB347; }
+  code { font-family:var(--mono); font-size:12px; }
+
+  /* ramps */
+  .ramp { display:grid; grid-template-columns:repeat(10,1fr); gap:6px; }
+  .ramp.small { grid-template-columns:repeat(12,1fr); }
+  .sw { border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,.08); }
+  .sw .chip { height:56px; }
+  .sw .meta { padding:6px 7px; background:#14100B; }
+  .sw .k { font-size:10px; color:#8C8071; letter-spacing:.06em; }
+  .sw .v { font-family:var(--mono); font-size:10.5px; color:#D6C9B5; }
+  .src { outline:2px solid #FFB347; outline-offset:-2px; }
+  .srcnote { font-size:11px; color:#8C8071; margin-top:8px; }
+
+  /* the two mock apps */
+  .modes { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+  @media (max-width:1100px){ .modes { grid-template-columns:1fr; } }
+  .mode { border-radius:14px; overflow:hidden; border:1px solid rgba(255,255,255,.1); }
+  .mode-head { display:flex; align-items:baseline; justify-content:space-between;
+               padding:10px 14px; background:#14100B; }
+  .mode-head b { font-size:13px; }
+  .mode-head span { font-size:11px; color:#8C8071; font-family:var(--mono); }
+
+  /* ---- mini app, themed purely by the vars above ---- */
+  .app { background:var(--bg); color:var(--text); display:flex; min-height:560px; }
+  .rail { width:150px; flex:0 0 150px; background:var(--bg-deep);
+          border-right:1px solid var(--line); padding:14px 10px; }
+  .brandmark { font-size:14px; font-weight:600; padding:0 6px 14px; }
+  .brandmark i { color:var(--accent); font-style:normal; }
+  .nav { display:grid; gap:2px; }
+  .nav a { font-size:12.5px; color:var(--text-2); text-decoration:none;
+           padding:7px 8px; border-radius:6px; display:block; }
+  .nav a.on { background:color-mix(in srgb, var(--accent-line) 16%, transparent);
+              color:var(--accent); font-weight:500;
+              box-shadow:inset 2px 0 0 var(--accent-line); }
+  .main { flex:1; padding:16px 18px; min-width:0; }
+  .kicker { font-size:9.5px; letter-spacing:.16em; text-transform:uppercase;
+            color:var(--text-3); }
+  .title { font-size:20px; margin:2px 0 0; letter-spacing:-0.015em; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .spacer { flex:1; }
+
+  .btn { font:inherit; font-size:12px; padding:6px 11px; border-radius:6px;
+         border:1px solid var(--line); background:transparent; color:var(--text);
+         cursor:pointer; }
+  .btn.primary { background:var(--accent-fill); border-color:var(--accent-fill);
+                 color:var(--on-accent); font-weight:600; }
+  .btn.ghost { color:var(--accent); border-color:color-mix(in srgb, var(--accent-line) 45%, transparent); }
+
+  .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:14px; }
+  .tile { background:var(--surface); border:1px solid var(--line);
+          border-radius:var(--r); padding:9px 10px; }
+  .tile .k { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-3); }
+  .tile .v { font-family:var(--mono); font-size:21px; margin-top:3px; }
+  .tile .v.good { color:var(--good-fg); }
+  .tile .v.bad { color:var(--bad-fg); }
+  .tile .v.warn { color:var(--warn-fg); }
+
+  .panel { background:var(--surface); border:1px solid var(--line);
+           border-radius:var(--r); padding:12px 13px; margin-top:12px; }
+  .panel h4 { font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+              color:var(--text-3); margin:0 0 9px; font-weight:600; }
+
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th { text-align:left; font-size:9px; letter-spacing:.11em; text-transform:uppercase;
+       color:var(--text-3); font-weight:600; padding:0 0 7px; }
+  td { padding:7px 0; border-top:1px solid var(--line); }
+  td.num { font-family:var(--mono); text-align:right; }
+  .id { font-family:var(--mono); font-size:11.5px; color:var(--text); }
+
+  .chip { display:inline-block; font-size:10px; padding:2.5px 7px; border-radius:100px;
+          font-weight:600; letter-spacing:.02em; }
+  .chip.good { color:var(--good-fg); background:var(--good-bg); }
+  .chip.caution { color:var(--caution-fg); background:var(--caution-bg); }
+  .chip.warn { color:var(--warn-fg); background:var(--warn-bg); }
+  .chip.bad { color:var(--bad-fg); background:var(--bad-bg); }
+  .chip.neutral { color:var(--chip-n-fg); background:var(--chip-n-bg); }
+  .chip.accent { color:var(--accent); background:color-mix(in srgb, var(--accent-line) 15%, transparent); }
+
+  .fields { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+  .field label { display:block; font-size:10px; color:var(--text-2); margin-bottom:3px; }
+  .field .input { background:var(--raised); border:1px solid var(--line);
+                  border-radius:6px; padding:6px 9px; font-size:12px; color:var(--text); }
+  .field .input.focus { border-color:var(--accent-line);
+                        box-shadow:0 0 0 2px color-mix(in srgb, var(--accent-line) 30%, transparent); }
+  .hint { font-size:10.5px; color:var(--text-3); margin-top:5px; }
+
+  .bars { display:flex; align-items:flex-end; gap:6px; height:74px; margin-top:4px; }
+  .bars i { flex:1; border-radius:3px 3px 0 0; display:block; }
+
+  /* audit */
+  .audit { width:100%; border-collapse:collapse; font-size:12.5px; background:#14100B;
+           border-radius:10px; overflow:hidden; }
+  .audit th { color:#8C8071; padding:9px 12px; font-size:10px; }
+  .audit td { padding:8px 12px; border-top:1px solid #2E2822; }
+  .audit td.r { font-family:var(--mono); text-align:right; }
+  .pass { color:#A3D948; font-weight:600; }
+  .fail { color:#FF8A72; font-weight:600; }
+  .swatchdot { display:inline-block; width:11px; height:11px; border-radius:3px;
+               vertical-align:-1px; margin-right:6px; border:1px solid rgba(255,255,255,.15); }
+  .note { background:#14100B; border:1px solid #2E2822; border-left:3px solid #FFB347;
+          border-radius:8px; padding:13px 15px; font-size:13.5px; color:#D6C9B5;
+          line-height:1.65; margin-top:12px; }
+  .note b { color:#FFCB6B; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Saffron — a yellow-orange system for FleeTech OS</h1>
+  <p class="sub">
+    Derived from <a href="https://piktochart.com/blog/yellow-orange-color-palette/">Piktochart's yellow-orange set</a>.
+    The source colours are raw CSS keywords (<code>#FFA500</code>, <code>#FFD700</code>, <code>#FF4500</code>…) — vivid enough for a poster,
+    not for a screen full of tables and money. Below they are kept as anchors and built out into ramps, warmed neutrals and
+    semantic states, then checked against WCAG.
+  </p>
+
+  <h2>Brand ramp — amber / saffron</h2>
+  <div class="ramp" id="rampBrand"></div>
+  <p class="srcnote">Outlined swatches are untouched source colours: <code>#FFB347</code> pastel orange and <code>#FFA500</code> orange.</p>
+
+  <h2>Warm neutrals — the surfaces and the type</h2>
+  <div class="ramp small" id="rampNeutral"></div>
+  <p class="srcnote">Hue-shifted toward the brand (not blue-grey) so a panel beside an amber button doesn't read cold.</p>
+
+  <h2>Semantic states</h2>
+  <div class="ramp small" id="rampStatus"></div>
+  <p class="srcnote">Success comes from the set's own <code>#ADFF2F</code>, danger from <code>#FF4500</code>/<code>#FF6347</code> — so the states stay in the family.</p>
+
+  <h2>The product, both ways</h2>
+  <div class="modes">
+    <div class="mode">
+      <div class="mode-head"><b>Saffron Day — light</b><span>bg #FDFAF4</span></div>
+      <div class="app t-light" id="appLight"></div>
+    </div>
+    <div class="mode">
+      <div class="mode-head"><b>Saffron Night — dark</b><span>bg #16120C</span></div>
+      <div class="app t-dark" id="appDark"></div>
+    </div>
+  </div>
+
+  <h2>Contrast audit — computed live, not eyeballed</h2>
+  <table class="audit" id="audit">
+    <thead><tr><th>Pair</th><th>Mode</th><th style="text-align:right">Ratio</th><th style="text-align:right">Needs</th><th style="text-align:right">Result</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>The one real trade-off</h2>
+  <div class="note">
+    <b>Amber is already a status colour in this app.</b> Today <code>caution</code> is yellow and <code>warn</code> is orange —
+    make the brand amber too and a "QC pending" chip starts to look like furniture rather than a warning.
+    Handled three ways above: the brand sits at <b>#FFB347</b> (lighter, peachier), <b>warn</b> is pushed toward
+    red-orange <b>#FF8C00 → #A34A00/#FFA14A</b>, and <b>success moves to the set's green-yellow #ADFF2F</b> so the
+    most-scanned state in the fleet table is a different hue entirely. Every chip still carries its text label, so hue
+    is reinforcement, never the only signal.
+  </div>
+
+<script>
+/* ---------- swatch rendering ---------- */
+const css = getComputedStyle(document.documentElement);
+const V = n => css.getPropertyValue(n).trim();
+
+function swatches(el, items){
+  document.getElementById(el).innerHTML = items.map(([name, val, isSrc]) => `
+    <div class="sw${isSrc ? ' src' : ''}">
+      <div class="chip" style="background:${val}"></div>
+      <div class="meta"><div class="k">${name}</div><div class="v">${val.toUpperCase()}</div></div>
+    </div>`).join('');
+}
+
+swatches('rampBrand', [50,100,200,300,400,500,600,700,800,900].map(s =>
+  [s, V(`--brand-${s}`), s===400||s===500]));
+
+swatches('rampNeutral', [0,50,100,200,300,400,500,600,700,800,900,950].map(s =>
+  [s, V(`--n-${s}`), false]));
+
+swatches('rampStatus', [
+  ['good·light','#4E7A0B'], ['good·dark','#A3D948'],
+  ['caution·light','#8A6500'], ['caution·dark','#FFD24A'],
+  ['warn·light','#A34A00'], ['warn·dark','#FFA14A'],
+  ['bad·light','#B3321F'], ['bad·dark','#FF8A72'],
+  ['source lime','#ADFF2F', true], ['source gold','#FFD700', true],
+  ['source d.orange','#FF8C00', true], ['source o.red','#FF4500', true],
+]);
+
+/* ---------- the mini product, identical markup in both themes ---------- */
+const app = `
+  <div class="rail">
+    <div class="brandmark">FleeTech <i>OS</i></div>
+    <nav class="nav">
+      <a class="on">Dashboard</a><a>Vehicles</a><a>Riders</a>
+      <a>Assignments</a><a>Payments</a><a>Recovery</a>
+    </nav>
+  </div>
+  <div class="main">
+    <div class="row">
+      <div>
+        <div class="kicker">Operations</div>
+        <h3 class="title">Today's operations</h3>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn">Cancel</button>
+      <button class="btn primary">Finalise</button>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="k">Total fleet</div><div class="v">137</div></div>
+      <div class="tile"><div class="k">Deployed</div><div class="v">97</div></div>
+      <div class="tile"><div class="k">Ready</div><div class="v good">22</div></div>
+      <div class="tile"><div class="k">Overdue</div><div class="v bad">16</div></div>
+    </div>
+
+    <div class="panel">
+      <h4>Fleet</h4>
+      <table>
+        <thead><tr><th>Vehicle</th><th>Hub</th><th>State</th><th style="text-align:right">Weekly</th></tr></thead>
+        <tbody>
+          <tr><td class="id">BLRSS0428</td><td>Whitefield</td><td><span class="chip good">Ready</span></td><td class="num">₹1,400</td></tr>
+          <tr><td class="id">BLRSS0451</td><td>HSR</td><td><span class="chip accent">Deployed</span></td><td class="num">₹1,400</td></tr>
+          <tr><td class="id">BLRSS0463</td><td>Koramangala</td><td><span class="chip caution">QC pending</span></td><td class="num">₹1,250</td></tr>
+          <tr><td class="id">BLRSS0477</td><td>Indiranagar</td><td><span class="chip warn">Under repair</span></td><td class="num">₹1,400</td></tr>
+          <tr><td class="id">BLRSS0482</td><td>Whitefield</td><td><span class="chip bad">Recovery</span></td><td class="num">₹0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h4>Settlement</h4>
+      <div class="fields">
+        <div class="field"><label>Outstanding rent (₹)</label><div class="input">2,500</div></div>
+        <div class="field"><label>Deposit refunded (₹)</label><div class="input focus">4,000</div></div>
+      </div>
+      <div class="hint">Deposit held − outstanding rent. Negative means the deposit does not cover what is owed.</div>
+      <div class="row" style="margin-top:10px">
+        <span class="chip neutral">Inactive</span>
+        <div class="spacer"></div>
+        <button class="btn ghost">Preview run</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h4>Deployments per month</h4>
+      <div class="bars">
+        <i style="height:40%;background:var(--brand-800)"></i>
+        <i style="height:56%;background:var(--brand-700)"></i>
+        <i style="height:33%;background:var(--brand-800)"></i>
+        <i style="height:68%;background:var(--brand-600)"></i>
+        <i style="height:84%;background:var(--brand-500)"></i>
+        <i style="height:100%;background:var(--brand-400)"></i>
+        <i style="height:61%;background:var(--brand-600)"></i>
+        <i style="height:47%;background:var(--brand-700)"></i>
+      </div>
+    </div>
+  </div>`;
+document.getElementById('appLight').innerHTML = app;
+document.getElementById('appDark').innerHTML = app;
+
+/* ---------- WCAG audit ---------- */
+function lum(hex){
+  const h = hex.replace('#','');
+  const v = [0,2,4].map(i => parseInt(h.substr(i,2),16)/255)
+    .map(c => c <= .03928 ? c/12.92 : Math.pow((c+.055)/1.055, 2.4));
+  return .2126*v[0] + .7152*v[1] + .0722*v[2];
+}
+const ratio = (a,b) => { const [x,y]=[lum(a),lum(b)].sort((m,n)=>n-m); return (x+.05)/(y+.05); };
+
+const D = n => getComputedStyle(document.querySelector('.t-dark')).getPropertyValue(n).trim();
+const L = n => getComputedStyle(document.querySelector('.t-light')).getPropertyValue(n).trim();
+
+const pairs = [
+  ['Body text on page',      'dark',  D('--text'),      D('--bg'),      4.5],
+  ['Body text on page',      'light', L('--text'),      L('--bg'),      4.5],
+  ['Body text on panel',     'dark',  D('--text'),      D('--surface'), 4.5],
+  ['Body text on panel',     'light', L('--text'),      L('--surface'), 4.5],
+  ['Secondary text',         'dark',  D('--text-2'),    D('--surface'), 4.5],
+  ['Secondary text',         'light', L('--text-2'),    L('--surface'), 4.5],
+  ['Accent text / link',     'dark',  D('--accent'),    D('--bg'),      4.5],
+  ['Accent text / link',     'light', L('--accent'),    L('--surface'), 4.5],
+  ['Primary button label',   'dark',  D('--on-accent'), D('--accent-fill'),  4.5],
+  ['Primary button label',   'light', L('--on-accent'), L('--accent-fill'),  4.5],
+  ['Chip · ready (good)',    'dark',  D('--good-fg'),   D('--good-bg'), 4.5],
+  ['Chip · ready (good)',    'light', L('--good-fg'),   L('--good-bg'), 4.5],
+  ['Chip · QC (caution)',    'dark',  D('--caution-fg'),D('--caution-bg'),4.5],
+  ['Chip · QC (caution)',    'light', L('--caution-fg'),L('--caution-bg'),4.5],
+  ['Chip · repair (warn)',   'dark',  D('--warn-fg'),   D('--warn-bg'), 4.5],
+  ['Chip · repair (warn)',   'light', L('--warn-fg'),   L('--warn-bg'), 4.5],
+  ['Chip · recovery (bad)',  'dark',  D('--bad-fg'),    D('--bad-bg'),  4.5],
+  ['Chip · recovery (bad)',  'light', L('--bad-fg'),    L('--bad-bg'),  4.5],
+  ['Panel border vs page',   'dark',  D('--line'),      D('--bg'),      1.3],
+  ['Panel border vs page',   'light', L('--line'),      L('--bg'),      1.3],
+];
+
+const tb = document.querySelector('#audit tbody');
+let fails = 0;
+tb.innerHTML = pairs.map(([name, mode, fg, bg, need]) => {
+  const r = ratio(fg, bg); const ok = r >= need; if (!ok) fails++;
+  return `<tr>
+    <td><span class="swatchdot" style="background:${fg}"></span>${name}
+        <code style="color:#6B6155"> ${fg} on ${bg}</code></td>
+    <td>${mode}</td>
+    <td class="r">${r.toFixed(2)}:1</td>
+    <td class="r" style="color:#6B6155">${need}:1</td>
+    <td class="r ${ok ? 'pass' : 'fail'}">${ok ? 'PASS' : 'FAIL'}</td>
+  </tr>`;
+}).join('');
+window.__auditFails = fails;
+window.__auditRows = pairs.map(([n,m,f,b,need]) => ({ pair:n, mode:m, ratio:+ratio(f,b).toFixed(2), need, pass: ratio(f,b) >= need }));
+</script>
+</div>
+</body>
+</html>

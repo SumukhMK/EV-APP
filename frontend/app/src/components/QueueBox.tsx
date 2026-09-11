@@ -66,7 +66,7 @@ export function QueueBox({ heading, rows }: { heading: string; rows: readonly Qu
                 <Mono sx={{ fontSize: 16, color: r.tone ? status[r.tone].fg : 'text.primary' }}>
                   {r.count}
                 </Mono>
-                <ChevronRightIcon sx={{ fontSize: 16, color: neutral[700] }} />
+                <ChevronRightIcon sx={{ fontSize: 16, color: neutral[600] }} />
               </Box>
             </Box>
           );

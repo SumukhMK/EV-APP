@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Saffron — semantic intensity scale · FleeTech OS</title>
+<style>
+  :root{--font:"Inter",-apple-system,system-ui,sans-serif;--mono:ui-monospace,Menlo,"SF Mono",monospace}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);background:#08090F;color:#EDEFF7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1560px;margin:0 auto;padding:36px 26px 90px}
+  h1{font-size:30px;margin:0 0 8px;letter-spacing:-.02em}
+  .lede{color:#A3ACCC;font-size:14px;line-height:1.65;margin:0;max-width:1040px}
+  .lede b{color:#FFB347} .lede i{color:#B5ABFC;font-style:normal}
+  h2{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#7C86A8;margin:46px 0 6px;font-weight:600}
+  .why{color:#A3ACCC;font-size:13px;margin:0 0 14px;line-height:1.55;max-width:1040px}
+  .why em{color:#FFB347;font-style:normal;font-family:var(--mono);font-size:12px}
+
+  /* ladder */
+  .ladder{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1180px}
+  @media(max-width:1000px){.ladder{grid-template-columns:1fr}}
+  .lad{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.11)}
+  .lad .h{padding:8px 13px;background:#101322;font-size:12.5px;font-weight:600;
+          display:flex;justify-content:space-between;align-items:baseline}
+  .lad .h span{font-family:var(--mono);font-size:10.5px;color:#7C86A8}
+  .lad .body{padding:14px}
+  .band{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px;margin-bottom:7px}
+  .band .sw{width:46px;height:30px;border-radius:6px;flex:0 0 46px}
+  .band .t{flex:1;min-width:0}
+  .band .name{font-size:13px;font-weight:700}
+  .band .use{font-size:11.5px;opacity:.8;margin-top:1px}
+  .band .hex{font-family:var(--mono);font-size:10.5px;opacity:.75;text-align:right}
+  .pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:100px;font-weight:700}
+
+  /* applied */
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:1180px){.modes{grid-template-columns:1fr}}
+  .mode{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.11)}
+  .mh{display:flex;justify-content:space-between;align-items:baseline;padding:8px 13px;background:#101322}
+  .mh b{font-size:12.5px}.mh span{font-size:10.5px;color:#7C86A8;font-family:var(--mono)}
+  .app{background:var(--bg);color:var(--text);padding:16px 18px;min-height:470px}
+  .kick{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text3)}
+  .ttl{font-size:19px;margin:2px 0 12px;letter-spacing:-.015em}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin-bottom:11px}
+  .panel h4{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 9px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}
+  th{text-align:left;font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);padding:0 0 6px;font-weight:700}
+  td{padding:6px 0;border-top:1px solid var(--line)}
+  td.n{font-family:var(--mono);text-align:right}
+  .id{font-family:var(--mono);font-size:11px}
+  .meter{height:7px;border-radius:100px;background:var(--track);overflow:hidden;min-width:70px}
+  .meter i{display:block;height:100%;border-radius:100px}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:11px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+  .tile .k{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+  .tile .v{font-family:var(--mono);font-size:21px;margin-top:2px}
+  .bars{display:flex;align-items:flex-end;gap:6px;height:78px;margin-top:6px}
+  .bars i{flex:1;border-radius:3px 3px 0 0}
+  .lg{display:flex;gap:11px;flex-wrap:wrap;margin-top:9px;font-size:10px;color:var(--text3)}
+  .lg span{display:flex;align-items:center;gap:4px}
+  .lg b{width:9px;height:9px;border-radius:2px;display:block}
+
+  .audit{width:100%;border-collapse:collapse;font-size:12.5px;background:#101322;border-radius:10px;overflow:hidden;margin-top:6px}
+  .audit th{color:#7C86A8;padding:9px 12px;font-size:10px}
+  .audit td{padding:8px 12px;border-top:1px solid #232842}
+  .audit td.r{font-family:var(--mono);text-align:right}
+  .pass{color:#7FD694;font-weight:700}.fail{color:#FF8A9B;font-weight:700}
+  .note{background:#101322;border:1px solid #2F3760;border-left:3px solid #FFB347;border-radius:8px;
+        padding:14px 16px;margin-top:14px;font-size:13.5px;color:#C3CAE4;line-height:1.65;max-width:1040px}
+  .note b{color:#FFCB6B}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>The intensity scale</h1>
+<p class="lede">
+  Four bands that mean the same thing everywhere in the product: <b>high → mid → low → risk</b>.
+  Light reads them as <b>green → orange → yellow → red</b>. Dark swaps the middle two for the
+  Nocturne hues — <i>purple</i> where light uses orange, <i>grey</i> where light uses yellow —
+  so the dark mode never turns into a fruit bowl while still ranking the same way.
+</p>
+
+<h2>The ladder</h2>
+<p class="why">Same four meanings, two vocabularies. Note the dark ladder still <em>descends</em>: green is brightest, grey is the most recessive — "low" should sink, not shout.</p>
+<div class="ladder" id="ladder"></div>
+
+<h2>Applied — utilisation, where a scale actually earns its keep</h2>
+<p class="why">A legend proves nothing. Below, the same fleet data rendered with the bands doing real work: a meter per hub, tiles, and twelve weeks of deployments coloured by band.</p>
+<div class="modes" id="applied"></div>
+
+<div class="note">
+  <b>One thing I changed on my own.</b> My first pick for dark "low" was <em>#8F98B8</em>, but its luminance
+  (0.318) was almost identical to risk red (0.329) — in greyscale, or to a colourblind operator, the bottom two
+  bands were the same bar. Dark "low" is now <em>#6E7698</em> (0.185), which also reads better: low should recede.
+</div>
+
+<h2>Contrast &amp; separation audit</h2>
+<table class="audit" id="audit">
+  <thead><tr><th>Band</th><th>Mode</th><th style="text-align:right">Text on tint</th><th style="text-align:right">Bar luminance</th><th style="text-align:right">Result</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const SCALE = {
+  light: {
+    bg:'#FFFFFF', surface:'#FFFFFF', line:'#E5E2DD', text:'#1A1614', text3:'#6B6560', track:'#F2F0EE',
+    bands:[
+      {k:'high', name:'High · good',      use:'Healthy utilisation, paid up, ready to deploy', text:'#15803D', strong:'#166534', bar:'#4ADE80', tint:'#DCFCE7'},
+      {k:'mid',  name:'Mid',              use:'Working, acceptable, nothing to act on yet',    text:'#C2410C', strong:'#9A3412', bar:'#FFA500', tint:'#FFEDD5'},
+      {k:'low',  name:'Low · meh',        use:'Underused, slipping, worth a look',             text:'#A16207', strong:'#854D0E', bar:'#FFD700', tint:'#FEF9C3'},
+      {k:'risk', name:'Risk · warning',   use:'Overdue, damaged, recovery — act now',          text:'#BE1E3C', strong:'#9F1239', bar:'#F43F5E', tint:'#FFE4E9'},
+    ]},
+  dark: {
+    bg:'#12152A', surface:'#1B203A', line:'#2F3760', text:'#EDEFF7', text3:'#8F98B8', track:'#232948',
+    bands:[
+      {k:'high', name:'High · good',    use:'Healthy utilisation, paid up, ready to deploy', text:'#7FD694', strong:'#A8E9BB', bar:'#4ADE80', tint:'#14301E'},
+      {k:'mid',  name:'Mid',            use:'Working, acceptable — purple stands in for orange', text:'#C9C2FF', strong:'#DAD5FF', bar:'#B5ABFC', tint:'#2A2450'},
+      {k:'low',  name:'Low · meh',      use:'Underused, slipping — grey stands in for yellow',   text:'#B6BDD6', strong:'#D2D7E8', bar:'#6E7698', tint:'#262C48'},
+      {k:'risk', name:'Risk · warning', use:'Overdue, damaged, recovery — act now',          text:'#FF8A9B', strong:'#FFB3BE', bar:'#F4718A', tint:'#361A24'},
+    ]},
+};
+
+/* ---- ladder ---- */
+document.getElementById('ladder').innerHTML = ['light','dark'].map(m=>{
+  const s=SCALE[m];
+  return `<div class="lad"><div class="h"><b>${m==='light'?'Light — Saffron Day':'Dark — Nocturne Night'}</b><span>${s.bg}</span></div>
+  <div class="body" style="background:${s.bg}">
+    ${s.bands.map(b=>`
+      <div class="band" style="background:${b.tint}">
+        <div class="sw" style="background:${b.bar}"></div>
+        <div class="t">
+          <div class="name" style="color:${b.text}">${b.name}</div>
+          <div class="use" style="color:${m==='light'?'#57534E':'#A3ACCC'}">${b.use}</div>
+        </div>
+        <div class="hex" style="color:${b.text}">${b.bar}<br>${b.text}</div>
+      </div>`).join('')}
+  </div></div>`;
+}).join('');
+
+/* ---- applied ---- */
+const HUBS=[['Whitefield',92,'high'],['HSR',74,'mid'],['Koramangala',58,'mid'],['Indiranagar',41,'low'],['Hebbal',23,'risk']];
+const WEEKS=[62,71,84,93,88,67,55,44,38,29,48,76];
+const bandOf=v=>v>=85?'high':v>=55?'mid':v>=35?'low':'risk';
+
+document.getElementById('applied').innerHTML=['light','dark'].map(m=>{
+  const s=SCALE[m]; const B=Object.fromEntries(s.bands.map(b=>[b.k,b]));
+  const vars=`--bg:${s.bg};--surface:${s.surface};--line:${s.line};--text:${s.text};--text3:${s.text3};--track:${s.track}`;
+  return `<div class="mode"><div class="mh"><b>${m==='light'?'Light':'Dark'}</b><span>utilisation by hub</span></div>
+  <div class="app" style="${vars}">
+    <div class="kick">Operations</div><div class="ttl">Fleet utilisation</div>
+    <div class="tiles">
+      ${[['Fleet','137',null],['Utilised','78%','mid'],['Idle','19%','low'],['Overdue','16','risk']].map(([k,v,bk])=>
+        `<div class="tile"><div class="k">${k}</div><div class="v" style="color:${bk?B[bk].text:s.text}">${v}</div></div>`).join('')}
+    </div>
+    <div class="panel"><h4>By hub</h4>
+      <table><thead><tr><th>Hub</th><th style="width:38%">Utilisation</th><th style="text-align:right">%</th><th style="text-align:right">Band</th></tr></thead><tbody>
+      ${HUBS.map(([h,v,k])=>`<tr>
+        <td class="id">${h}</td>
+        <td><div class="meter"><i style="width:${v}%;background:${B[k].bar}"></i></div></td>
+        <td class="n" style="color:${B[k].text}">${v}%</td>
+        <td style="text-align:right"><span class="pill" style="color:${B[k].text};background:${B[k].tint}">${B[k].name.split(' ·')[0]}</span></td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>
+    <div class="panel"><h4>Deployments · 12 weeks</h4>
+      <div class="bars">${WEEKS.map(v=>`<i style="height:${v}%;background:${B[bandOf(v)].bar}"></i>`).join('')}</div>
+      <div class="lg">${s.bands.map(b=>`<span><b style="background:${b.bar}"></b>${b.name.split(' ·')[0]}</span>`).join('')}</div>
+    </div>
+  </div></div>`;
+}).join('');
+
+/* ---- audit ---- */
+function lum(x){const h=x.replace('#','');const v=[0,2,4].map(i=>parseInt(h.substr(i,2),16)/255)
+  .map(c=>c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4));return .2126*v[0]+.7152*v[1]+.0722*v[2];}
+const ratio=(a,b)=>{const[x,y]=[lum(a),lum(b)].sort((p,q)=>q-p);return(x+.05)/(y+.05);};
+const rows=[];let fails=0;
+['light','dark'].forEach(m=>{
+  const s=SCALE[m];
+  const lums=s.bands.map(b=>lum(b.bar));
+  s.bands.forEach((b,i)=>{
+    const r=ratio(b.text,b.tint);
+    // nearest other band by bar luminance
+    const gaps=lums.map((l,j)=>j===i?9:Math.abs(l-lums[i]));
+    const minGap=Math.min(...gaps);
+    const ok=r>=4.5, sep=minGap>=0.05;
+    if(!ok||!sep) fails++;
+    rows.push({band:b.name,mode:m,r:r.toFixed(2),lum:lums[i].toFixed(3),gap:minGap.toFixed(3),ok:ok&&sep});
+  });
+});
+document.querySelector('#audit tbody').innerHTML=rows.map(r=>`<tr>
+  <td>${r.band}</td><td>${r.mode}</td><td class="r">${r.r}:1</td>
+  <td class="r">${r.lum} <span style="color:#5c6588">(gap ${r.gap})</span></td>
+  <td class="r ${r.ok?'pass':'fail'}">${r.ok?'PASS':'FAIL'}</td></tr>`).join('');
+window.__fails=fails;window.__rows=rows;
+</script>
+</div></body></html>

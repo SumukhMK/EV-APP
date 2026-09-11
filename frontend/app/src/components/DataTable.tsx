@@ -1,8 +1,7 @@
 import Box from '@mui/material/Box';
 import { DataGrid } from '@mui/x-data-grid';
 import type { DataGridProps, GridRowIdGetter, GridValidRowModel } from '@mui/x-data-grid';
-import { alpha } from '@mui/material/styles';
-import { base, fonts, neutral } from '../theme/tokens';
+import { base, fonts, mix, neutral } from '../theme/tokens';
 
 /**
  * Every list screen renders through this. One wrapper means sorting, paging,
@@ -64,11 +63,11 @@ export function DataTable<R extends GridValidRowModel>({
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               fontWeight: 400,
-              color: alpha(base.text, 0.6),
+              color: mix(base.text, 60),
             },
             '& .MuiDataGrid-columnSeparator': { display: 'none' },
             '& .MuiDataGrid-columnHeaderRow, & [role="row"]:has(.MuiDataGrid-columnHeader)': {
-              background: fadingRule(alpha(base.text, 0.16)),
+              background: fadingRule(mix(base.text, 16)),
             },
 
             '& .MuiDataGrid-cell': {
@@ -88,12 +87,12 @@ export function DataTable<R extends GridValidRowModel>({
             },
 
             '& .MuiDataGrid-row': {
-              background: fadingRule(alpha(base.text, 0.08)),
+              background: fadingRule(mix(base.text, 8)),
               '&:hover': {
-                background: `linear-gradient(${alpha(base.text, 0.04)}, ${alpha(base.text, 0.04)}) no-repeat 0 0 / 100% 100%, ${fadingRule(alpha(base.text, 0.08))}`,
+                background: `linear-gradient(${mix(base.text, 4)}, ${mix(base.text, 4)}) no-repeat 0 0 / 100% 100%, ${fadingRule(mix(base.text, 8))}`,
               },
               '&.Mui-selected, &.Mui-selected:hover': {
-                background: `linear-gradient(${alpha(base.accent, 0.1)}, ${alpha(base.accent, 0.1)}) no-repeat 0 0 / 100% 100%, ${fadingRule(alpha(base.text, 0.08))}`,
+                background: `linear-gradient(${mix(base.accent, 10)}, ${mix(base.accent, 10)}) no-repeat 0 0 / 100% 100%, ${fadingRule(mix(base.text, 8))}`,
               },
             },
 

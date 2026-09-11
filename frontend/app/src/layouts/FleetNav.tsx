@@ -6,6 +6,7 @@ import { NavLink } from 'react-router-dom';
 import { navForRole } from '../app/nav';
 import { USER_ROLE_LABEL } from '../lib/labels';
 import { base, layout, neutral } from '../theme/tokens';
+import { ModeToggle } from '../components/ModeToggle';
 import { useSession } from '../app/sessionContext';
 
 /**
@@ -92,6 +93,12 @@ export function FleetNav({ onNavigate }: { onNavigate?: () => void } = {}) {
       </Box>
 
       <Box sx={{ pt: 5, mt: 3, borderTop: `1px solid ${neutral[900]}`, px: 2.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+          <Typography variant="overline" sx={{ color: neutral[600] }}>
+            Appearance
+          </Typography>
+          <ModeToggle />
+        </Box>
         <Typography variant="overline" sx={{ color: neutral[600] }}>
           Viewing as
         </Typography>

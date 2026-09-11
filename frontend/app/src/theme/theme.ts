@@ -1,27 +1,70 @@
-import { createTheme, alpha } from '@mui/material/styles';
-import { accent, base, fonts, neutral, radius } from './tokens';
+import { createTheme } from '@mui/material/styles';
+import { accent, base, cssVars, fonts, mix, neutral, radius, schemes } from './tokens';
 
 /**
- * The Nocturne tokens expressed as a MUI theme.
+ * The Nocturne tokens expressed as a MUI theme, in two schemes.
  *
- * Dark only, deliberately: the wireframe the client signed off is dark, and a
- * second scheme doubles the review surface on every component. If light mode
- * is ever asked for, it goes in here as a `colorSchemes` entry — never as
- * per-screen overrides.
+ * Dark is still the design of record — it is what the client signed off and it
+ * is what the app opens in. Light is a genuine second scheme rather than an
+ * inversion: amber cannot be read as small text on white, so by day green
+ * carries the interactive labels and orange becomes a fill.
+ *
+ * MUI owns `palette` (it needs real colours to compute hovers and contrast
+ * text). Everything a screen touches directly goes through the custom
+ * properties declared in CssBaseline below, which is what makes the swap
+ * instant and total.
  */
 export const theme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: { main: base.accent, light: accent[400], dark: accent[700], contrastText: accent[100] },
-    secondary: { main: base.accent2 },
-    background: { default: base.bg, paper: base.surface },
-    text: {
-      primary: base.text,
-      secondary: alpha(base.text, 0.55),
-      disabled: alpha(base.text, 0.38),
+  cssVariables: { colorSchemeSelector: 'data-mode' },
+  defaultColorScheme: 'dark',
+
+  colorSchemes: {
+    dark: {
+      palette: {
+        mode: 'dark',
+        primary: {
+          main: schemes.dark.base.accent,
+          light: schemes.dark.accent[300],
+          dark: schemes.dark.accent[600],
+          contrastText: schemes.dark.base.onFill,
+        },
+        secondary: { main: schemes.dark.base.accent2 },
+        background: { default: schemes.dark.base.bg, paper: schemes.dark.base.surface },
+        text: {
+          primary: schemes.dark.base.text,
+          secondary: schemes.dark.neutral[400],
+          disabled: schemes.dark.neutral[600],
+        },
+        divider: schemes.dark.base.divider,
+        grey: schemes.dark.neutral,
+        success: { main: schemes.dark.status.good.fg },
+        warning: { main: schemes.dark.status.warn.fg },
+        error: { main: schemes.dark.status.bad.fg },
+      },
     },
-    divider: alpha(base.text, 0.16),
-    grey: neutral,
+    light: {
+      palette: {
+        mode: 'light',
+        primary: {
+          main: schemes.light.base.accent,
+          light: schemes.light.accent[400],
+          dark: schemes.light.accent[200],
+          contrastText: '#ffffff',
+        },
+        secondary: { main: schemes.light.base.accent2 },
+        background: { default: schemes.light.base.bg, paper: schemes.light.base.surface },
+        text: {
+          primary: schemes.light.base.text,
+          secondary: schemes.light.neutral[400],
+          disabled: schemes.light.neutral[600],
+        },
+        divider: schemes.light.base.divider,
+        grey: schemes.light.neutral,
+        success: { main: schemes.light.status.good.fg },
+        warning: { main: schemes.light.status.warn.fg },
+        error: { main: schemes.light.status.bad.fg },
+      },
+    },
   },
 
   shape: { borderRadius: radius.md },
@@ -59,11 +102,10 @@ export const theme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
-        // The app is dark, so tell the browser: every native control then
-        // renders dark-native — scrollbars, the calendar glyph inside
-        // `<input type="date">`, and the picker popover it opens. Without
-        // this the glyph is the light-scheme dark one and disappears.
-        ':root': { colorScheme: 'dark' },
+        // Both schemes are declared up front and the attribute on <html>
+        // decides which wins. No flash, no re-render — the browser repaints.
+        ':root, [data-mode="dark"]': { colorScheme: 'dark', ...cssVars(schemes.dark) },
+        '[data-mode="light"]': { colorScheme: 'light', ...cssVars(schemes.light) },
         body: {
           backgroundColor: base.bg,
           color: base.text,
@@ -76,7 +118,7 @@ export const theme = createTheme({
           letterSpacing: '-0.015em',
           margin: 0,
         },
-        '::selection': { background: alpha(base.accent, 0.3) },
+        '::selection': { background: mix(base.accent, 30) },
         ':focus-visible': { outline: `2px solid ${base.accent}`, outlineOffset: 2 },
         // tabular numerals everywhere a figure can change width
         '.mono': { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' },
@@ -103,15 +145,26 @@ export const theme = createTheme({
           style: {
             borderColor: base.accent,
             color: base.accent,
-            '&:hover': { background: alpha(base.accent, 0.12), borderColor: base.accent },
+            '&:hover': { background: mix(base.accent, 12), borderColor: base.accent },
           },
         },
         {
           props: { variant: 'outlined', color: 'inherit' },
           style: {
-            borderColor: alpha(base.text, 0.16),
+            borderColor: base.divider,
             color: base.text,
-            '&:hover': { background: alpha(base.text, 0.07), borderColor: alpha(base.text, 0.16) },
+            '&:hover': { background: mix(base.text, 7), borderColor: base.divider },
+          },
+        },
+        // The solid commit action: purple by night, orange by day. Its label
+        // colour is a token too, because a dark label is right on orange and
+        // wrong on purple.
+        {
+          props: { variant: 'contained', color: 'primary' },
+          style: {
+            background: base.fill,
+            color: base.onFill,
+            '&:hover': { background: base.fill, filter: 'brightness(1.08)' },
           },
         },
       ],
@@ -136,12 +189,12 @@ export const theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          backgroundColor: base.surface,
+          backgroundColor: base.raised,
           borderRadius: radius.md,
           fontSize: 14,
           minHeight: 36,
-          '& fieldset': { borderColor: alpha(base.text, 0.16) },
-          '&:hover fieldset': { borderColor: alpha(base.text, 0.45) },
+          '& fieldset': { borderColor: base.divider },
+          '&:hover fieldset': { borderColor: mix(base.text, 45, base.surface) },
           '&.Mui-focused fieldset': { borderColor: base.accent, borderWidth: 1 },
         },
         input: { padding: '7px 10px' },
@@ -149,7 +202,7 @@ export const theme = createTheme({
     },
 
     MuiInputLabel: {
-      styleOverrides: { root: { fontSize: 12, color: alpha(base.text, 0.7) } },
+      styleOverrides: { root: { fontSize: 12, color: neutral[400] } },
     },
 
     MuiTextField: {
@@ -162,11 +215,15 @@ export const theme = createTheme({
 
     MuiDivider: { styleOverrides: { root: { borderColor: neutral[900] } } },
 
+    // A tooltip inverts against the page, so it cannot use the ramp — in light
+    // mode `neutral[900]` is a hairline and a tooltip painted with it would be
+    // white text on almost-white.
     MuiTooltip: {
       styleOverrides: {
         tooltip: {
-          background: neutral[900],
-          border: `1px solid ${neutral[800]}`,
+          background: base.inverseSurface,
+          color: base.inverseText,
+          border: `1px solid ${mix(base.inverseText, 18, base.inverseSurface)}`,
           fontSize: 12,
           borderRadius: radius.sm,
         },
@@ -177,6 +234,6 @@ export const theme = createTheme({
       styleOverrides: { paper: { borderRadius: radius.lg, borderColor: neutral[800] } },
     },
 
-    MuiLink: { defaultProps: { underline: 'hover' } },
+    MuiLink: { defaultProps: { underline: 'hover' }, styleOverrides: { root: { color: accent[300] } } },
   },
 });

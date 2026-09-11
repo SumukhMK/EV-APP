@@ -301,7 +301,7 @@ export function PaymentRun() {
                       Collect
                     </Button>
                   ) : (
-                    <Box component="span" sx={{ color: neutral[700], fontSize: 12 }}>Settled</Box>
+                    <Box component="span" sx={{ color: neutral[500], fontSize: 12 }}>Settled</Box>
                   ),
               },
             ]}

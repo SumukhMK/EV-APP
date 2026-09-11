@@ -5,3 +5,12 @@ opencode.jsonc
 
 # Scratch notes and pasted transcripts kept beside the repo, never in it.
 gpt.txt
+
+# macOS turd.
+.DS_Store
+
+# Browser-automation scratch from design/QA runs.
+.playwright-mcp/
+
+# Palette previews are the artefact; their renders are regenerable and heavy.
+docs/design/*.png
