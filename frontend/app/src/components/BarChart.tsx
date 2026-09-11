@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { neutral, chart } from '../theme/tokens';
+import { bandFor, chart, neutral, scale } from '../theme/tokens';
 import { Mono } from './Mono';
 
 export interface Bar {
@@ -21,7 +21,6 @@ const barKey = (b: Bar, i: number) => `${i}-${b.label}`;
  */
 export function BarChart({ bars, height = 196 }: { bars: Bar[]; height?: number }) {
   const max = Math.max(...bars.map((b) => b.value), 1);
-  const peakIndex = bars.reduce((best, b, i) => (b.value > bars[best].value ? i : best), 0);
 
   // Thirteen labelled columns cannot compress below their text. Rather than
   // let the month row spill out of the panel, the chart scrolls as one piece
@@ -43,7 +42,11 @@ export function BarChart({ bars, height = 196 }: { bars: Bar[]; height?: number 
       >
         {bars.map((b, i) => {
           const isLast = i === bars.length - 1;
-          const isPeak = i === peakIndex;
+          // Each bar is coloured by where it sits against the best month, so
+          // the chart ranks itself rather than painting one flat series. The
+          // last bar is the month still running and is held out of that — a
+          // partial figure is not a bad month.
+          const share = max === 0 ? 0 : Math.round((b.value / max) * 100);
           return (
             <Box
               key={barKey(b, i)}
@@ -61,7 +64,7 @@ export function BarChart({ bars, height = 196 }: { bars: Bar[]; height?: number 
                 sx={{
                   width: '100%',
                   height: `${Math.round((b.value / max) * (height - 24))}px`,
-                  background: isLast ? chart.current : isPeak ? chart.peak : chart.bar,
+                  background: isLast ? chart.current : scale[bandFor(share)].bar,
                 }}
               />
             </Box>

@@ -56,11 +56,11 @@ interface Scheme {
   status: Record<StatusTone, Pair>;
   scale: Record<ScaleBand, Band>;
   /**
-   * Data marks. Deliberately not the accent ramp: a bar is a meaningful
-   * graphic and wants 3:1 against the page, which neither #FFD700 nor #FFA500
-   * reaches on white — they are fills, not plot colours.
+   * The period still running. Every other bar takes the colour of the band it
+   * falls in, so a chart ranks itself; an incomplete month must not, or it
+   * reads as a collapse rather than a week still to go.
    */
-  chart: { bar: string; peak: string; current: string };
+  chart: { current: string };
 }
 
 /** Raw values. MUI's palette needs real colours; everything else uses the vars. */
@@ -97,7 +97,7 @@ export const schemes: Record<'dark' | 'light', Scheme> = {
       low: { fg: '#b6bdd6', bg: '#262c48', bar: '#6e7698', strong: '#d2d7e8' },
       risk: { fg: '#ff8a9b', bg: '#361a24', bar: '#f4718a', strong: '#ffb3be' },
     },
-    chart: { bar: '#7566c4', peak: '#b5abfc', current: '#8a92b6' },
+    chart: { current: '#95897a' },
   },
 
   light: {
@@ -128,12 +128,15 @@ export const schemes: Record<'dark' | 'light', Scheme> = {
       neutral: { fg: '#44403c', bg: '#f2f0ee' },
     },
     scale: {
-      high: { fg: '#15803d', bg: '#dcfce7', bar: '#4ade80', strong: '#166534' },
-      mid: { fg: '#c2410c', bg: '#ffedd5', bar: '#ffa500', strong: '#9a3412' },
-      low: { fg: '#a16207', bg: '#fef9c3', bar: '#ffd700', strong: '#854d0e' },
-      risk: { fg: '#be1e3c', bg: '#ffe4e9', bar: '#f43f5e', strong: '#9f1239' },
+      // The plan's bars (#4ade80 #ffa500 #ffd700 #f43f5e) measured 1.4–2.0 on
+      // white — a data mark wants 3:1. Same four hues, taken deep enough to
+      // survive the page. The bright originals stay as fills.
+      high: { fg: '#15803d', bg: '#dcfce7', bar: '#16a34a', strong: '#166534' },
+      mid: { fg: '#c2410c', bg: '#ffedd5', bar: '#ea580c', strong: '#9a3412' },
+      low: { fg: '#a16207', bg: '#fef9c3', bar: '#ca8a04', strong: '#854d0e' },
+      risk: { fg: '#be1e3c', bg: '#ffe4e9', bar: '#dc2626', strong: '#9f1239' },
     },
-    chart: { bar: '#d97706', peak: '#ea580c', current: '#ca8a04' },
+    chart: { current: '#9a8c78' },
   },
 };
 
@@ -202,12 +205,8 @@ export const scale: Record<ScaleBand, Band> = Object.fromEntries(
   ]),
 ) as Record<ScaleBand, Band>;
 
-/** Plot colours: the repeated series, its peak, and the period still running. */
-export const chart = {
-  bar: 'var(--ch-bar)',
-  peak: 'var(--ch-peak)',
-  current: 'var(--ch-current)',
-} as const;
+/** The period still running — every other bar takes its band's colour. */
+export const chart = { current: 'var(--ch-current)' } as const;
 
 /**
  * Which band a percentage falls in. One place, so a tile and the chart it sits

@@ -14,6 +14,7 @@ import { ScaleMeter } from '../../components/ScaleMeter';
 import { DefinitionList } from '../../components/DefinitionList';
 import {
   accent,
+  bandFor,
   base,
   chart,
   neutral,
@@ -205,17 +206,18 @@ export function DesignTokens() {
 
         <Panel
           label="Plot colours"
-          subtitle="Kept apart from the accent ramp on purpose: a bar is a meaningful graphic and wants 3:1 against the page, which neither #FFD700 nor #FFA500 reaches on white. Those two stay fills; plots use the deeper amber and orange."
+          subtitle="A bar takes the colour of the band it falls in, so a chart ranks itself. The bright saffrons are not used here: #FFD700 and #FFA500 measure 1.40 and 1.97 on white, and a data mark wants 3:1 — so plots use the deeper cut of the same hues, and the bright pair stay fills."
         >
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(6, 1fr)' },
+              gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(5, 1fr)' },
               gap: 3,
             }}
           >
-            <Swatch tall label="chart.bar" value={chart.bar} />
-            <Swatch tall label="chart.peak" value={chart.peak} />
+            {BANDS.map((b) => (
+              <Swatch key={b} tall label={`scale.${b}.bar`} value={scale[b].bar} />
+            ))}
             <Swatch tall label="chart.current" value={chart.current} />
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 74, mt: 5 }}>
@@ -225,19 +227,14 @@ export function DesignTokens() {
                 sx={{
                   flex: 1,
                   height: `${h}%`,
-                  background:
-                    i === all.length - 1
-                      ? chart.current
-                      : h === Math.max(...all)
-                        ? chart.peak
-                        : chart.bar,
+                  background: i === all.length - 1 ? chart.current : scale[bandFor(h)].bar,
                 }}
               />
             ))}
           </Box>
           <Box sx={{ fontSize: 11, color: neutral[500], mt: 2 }}>
-            Peak is the tallest; the last bar is the period still running, so it is set apart rather
-            than read as a collapse.
+            The last bar is the period still running, held out of the banding — a partial figure is
+            not a bad month.
           </Box>
         </Panel>
 
