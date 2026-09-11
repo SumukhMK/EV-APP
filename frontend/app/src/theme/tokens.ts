@@ -112,7 +112,9 @@ export const schemes: Record<'dark' | 'light', Scheme> = {
       600: '#4ade80', 700: '#86efac', 800: '#dcfce7', 900: '#f0fdf4',
     },
     base: {
-      bg: '#ffffff', bgDeep: '#ffffff', surface: '#ffffff', raised: '#fafaf9',
+      // Off-white page so the white cards read as cards; `raised` stays a step
+      // lighter so inputs still lift off the page.
+      bg: '#f8f7f4', bgDeep: '#f8f7f4', surface: '#ffffff', raised: '#fafaf9',
       text: '#1a1614', accent: '#166534', accent2: '#15803d',
       fill: '#ffa500', onFill: '#241a08',
       divider: '#e5e2dd', inverseSurface: '#2e2a26', inverseText: '#f7f5f2',
