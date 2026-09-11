@@ -242,6 +242,12 @@ export const fonts = {
  */
 export const layout = {
   navWidth: 232,
+  /**
+   * The rail with the words taken out. Wide enough for a centred 17px icon and
+   * its hit area — collapsing to zero would hide the navigation rather than
+   * compact it, and then the only way back is a button that is no longer there.
+   */
+  navWidthCollapsed: 64,
   /** How wide the content column is allowed to grow before it stops. */
   contentMax: 1680,
   /** Forms and single-column reading stay near the artboard width. */

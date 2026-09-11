@@ -42,6 +42,26 @@ export const hoverLift: SystemStyleObject<Theme> = {
   [REDUCE]: { transition: 'background 170ms ease', '&:hover': { transform: 'none' } },
 };
 
+/**
+ * The rail opening and closing.
+ *
+ * Slower than the hover motions (220ms rather than 170) because it moves the
+ * whole page, and a layout shift that snaps reads as a glitch. Everything that
+ * moves with the rail — its width, the labels fading, the content reflowing —
+ * shares this timing so they arrive together rather than in a ripple.
+ */
+export const railCollapse: SystemStyleObject<Theme> = {
+  transition: 'width 220ms cubic-bezier(0.22, 1, 0.36, 1), flex-basis 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+  [REDUCE]: { transition: 'none' },
+};
+
+/** The labels inside the rail: gone before the width finishes closing. */
+export const railLabel = (collapsed: boolean): SystemStyleObject<Theme> => ({
+  opacity: collapsed ? 0 : 1,
+  transition: 'opacity 140ms ease',
+  [REDUCE]: { transition: 'none' },
+});
+
 /** A nudge to the right on hover, for a list row that drills through. */
 export const hoverNudge: SystemStyleObject<Theme> = {
   transition: 'transform 160ms ease, background 160ms ease',

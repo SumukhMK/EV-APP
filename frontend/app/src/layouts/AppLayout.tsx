@@ -9,7 +9,10 @@ import { Outlet } from 'react-router-dom';
 import { FleetNav } from './FleetNav';
 import { ModeToggle } from '../components/ModeToggle';
 import { base, layout, neutral } from '../theme/tokens';
-import { riseIn } from '../theme/motion';
+import { railCollapse, riseIn } from '../theme/motion';
+
+/** Where the rail's open/closed choice is remembered. */
+const NAV_KEY = 'fleetech-nav';
 
 /**
  * Two shells, one nav.
@@ -24,12 +27,39 @@ import { riseIn } from '../theme/motion';
  */
 export function AppLayout() {
   const [navOpen, setNavOpen] = useState(false);
+  // Open by default, and remembered after that. The rail is where the product
+  // is navigated from, so a first-time user should never have to find it; an
+  // operator who has collapsed it once should not have to do so every morning.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(NAV_KEY) === 'collapsed';
+    } catch {
+      return false;
+    }
+  });
   const location = useLocation();
+
+  const toggleCollapsed = () =>
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(NAV_KEY, next ? 'collapsed' : 'open');
+      } catch {
+        // A private window that refuses storage still gets a working rail.
+      }
+      return next;
+    });
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Box sx={{ display: { xs: 'none', md: 'block' }, flex: `0 0 ${layout.navWidth}px` }}>
-        <FleetNav />
+      <Box
+        sx={{
+          display: { xs: 'none', md: 'block' },
+          flex: `0 0 ${collapsed ? layout.navWidthCollapsed : layout.navWidth}px`,
+          ...railCollapse,
+        }}
+      >
+        <FleetNav collapsed={collapsed} onToggleCollapse={toggleCollapsed} />
       </Box>
 
       <Drawer
