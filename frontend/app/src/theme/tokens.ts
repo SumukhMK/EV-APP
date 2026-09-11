@@ -55,6 +55,12 @@ interface Scheme {
   };
   status: Record<StatusTone, Pair>;
   scale: Record<ScaleBand, Band>;
+  /**
+   * Data marks. Deliberately not the accent ramp: a bar is a meaningful
+   * graphic and wants 3:1 against the page, which neither #FFD700 nor #FFA500
+   * reaches on white — they are fills, not plot colours.
+   */
+  chart: { bar: string; peak: string; current: string };
 }
 
 /** Raw values. MUI's palette needs real colours; everything else uses the vars. */
@@ -91,6 +97,7 @@ export const schemes: Record<'dark' | 'light', Scheme> = {
       low: { fg: '#b6bdd6', bg: '#262c48', bar: '#6e7698', strong: '#d2d7e8' },
       risk: { fg: '#ff8a9b', bg: '#361a24', bar: '#f4718a', strong: '#ffb3be' },
     },
+    chart: { bar: '#7566c4', peak: '#b5abfc', current: '#8a92b6' },
   },
 
   light: {
@@ -126,6 +133,7 @@ export const schemes: Record<'dark' | 'light', Scheme> = {
       low: { fg: '#a16207', bg: '#fef9c3', bar: '#ffd700', strong: '#854d0e' },
       risk: { fg: '#be1e3c', bg: '#ffe4e9', bar: '#f43f5e', strong: '#9f1239' },
     },
+    chart: { bar: '#d97706', peak: '#ea580c', current: '#ca8a04' },
   },
 };
 
@@ -147,6 +155,7 @@ export function cssVars(scheme: Scheme): Record<string, string> {
     out[`--s-${t}-fg`] = scheme.status[t].fg;
     out[`--s-${t}-bg`] = scheme.status[t].bg;
   }
+  for (const [k, v] of Object.entries(scheme.chart)) out[`--ch-${k}`] = v;
   for (const b of BANDS) {
     out[`--sc-${b}-fg`] = scheme.scale[b].fg;
     out[`--sc-${b}-bg`] = scheme.scale[b].bg;
@@ -192,6 +201,13 @@ export const scale: Record<ScaleBand, Band> = Object.fromEntries(
     },
   ]),
 ) as Record<ScaleBand, Band>;
+
+/** Plot colours: the repeated series, its peak, and the period still running. */
+export const chart = {
+  bar: 'var(--ch-bar)',
+  peak: 'var(--ch-peak)',
+  current: 'var(--ch-current)',
+} as const;
 
 /**
  * Which band a percentage falls in. One place, so a tile and the chart it sits

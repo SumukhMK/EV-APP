@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { accent, neutral } from '../theme/tokens';
+import { neutral, chart } from '../theme/tokens';
 import { Mono } from './Mono';
 
 export interface Bar {
@@ -61,7 +61,7 @@ export function BarChart({ bars, height = 196 }: { bars: Bar[]; height?: number 
                 sx={{
                   width: '100%',
                   height: `${Math.round((b.value / max) * (height - 24))}px`,
-                  background: isLast ? accent[800] : isPeak ? accent[600] : accent[700],
+                  background: isLast ? chart.current : isPeak ? chart.peak : chart.bar,
                 }}
               />
             </Box>

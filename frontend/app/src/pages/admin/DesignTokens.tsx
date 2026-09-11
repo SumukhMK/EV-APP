@@ -15,6 +15,7 @@ import { DefinitionList } from '../../components/DefinitionList';
 import {
   accent,
   base,
+  chart,
   neutral,
   radius,
   scale,
@@ -199,6 +200,44 @@ export function DesignTokens() {
             <Swatch tall label="base.fill" value={base.fill} />
             <Swatch tall label="base.divider" value={base.divider} />
             <Swatch tall label="base.inverseSurface" value={base.inverseSurface} />
+          </Box>
+        </Panel>
+
+        <Panel
+          label="Plot colours"
+          subtitle="Kept apart from the accent ramp on purpose: a bar is a meaningful graphic and wants 3:1 against the page, which neither #FFD700 nor #FFA500 reaches on white. Those two stay fills; plots use the deeper amber and orange."
+        >
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(6, 1fr)' },
+              gap: 3,
+            }}
+          >
+            <Swatch tall label="chart.bar" value={chart.bar} />
+            <Swatch tall label="chart.peak" value={chart.peak} />
+            <Swatch tall label="chart.current" value={chart.current} />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 74, mt: 5 }}>
+            {[38, 55, 32, 70, 86, 61, 47, 74, 100, 66, 52, 29].map((h, i, all) => (
+              <Box
+                key={h + '-' + i}
+                sx={{
+                  flex: 1,
+                  height: `${h}%`,
+                  background:
+                    i === all.length - 1
+                      ? chart.current
+                      : h === Math.max(...all)
+                        ? chart.peak
+                        : chart.bar,
+                }}
+              />
+            ))}
+          </Box>
+          <Box sx={{ fontSize: 11, color: neutral[500], mt: 2 }}>
+            Peak is the tallest; the last bar is the period still running, so it is set apart rather
+            than read as a collapse.
           </Box>
         </Panel>
 
