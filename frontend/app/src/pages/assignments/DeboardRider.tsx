@@ -194,7 +194,23 @@ export function DeboardRider() {
           </Alert>
         )}
 
-        <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: layout.readingMax }}>
+        {/* The work on the left, a live review of it on the right.
+            Everything typed into the settlement moves a figure in the review,
+            and the review stays in view while it is typed — the settlement is
+            the argument this screen exists to settle, so it should not be
+            somewhere the operator has to scroll to find. The reading column
+            keeps its width; the rail takes the space that used to sit empty. */}
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 5,
+            mt: 5,
+            alignItems: 'start',
+            gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 360px' },
+            maxWidth: layout.readingMax + 380,
+          }}
+        >
+          <Box sx={{ display: 'grid', gap: 5, minWidth: 0 }}>
           <Panel label="Assignment being closed">
             <RiderSearchSelect
               label="Rider"
@@ -223,15 +239,22 @@ export function DeboardRider() {
             label="Why the bike is coming back"
             subtitle="The condition decides where the bike goes next. Even an undamaged bike goes through QC before it can go out again."
           >
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
+            {/* The note sits beside the control it qualifies rather than under
+                it — a lone select in a two-column row left half the panel bare. */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 5,
+                alignItems: 'start',
+              }}
+            >
               <SelectField
                 control={form.control}
                 name="returnCondition"
                 label="Condition on return"
                 options={CONDITIONS}
               />
-            </Box>
-            <Box sx={{ mt: 4 }}>
               <InfoStrip>
                 Recovery is deliberately not an option in this flow — a bike that needs recovering
                 is a different process. The returned bike goes to QC or the workshop.
@@ -293,45 +316,57 @@ export function DeboardRider() {
                 derivation="Deposit held − outstanding rent. Negative means the deposit does not cover what is owed."
               />
             </Box>
-            <DefinitionList
-              divider="top"
-              columns={2}
-              items={[
-                { label: 'Rider', value: rider ? `${rider.name} · ${rider.id}` : 'Not selected' },
-                {
-                  label: 'Condition',
-                  value: RETURN_CONDITION_LABEL[picked.returnCondition ?? 'NONE'],
-                },
-                {
-                  label: 'Returned bike goes to',
-                  value: picked.nextVehicleState
-                    ? VEHICLE_STATE_LABEL[picked.nextVehicleState]
-                    : '—',
-                },
-                {
-                  label: 'Outstanding rent',
-                  value: (
-                    <Mono sx={{ fontSize: 13 }}>
-                      {rupeesWithSymbol((picked.outstandingRentRupees ?? 0) * 100)}
-                    </Mono>
-                  ),
-                },
-                {
-                  label: 'Deposit refunded',
-                  value: (
-                    <Mono sx={{ fontSize: 13 }}>
-                      {rupeesWithSymbol((picked.depositRefundRupees ?? 0) * 100)}
-                    </Mono>
-                  ),
-                },
-                { label: 'Rider becomes', value: 'Inactive' },
-              ]}
-            />
-            <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-              The rider becomes inactive and the bike is freed up. Onboard them again to bring them
-              back.
-            </Typography>
           </Panel>
+          </Box>
+
+          {/* Sticky so it follows the form down. On a narrow screen it simply
+              lands last, which is the order the operator reads anyway: fill
+              the form, then check what it is about to do. */}
+          <Box sx={{ position: { lg: 'sticky' }, top: 16, minWidth: 0 }}>
+            <Panel
+              label="Before you finalise"
+              subtitle="What this closes, as it stands right now."
+            >
+              <DefinitionList
+                divider="top"
+                columns={1}
+                items={[
+                  { label: 'Rider', value: rider ? `${rider.name} · ${rider.id}` : 'Not selected' },
+                  {
+                    label: 'Condition',
+                    value: RETURN_CONDITION_LABEL[picked.returnCondition ?? 'NONE'],
+                  },
+                  {
+                    label: 'Returned bike goes to',
+                    value: picked.nextVehicleState
+                      ? VEHICLE_STATE_LABEL[picked.nextVehicleState]
+                      : '—',
+                  },
+                  {
+                    label: 'Outstanding rent',
+                    value: (
+                      <Mono sx={{ fontSize: 13 }}>
+                        {rupeesWithSymbol((picked.outstandingRentRupees ?? 0) * 100)}
+                      </Mono>
+                    ),
+                  },
+                  {
+                    label: 'Deposit refunded',
+                    value: (
+                      <Mono sx={{ fontSize: 13 }}>
+                        {rupeesWithSymbol((picked.depositRefundRupees ?? 0) * 100)}
+                      </Mono>
+                    ),
+                  },
+                  { label: 'Rider becomes', value: 'Inactive' },
+                ]}
+              />
+              <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
+                The rider becomes inactive and the bike is freed up. Onboard them again to bring
+                them back.
+              </Typography>
+            </Panel>
+          </Box>
         </Box>
       </Box>
     </FormProvider>
