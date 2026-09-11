@@ -81,7 +81,7 @@ export function BulkUploadVehicles() {
         icon={UploadIcon}
         actions={
           <Button color="inherit" onClick={() => navigate('/vehicles')}>
-            Cancel
+            {done !== null ? 'Go back to all vehicles' : 'Cancel'}
           </Button>
         }
       />
