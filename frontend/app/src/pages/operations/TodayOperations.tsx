@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import TodayIcon from '@mui/icons-material/TodayOutlined';
 import RocketIcon from '@mui/icons-material/RocketLaunchOutlined';
@@ -18,9 +19,10 @@ import { Panel } from '../../components/Panel';
 import { StatTiles } from '../../components/StatTiles';
 import { InfoStrip } from '../../components/InfoStrip';
 import { PeriodToggle } from '../../components/PeriodToggle';
+import { ScaleMeter } from '../../components/ScaleMeter';
 import { Mono } from '../../components/Mono';
 import { resolvePeriod, type PeriodGrain } from '../../lib/period';
-import { getOperationsSummary, getFleetSummary } from '../../lib/api/dashboard';
+import { getFleetSummary, getHubUtilisation, getOperationsSummary } from '../../lib/api/dashboard';
 import { formatNumber } from '../../lib/format';
 import { neutral } from '../../theme/tokens';
 
@@ -54,6 +56,10 @@ export function TodayOperations() {
   // it opens. Movement and source stay period figures and therefore do not
   // link anywhere — there is no period-scoped list for them to be honest about.
   const fleet = useQuery({ queryKey: ['dashboard', 'summary'], queryFn: getFleetSummary });
+
+  // Utilisation is a fleet figure, not a period one — it answers "is stock
+  // sitting idle right now", which a date range would only obscure.
+  const utilisation = useQuery({ queryKey: ['dashboard', 'utilisation'], queryFn: getHubUtilisation });
 
   const s = summary.data;
   const f = fleet.data;
@@ -131,6 +137,27 @@ export function TodayOperations() {
             { label: 'Quick response team', value: n(s?.source.qrt), icon: BoltIcon },
           ]}
         />
+      </Panel>
+
+      <Panel
+        label="Hub utilisation"
+        subtitle="Deployed as a share of what each hub holds. The band is derived from the figure, so the bar and the label can never disagree."
+        sx={{ mt: 5 }}
+      >
+        {utilisation.isLoading ? (
+          <Typography sx={{ fontSize: 13, color: neutral[500] }}>Loading…</Typography>
+        ) : (
+          <Box sx={{ display: 'grid', gap: 5 }}>
+            {(utilisation.data ?? []).map((h) => (
+              <ScaleMeter
+                key={h.hub}
+                label={h.hub}
+                percent={h.percent}
+                caption={`${h.deployed} deployed · ${h.idle} idle · ${h.total} held`}
+              />
+            ))}
+          </Box>
+        )}
       </Panel>
 
       <Box sx={{ mt: 5 }}>

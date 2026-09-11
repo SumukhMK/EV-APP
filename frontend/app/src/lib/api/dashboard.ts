@@ -1,5 +1,6 @@
 import type {
   FleetSummary,
+  HubUtilisation,
   MonthlyDeployments,
   OperationsPeriodSummary,
   RecoveryCounts,
@@ -7,6 +8,7 @@ import type {
 } from '../../types';
 import {
   fleetSummary,
+  hubUtilisation,
   monthlyDeployments,
   operationsSummary,
   recoveryCounts,
@@ -16,6 +18,10 @@ import { delay } from './client';
 
 export async function getFleetSummary(): Promise<FleetSummary> {
   return delay(fleetSummary());
+}
+
+export async function getHubUtilisation(): Promise<HubUtilisation[]> {
+  return delay(hubUtilisation());
 }
 
 export async function getMonthlyDeployments(): Promise<MonthlyDeployments[]> {

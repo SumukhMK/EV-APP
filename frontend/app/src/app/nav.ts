@@ -15,6 +15,7 @@ import ReceiptIcon from '@mui/icons-material/ReceiptLongOutlined';
 import WarningIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import RecoveryIcon from '@mui/icons-material/ReplayCircleFilledOutlined';
 import AdminIcon from '@mui/icons-material/ManageAccountsOutlined';
+import PaletteIcon from '@mui/icons-material/PaletteOutlined';
 import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 
 /**
@@ -33,8 +34,11 @@ export interface NavItem {
   path: string;
   icon: SvgIconComponent;
   owner: ScreenOwner;
-  /** Artboard number in the signed-off wireframe. */
-  artboard: number;
+  /**
+   * Artboard number in the signed-off wireframe. Absent for the few screens
+   * that were never drawn — tooling, not product.
+   */
+  artboard?: number;
 }
 
 export interface NavSection {
@@ -99,6 +103,7 @@ export const NAV: NavSection[] = [
     items: [
       { label: 'Users & roles', path: '/users', icon: AdminIcon, owner: 'smk', artboard: 18 },
       { label: 'Audit log', path: '/audit', icon: HistoryIcon, owner: 'smk', artboard: 19 },
+      { label: 'Design tokens', path: '/design-tokens', icon: PaletteIcon, owner: 'smk' },
     ],
   },
 ];

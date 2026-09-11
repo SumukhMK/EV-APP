@@ -1,5 +1,6 @@
 import type {
   FleetSummary,
+  HubUtilisation,
   MonthlyDeployments,
   OperationsPeriodSummary,
   RecoveryCounts,
@@ -25,6 +26,31 @@ export const fleetSummary = (): FleetSummary => ({
   overdueRiders: overdueRiders.length,
   overdueValue: overdueRiders.reduce((sum, o) => sum + o.amountDue, 0),
 });
+
+/**
+ * Utilisation per hub, derived from the same fleet the vehicle list renders.
+ *
+ * Deployed over held. A hub sitting on idle stock is the thing this is meant
+ * to surface, which is why idle is carried rather than left to be inferred.
+ */
+export const hubUtilisation = (): HubUtilisation[] => {
+  const byHub = new Map<string, { total: number; deployed: number }>();
+  for (const v of vehicles) {
+    const row = byHub.get(v.hub) ?? { total: 0, deployed: 0 };
+    row.total += 1;
+    if (v.state === 'DEPLOYED') row.deployed += 1;
+    byHub.set(v.hub, row);
+  }
+  return [...byHub.entries()]
+    .map(([hub, { total, deployed }]) => ({
+      hub,
+      total,
+      deployed,
+      idle: total - deployed,
+      percent: total === 0 ? 0 : Math.round((deployed / total) * 100),
+    }))
+    .sort((a, b) => b.percent - a.percent);
+};
 
 /** Artboard 02's bar chart: thirteen months to Aug 2026. */
 export const monthlyDeployments: MonthlyDeployments[] = [

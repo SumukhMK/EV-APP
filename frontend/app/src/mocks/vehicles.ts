@@ -6,7 +6,7 @@ import type {
   VehicleLifecycleEvent,
   VehicleState,
 } from '../types';
-import { HUBS, MODELS, mulberry32, pick } from './seed';
+import { MODELS, mulberry32, pick } from './seed';
 
 /**
  * Fleet composition is pinned to the dashboard tiles in artboard 02:
@@ -42,6 +42,40 @@ const DESIGNED: ReadonlyArray<
   ['FBLSS0141', 'MD9ESLM1225873677', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Sohail Ahmed', 'Sun Mobility'],
 ];
 
+/**
+ * Where a bike sits depends on what it is doing.
+ *
+ * Spreading hubs uniformly gave every hub the fleet-wide utilisation rate —
+ * four identical middling bars, which is both unrealistic and useless as a
+ * fixture: the idle-stock problem the utilisation panel exists to surface
+ * never appeared. Deployed bikes now concentrate where the demand is and idle
+ * stock piles up where it doesn't, so the hubs land across the whole scale.
+ */
+const HUB_WEIGHTS: Record<'deployed' | 'idle', ReadonlyArray<readonly [string, number]>> = {
+  deployed: [
+    ['Whitefield', 0.585],
+    ['HSR Layout', 0.292],
+    ['Koramangala', 0.103],
+    ['Bengaluru', 0.020],
+  ],
+  idle: [
+    ['Whitefield', 0.146],
+    ['HSR Layout', 0.293],
+    ['Koramangala', 0.241],
+    ['Bengaluru', 0.320],
+  ],
+};
+
+function weightedHub(rng: () => number, state: VehicleState): string {
+  const table = HUB_WEIGHTS[state === 'DEPLOYED' ? 'deployed' : 'idle'];
+  let roll = rng();
+  for (const [hub, weight] of table) {
+    roll -= weight;
+    if (roll <= 0) return hub;
+  }
+  return table[table.length - 1][0];
+}
+
 function buildFleet(): Vehicle[] {
   const rng = mulberry32(20260824);
   const out: Vehicle[] = DESIGNED.map(([id, chassisNumber, model, batteryType, state, currentRiderName, batteryVendor], i) => ({
@@ -50,7 +84,7 @@ function buildFleet(): Vehicle[] {
     model,
     batteryType,
     batteryVendor,
-    hub: 'Bengaluru',
+    hub: weightedHub(rng, state),
     state,
     currentRiderId: currentRiderName ? `R${String(3 + i * 4).padStart(2, '0')}` : null,
     currentRiderName,
@@ -78,7 +112,7 @@ function buildFleet(): Vehicle[] {
         model,
         batteryType: model === 'Sprinto-BS' ? 'Battery Smart' : 'Sun Mobility',
         batteryVendor: model === 'Sprinto-BS' ? 'Battery Smart' : 'Sun Mobility',
-        hub: pick(rng, HUBS),
+        hub: weightedHub(rng, state),
         state,
         currentRiderId: null,
         currentRiderName: null,

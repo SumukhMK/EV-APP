@@ -7,6 +7,7 @@ import MenuIcon from '@mui/icons-material/MenuOutlined';
 import { useLocation } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
 import { FleetNav } from './FleetNav';
+import { ModeToggle } from '../components/ModeToggle';
 import { base, layout, neutral } from '../theme/tokens';
 import { riseIn } from '../theme/motion';
 
@@ -64,6 +65,25 @@ export function AppLayout() {
           <Typography sx={{ fontSize: 16, fontWeight: 500 }}>
             FleeTech <Box component="span" sx={{ color: base.accent }}>OS</Box>
           </Typography>
+          <Box sx={{ flex: 1 }} />
+          <ModeToggle />
+        </Box>
+
+        {/* Appearance sits top-right on every screen, where a user looks for it.
+            On mobile it rides in the bar above; from md up the bar is gone, so
+            the control gets its own strip aligned to the content column. */}
+        <Box
+          sx={{
+            display: { xs: 'none', md: 'flex' },
+            justifyContent: 'flex-end',
+            width: '100%',
+            maxWidth: layout.contentMax,
+            mx: 'auto',
+            px: { xs: 4, sm: 6, lg: 8 },
+            pt: 4,
+          }}
+        >
+          <ModeToggle />
         </Box>
 
         <Box
@@ -73,6 +93,7 @@ export function AppLayout() {
             maxWidth: layout.contentMax,
             mx: 'auto',
             px: { xs: 4, sm: 6, lg: 8 },
+            pt: { xs: 4, md: 2 },
             pb: 16,
           }}
         >

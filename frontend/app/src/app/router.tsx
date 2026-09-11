@@ -19,6 +19,7 @@ import { PaymentReceipt } from '../pages/payments/PaymentReceipt';
 import { OverdueRiders } from '../pages/payments/OverdueRiders';
 import { Users } from '../pages/users/Users';
 import { AuditLog } from '../pages/admin/AuditLog';
+import { DesignTokens } from '../pages/admin/DesignTokens';
 import { TodayOperations } from '../pages/operations/TodayOperations';
 import { ServiceManagement } from '../pages/service/ServiceManagement';
 import { RecoverySummary } from '../pages/recovery/RecoverySummary';
@@ -87,6 +88,7 @@ export const router = createBrowserRouter([
       // Admin — SMK
       { path: '/users', element: <Users /> },
       { path: '/audit', element: <AuditLog /> },
+      { path: '/design-tokens', element: <DesignTokens /> },
 
       { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],

@@ -63,3 +63,19 @@ export interface RecoveryCounts {
   };
   recovered: { recovered: number };
 }
+
+/**
+ * How hard each hub's fleet is working: deployed as a share of what it holds.
+ *
+ * Derived from the fleet, never typed in, so it cannot drift from the vehicle
+ * list it summarises. The intensity band is not stored — screens ask
+ * `bandFor(percent)` so a meter and the tile above it cannot disagree.
+ */
+export interface HubUtilisation {
+  hub: string;
+  total: number;
+  deployed: number;
+  idle: number;
+  /** 0–100, rounded. */
+  percent: number;
+}
