@@ -59,6 +59,11 @@ export const theme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
+        // The app is dark, so tell the browser: every native control then
+        // renders dark-native — scrollbars, the calendar glyph inside
+        // `<input type="date">`, and the picker popover it opens. Without
+        // this the glyph is the light-scheme dark one and disappears.
+        ':root': { colorScheme: 'dark' },
         body: {
           backgroundColor: base.bg,
           color: base.text,

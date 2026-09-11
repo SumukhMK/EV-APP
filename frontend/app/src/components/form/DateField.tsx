@@ -71,7 +71,7 @@ export function DateField({
                     else el.focus();
                   }}
                 >
-                  <CalendarIcon sx={{ fontSize: 16 }} />
+                  <CalendarIcon sx={{ fontSize: 16, color: 'text.primary' }} />
                 </IconButton>
               </InputAdornment>
             ),
