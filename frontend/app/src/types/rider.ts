@@ -1,4 +1,5 @@
 import type { Iso8601, Paise } from './common';
+import type { PaymentMethod } from './payment';
 
 export const RIDER_STATUSES = ['ACTIVE', 'INACTIVE', 'BLACKLISTED'] as const;
 
@@ -19,6 +20,39 @@ export type PaymentDay =
   | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY'
   | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
 
+/**
+ * How this rider settles their rent — the standing arrangement, not a receipt.
+ *
+ * `PaymentMethod` already existed, but only ever on a *transaction*:
+ * `RecordPaymentRequest.method` is what the counter picks when money actually
+ * lands, and `RiderPaymentRow.method` / `PaymentReceipt.method` are the record
+ * of that one collection. Neither answers the question the register is asked
+ * every morning — "how does this rider normally pay" — which is what the
+ * collections team needs *before* chasing them, not after.
+ *
+ * So this is the agreed mode, captured once at onboarding, and the per-payment
+ * `method` stays free to differ: a rider on UPI who hands over cash one week is
+ * recorded as cash for that week and is still a UPI rider.
+ *
+ * Same three values as `PaymentMethod`, deliberately not a second enum — an
+ * agreed mode a collection can never be recorded in would be a trap.
+ */
+export type PaymentMode = PaymentMethod;
+
+/**
+ * How this rider settles their rent — the standing arrangement, not a receipt.
+ *
+ * `PaymentMethod` already existed, but only ever on a *transaction*:
+ * `RecordPaymentRequest.method` is what the counter picks when money actually
+ * lands, and `RiderPaymentRow.method` / `PaymentReceipt.method` are the record
+ * of that one collection. Neither answers the question the register is asked
+ * every morning — "how does this rider normally pay" — which is what the
+ * collections team needs *before* chasing them, not after.
+ *
+ * So this is the agreed mode, captured once at onboarding, and the per-payment
+ * `method` stays free to differ: a rider on UPI who hands over cash one week is
+ * recorded as cash for that week and is still a UPI rider.
+ */
 export type Platform =
   | 'Zomato'
   | 'Swiggy'
@@ -67,6 +101,8 @@ export interface Rider {
   platform: Platform;
   /** The day this rider says they pay. Captured, not acted on — see PaymentDay. */
   paymentDay: PaymentDay;
+  /** How this rider has agreed to pay. See `PaymentMode`. */
+  paymentMode: PaymentMode;
 }
 
 /**
@@ -107,6 +143,8 @@ export interface OnboardRiderRequest {
   billingDay: BillingDay;
   /** Captured, not acted on. See PaymentDay. */
   paymentDay: PaymentDay;
+  /** How this rider has agreed to pay. See `PaymentMode`. */
+  paymentMode: PaymentMode;
   depositPlan: Paise;
   depositPaid: Paise;
   onboardedOn: Iso8601;

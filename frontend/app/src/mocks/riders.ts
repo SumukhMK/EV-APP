@@ -1,4 +1,4 @@
-import type { BillingDay, PaymentDay, Platform, Rider } from '../types';
+import type { BillingDay, PaymentDay, PaymentMode, Platform, Rider } from '../types';
 import { FIRST_NAMES, LAST_NAMES, STAFF, mulberry32, pick } from './seed';
 import { vehicles } from './vehicles';
 
@@ -10,6 +10,17 @@ const PLATFORMS: readonly Platform[] = [
 
 const PAYMENT_DAYS: readonly PaymentDay[] = [
   'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY',
+];
+
+/**
+ * Modes weighted the way the counter actually sees them: UPI is the norm, cash
+ * is common, a bank transfer is the exception. A uniform third each would make
+ * the register's new column look like noise rather than a fact about the book.
+ */
+const PAYMENT_MODES: readonly PaymentMode[] = [
+  'UPI', 'UPI', 'UPI', 'UPI', 'UPI', 'UPI',
+  'CASH', 'CASH', 'CASH',
+  'BANK_TRANSFER',
 ];
 
 /**
@@ -114,6 +125,7 @@ function buildRiders(): Rider[] {
       paymentStatus,
       platform,
       paymentDay,
+      paymentMode: pick(rng, PAYMENT_MODES),
     });
   }
 
@@ -136,6 +148,7 @@ function buildRiders(): Rider[] {
       paymentStatus: 'PENDING',
       platform: pick(rng, PLATFORMS),
       paymentDay: pick(rng, PAYMENT_DAYS),
+      paymentMode: pick(rng, PAYMENT_MODES),
     });
   }
 
@@ -169,6 +182,7 @@ function buildRiders(): Rider[] {
       paymentStatus: 'PENDING',
       platform,
       paymentDay,
+      paymentMode: pick(rng, PAYMENT_MODES),
     });
   }
 

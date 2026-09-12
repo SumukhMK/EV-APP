@@ -103,7 +103,10 @@ export const schemes: Record<'dark' | 'light', Scheme> = {
   light: {
     neutral: {
       100: '#1a1614', 200: '#2e2a26', 300: '#44403c', 400: '#57534e', 500: '#6b6560',
-      600: '#7a736c', 700: '#bdb7ae', 800: '#d8d3cb', 900: '#e5e2dd',
+      // 600 is the muted step — zeros, em-dashes, disabled labels. #7a736c
+      // measured 4.36 on the off-white page, which is under 4.5 for the small
+      // sizes it is actually used at; #767069 is the smallest nudge that clears it.
+      600: '#767069', 700: '#bdb7ae', 800: '#d8d3cb', 900: '#e5e2dd',
     },
     // Green carries every interactive label in light mode, because amber is the
     // one thing that cannot be read as small text on white without going muddy.
@@ -135,7 +138,10 @@ export const schemes: Record<'dark' | 'light', Scheme> = {
       // survive the page. The bright originals stay as fills.
       high: { fg: '#15803d', bg: '#dcfce7', bar: '#16a34a', strong: '#166534' },
       mid: { fg: '#c2410c', bg: '#ffedd5', bar: '#ea580c', strong: '#9a3412' },
-      low: { fg: '#a16207', bg: '#fef9c3', bar: '#ca8a04', strong: '#854d0e' },
+      // #ca8a04 measured 2.74 against the page — under the 3:1 a data mark
+      // needs, and the only bar in either scheme that missed. Same yellow, deep
+      // enough to survive off-white and still a step off mid's orange.
+      low: { fg: '#a16207', bg: '#fef9c3', bar: '#9a7209', strong: '#854d0e' },
       risk: { fg: '#be1e3c', bg: '#ffe4e9', bar: '#dc2626', strong: '#9f1239' },
     },
     chart: { current: '#9a8c78' },
@@ -254,4 +260,11 @@ export const layout = {
   contentMax: 1680,
   /** Forms and single-column reading stay near the artboard width. */
   readingMax: 900,
+  /**
+   * The mobile top bar, and therefore the offset every sticky page header sits
+   * at below `md`. A number rather than "whatever the icon button measures",
+   * because two elements pin themselves to it and a header that overlaps the
+   * bar by four pixels is the kind of thing nobody files a bug for.
+   */
+  topBar: 56,
 } as const;

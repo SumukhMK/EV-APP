@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
@@ -8,6 +8,7 @@ import { useLocation } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
 import { FleetNav } from './FleetNav';
 import { ModeToggle } from '../components/ModeToggle';
+import { RouteFallback } from '../components/RouteFallback';
 import { base, layout, neutral } from '../theme/tokens';
 import { railCollapse, riseIn } from '../theme/motion';
 
@@ -81,7 +82,11 @@ export function AppLayout() {
             alignItems: 'center',
             gap: 2,
             px: 4,
-            py: 3,
+            // A declared height, not whatever the icon button happens to
+            // measure: the page header pins itself directly beneath this bar
+            // and both read `layout.topBar` to agree on where that is.
+            height: layout.topBar,
+            flex: `0 0 ${layout.topBar}px`,
             borderBottom: `1px solid ${neutral[900]}`,
             position: 'sticky',
             top: 0,
@@ -128,9 +133,16 @@ export function AppLayout() {
           }}
         >
           {/* Keyed on the path so the fade-up replays on every navigation —
-              each screen arrives rather than blinks into place. */}
+              each screen arrives rather than blinks into place.
+
+              The Suspense boundary sits here rather than around the whole
+              shell: every screen is a lazily-imported chunk, and a boundary
+              any higher would unmount the rail and the mode toggle each time
+              one loaded — a full-page flash instead of a column swap. */}
           <Box key={location.pathname} sx={riseIn()}>
-            <Outlet />
+            <Suspense fallback={<RouteFallback />}>
+              <Outlet />
+            </Suspense>
           </Box>
         </Box>
       </Box>

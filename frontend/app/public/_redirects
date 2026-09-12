@@ -1,0 +1,4 @@
+# The app uses createBrowserRouter, so /vehicles/BLRSS0428 is a client route with
+# no file behind it. Without this line a refresh or a shared link 404s.
+# Status 200, not 301: the URL must stay what the user typed.
+/*  /index.html  200

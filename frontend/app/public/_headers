@@ -1,0 +1,21 @@
+# Baseline hardening for a static SPA, plus the caching split that makes a
+# deploy actually reach people.
+#
+# Lives here rather than in netlify.toml so it ships inside dist/ and applies to
+# a direct (prebuilt) deploy as well as a Git-connected build.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()
+
+# Hashed assets are immutable by construction — a change produces a new
+# filename — so a year is safe.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# index.html must never be cached, or a deploy does not reach anyone still
+# holding the old one.
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate

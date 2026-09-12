@@ -104,6 +104,11 @@ export const onboardRiderSchema = z.object({
     'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY',
     'FRIDAY', 'SATURDAY', 'SUNDAY',
   ]),
+  /**
+   * How the rider has agreed to pay. The same three values a collection can be
+   * recorded in, so the agreed mode is always one the counter can actually use.
+   */
+  paymentMode: z.enum(['UPI', 'CASH', 'BANK_TRANSFER']),
   depositRupees: z
     .number({ message: 'Enter the deposit in rupees' })
     .int('Enter whole rupees')
@@ -143,6 +148,8 @@ export const ONBOARD_RIDER_DEFAULTS: OnboardRiderValues = {
   planRupees: 1750,
   billingDay: 'MONDAY',
   paymentDay: 'MONDAY',
+  // UPI is what most riders actually settle in; cash is the exception at the counter.
+  paymentMode: 'UPI',
   depositRupees: 3000,
   depositPaidRupees: 3000,
   onboardedOn: new Date().toISOString().slice(0, 10),

@@ -20,6 +20,7 @@ import { listRiders, riderFacets } from '../../lib/api/riders';
 import {
   KYC_STATUS_LABEL,
   KYC_STATUS_TONE,
+  PAYMENT_METHOD_LABEL,
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUS_TONE,
   RIDER_STATUS_LABEL,
@@ -47,7 +48,7 @@ export function RidersList() {
   const theme = useTheme();
   // Same two-step shed as the vehicles table. What survives to the narrowest
   // view is what someone chasing a payment actually scans for — who, which
-  // bike, and whether they have paid. Phone and KYC are lookups.
+  // bike, whether they have paid and how. Phone and KYC are lookups.
   const narrow = useMediaQuery(theme.breakpoints.down('lg'));
   const compact = useMediaQuery(theme.breakpoints.down('sm'));
   // The filter lives in the URL, not in component state, so a filtered
@@ -220,6 +221,17 @@ export function RidersList() {
         ),
       },
       {
+        // Sits directly after Payment on purpose: the status answers "have they
+        // paid", this answers "how", and a collections call needs both in the
+        // same glance. It is the standing arrangement, not last week's receipt.
+        field: 'paymentMode',
+        headerName: 'Mode',
+        flex: 0.9,
+        minWidth: 86,
+        valueFormatter: (value: Rider['paymentMode']) => PAYMENT_METHOD_LABEL[value],
+        cellClassName: 'muted-cell',
+      },
+      {
         field: 'currentVehicleId',
         headerName: 'Bike',
         flex: 1,
@@ -335,6 +347,10 @@ export function RidersList() {
             kycStatus: !narrow,
             billingDay: !narrow,
             planAmount: !compact,
+            // Kept through the tablet shed, unlike platform and billing day: it
+            // is half of what a collections call needs, and the other half
+            // (payment status) is right beside it.
+            paymentMode: !compact,
           }}
           onRowClick={({ row }) => navigate(`/riders/${row.id}`)}
           hideFooter

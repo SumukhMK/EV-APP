@@ -102,13 +102,18 @@ function buildFleet(): Vehicle[] {
   for (const state of Object.keys(remaining) as VehicleState[]) {
     for (let n = 0; n < remaining[state]; n += 1) {
       const isEagle = rng() < 0.55;
-      const id = isEagle ? `BLRSS0${eagle++}` : `FBLSS0${sprinto++}`;
+      // Chassis runs off the same counter as the id rather than off the rng.
+      // A random suffix out of a few hundred values collided six times in a
+      // 137-row fleet — invisible on screen, and exactly the kind of thing a
+      // chassis lookup or a dedupe check would later trip over. The ranges start
+      // clear of the designed rows above (eagle ≤ 00508, sprinto ≤ 73677).
+      const seq = isEagle ? eagle++ : sprinto++;
       const model = isEagle ? 'Eagle-SunM' : pick(rng, MODELS.slice(1));
       out.push({
-        id,
+        id: isEagle ? `BLRSS0${seq}` : `FBLSS0${seq}`,
         chassisNumber: isEagle
-          ? `SESEAG032023${String(500 + Math.floor(rng() * 400)).padStart(5, '0')}`
-          : `MD9ESLM12258${String(70000 + Math.floor(rng() * 9000))}`,
+          ? `SESEAG032023${String(600 + seq - 437).padStart(5, '0')}`
+          : `MD9ESLM12258${74000 + seq - 142}`,
         model,
         batteryType: model === 'Sprinto-BS' ? 'Battery Smart' : 'Sun Mobility',
         batteryVendor: model === 'Sprinto-BS' ? 'Battery Smart' : 'Sun Mobility',

@@ -1,0 +1,153 @@
+# The gate and the pipe, in one file.
+#
+# The shape is deliberate: **the bundle is built exactly once**, in `verify`,
+# and that same artifact is what `deploy` uploads to Netlify. Netlify never
+# builds anything. So the bytes Ashok loads are byte-identical to the bytes the
+# tests ran against — there is no second build that could drift from the first.
+#
+#   push to any branch  →  verify
+#   push to main        →  verify → deploy to production
+#   PR into main        →  verify → deploy to a preview URL, commented on the PR
+#
+# A branch with an open PR runs twice (once for the push, once for the PR).
+# That is the price of gating pushes on branches that have no PR yet, which is
+# how Phase 1 is actually being worked. Drop `push: branches: ['**']` to
+# `[main]` if that stops being true.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+  # So a deploy can be re-run from the Actions tab without an empty commit.
+  workflow_dispatch:
+
+# A new push to the same branch cancels the run it supersedes. Two people on
+# part-time schedules do not need to wait behind their own stale builds.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Not a secret — it is the public identifier that appears in every deploy
+  # URL. Only the auth token is sensitive, and that is in repo secrets.
+  NETLIFY_SITE_ID: 91e44952-df77-4c81-9bad-68e69406d75c
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/app/package-lock.json
+
+      # `npm ci` not `npm install`: it installs the lockfile exactly and fails
+      # if package.json and the lock have drifted, which is the whole point of
+      # having a lockfile.
+      - name: Install
+        run: npm ci
+
+      # Lint first: it is the fastest of the four and catches the cheapest
+      # class of mistake, so a bad push fails in seconds rather than minutes.
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # `npm run build` is `tsc -b && vite build` — the type check and the
+      # bundle in one step.
+      - name: Typecheck and build
+        run: npm run build
+
+      # H3's budget. Fails the run if initial JS crosses 200KB gzipped.
+      - name: Size budget
+        run: npm run size
+
+      # This is the handoff. Whatever is in dist/ now is what ships.
+      - name: Upload the built site
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: frontend/app/dist
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy
+    needs: verify
+    runs-on: ubuntu-latest
+    # Only main and PRs deploy. A push to phase-1-scaffold is gated but does
+    # not publish anywhere — otherwise every work-in-progress push would be
+    # competing for a URL.
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')
+    permissions:
+      contents: read
+      # For the preview-URL comment on the PR.
+      pull-requests: write
+
+    steps:
+      # Note there is no checkout and no npm ci here: this job does not build.
+      # It takes the artifact `verify` produced and posts it.
+      - name: Download the built site
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy to production
+        if: github.ref == 'refs/heads/main'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          npx --yes netlify-cli@27 deploy \
+            --dir=dist \
+            --site="$NETLIFY_SITE_ID" \
+            --prod \
+            --message="${{ github.sha }} — ${{ github.event.head_commit.message || 'manual run' }}"
+
+      # A preview lands on its own subdomain, pr-<number>--fleetech-os.netlify.app,
+      # so a reviewer can open the change rather than imagine it. The alias is
+      # stable across pushes, so the link in the PR comment never goes stale.
+      - name: Deploy a preview
+        id: preview
+        if: github.event_name == 'pull_request'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          npx --yes netlify-cli@27 deploy \
+            --dir=dist \
+            --site="$NETLIFY_SITE_ID" \
+            --alias="pr-${{ github.event.number }}" \
+            --message="PR #${{ github.event.number }} — ${{ github.event.pull_request.title }}"
+          echo "url=https://pr-${{ github.event.number }}--fleetech-os.netlify.app" >> "$GITHUB_OUTPUT"
+
+      # Edited in place rather than appended, so a PR with twelve pushes has one
+      # comment carrying the current link, not twelve carrying the same one.
+      - name: Comment the preview URL
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY="🚲 **Preview deployed** — ${{ steps.preview.outputs.url }}
+
+          Built from \`${{ github.sha }}\`. Lint, tests, typecheck and the 200KB size budget all passed before this went up."
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.number }}/comments" \
+            --jq '.[] | select(.body | startswith("🚲 **Preview deployed**")) | .id' | head -1)
+          if [ -n "$EXISTING" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$EXISTING" -f body="$BODY"
+          else
+            gh api -X POST "repos/${{ github.repository }}/issues/${{ github.event.number }}/comments" -f body="$BODY"
+          fi

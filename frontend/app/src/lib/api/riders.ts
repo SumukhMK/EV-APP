@@ -124,6 +124,7 @@ export async function onboardRider(body: OnboardRiderRequest): Promise<Rider> {
     paymentStatus: 'PENDING',
     platform: (body.workingPlatform as Platform) || 'Other',
     paymentDay: body.paymentDay,
+    paymentMode: body.paymentMode,
   };
   riders.unshift(created);
   // `depositPaid` is recorded against the rider's ledger server-side; the

@@ -142,6 +142,7 @@ export function RiderDetail() {
                   />
                 ),
               },
+              { label: 'Mode of payment', value: PAYMENT_METHOD_LABEL[r.paymentMode] },
               { label: 'Weekly plan', value: <Mono sx={{ fontSize: 13 }}>{rupees(r.planAmount)}</Mono> },
               { label: 'Billing day', value: r.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday' },
               {

@@ -22,6 +22,7 @@ import {
   type OnboardRiderValues,
 } from '../../lib/schemas/rider';
 import { rupeesWithSymbol } from '../../lib/format';
+import { PAYMENT_METHOD_LABEL } from '../../lib/labels';
 import type { StatusTone } from '../../theme/tokens';
 import type { VerificationState } from '../../components/VerifyField';
 import { useRiderVerification, type VerifiableField } from './_components/useRiderVerification';
@@ -78,6 +79,7 @@ export function OnboardRider() {
         planAmount: values.planRupees * 100,
         billingDay: values.billingDay,
         paymentDay: values.paymentDay,
+        paymentMode: values.paymentMode,
         depositPlan: values.depositRupees * 100,
         depositPaid: values.depositPaidRupees * 100,
         onboardedOn: values.onboardedOn,
@@ -217,6 +219,10 @@ export function OnboardRider() {
                           {rupeesWithSymbol((preview.depositRupees ?? 0) * 100)}
                         </Mono>
                       ),
+                    },
+                    {
+                      label: 'Mode of payment',
+                      value: preview.paymentMode ? PAYMENT_METHOD_LABEL[preview.paymentMode] : '—',
                     },
                     {
                       label: 'Platform',

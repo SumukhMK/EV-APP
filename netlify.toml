@@ -1,0 +1,25 @@
+# Netlify does NOT build this site. GitHub Actions does.
+#
+# `.github/workflows/ci.yml` runs lint, tests, typecheck, the bundle and the
+# size budget, then uploads the resulting `frontend/app/dist` straight to
+# Netlify with the CLI. Netlify receives finished files. That is deliberate:
+# it means the bundle that was tested is the bundle that ships, rather than a
+# second build on a different machine that might not match.
+#
+# So the settings below are a FALLBACK. They only take effect if someone later
+# links this repo to Netlify's own build system in the UI. Until then nothing
+# here runs, and the file exists so that connecting the repo is a one-click
+# decision rather than an archaeology exercise.
+#
+# Redirects and headers are NOT here either — they live in
+# `frontend/app/public/_redirects` and `public/_headers` so they ship inside
+# dist/ and apply to the prebuilt deploys we actually use.
+
+[build]
+  base = "frontend/app"
+  command = "npm run verify"
+  publish = "dist"
+
+[build.environment]
+  # Match CI. Vite 8 and the toolchain want a current LTS.
+  NODE_VERSION = "22"

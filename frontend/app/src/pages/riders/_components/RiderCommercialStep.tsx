@@ -10,11 +10,12 @@ import { InfoStrip } from '../../../components/InfoStrip';
 import {
   DEPOSIT_TIERS,
   PAYMENT_DAY_LABEL,
+  PAYMENT_METHOD_LABEL,
   WEEKLY_PLAN_TIERS,
   WORKING_PLATFORMS,
 } from '../../../lib/labels';
 import { rupeesWithSymbol } from '../../../lib/format';
-import type { PaymentDay } from '../../../types';
+import type { PaymentDay, PaymentMode } from '../../../types';
 
 /**
  * Step 4 — Commercial: the plan, the platform and the deposit.
@@ -45,6 +46,13 @@ export function RiderCommercialStep({ step }: { step: number }) {
   const paymentDayOptions = (Object.keys(PAYMENT_DAY_LABEL) as PaymentDay[]).map((d) => ({
     value: d,
     label: PAYMENT_DAY_LABEL[d],
+  }));
+
+  // Driven off the same label map the payment run and the receipt use, so the
+  // mode agreed here can always be recorded against an actual collection.
+  const paymentModeOptions = (Object.keys(PAYMENT_METHOD_LABEL) as PaymentMode[]).map((m) => ({
+    value: m,
+    label: PAYMENT_METHOD_LABEL[m],
   }));
 
   /** A freeSolo money combobox: options are formatted, the value is whole rupees. */
@@ -125,6 +133,17 @@ export function RiderCommercialStep({ step }: { step: number }) {
           <InfoStrip>
             The weekly run is fixed Wednesday to Tuesday. This is recorded for the collections team
             and drives no calculation.
+          </InfoStrip>
+
+          <SelectField
+            control={control}
+            name="paymentMode"
+            label="Mode of payment"
+            options={paymentModeOptions}
+          />
+          <InfoStrip>
+            The standing arrangement, shown on the register. Each collection still records how that
+            week's money actually arrived, so a UPI rider paying cash once stays a UPI rider.
           </InfoStrip>
 
           {moneyCombobox('depositRupees', DEPOSIT_TIERS)}
