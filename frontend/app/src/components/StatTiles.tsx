@@ -62,7 +62,10 @@ export function StatTiles({ tiles }: { tiles: StatTile[] }) {
               },
               position: 'relative',
               background: base.surface,
-              p: { xs: '12px 12px 10px', lg: '14px 14px 12px' },
+              // The corner glyph is 16px at `right: 12`, so the content box
+              // stops 40px short of the right edge — a label that runs long
+              // wraps instead of sliding under the icon on a narrow tile.
+              p: { xs: '12px 40px 10px 12px', lg: '14px 40px 12px 14px' },
               display: 'flex',
               flexDirection: 'column',
               gap: 2,
