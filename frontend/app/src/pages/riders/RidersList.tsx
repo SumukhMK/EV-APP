@@ -355,7 +355,14 @@ export function RidersList() {
           onRowClick={({ row }) => navigate(`/riders/${row.id}`)}
           hideFooter
           emptyMessage="No riders match this filter"
-          sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
+          sx={{
+            '& .MuiDataGrid-row': { cursor: 'pointer' },
+            // DataTable clips the scroller horizontally so the grid never
+            // pushes the page sideways; on a phone the columns then cannot be
+            // reached at all. Let the scroller scroll inside its own frame —
+            // `.MuiDataGrid-main` still clips it, so the page never moves.
+            '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
+          }}
         />
       </Box>
 
