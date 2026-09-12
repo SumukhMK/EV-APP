@@ -3,8 +3,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
 import CheckIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import ErrorIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import PersonOffIcon from '@mui/icons-material/PersonOffOutlined';
@@ -38,8 +36,6 @@ import type { OverdueRider } from '../../types';
  */
 export function OverdueRiders() {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const compact = useMediaQuery(theme.breakpoints.down('md'));
   const [toast, setToast] = useState<string | null>(null);
   const [reminded, setReminded] = useState<Set<string>>(() => new Set());
 
@@ -111,6 +107,7 @@ export function OverdueRiders() {
           <SimpleTable
             rows={rows}
             getRowKey={(o) => o.riderId}
+            scrollable
             columns={[
               {
                 key: 'rider',
@@ -132,32 +129,28 @@ export function OverdueRiders() {
                 width: 120,
                 render: (o) => <Mono sx={{ fontSize: 13, color: neutral[400] }}>{o.vehicleId}</Mono>,
               },
-              ...(compact
-                ? []
-                : [
-                    {
-                      key: 'phone',
-                      header: 'Phone',
-                      width: 140,
-                      render: (o: OverdueRider) => (
-                        <Box
-                          component="a"
-                          href={`tel:${o.phone}`}
-                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                          sx={{
-                            fontFamily: fonts.mono,
-                            fontVariantNumeric: 'tabular-nums',
-                            fontSize: 13,
-                            color: accent[300],
-                            textDecoration: 'none',
-                            '&:hover': { textDecoration: 'underline' },
-                          }}
-                        >
-                          {o.phone}
-                        </Box>
-                      ),
-                    },
-                  ]),
+              {
+                key: 'phone',
+                header: 'Phone',
+                width: 140,
+                render: (o: OverdueRider) => (
+                  <Box
+                    component="a"
+                    href={`tel:${o.phone}`}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    sx={{
+                      fontFamily: fonts.mono,
+                      fontVariantNumeric: 'tabular-nums',
+                      fontSize: 13,
+                      color: accent[300],
+                      textDecoration: 'none',
+                      '&:hover': { textDecoration: 'underline' },
+                    }}
+                  >
+                    {o.phone}
+                  </Box>
+                ),
+              },
               {
                 key: 'days',
                 header: 'Days overdue',
