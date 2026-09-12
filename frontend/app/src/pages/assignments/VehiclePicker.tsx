@@ -118,6 +118,7 @@ export function VehiclePicker({
         <SimpleTable
         rows={rows}
         getRowKey={(v) => v.id}
+        scrollable
         rowSx={(v) => (v.id === value ? { background: neutral[900] } : undefined)}
         columns={[
           {

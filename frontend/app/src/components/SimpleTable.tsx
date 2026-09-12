@@ -33,29 +33,41 @@ const DEFAULT_WEIGHT = 140;
  * a cell that runs out of room truncates rather than pushing the table wider.
  * A horizontal scrollbar inside a page is the thing operators complain about
  * first, so the trade is made here once instead of per screen.
+ *
+ * Pass `scrollable` for the lists operators scan on a phone — a picker or a
+ * dunning queue. The table then keeps its declared column widths and scrolls
+ * sideways inside its own frame when the container is narrower, instead of
+ * squeezing every column to nothing.
  */
 export function SimpleTable<R>({
   columns,
   rows,
   getRowKey,
   rowSx,
+  scrollable,
 }: {
   columns: Column<R>[];
   rows: R[];
   getRowKey: (row: R, index: number) => string;
   /** Per-row styling, e.g. tinting an import row that failed validation. */
   rowSx?: (row: R) => object | undefined;
+  /** Keep declared widths and scroll sideways on narrow screens. */
+  scrollable?: boolean;
 }) {
   // Percentages, so the columns divide the table rather than overflow it.
   const weights = columns.map((c) => (typeof c.width === 'number' ? c.width : DEFAULT_WEIGHT));
   const totalWeight = weights.reduce((t, w) => t + w, 0) || 1;
 
   return (
-    <Box sx={{ width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
+    <Box sx={{ width: '100%', maxWidth: '100%', overflowX: scrollable ? 'auto' : 'clip' }}>
       <Box
         component="table"
         sx={{
           width: '100%',
+          // With `tableLayout: fixed` the percentage columns resolve against
+          // this floor, so each column lands on exactly its declared width and
+          // the wrapper above scrolls to reach the rest.
+          ...(scrollable ? { minWidth: totalWeight } : {}),
           tableLayout: 'fixed',
           borderCollapse: 'collapse',
           fontSize: 13.5,

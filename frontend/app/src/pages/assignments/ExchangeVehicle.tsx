@@ -174,7 +174,7 @@ export function ExchangeVehicle() {
           </Alert>
         )}
 
-        <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
+        <Box sx={{ display: 'grid', gap: 5, mt: 5, '& > *': { minWidth: 0 } }}>
           <Panel
             label="Current assignment"
             subtitle="Only riders who currently have a bike."

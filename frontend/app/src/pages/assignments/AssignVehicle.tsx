@@ -136,7 +136,7 @@ export function AssignVehicle() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
+      <Box sx={{ display: 'grid', gap: 5, mt: 5, '& > *': { minWidth: 0 } }}>
         <Panel
           label="Rider"
           subtitle="Riders who do not have a bike yet. KYC is shown here, but it does not block the assignment."
