@@ -53,19 +53,21 @@ Cross-cutting band, applied to every request:
   refresh, revocation recorded in `refresh_tokens.revoked_at`. BCrypt for passwords.
 - **TenantFilter.** Reads the `tenant_id` claim and issues
   `SET LOCAL app.tenant_id = '<uuid>'` at the start of the transaction.
-- **Role gate.** `SUPER_ADMIN` / `TENANT_ADMIN` / `TENANT_STAFF`.
+- **Role gate.** Four roles, matching `frontend/app/src/types/user.ts`:
+  `SUPER_ADMIN` / `TENANT_ADMIN` / `FLEET_STAFF` / `SERVICE_MANAGER`. Endpoints are
+  guarded by permission, not role name, so Phase 2 roles slot in.
 
-Module boundaries (`com.evrental.*`):
+Module boundaries (`com.fleetech.*`, enforced by Spring Modulith). The full
+table, with what each module owns and who it may call, is in
+[`BACKEND.md` §7](./BACKEND.md#7-modules):
 
-| Module | Owns |
-|---|---|
-| `auth` | login, refresh, me, password reset |
-| `platform` | super-admin: tenants, plans, inquiries, analytics |
-| `tenantadmin` | vehicles, riders, assignments, payments, service, recovery |
-| `shared` | cross-tenant blacklist (keyed by phone, read across tenants) |
-| `notification` | email and SMS dispatch |
-| `excel` | `.xlsx` bulk import for the 150-bike migration |
-| `common` | exceptions, DTOs, util |
+`auth` · `iam` · `tenancy` · `fleet` · `riders` · `assignments` · `billing` ·
+`dashboard` · `audit` · `notification` · `imports` · `platform` · `shared` · `common`
+
+**The backend in depth — data model, auth, RLS caveats, API table, jobs,
+security checklist, Phase 2 reuse — lives in [`BACKEND.md`](./BACKEND.md).**
+Who builds which part, in what order, is
+[`BACKEND_WORKSPLIT.md`](./BACKEND_WORKSPLIT.md). This file stays the one-page shape.
 
 ### Data
 

@@ -146,10 +146,18 @@ rather than a phone call.
 | Users, roles, audit log | **SMK** | `src/pages/users/**`, `src/pages/admin/**` |
 | Riders — list, detail, onboarding | **Abhiram** | `src/pages/riders/**` |
 | Assignments — assign, exchange, deboard, settlement | **Abhiram** | `src/pages/assignments/**` |
-| Backend, DB, infra, CI | **SMK** | `backend/**`, `db/**`, `infra/**`, `.github/**` |
+| Backend spine — skeleton, security, tenancy, fleet, billing, dashboard, audit, imports, platform | **SMK** | `com.fleetech.{common,tenancy,auth,iam,fleet,billing,dashboard,audit,imports,platform}`, Flyway `V1–V29`/`V50–V69`/`V80–V89` |
+| Backend rider domain — riders, assignments, notification | **Abhiram** | `com.fleetech.{riders,assignments,notification,shared}`, Flyway `V30–V49`/`V70–V79` |
+| Build, config, infra, CI | **SMK** | `backend/pom.xml`, `application*.yml`, `docker-compose.yml`, `infra/**`, `.github/**` |
 
 Hardening follows the same lines: **SMK builds shared plumbing, Abhiram adopts it
 in his two page sets.** Neither edits the other's files.
+
+The backend follows the same principle with a wider split, because the backend is big
+enough that one person owning all of it would idle the other for two months. The full
+lane plan, the two handoff points and the migration version ranges are in
+[`docs/architecture/BACKEND_WORKSPLIT.md`](./architecture/BACKEND_WORKSPLIT.md); the
+design it implements is [`docs/architecture/BACKEND.md`](./architecture/BACKEND.md).
 
 ---
 
