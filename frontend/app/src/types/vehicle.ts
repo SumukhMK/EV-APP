@@ -37,7 +37,7 @@ export interface Vehicle {
   /** Free text today; becomes a hub reference when hubs are modelled. */
   hub: string;
   state: VehicleState;
-  /** Present only while state is DEPLOYED. */
+  /** Active assignment; retained during a service visit until exchange/deboard. */
   currentRiderId: string | null;
   currentRiderName: string | null;
   inductedOn: Iso8601;
@@ -149,6 +149,8 @@ export interface InspectionRequest {
 
 /** One repair job waiting on QC (screen 14). */
 export interface QcQueueItem {
+  jobId?: string;
+  riderId?: string | null;
   vehicleId: string;
   model: string;
   repairSummary: string;

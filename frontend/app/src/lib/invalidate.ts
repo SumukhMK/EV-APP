@@ -54,7 +54,11 @@ export function invalidatePayments(qc: QueryClient) {
  * screens all read off it.
  */
 export function invalidateServiceJobs(qc: QueryClient) {
+  invalidateVehicles(qc);
+  invalidateRiders(qc);
   qc.invalidateQueries({ queryKey: ['service-jobs'] });
+  qc.invalidateQueries({ queryKey: ['operations'] });
+  qc.invalidateQueries({ queryKey: ['rider-payments'] });
   qc.invalidateQueries({ queryKey: ['service'] });
   qc.invalidateQueries({ queryKey: ['dashboard'] });
   qc.invalidateQueries({ queryKey: ['payments'] });

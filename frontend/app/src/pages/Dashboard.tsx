@@ -82,14 +82,14 @@ export function Dashboard() {
               value: s ? formatNumber(s.underRepair) : '—',
               tone: 'warn',
               icon: BuildIcon,
-              to: '/vehicles?state=UNDER_REPAIR',
+              to: '/service/queues?state=UNDER_REPAIR',
             },
             {
               label: 'QC pending',
               value: s ? formatNumber(s.qcPending) : '—',
               tone: 'caution',
               icon: FactCheckIcon,
-              to: '/vehicles?state=QC_PENDING',
+              to: '/service/qc',
             },
             {
               label: 'Recovery',

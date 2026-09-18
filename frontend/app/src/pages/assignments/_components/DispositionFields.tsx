@@ -11,16 +11,16 @@ import { DateField } from '../../../components/form/DateField';
 import {
   CONDITION_DEFAULT_STATE,
   VEHICLE_STATE_LABEL,
-  VEHICLE_TRANSITIONS,
 } from '../../../lib/labels';
-import type { ReturnCondition, VehicleState } from '../../../types';
+import { RETURN_DESTINATIONS } from '../../../lib/serviceWorkflow';
+import type { ReturnCondition } from '../../../types';
 
 /**
  * The three fields every return asks: reason, date, and where the bike goes
  * next. Shared between exchange and deboard because those two screens ask an
  * identical question about the bike coming back, and the interesting logic —
- * default the next state from the condition, then bound the choices by the
- * vehicle transitions — should not be written twice and drift.
+ * default the next state from the condition and offer the four operational
+ * destinations — should not be written twice and drift.
  *
  * Recovery is deliberately not offered: the prototype's scope decision, stated
  * on both screens, is that recovery is not part of the exchange/deboard flow.
@@ -36,7 +36,6 @@ export function DispositionFields<T extends FieldValues>({
   dateName,
   dateLabel,
   nextStateName,
-  currentState,
   condition,
 }: {
   control: Control<T>;
@@ -46,8 +45,6 @@ export function DispositionFields<T extends FieldValues>({
   dateName: Path<T>;
   dateLabel: string;
   nextStateName: Path<T>;
-  /** The state the bike is in now — bounds the offered transitions. */
-  currentState: VehicleState;
   /** Drives the default next state; the operator can still override. */
   condition?: ReturnCondition;
 }) {
@@ -64,14 +61,11 @@ export function DispositionFields<T extends FieldValues>({
 
   useEffect(() => {
     if (operatorTouched || !condition) return;
-    const offered: VehicleState[] = VEHICLE_TRANSITIONS[currentState].filter((s) => s !== 'RECOVERY');
     const preferred = CONDITION_DEFAULT_STATE[condition];
-    const legal = offered.includes(preferred) ? preferred : offered[0];
-    if (legal) setValue(nextStateName, legal as never);
-  }, [condition, operatorTouched, currentState, nextStateName, setValue]);
+    setValue(nextStateName, preferred as never);
+  }, [condition, operatorTouched, nextStateName, setValue]);
 
-  const nextStateOptions = VEHICLE_TRANSITIONS[currentState]
-    .filter((s) => s !== 'RECOVERY')
+  const nextStateOptions = RETURN_DESTINATIONS
     .map((s) => ({ value: s, label: VEHICLE_STATE_LABEL[s] }));
 
   return (
@@ -92,6 +86,10 @@ export function DispositionFields<T extends FieldValues>({
         label="Next vehicle state"
         options={nextStateOptions}
       />
+      <Box sx={{ color: 'text.secondary', fontSize: 13 }}>
+        Suggested: {condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'QC pending'}.
+        All four return destinations are available. Explain an override in the notes before confirming.
+      </Box>
     </Box>
   );
 }

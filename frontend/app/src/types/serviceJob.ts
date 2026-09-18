@@ -1,5 +1,5 @@
 import type { Iso8601, Paise } from './common';
-import type { DamageCategory } from './vehicle';
+import type { DamageCategory, InspectionRequest, VehicleState } from './vehicle';
 
 /**
  * OWNER: SMK. A `ServiceJob` is what a deboard's damage tag, an RSA call, a
@@ -12,7 +12,13 @@ import type { DamageCategory } from './vehicle';
  * mirroring `CONDITION_DEFAULT_STATE` in lib/labels.ts, which the deboard form
  * already uses to default `nextVehicleState`.
  */
-export type ServiceJobSource = 'DEBOARD' | 'RSA' | 'QRT' | 'WALK_IN';
+export type ServiceJobSource = 'DEBOARD' | 'EXCHANGE' | 'RSA' | 'QRT' | 'WALK_IN' | 'INSPECTION' | 'REGISTRY';
+
+export const SERVICE_QUEUES = [
+  'ASSESSMENT', 'MINOR_REPAIR', 'MAJOR_REPAIR', 'ACCIDENT', 'WARRANTY',
+  'INSURANCE', 'PARTS_WAITING', 'QC_PENDING', 'READY_TO_DEPLOY',
+] as const;
+export type ServiceQueue = (typeof SERVICE_QUEUES)[number];
 
 export type ServiceJobStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
 
@@ -23,6 +29,20 @@ export type ServiceLiability = 'DEPOSIT' | 'RIDER' | 'COMPANY';
 export interface ServiceJobItem {
   label: string;
   costPaise: Paise;
+  kind?: 'PART' | 'LABOUR' | 'OTHER';
+}
+
+export interface ServiceJobEvent {
+  occurredOn: Iso8601;
+  actor: string;
+  queue: ServiceQueue;
+  vehicleState: VehicleState;
+  note: string;
+}
+
+export interface ServiceInspection extends InspectionRequest {
+  occurredOn: Iso8601;
+  actor: string;
 }
 
 export interface ServiceJob {
@@ -31,6 +51,12 @@ export interface ServiceJob {
   riderId: string | null;
   source: ServiceJobSource;
   damageCategory: DamageCategory;
+  queue: ServiceQueue;
+  location: string | null;
+  reference: string | null;
+  workSummary: string;
+  activity: ServiceJobEvent[];
+  inspections: ServiceInspection[];
   /** Free text from the tag step — what the operator saw, part by part. */
   damageNotes: string | null;
   items: ServiceJobItem[];
@@ -42,6 +68,7 @@ export interface ServiceJob {
   technician: string | null;
   createdOn: Iso8601;
   closedOn: Iso8601 | null;
+  updatedOn: Iso8601;
 }
 
 /** What opening a job from a deboard, RSA/QRT call, or walk-in sends. */
@@ -51,6 +78,11 @@ export interface CreateServiceJobRequest {
   source: ServiceJobSource;
   damageCategory: DamageCategory;
   damageNotes?: string | null;
+  queue?: ServiceQueue;
+  location?: string | null;
+  reference?: string | null;
+  actor?: string;
+  occurredOn?: Iso8601;
 }
 
 /** What the assistance desk sends when it closes a job. */
@@ -59,4 +91,20 @@ export interface CloseServiceJobRequest {
   items: ServiceJobItem[];
   liability: ServiceLiability;
   technician: string | null;
+  note?: string;
+  actor?: string;
+}
+
+export interface UpdateServiceJobRequest {
+  jobId: string;
+  queue: ServiceQueue;
+  damageCategory: DamageCategory;
+  workSummary: string;
+  items: ServiceJobItem[];
+  technician: string | null;
+  liability: ServiceLiability | null;
+  reference: string | null;
+  note: string;
+  actor: string;
+  inspection?: InspectionRequest;
 }

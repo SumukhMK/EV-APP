@@ -29,17 +29,11 @@ export interface RiderQuery {
   vehicleState?: VehicleState | 'ALL';
 }
 
-/** Quick lookup: rider id → vehicle state (cross-referenced from the fleet). */
-const riderVehicleState = new Map<string, VehicleState>();
-for (const v of vehicles) {
-  if (v.currentRiderId) riderVehicleState.set(v.currentRiderId, v.state);
-}
-
 function match(r: Rider, query: RiderQuery) {
   if (query.status && query.status !== 'ALL' && r.status !== query.status) return false;
   if (query.platform && query.platform !== 'ALL' && r.platform !== query.platform) return false;
   if (query.vehicleState && query.vehicleState !== 'ALL') {
-    const vs = r.currentVehicleId ? riderVehicleState.get(r.id) : undefined;
+    const vs = vehicles.find((v) => v.id === r.currentVehicleId)?.state;
     if (vs !== query.vehicleState) return false;
   }
   const q = query.q?.trim().toLowerCase();

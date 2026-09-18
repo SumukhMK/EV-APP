@@ -40,7 +40,7 @@ import { neutral } from '../../theme/tokens';
 export function TodayOperations() {
   const [period, setPeriod] = useState<{ grain: PeriodGrain; anchorIso: string }>({
     grain: 'DAY',
-    anchorIso: '2026-09-09',
+    anchorIso: new Date().toISOString().slice(0, 10),
   });
 
   const resolved = resolvePeriod(period.grain, period.anchorIso);
@@ -109,21 +109,21 @@ export function TodayOperations() {
               value: n(f?.underRepair),
               tone: 'warn',
               icon: BuildIcon,
-              to: '/vehicles?state=UNDER_REPAIR',
+              to: '/service/queues?state=UNDER_REPAIR',
             },
             {
               label: 'QC pending',
               value: n(f?.qcPending),
               tone: 'caution',
               icon: FactCheckIcon,
-              to: '/vehicles?state=QC_PENDING',
+              to: '/service/qc',
             },
             {
               label: 'Accident',
               value: n(f?.accident),
               tone: 'bad',
               icon: CarCrashIcon,
-              to: '/vehicles?state=ACCIDENT',
+              to: '/service/queues?queue=ACCIDENT',
             },
           ]}
         />
@@ -162,10 +162,9 @@ export function TodayOperations() {
 
       <Box sx={{ mt: 5 }}>
         <InfoStrip tone="caution">
-          Movement and service source count events inside the selected period, so they change with
-          the toggle and do not link anywhere — there is no period-scoped vehicle list yet. Vehicle
-          outcome is the fleet as it stands now, which is why those tiles open a list that matches
-          them exactly.
+          Service sources count recorded requests in the selected period. Vehicle outcomes show
+          the live fleet and open the corresponding work queue (or available fleet for RTD).
+          Movement totals remain illustrative historical fixtures in this prototype.
         </InfoStrip>
       </Box>
     </>

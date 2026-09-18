@@ -11,13 +11,14 @@ import { DefinitionList } from '../../components/DefinitionList';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
-import { getVehicle } from '../../lib/api/vehicles';
+import { getVehicle, getVehicleServiceHistory } from '../../lib/api/vehicles';
 import { getRider } from '../../lib/api/riders';
 import { canEditVehicle } from '../../lib/roles';
 import { useSession } from '../../app/sessionContext';
 import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
+import { SERVICE_QUEUE_LABEL, SOURCE_LABEL } from '../../lib/serviceJobLabels';
 
 export function VehicleDetail() {
   const { vehicleId = '' } = useParams();
@@ -28,6 +29,11 @@ export function VehicleDetail() {
     queryFn: () => getVehicle(vehicleId),
     retry: false,
   });
+  const service = useQuery({
+    queryKey: ['service-jobs', 'vehicle', vehicleId],
+    queryFn: () => getVehicleServiceHistory(vehicleId),
+  });
+  const activeService = service.data?.find((job) => job.status !== 'CLOSED');
 
   const rider = useQuery({
     queryKey: ['rider', vehicle.data?.currentRiderId],
@@ -81,15 +87,26 @@ export function VehicleDetail() {
                 Edit
               </Button>
             )}
-            <Button color="inherit" component={Link} to="/assignments/exchange">
+            {v.currentRiderId && <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${v.currentRiderId}`}>
               Exchange
-            </Button>
-            <Button color="inherit" component={Link} to={`/service/inspection?vehicle=${v.id}`}>
-              Inspection
+            </Button>}
+            <Button color="inherit" component={Link} to={activeService ? `/service/assistance/${activeService.id}` : `/service/inspection?vehicle=${v.id}`}>
+              {activeService ? 'Open service job' : 'Inspection / service'}
             </Button>
           </>
         }
       />
+
+      <Panel label="Service records" sx={{ mt: 5 }}>
+        {service.isError ? <Typography color="error">{service.error.message}</Typography> : service.isPending ? <Typography>Loading service history…</Typography> : service.data?.length ? (
+          <SimpleTable scrollable rows={service.data} getRowKey={(job) => job.id} columns={[
+            { key: 'id', header: 'Work record', render: (job) => <Button component={Link} to={`/service/assistance/${job.id}`}>{job.id}</Button> },
+            { key: 'source', header: 'Source', render: (job) => SOURCE_LABEL[job.source] },
+            { key: 'queue', header: 'Category', render: (job) => SERVICE_QUEUE_LABEL[job.queue] },
+            { key: 'status', header: 'Status', render: (job) => job.status === 'CLOSED' ? 'Closed' : 'Open' },
+          ]} />
+        ) : <Typography color="text.secondary">No service record yet.</Typography>}
+      </Panel>
 
       <Box sx={{
           display: 'grid',
@@ -206,6 +223,8 @@ export function VehicleDetail() {
                 {VEHICLE_STATE_LABEL[s.state]}
               </Typography>
               <Mono sx={{ fontSize: 11, color: neutral[500] }}>{formatDate(s.occurredOn)}</Mono>
+              {s.note && <Typography variant="caption" sx={{ pr: 3 }}>{s.note}</Typography>}
+              {s.actor && <Typography variant="caption" color="text.secondary">{s.actor}</Typography>}
             </Box>
           ))}
         </Box>

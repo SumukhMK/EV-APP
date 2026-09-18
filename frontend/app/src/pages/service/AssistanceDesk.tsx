@@ -18,26 +18,39 @@ import { Panel } from '../../components/Panel';
 import { SimpleTable } from '../../components/SimpleTable';
 import { StateChip } from '../../components/StateChip';
 import { listServiceJobs } from '../../lib/api/serviceJobs';
-import { formatDate, rupeesWithSymbol } from '../../lib/format';
-import { canCloseServiceJob } from '../../lib/roles';
-import { CATEGORY_LABEL, CATEGORY_TONE, SOURCE_LABEL } from '../../lib/serviceJobLabels';
+import { formatDate, preciseRupeesWithSymbol as rupeesWithSymbol } from '../../lib/format';
+import { canManageService } from '../../lib/roles';
+import { CATEGORY_LABEL, CATEGORY_TONE, SOURCE_LABEL, SERVICE_QUEUE_LABEL } from '../../lib/serviceJobLabels';
+import { SERVICE_QUEUES, type ServiceJobSource } from '../../types';
+import { isServiceQueue, needsDamageAssessment, QUEUE_STATE } from '../../lib/serviceWorkflow';
 
-export function AssistanceDesk() {
+export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues' | 'qc' }) {
   const { user } = useSession();
   const mobile = useMediaQuery(useTheme().breakpoints.down('sm'));
-  const canWork = canCloseServiceJob(user.roleKey);
+  const canWork = canManageService(user.roleKey);
   const [params, setParams] = useSearchParams();
   const search = params.get('search') ?? '';
   const rawStatus = params.get('status') ?? 'OPEN';
-  const status = ['OPEN', 'CLOSED', 'ALL'].includes(rawStatus) ? rawStatus : 'ALL';
+  const status = mode === 'qc' ? 'OPEN' : ['OPEN', 'CLOSED', 'ALL'].includes(rawStatus) ? rawStatus : 'ALL';
+  const rawQueue = params.get('queue') ?? '';
+  const queue = mode === 'qc' ? 'QC_PENDING' : isServiceQueue(rawQueue) ? rawQueue : 'ALL';
+  const rawSource = params.get('source') ?? 'ALL';
+  const source = Object.hasOwn(SOURCE_LABEL, rawSource) ? rawSource : 'ALL';
+  const repairOnly = mode !== 'qc' && params.get('state') === 'UNDER_REPAIR';
+  const allOpenActive = status === 'OPEN' && queue === 'ALL' && !repairOnly;
   const jobs = useQuery({ queryKey: ['service-jobs', 'list'], queryFn: () => listServiceJobs() });
   const all = jobs.data ?? [];
   const openCount = all.filter((j) => j.status !== 'CLOSED').length;
+  const qcCount = all.filter((j) => j.status !== 'CLOSED' && j.queue === 'QC_PENDING').length;
   const rows = all.filter((j) =>
     (status === 'ALL' || (status === 'CLOSED' ? j.status === 'CLOSED' : j.status !== 'CLOSED')) &&
+    (queue === 'ALL' || j.queue === queue) &&
+    (source === 'ALL' || j.source === source) &&
+    (!repairOnly || QUEUE_STATE[j.queue] === 'UNDER_REPAIR') &&
     `${j.id} ${j.vehicleId} ${j.damageNotes ?? ''} ${SOURCE_LABEL[j.source]}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
-  const returnTo = `/service/assistance${params.size ? `?${params}` : ''}`;
+  const basePath = mode === 'queues' ? '/service/queues' : mode === 'qc' ? '/service/qc' : '/service/assistance';
+  const returnTo = `${basePath}${params.size ? `?${params}` : ''}`;
   const updateFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -50,40 +63,64 @@ export function AssistanceDesk() {
     <>
       <PageHeader
         section="Service management"
-        title="Assistance desk"
+        title={mode === 'queues' ? 'Service queues' : mode === 'qc' ? 'QC queue' : 'Assistance desk'}
         icon={SupportAgentIcon}
         actions={canWork ? newJob : undefined}
       />
-      <Typography color="text.secondary" variant="body2" sx={{ mt: 3 }}>Log requests, record the work, and review who pays.</Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: { xs: 2, sm: 3 }, mt: 4 }}>
+      <Typography color="text.secondary" variant="body2" sx={{ mt: 3 }}>
+        {mode === 'intake' ? 'Receive a walk-in, RSA or QRT request and route the vehicle immediately.' : 'Open a job to inspect, record work, move queues or release the vehicle. No detour through the vehicle register.'}
+      </Typography>
+      {mode === 'qc' ? (
+        <Panel label="Awaiting QC" subtitle="Review a job, record pass / fail findings, then confirm. Failed jobs return to repair and can re-enter this queue." sx={{ mt: 4 }}>
+          <Mono sx={{ fontSize: 26, fontWeight: 600 }}>{jobs.isPending || jobs.isError ? '—' : qcCount}</Mono>
+          <Button component={Link} to="/service/queues" sx={{ ml: 3 }}>View all service jobs</Button>
+        </Panel>
+      ) : <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: { xs: 2, sm: 3 }, mt: 4 }}>
         {[
           { label: 'Open', value: openCount, filter: 'OPEN' },
           { label: 'Closed', value: all.length - openCount, filter: 'CLOSED' },
           { label: 'All jobs', value: all.length, filter: 'ALL' },
         ].map((tile) => (
-          <Box key={tile.label} component={Link} to={`/service/assistance?status=${tile.filter}`} sx={{ color: 'inherit', textDecoration: 'none' }}>
+          <Box key={tile.label} component={Link} to={`${basePath}?status=${tile.filter}`} sx={{ color: 'inherit', textDecoration: 'none' }}>
             <Panel label={tile.label} sx={{ p: { xs: 2.5, sm: 4 }, '&:hover': { borderColor: 'primary.main' } }}>
               <Mono sx={{ fontSize: 26, fontWeight: 600 }}>{jobs.isPending || jobs.isError ? '—' : tile.value}</Mono>
             </Panel>
           </Box>
         ))}
-      </Box>
+      </Box>}
       {!canWork && <Alert severity="info" sx={{ mt: 3 }}>View-only access. You can open any job to review its details.</Alert>}
-      <Panel label="Jobs" sx={{ mt: 4 }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) 200px' }, gap: 3, mb: 4 }}>
+      {mode !== 'qc' && (
+        <Panel label="Service categories" subtitle="Minor / Major are repair subqueues, not different vehicle states. Source tells us how the job arrived." sx={{ mt: 4 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            <Button color={allOpenActive ? 'primary' : 'inherit'} variant={allOpenActive ? 'contained' : 'outlined'} onClick={() => setParams({ status: 'OPEN' }, { replace: true })}>All open ({openCount})</Button>
+            {SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY').map((q) => (
+              <Button key={q} color={status === 'OPEN' && queue === q ? 'primary' : 'inherit'} variant={status === 'OPEN' && queue === q ? 'contained' : 'outlined'} onClick={() => { const next = new URLSearchParams(); next.set('queue', q); next.set('status', 'OPEN'); setParams(next, { replace: true }); }}>
+                {SERVICE_QUEUE_LABEL[q]} ({all.filter((j) => j.status !== 'CLOSED' && j.queue === q).length})
+              </Button>
+            ))}
+          </Box>
+        </Panel>
+      )}
+      {repairOnly && <Alert severity="info" sx={{ mt: 3 }}>Showing every Under repair subqueue: assessment, minor, major, warranty, insurance and parts waiting.</Alert>}
+      <Panel label="Jobs" subtitle={jobs.data ? `${rows.length} matching jobs` : undefined} sx={{ mt: 4 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: mode === 'qc' ? 'minmax(0, 1fr) 220px' : 'minmax(0, 1fr) 180px 220px' }, gap: 3, mb: 4 }}>
           <TextField label="Search jobs" placeholder="Job, vehicle, source or notes" value={search} onChange={(e) => updateFilter('search', e.target.value)} />
-          <TextField select label="Status" value={status} onChange={(e) => updateFilter('status', e.target.value)}>
-            <MenuItem value="OPEN">Open ({openCount})</MenuItem>
-            <MenuItem value="CLOSED">Closed ({all.length - openCount})</MenuItem>
-            <MenuItem value="ALL">All jobs ({all.length})</MenuItem>
+          {mode !== 'qc' && <TextField select label="Status" value={status} onChange={(e) => updateFilter('status', e.target.value)}>
+            <MenuItem value="OPEN">Open</MenuItem>
+            <MenuItem value="CLOSED">Closed</MenuItem>
+            <MenuItem value="ALL">All jobs</MenuItem>
+          </TextField>}
+          <TextField select label="Request source" value={source} onChange={(e) => updateFilter('source', e.target.value)}>
+            <MenuItem value="ALL">All sources</MenuItem>
+            {(Object.keys(SOURCE_LABEL) as ServiceJobSource[]).map((s) => <MenuItem key={s} value={s}>{SOURCE_LABEL[s]}</MenuItem>)}
           </TextField>
         </Box>
         {jobs.isPending ? <EmptyState title="Loading jobs…" /> : jobs.isError ? (
           <Alert severity="error" action={<Button color="inherit" onClick={() => void jobs.refetch()}>Retry</Button>}>{jobs.error.message}</Alert>
         ) : rows.length === 0 ? (
           <EmptyState
-            title={all.length ? 'No matching jobs' : 'No jobs yet'}
-            description={all.length ? 'Try a different search or status.' : 'Deboarding creates a job automatically. Use New job for RSA, QRT or a walk-in.'}
+            title={mode === 'qc' && !qcCount ? 'No vehicles awaiting QC' : all.length ? 'No matching jobs' : 'No jobs yet'}
+            description={mode === 'qc' ? 'Completed work sent to QC appears here. Clear search/source filters to see the whole QC queue.' : all.length ? 'Try a different search or status.' : 'Deboarding creates a job automatically. Use New job for RSA, QRT or a walk-in.'}
             action={all.length ? <Button onClick={() => setParams({ status: 'ALL' }, { replace: true })}>Clear filters</Button> : canWork ? newJob : undefined}
           />
         ) : mobile ? (
@@ -95,11 +132,13 @@ export function AssistanceDesk() {
                   <StateChip label={j.status === 'CLOSED' ? 'Closed' : j.status === 'IN_PROGRESS' ? 'In progress' : 'Open'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} />
                 </Box>
                 <Typography variant="body2" sx={{ mt: 2 }}>{j.vehicleId} · {SOURCE_LABEL[j.source]}</Typography>
+                <Typography variant="body2" sx={{ mt: 2 }}>{SERVICE_QUEUE_LABEL[j.queue]}</Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mt: 2 }}>
-                  <StateChip label={CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} />
-                  <Mono>{j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'Not priced'}</Mono>
+                  <StateChip label={needsDamageAssessment(j) ? 'Not assessed' : CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} />
+                  <Mono>{j.items.length || j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'Not priced'}</Mono>
                 </Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Opened {formatDate(j.createdOn)}</Typography>
+                <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} sx={{ mt: 2 }}>{j.status === 'CLOSED' ? 'View record' : j.queue === 'QC_PENDING' ? 'Review QC' : 'Inspect / work'}</Button>
               </Box>
             ))}
           </Box>
@@ -116,10 +155,12 @@ export function AssistanceDesk() {
                 </Box>
               ) },
               { key: 'source', header: 'Source', width: 180, render: (j) => SOURCE_LABEL[j.source] },
-              { key: 'damage', header: 'Damage', width: 110, render: (j) => <StateChip label={CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} /> },
+              { key: 'queue', header: 'Service queue', width: 150, render: (j) => SERVICE_QUEUE_LABEL[j.queue] },
+              { key: 'damage', header: 'Damage', width: 110, render: (j) => <StateChip label={needsDamageAssessment(j) ? 'Not assessed' : CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} /> },
               { key: 'status', header: 'Status', width: 110, render: (j) => <StateChip label={j.status === 'CLOSED' ? 'Closed' : j.status === 'IN_PROGRESS' ? 'In progress' : 'Open'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} /> },
               { key: 'opened', header: 'Opened', width: 130, render: (j) => formatDate(j.createdOn) },
-              { key: 'cost', header: 'Final cost', width: 110, align: 'right', render: (j) => <Mono>{j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'Not priced'}</Mono> },
+              { key: 'cost', header: 'Work cost', width: 110, align: 'right', render: (j) => <Mono>{j.items.length || j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'Not priced'}</Mono> },
+              { key: 'action', header: 'Next action', width: 140, render: (j) => <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }}>{j.status === 'CLOSED' ? 'View record' : j.queue === 'QC_PENDING' ? 'Review QC' : 'Inspect / work'}</Button> },
             ]}
           />
         )}

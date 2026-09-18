@@ -15,14 +15,14 @@ import {
   assignmentsByVehicle,
   bulkUploadRows,
   deviceNumbers,
-  GENERIC_REPAIRS,
   lifecycleByVehicle,
-  qcRepairDetails,
   vehicles,
 } from '../../mocks/vehicles';
 import { ApiError, delay, paginate } from './client';
 import { VEHICLE_STATE_LABEL } from '../labels';
 import { riders } from '../../mocks/riders';
+import { activeJobForVehicle, recordServiceInspection, serviceJobs, updateServiceJobRecord } from '../../mocks/serviceJobs';
+import { hasServiceNote } from '../serviceWorkflow';
 
 /** Derive the make from the model name. */
 export function deriveMake(model: string): string {
@@ -176,65 +176,60 @@ export async function commitBulkUpload(preview: BulkUploadPreview): Promise<{ im
 export async function recordInspection(body: InspectionRequest): Promise<Vehicle> {
   const v = vehicles.find((x) => x.id === body.vehicleId);
   if (!v) throw new ApiError(`No vehicle with id ${body.vehicleId}`, 404);
-  v.state = body.nextState;
-  // Category, items, cost and technician go to the inspection record
-  // server-side; only the vehicle's state is simulated here.
-  void body.category;
-  void body.notes;
-  void body.items;
-  void body.estimatedCostPaise;
-  void body.technician;
+  recordServiceInspection(body);
   return delay(v, 380);
 }
 
-/**
- * Derived from the fleet, so the dashboard's "QC pending" tile and this queue
- * can never disagree — click the tile and you get exactly these bikes.
- * A bike named on artboard 14 keeps its write-up; the rest borrow a generic
- * one, since the repair text is illustrative either way.
- */
+/** Live QC membership; failed jobs may be repaired and submitted again. */
 export async function listQcQueue(): Promise<QcQueueItem[]> {
-  const today = Date.parse('2026-08-27T00:00:00+05:30');
+  const today = Date.now();
 
   const items = vehicles
-    .filter((v) => v.state === 'QC_PENDING' && !qcDecided.has(v.id))
-    .map<QcQueueItem>((v, i) => {
-      const detail = qcRepairDetails[v.id] ?? {
-        ...GENERIC_REPAIRS[i % GENERIC_REPAIRS.length],
-        closedOn: `2026-08-2${4 + (i % 3)}`,
-      };
+    .filter((v) => v.state === 'QC_PENDING')
+    .map<QcQueueItem>((v) => {
+      const job = activeJobForVehicle(v.id);
+      const date = job?.updatedOn ?? v.inductedOn;
       return {
         vehicleId: v.id,
+        jobId: job?.id,
+        riderId: v.currentRiderId,
         model: v.model,
-        repairSummary: detail.repairSummary,
-        category: detail.category,
-        technician: detail.technician,
-        closedOn: detail.closedOn,
-        costPaise: detail.costPaise,
-        daysWaiting: Math.max(1, Math.round((today - Date.parse(detail.closedOn)) / 86_400_000)),
+        repairSummary: job?.workSummary || job?.damageNotes || 'Inspection required',
+        category: job?.damageCategory ?? 'NONE',
+        technician: job?.technician ?? 'Not recorded',
+        closedOn: date,
+        costPaise: job?.totalCostPaise ?? 0,
+        daysWaiting: Math.max(0, Math.floor((today - Date.parse(date)) / 86_400_000)),
       };
     });
 
-  return delay(items.sort((a, b) => a.daysWaiting - b.daysWaiting));
+  return delay(items.sort((a, b) => b.daysWaiting - a.daysWaiting));
 }
 
-/** Decisions made during this session, so the queue visibly drains in a demo. */
-const qcDecided = new Set<string>();
-
-export async function decideQc(vehicleId: string, pass: boolean, reason?: string): Promise<void> {
+export async function decideQc(vehicleId: string, pass: boolean, reason?: string, inspector = 'QC desk'): Promise<void> {
   const v = vehicles.find((x) => x.id === vehicleId);
-  if (v) v.state = pass ? 'READY_TO_DEPLOY' : 'UNDER_REPAIR';
-  qcDecided.add(vehicleId);
-  // `reason` is required on a fail and goes to the audit log server-side.
-  void reason;
+  if (!v || v.state !== 'QC_PENDING') throw new ApiError('This vehicle is no longer awaiting QC', 409);
+  const job = activeJobForVehicle(vehicleId);
+  if (!job) throw new ApiError('Open a service record before recording QC', 409);
+  if (!reason || !hasServiceNote(reason)) throw new ApiError('Record the QC findings before confirming', 400);
+  updateServiceJobRecord({
+    jobId: job.id, queue: pass ? 'READY_TO_DEPLOY' : job.damageCategory === 'MAJOR' || job.damageCategory === 'ACCIDENT' ? 'MAJOR_REPAIR' : 'MINOR_REPAIR',
+    damageCategory: job.damageCategory, workSummary: job.workSummary || reason, items: job.items,
+    technician: inspector, liability: job.liability ?? (job.totalCostPaise === 0 ? 'COMPANY' : null),
+    reference: job.reference, note: `QC ${pass ? 'passed' : 'failed'}: ${reason}`, actor: inspector,
+  });
   return delay(undefined, 320);
 }
 
-/** Bikes an inspection can be recorded against: returned, damaged, or in repair. */
+/** An assigned bike can visit service without ending its rider assignment. */
 export async function listInspectableVehicles(): Promise<Vehicle[]> {
   return delay(
-    vehicles.filter((v) => v.state === 'RETURNED' || v.state === 'ACCIDENT' || v.state === 'DEPLOYED'),
+    vehicles.filter((v) => v.state !== 'RETIRED'),
   );
+}
+
+export async function getVehicleServiceHistory(vehicleId: string) {
+  return delay(serviceJobs.filter((job) => job.vehicleId === vehicleId).map((job) => ({ ...job })));
 }
 
 /** A bike with no recorded history still has its live assignment, if any. */

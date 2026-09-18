@@ -22,8 +22,12 @@ export function canCollectPayments(role: UserRole): boolean {
   return role === 'SUPER_ADMIN' || role === 'TENANT_ADMIN';
 }
 
-/** The assistance desk is worked by the service and admin roles; fleet staff
- *  can see a job's queue position but do not price and close it. */
+/** Service/admin approves liability and final release; fleet records work. */
 export function canCloseServiceJob(role: UserRole): boolean {
   return role !== 'FLEET_STAFF';
+}
+
+/** Fleet and workshop teams both receive, inspect and route vehicles. */
+export function canManageService(role: UserRole): boolean {
+  return ['SUPER_ADMIN', 'TENANT_ADMIN', 'SERVICE_MANAGER', 'FLEET_STAFF'].includes(role);
 }

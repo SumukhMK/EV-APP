@@ -9,7 +9,7 @@ import { useFieldArray, useFormContext } from 'react-hook-form';
 import type { DeboardRiderValues } from '../../../lib/schemas/assignment';
 
 /**
- * Part-level damage detail for a deboard tagged MINOR, MAJOR or ACCIDENT.
+ * Part-level damage detail for deboard/exchange tagged MINOR, MAJOR or ACCIDENT.
  *
  * This is what the assistance desk and QC actually work from once the bike
  * lands in their queue — "damaged" alone tells a technician nothing they can
@@ -18,8 +18,8 @@ import type { DeboardRiderValues } from '../../../lib/schemas/assignment';
  * Reads the form via context rather than props, the same as `DispositionFields`
  * — the parent must wrap the form in `FormProvider`.
  */
-export function DamageItemsField() {
-  const { control, register, formState } = useFormContext<DeboardRiderValues>();
+export function DamageItemsField({ noDamage = false }: { noDamage?: boolean }) {
+  const { control, register, formState } = useFormContext<Pick<DeboardRiderValues, 'damageItems'>>();
   const { fields, append, remove } = useFieldArray({ control, name: 'damageItems' });
   const errors = formState.errors;
 
@@ -28,6 +28,12 @@ export function DamageItemsField() {
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
       <Typography variant="overline">Damaged parts</Typography>
+      {noDamage && fields.length > 0 && (
+        <Box>
+          <Typography variant="body2" color="text.secondary">No damage is selected. Clear these rows, or choose a damage severity.</Typography>
+          <Button onClick={() => remove()}>Clear damage details</Button>
+        </Box>
+      )}
       {fields.length === 0 && (
         <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
           No parts added yet — add one for every part that needs attention.
@@ -54,6 +60,8 @@ export function DamageItemsField() {
             label="What's wrong with it (optional)"
             defaultValue={field.note}
             {...register(`damageItems.${index}.note` as const)}
+            error={Boolean(errors.damageItems?.[index]?.note)}
+            helperText={errors.damageItems?.[index]?.note?.message}
           />
           <IconButton aria-label="Remove part" onClick={() => remove(index)} sx={{ mt: 1 }}>
             <DeleteOutlineIcon fontSize="small" />

@@ -3,6 +3,8 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
@@ -22,7 +24,6 @@ import { SelectionSummary } from './_components/SelectionSummary';
 import { DispositionFields } from './_components/DispositionFields';
 import { DamageItemsField } from './_components/DamageItemsField';
 import { deboardRider } from '../../lib/api/assignments';
-import { createServiceJob } from '../../lib/api/serviceJobs';
 import { listAssignedRiders, listRiderPayments } from '../../lib/api/riders';
 import { ApiError } from '../../lib/api/client';
 import { invalidateAssignments, invalidateServiceJobs } from '../../lib/invalidate';
@@ -66,6 +67,7 @@ export function DeboardRider() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
+  const [confirmedValues, setConfirmedValues] = useState('');
 
   const riders = useQuery({
     queryKey: ['riders', 'assigned'],
@@ -80,9 +82,7 @@ export function DeboardRider() {
       returnedOn: today(),
       reason: 'OTHER',
       returnCondition: 'NONE',
-      // The condition default for a DEPLOYED bike with no damage is RETURNED;
-      // DispositionFields re-derives it from the condition on mount.
-      nextVehicleState: 'RETURNED',
+      nextVehicleState: 'QC_PENDING',
       outstandingRentRupees: 0,
       depositRefundRupees: 0,
       note: '',
@@ -92,6 +92,8 @@ export function DeboardRider() {
   });
 
   const picked = useWatch({ control: form.control });
+  const confirmationKey = JSON.stringify(picked);
+  const confirmed = confirmedValues === confirmationKey;
   const rider = riders.data?.find((r) => r.id === picked.riderId);
 
   // The bike is whichever one the rider holds, carried in the form so the
@@ -125,8 +127,13 @@ export function DeboardRider() {
         outstandingRent: values.outstandingRentRupees * 100,
         depositRefund: values.depositRefundRupees * 100,
         note: values.note,
+        damageItems: values.damageItems,
       }),
-    onSuccess: () => invalidateAssignments(queryClient),
+    onSuccess: (updated) => {
+      invalidateAssignments(queryClient);
+      invalidateServiceJobs(queryClient);
+      navigate(`/riders/${updated.id}`);
+    },
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
         form.setError(error.field as keyof DeboardRiderValues, { message: error.message });
@@ -136,26 +143,10 @@ export function DeboardRider() {
     },
   });
 
-  const submit = form.handleSubmit(async (values) => {
+  const submit = form.handleSubmit((values) => {
     setBanner(null);
-    const updated = await save.mutateAsync(values);
-    // The damage tag is what routes the bike into service: NONE never opens a
-    // job (an undamaged bike just goes to QC via `nextVehicleState`), MINOR/
-    // MAJOR/ACCIDENT always does, so the assistance desk and QC see the job
-    // the moment the desk finalises the deboard.
-    if (values.returnCondition !== 'NONE') {
-      await createServiceJob({
-        vehicleId: values.vehicleId,
-        riderId: values.riderId,
-        source: 'DEBOARD',
-        damageCategory: values.returnCondition,
-        damageNotes: values.damageItems
-          .map((i) => (i.note ? `${i.part}: ${i.note}` : i.part))
-          .join('; '),
-      });
-      invalidateServiceJobs(queryClient);
-    }
-    navigate(`/riders/${updated.id}`);
+    if (!confirmed) { setBanner('Confirm the return destination and settlement before finalising.'); return; }
+    save.mutate(values);
   });
 
   if (riders.isLoading) {
@@ -200,7 +191,7 @@ export function DeboardRider() {
               <Button color="inherit" component={Link} to="/riders">
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending || !confirmed}>
                 {save.isPending ? 'Deboarding…' : 'Finalise deboard'}
               </Button>
             </>
@@ -256,7 +247,7 @@ export function DeboardRider() {
 
           <Panel
             label="Why the bike is coming back"
-            subtitle="The condition decides where the bike goes next. Even an undamaged bike goes through QC before it can go out again."
+            subtitle="Condition suggests a destination. Choose RTD, Under repair, QC or Accident; explain any override."
           >
             {/* The note sits beside the control it qualifies rather than under
                 it — a lone select in a two-column row left half the panel bare. */}
@@ -276,7 +267,7 @@ export function DeboardRider() {
               />
               <InfoStrip>
                 Recovery is deliberately not an option in this flow — a bike that needs recovering
-                is a different process. The returned bike goes to QC or the workshop.
+                is a different process. These are the same four outcomes shown in Today's operations.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
@@ -288,19 +279,16 @@ export function DeboardRider() {
                 dateName="returnedOn"
                 dateLabel="Returned on"
                 nextStateName="nextVehicleState"
-                // A rider holding a bike means it is DEPLOYED — the register's
-                // one-to-one rule, enforced by the assignment API.
-                currentState="DEPLOYED"
                 condition={picked.returnCondition}
               />
             </Box>
-            {picked.returnCondition && picked.returnCondition !== 'NONE' && (
+            {picked.returnCondition && (picked.returnCondition !== 'NONE' || Boolean(picked.damageItems?.length)) && (
               <Box sx={{ mt: 5 }}>
-                <DamageItemsField />
+                <DamageItemsField noDamage={picked.returnCondition === 'NONE'} />
               </Box>
             )}
             <TextField
-              label="Note (optional)"
+              label="Notes / destination override reason"
               multiline
               minRows={3}
               fullWidth
@@ -385,15 +373,14 @@ export function DeboardRider() {
                   { label: 'Rider becomes', value: 'Inactive' },
                 ]}
               />
-              {picked.returnCondition && picked.returnCondition !== 'NONE' && (
-                <Typography sx={{ fontSize: 13, color: 'warning.main', mt: 3 }}>
-                  A service job opens for this bike when the deboard is finalised.
-                </Typography>
-              )}
+              <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 3 }}>
+                The vehicle movement and service record are saved together. QC and repair jobs are immediately available in Service queues.
+              </Typography>
               <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
                 The rider becomes inactive and the bike is freed up. Onboard them again to bring
                 them back.
               </Typography>
+              <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm the rider, destination and settlement." />
             </Panel>
           </Box>
         </Box>

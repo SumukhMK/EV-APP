@@ -83,7 +83,9 @@ browser's hover preview all work. Every tile leads to the set it counts.
   from the bikes in `QC_PENDING`, the dashboard tiles counted from the fixtures. Two numbers that
   must agree come from one source — and now that a tile links to the list behind it, any
   disagreement is one click from being seen.
-- **Vehicle state transitions** are listed in `VEHICLE_TRANSITIONS`. The UI offers only those.
+- **Return/service workflows** use `RETURN_DESTINATIONS` and `QUEUE_STATE` in
+  `lib/serviceWorkflow.ts`. A return closes an assignment before routing the bike; it is not
+  limited to direct `DEPLOYED` transitions.
 - **There is no auth.** `src/app/session.tsx` is a stub. Any URL is reachable by typing it. Real
   authorisation is server-side and arrives with the API.
 
@@ -106,18 +108,48 @@ Breakpoints are MUI's defaults (`sm` 600, `md` 900, `lg` 1200, `xl` 1536). Three
 
 Check a change at 390, 900, 1440 and 1920 before calling it done.
 
-## Assistance desk workflow
+## Service management workflow
 
-- `/service/assistance` lists open and closed jobs with URL-backed search/status filters.
-- **New job** opens `/service/assistance/new`, not a modal. Select a vehicle, source,
-  damage category and notes; creation takes you straight to the new job record.
-- `/service/assistance/:jobId` shows the report, work items and cost/liability summary.
-  Review costs and tick the inline confirmation before closing. Closed jobs remain
-  accessible as read-only records. **Back to jobs** restores the originating filters.
-- Service/admin personas can create and close jobs; fleet staff can read job records.
-  These are prototype UI gates, not server-side authorisation.
-- Mock jobs survive client-side navigation but reset on a full page reload; these routes
-  do not add backend persistence.
+**Queue → work record → save / route / release.** There is no compulsory fleet-list,
+vehicle-detail or separate Inspection detour. Service queues, QC and Assistance Desk
+are views of the same work records, not independent lists.
+
+| Concept | Meaning |
+|---|---|
+| Request source | How the job arrived: deboard, exchange, RSA, QRT, walk-in or inspection. Migrated records say Registry. |
+| Damage severity | None, minor, major or accident; suggests the initial destination. |
+| Service category | Assessment, minor repair, major repair, accident, warranty, insurance, parts waiting or QC. |
+| Vehicle state | The physical fleet state. Minor and major are distinct work queues but both mean Under repair. |
+
+| Staff story | Flow and recorded details |
+|---|---|
+| Find work | `/service/queues` filters the work list in place. Each row opens its work record directly. Search, source and category filters live in the URL; Back to jobs restores them. |
+| Receive RSA / QRT / hub walk-in | New job records vehicle, source, severity, issue/affected parts, location and destination. Confirmation immediately moves the vehicle and opens the record. Existing active jobs are linked instead of duplicated. |
+| Inspect an existing bike | `/service/inspection?vehicle=…` preselects the vehicle and goes directly to an existing job. Otherwise receive it for assessment, then record findings on its work record. |
+| Record repair | Save findings, technician and itemised parts/labour/other costs without closing the job or billing the rider. Saved work snapshots and movement history remain visible. |
+| Wait for parts / claim | Route to Parts waiting, Warranty or Insurance with the awaited parts/ETA or claim reference/follow-up. |
+| Send to QC | Findings and technician are required. The same job appears in `/service/qc`. |
+| Fail QC / rework | Record failure findings and return to minor/major repair. The same job retains costs and history and can be sent to QC again. |
+| Release / charge | Service/admin reviews findings, exact costs and liability, then confirms inline. Rider liability posts once to the mock ledger; deposit liability deducts the held balance; company liability posts no rider charge. Insufficient deposit is rejected. Zero-cost releases are allowed. Costs above ₹5,000 are flagged. |
+| Deboard / exchange | Both offer RTD, Under repair, QC and Accident. Severity suggests a default; an override needs a reason. Damage requires part-level detail. Assignment changes and service routing happen in one validated mutation, reusing an active job when present. |
+
+A **service visit does not deboard the rider**: the assignment stays linked and release
+returns that bike to its rider (`DEPLOYED`). A deboard or exchange explicitly detaches the
+old bike; after service it can become RTD. Pending service costs must be resolved before
+a return can skip straight to RTD. A service/admin release outside QC is explicitly warned
+and requires recorded checks/reason.
+
+Fleet staff may receive, inspect, save work and route jobs. Service/admin approves final
+release and liability. These are **prototype UI gates, not server-side authorisation**.
+Closed records remain read-only. Forms use inline confirmation instead of workflow modals.
+
+Queue counts and live vehicle outcomes come from the same records. Existing repair bikes
+without known severity start in **Needs assessment**, rather than fabricated minor/major
+splits. Today's Operations sources count recorded intakes in the selected period; its
+movement totals and the billing run's periods remain historical fixtures.
+
+Mock data survives client-side navigation but **resets on a full page reload**. This work
+does not add backend persistence, real authentication, photo uploads or a parts inventory.
 
 ## Unbuilt screens
 

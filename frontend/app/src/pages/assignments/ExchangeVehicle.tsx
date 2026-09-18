@@ -3,6 +3,8 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,11 +21,12 @@ import { VehiclePicker } from './VehiclePicker';
 import { RiderSearchSelect } from './_components/RiderSearchSelect';
 import { SelectionSummary } from './_components/SelectionSummary';
 import { DispositionFields } from './_components/DispositionFields';
+import { DamageItemsField } from './_components/DamageItemsField';
 import { exchangeVehicle } from '../../lib/api/assignments';
 import { listAssignedRiders } from '../../lib/api/riders';
 import { getVehicle } from '../../lib/api/vehicles';
 import { ApiError } from '../../lib/api/client';
-import { invalidateAssignments } from '../../lib/invalidate';
+import { invalidateAssignments, invalidateServiceJobs } from '../../lib/invalidate';
 import {
   exchangeVehicleSchema,
   today,
@@ -62,6 +65,7 @@ export function ExchangeVehicle() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
+  const [confirmedValues, setConfirmedValues] = useState('');
 
   const riders = useQuery({
     queryKey: ['riders', 'assigned'],
@@ -77,15 +81,16 @@ export function ExchangeVehicle() {
       occurredOn: today(),
       reason: 'BREAKDOWN',
       returnCondition: 'NONE',
-      // The condition default for a DEPLOYED bike with no damage is RETURNED;
-      // DispositionFields re-derives it from the condition on mount.
-      nextVehicleState: 'RETURNED',
+      nextVehicleState: 'QC_PENDING',
       note: '',
+      damageItems: [],
     },
     mode: 'onBlur',
   });
 
   const picked = useWatch({ control: form.control });
+  const confirmationKey = JSON.stringify(picked);
+  const confirmed = confirmedValues === confirmationKey;
   const rider = riders.data?.find((r) => r.id === picked.riderId);
 
   // The bike being handed back is not a choice — it is whichever one the rider
@@ -109,7 +114,11 @@ export function ExchangeVehicle() {
 
   const save = useMutation({
     mutationFn: (values: ExchangeVehicleValues) => exchangeVehicle(values),
-    onSuccess: () => invalidateAssignments(queryClient),
+    onSuccess: (updated) => {
+      invalidateAssignments(queryClient);
+      invalidateServiceJobs(queryClient);
+      navigate(`/riders/${updated.id}`);
+    },
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
         form.setError(error.field as keyof ExchangeVehicleValues, { message: error.message });
@@ -119,10 +128,10 @@ export function ExchangeVehicle() {
     },
   });
 
-  const submit = form.handleSubmit(async (values) => {
+  const submit = form.handleSubmit((values) => {
     setBanner(null);
-    const updated = await save.mutateAsync(values);
-    navigate(`/riders/${updated.id}`);
+    if (!confirmed) { setBanner('Confirm both vehicles and the return destination before exchanging.'); return; }
+    save.mutate(values);
   });
 
   if (riders.isLoading) {
@@ -161,7 +170,7 @@ export function ExchangeVehicle() {
               <Button color="inherit" component={Link} to="/riders">
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending || !confirmed}>
                 {save.isPending ? 'Recording…' : 'Record exchange'}
               </Button>
             </>
@@ -196,7 +205,7 @@ export function ExchangeVehicle() {
 
           <Panel
             label="Return"
-            subtitle="The condition decides where the returned bike goes next. It never goes straight back to the ready pool."
+            subtitle="Condition suggests a destination. Explain any override before confirming the exchange."
             sx={{ maxWidth: layout.readingMax }}
           >
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
@@ -210,7 +219,7 @@ export function ExchangeVehicle() {
             <Box sx={{ mt: 4 }}>
               <InfoStrip>
                 Recovery is deliberately not an option in this flow — a bike that needs recovering
-                is a different process. The returned bike goes to QC or the workshop.
+                is a different process. Choose RTD, Under repair, QC or Accident for the returned vehicle.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
@@ -222,10 +231,12 @@ export function ExchangeVehicle() {
                 dateName="occurredOn"
                 dateLabel="Exchanged on"
                 nextStateName="nextVehicleState"
-                currentState={bike.data?.state ?? 'DEPLOYED'}
                 condition={picked.returnCondition}
               />
             </Box>
+            {picked.returnCondition && (picked.returnCondition !== 'NONE' || Boolean(picked.damageItems?.length)) && (
+              <Box sx={{ mt: 4 }}><DamageItemsField noDamage={picked.returnCondition === 'NONE'} /></Box>
+            )}
           </Panel>
 
           <Panel label="Replacement bike" subtitle="Bikes that passed QC and are ready to go out.">
@@ -271,7 +282,7 @@ export function ExchangeVehicle() {
               ]}
             />
             <TextField
-              label="Note (optional)"
+              label="Notes / destination override reason"
               multiline
               minRows={2}
               fullWidth
@@ -280,6 +291,7 @@ export function ExchangeVehicle() {
               error={Boolean(form.formState.errors.note)}
               helperText={form.formState.errors.note?.message}
             />
+            <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm both vehicles and the return destination." />
           </Panel>
         </Box>
       </Box>

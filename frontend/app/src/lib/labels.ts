@@ -131,18 +131,6 @@ export const RETURN_CONDITION_TONE: Record<ReturnCondition, StatusTone> = {
   ACCIDENT: 'bad',
 };
 
-/**
- * Where a bike lands when it comes back. This is the whole reason a return
- * captures a condition: an undamaged bike goes to QC before it can be let out
- * again, and a damaged one cannot skip the workshop on someone's say-so.
- */
-export const RETURN_CONDITION_NEXT_STATE: Record<ReturnCondition, VehicleState> = {
-  NONE: 'RETURNED',
-  MINOR: 'UNDER_REPAIR',
-  MAJOR: 'UNDER_REPAIR',
-  ACCIDENT: 'ACCIDENT',
-};
-
 export const EXCHANGE_REASON_LABEL: Record<ExchangeReason, string> = {
   BREAKDOWN: 'Breakdown',
   BATTERY_ISSUE: 'Battery issue',
@@ -239,11 +227,7 @@ export const WORKING_PLATFORMS = [
   'Borzo', 'Dunzo', 'Other',
 ] as const;
 
-/**
- * Where a bike lands when it comes back. This is the whole reason a return
- * captures a condition: an undamaged bike goes to QC before it can be let out
- * again, and a damaged one cannot skip the workshop on someone's say-so.
- */
+/** Suggested return destinations. An operator override requires a reason. */
 export const CONDITION_DEFAULT_STATE: Record<ReturnCondition, VehicleState> = {
   NONE: 'QC_PENDING',
   MINOR: 'UNDER_REPAIR',

@@ -37,7 +37,7 @@ export function addRiderCharge(input: {
     vehicleId: input.vehicleId,
     amount: input.amount,
     liability: input.liability,
-    // A DEPOSIT charge settles against the deposit at deboard, not through
+    // A DEPOSIT charge settles against the deposit at service release, not through
     // the weekly run, so it is recorded closed from the moment it is posted.
     status: input.liability === 'DEPOSIT' ? 'SETTLED' : 'OPEN',
     periodStart,
