@@ -20,9 +20,14 @@ import { StateChip } from '../../components/StateChip';
 import { EmptyState } from '../../components/EmptyState';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
+import { RecordSearchSelect } from '../../components/RecordSearchSelect';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { invalidateServiceJobs } from '../../lib/invalidate';
-import { closeServiceJob, listServiceJobs } from '../../lib/api/serviceJobs';
+import { closeServiceJob, createServiceJob, listServiceJobs } from '../../lib/api/serviceJobs';
+import { listInspectableVehicles } from '../../lib/api/vehicles';
 import { formatDate, rupees, rupeesWithSymbol } from '../../lib/format';
+import { VEHICLE_STATE_LABEL } from '../../lib/labels';
 import { accent, neutral, type StatusTone } from '../../theme/tokens';
 import { useSession } from '../../app/sessionContext';
 import { canCloseServiceJob } from '../../lib/roles';
@@ -55,6 +60,18 @@ const LIABILITY_OPTIONS: Array<{ value: ServiceLiability; label: string }> = [
   { value: 'COMPANY', label: 'Write off (company)' },
 ];
 
+const LOGGABLE_SOURCES: Array<{ value: ServiceJobSource; label: string }> = [
+  { value: 'WALK_IN', label: 'Walk-in' },
+  { value: 'RSA', label: 'RSA' },
+  { value: 'QRT', label: 'QRT' },
+];
+
+const LOGGABLE_CATEGORIES: Array<{ value: DamageCategory; label: string }> = [
+  { value: 'MINOR', label: 'Minor' },
+  { value: 'MAJOR', label: 'Major' },
+  { value: 'ACCIDENT', label: 'Accident' },
+];
+
 /** One priced line while the desk is still working the job — cost typed as a string so a half-entered number does not fight the field. */
 interface DraftItem {
   label: string;
@@ -68,6 +85,10 @@ interface DraftItem {
  * because that is the one action that turns a job into money: a `RIDER` or
  * `DEPOSIT` liability posts straight through to that rider's `RiderCharge`
  * ledger, which the weekly run reads without anyone re-typing a number.
+ *
+ * A deboard tags a job automatically. RSA, QRT and a walk-in do not have an
+ * upstream form of their own, so this screen is also where that team logs
+ * one in the first place — "New job" below "Open job".
  */
 export function AssistanceDesk() {
   const queryClient = useQueryClient();
@@ -78,8 +99,21 @@ export function AssistanceDesk() {
   const [liability, setLiability] = useState<ServiceLiability>('RIDER');
   const [technician, setTechnician] = useState('');
 
+  const [logging, setLogging] = useState(false);
+  const [newVehicleId, setNewVehicleId] = useState('');
+  const [newSource, setNewSource] = useState<ServiceJobSource>('WALK_IN');
+  const [newCategory, setNewCategory] = useState<DamageCategory>('MINOR');
+  const [newNotes, setNewNotes] = useState('');
+
   const jobs = useQuery({ queryKey: ['service-jobs', 'open'], queryFn: () => listServiceJobs() });
   const openJobs = (jobs.data ?? []).filter((j) => j.status !== 'CLOSED');
+
+  const eligibleVehicles = useQuery({
+    queryKey: ['vehicles', 'inspectable'],
+    queryFn: listInspectableVehicles,
+    enabled: logging,
+  });
+  const pickedVehicle = eligibleVehicles.data?.find((v) => v.id === newVehicleId) ?? null;
 
   const close = useMutation({
     mutationFn: (payload: { jobId: string; items: ServiceJobItem[]; liability: ServiceLiability; technician: string | null }) =>
@@ -87,6 +121,25 @@ export function AssistanceDesk() {
     onSuccess: () => {
       invalidateServiceJobs(queryClient);
       setOpening(null);
+    },
+  });
+
+  const log = useMutation({
+    mutationFn: () =>
+      createServiceJob({
+        vehicleId: newVehicleId,
+        riderId: pickedVehicle?.currentRiderId ?? null,
+        source: newSource,
+        damageCategory: newCategory,
+        damageNotes: newNotes.trim() || null,
+      }),
+    onSuccess: () => {
+      invalidateServiceJobs(queryClient);
+      setLogging(false);
+      setNewVehicleId('');
+      setNewSource('WALK_IN');
+      setNewCategory('MINOR');
+      setNewNotes('');
     },
   });
 
@@ -115,13 +168,20 @@ export function AssistanceDesk() {
             {openJobs.length} job{openJobs.length === 1 ? '' : 's'} open
           </Mono>
         }
+        actions={
+          canWork ? (
+            <Button startIcon={<AddIcon />} onClick={() => setLogging(true)}>
+              New job
+            </Button>
+          ) : undefined
+        }
       />
 
       <Panel sx={{ mt: 5, p: { xs: '4px 12px 12px', sm: '4px 20px 12px' } }}>
         {openJobs.length === 0 ? (
           <EmptyState
             title="Nothing open"
-            description="Jobs appear here from a deboard's damage tag, an RSA or QRT call, or a walk-in."
+            description="Jobs appear here from a deboard's damage tag, or from New job above for an RSA or QRT call and a walk-in."
           />
         ) : (
           <SimpleTable
@@ -268,6 +328,85 @@ export function AssistanceDesk() {
             disabled={validItems.length === 0 || close.isPending}
           >
             {close.isPending ? 'Closing…' : 'Close job'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={logging} onClose={() => setLogging(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontSize: 16 }}>Log a job</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 4 }}>
+            For an RSA call, a QRT dispatch, or a walk-in — a deboard tags its own job automatically
+            and does not need one logged here.
+          </Typography>
+
+          <Box sx={{ display: 'grid', gap: 4 }}>
+            <RecordSearchSelect
+              label="Vehicle"
+              placeholder="Search a bike"
+              value={newVehicleId}
+              onChange={setNewVehicleId}
+              options={(eligibleVehicles.data ?? []).map((v) => ({
+                id: v.id,
+                primary: v.model,
+                secondary: VEHICLE_STATE_LABEL[v.state],
+                trailing: v.currentRiderName ?? v.chassisNumber,
+              }))}
+              loading={eligibleVehicles.isLoading}
+            />
+
+            <Box>
+              <Typography variant="overline" sx={{ mb: 1.5, display: 'block' }}>
+                Source
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={newSource}
+                onChange={(_, next) => next && setNewSource(next)}
+              >
+                {LOGGABLE_SOURCES.map((s) => (
+                  <ToggleButton key={s.value} value={s.value} sx={{ px: 4, textTransform: 'none', fontSize: 13 }}>
+                    {s.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Box>
+
+            <Box>
+              <Typography variant="overline" sx={{ mb: 1.5, display: 'block' }}>
+                Damage category
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={newCategory}
+                onChange={(_, next) => next && setNewCategory(next)}
+              >
+                {LOGGABLE_CATEGORIES.map((c) => (
+                  <ToggleButton key={c.value} value={c.value} sx={{ px: 4, textTransform: 'none', fontSize: 13 }}>
+                    {c.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Box>
+
+            <TextField
+              label="Notes"
+              multiline
+              minRows={2}
+              value={newNotes}
+              onChange={(e) => setNewNotes(e.target.value)}
+              placeholder="What was reported, where, what it needs"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 6, pb: 5 }}>
+          <Button color="inherit" onClick={() => setLogging(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => log.mutate()} disabled={!newVehicleId || log.isPending}>
+            {log.isPending ? 'Logging…' : 'Log job'}
           </Button>
         </DialogActions>
       </Dialog>
