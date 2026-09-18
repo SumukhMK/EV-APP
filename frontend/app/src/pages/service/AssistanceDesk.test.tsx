@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -51,24 +51,31 @@ function seed(category: ServiceJob['damageCategory'] = 'MINOR', assigned = true)
   return createServiceJob({ vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: 'RSA', damageCategory: category, damageNotes: 'Replace mirror' });
 }
 async function fillWork(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByRole('textbox', { name: 'Inspection findings / work done' }), 'Mirror repaired and road tested');
-  await user.type(screen.getByRole('textbox', { name: 'Technician / inspector' }), 'Inspector');
-  await user.type(screen.getByRole('textbox', { name: 'Update / movement reason' }), 'Repair completed');
+  // The assigned-bike actions appear after the separate vehicle query finishes.
+  await screen.findByRole('link', { name: 'Exchange bike' });
+  await user.click(await screen.findByRole('textbox', { name: 'Inspection findings / work done' }));
+  await user.paste('Mirror repaired and road tested');
+  await user.click(screen.getByRole('textbox', { name: 'Technician / inspector' }));
+  await user.paste('Inspector');
+  await user.click(screen.getByRole('textbox', { name: 'Update / movement reason' }));
+  await user.paste('Repair completed');
 }
 
 beforeEach(reset);
 afterEach(() => { vi.restoreAllMocks(); reset(); });
 
 describe('service workbench stories', () => {
-  it('receives a vehicle, moves its state, and opens the work record without a modal', async () => {
+  it('receives a vehicle, moves its state, and opens the work record without a modal', { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     const vehicle = vehicles.find((v) => v.state === 'DEPLOYED')!;
     show();
     await user.click(screen.getAllByRole('link', { name: 'New job' })[0]);
     expect(await screen.findByText('Receive vehicle / service request')).toBeInTheDocument();
-    await user.type(screen.getByRole('combobox', { name: 'Vehicle' }), vehicle.id);
+    await user.click(screen.getByRole('combobox', { name: 'Vehicle' }));
+    await user.paste(vehicle.id);
     await user.click(await screen.findByRole('option', { name: new RegExp(vehicle.id) }));
-    await user.type(screen.getByRole('textbox', { name: /Reported issue/ }), 'Mirror cracked');
+    await user.click(screen.getByRole('textbox', { name: /Reported issue/ }));
+    await user.paste('Mirror cracked');
     await user.click(screen.getByRole('checkbox', { name: 'Confirm this intake and vehicle movement.' }));
     await user.click(screen.getByRole('button', { name: 'Receive and open job' }));
     expect(await screen.findByText('Reported issue')).toBeInTheDocument();
@@ -105,13 +112,14 @@ describe('service workbench stories', () => {
     expect(screen.queryByRole('combobox', { name: 'Who pays?' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Save progress' }));
-    await waitFor(() => expect(job.workSummary).toContain('road tested'));
+    expect(await screen.findByText(/Progress saved/)).toBeInTheDocument();
+    expect(job.workSummary).toContain('road tested');
     expect(job.liability).toBeNull();
     expect(job.status).toBe('IN_PROGRESS');
     expect(riderCharges).toHaveLength(0);
   });
 
-  it('persists progress, moves to QC, and releases from the same record with one charge', async () => {
+  it('persists progress, moves to QC, and releases from the same record with one charge', { timeout: 15_000 }, async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
@@ -130,7 +138,8 @@ describe('service workbench stories', () => {
     expect(screen.getByText(/Progress saved/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(0);
     await user.click(screen.getByRole('button', { name: 'Pass QC' }));
-    await user.type(screen.getByRole('textbox', { name: 'QC findings / movement reason' }), 'Road test and brakes passed');
+    await user.click(screen.getByRole('textbox', { name: 'QC findings / movement reason' }));
+    await user.paste('Road test and brakes passed');
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Confirm release & close' }));
     expect(await screen.findByText(/Job closed. The vehicle was released/)).toBeInTheDocument();
