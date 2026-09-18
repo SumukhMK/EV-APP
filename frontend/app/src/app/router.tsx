@@ -85,6 +85,7 @@ const RecoverySummary = lazy(() =>
 // Admin — SMK
 const Users = lazy(() => import('../pages/users/Users').then((m) => ({ default: m.Users })));
 const AuditLog = lazy(() => import('../pages/admin/AuditLog').then((m) => ({ default: m.AuditLog })));
+const Flows = lazy(() => import('../pages/admin/Flows').then((m) => ({ default: m.Flows })));
 const DesignTokens = lazy(() => import('../pages/admin/DesignTokens').then((m) => ({ default: m.DesignTokens })));
 
 export const router = createBrowserRouter([
@@ -138,6 +139,7 @@ export const router = createBrowserRouter([
       { path: '/users', element: <Users /> },
       { path: '/audit', element: <AuditLog /> },
       { path: '/design-tokens', element: <DesignTokens /> },
+      { path: '/flows', element: <Flows /> },
 
       { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],

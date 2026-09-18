@@ -112,7 +112,10 @@ Check a change at 390, 900, 1440 and 1920 before calling it done.
 
 **Find the bike → open its job → write what you did → send it where it needs to go.**
 There is no forced trip through the bike list or a separate inspection screen. "Bikes in
-service", "Final checks" and "Help desk" are three views of the same jobs, not three lists.
+service", "QC queue" and "Help desk" are three views of the same jobs, not three lists.
+"New job" is the one way in, whatever brought the bike to us, so there is no second
+"check a bike" screen in the menu; `/service/inspection?vehicle=…` is only a deep link
+from a bike's page into that same form.
 
 The screens use everyday words. The table below maps them to the terms in the code.
 
@@ -120,29 +123,40 @@ The screens use everyday words. The table below maps them to the terms in the co
 |---|---|---|
 | Came in as | Request source | How the bike reached us: a rider gave it back, a swap, roadside help (RSA), the rescue team (QRT), the rider came to the hub, or a routine check. Older records say "Older record". |
 | How bad is the damage? | Damage severity | No damage, small, big or accident. It suggests where the bike should go. |
-| What it needs / list | Service category | Needs checking, small repair, big repair, accident, warranty claim, insurance claim, waiting for parts, or final check. |
+| What it needs / list | Service category | Needs checking, small repair, big repair, accident, warranty claim, insurance claim, waiting for parts, or QC. |
 | Bike shows as | Vehicle state | Where the bike stands in the fleet. Small and big repairs are two separate lists, but in both the bike shows as "Under repair". |
-| Final check | QC | The last look at a bike before it goes back on the road. |
-| Ready to give out | RTD | The bike passed its final check and can go to a rider. |
+| QC | QC | The last check on a bike before it goes back on the road. The word staff already use, so the screens use it too. |
+| Ready to deploy | RTD | The bike passed QC and can go to a rider. |
 | Who pays? | Liability | Take it from the deposit, the rider pays, or the company pays. |
 
 | What staff need to do | How it works |
 |---|---|
 | Find work | `/service/queues` filters the job list in place. Every row opens its job directly. The search and filters stay in the address bar, so "Back to jobs" brings you back to the same view. |
 | Log a roadside, rescue or walk-in job | "New job" records the bike, how it came in, how bad the damage is, what is wrong, where it is, and which list it goes to. Confirming moves the bike straight away and opens the job. If the bike already has an open job, you are sent to that one instead of opening a second. |
-| Check a bike you already have | `/service/inspection?vehicle=…` fills in the bike and jumps to its open job. If there is none, take it in for a check and write your findings on the job. |
+| Check a bike you already have | "Check this bike" on a bike's page opens the same "New job" form with the bike filled in, or jumps straight to its open job if it has one. |
+| Say where the bike is | At intake the hub is a dropdown, filled in from the bike's own record. Only roadside and rescue jobs ask for a free-text spot, because that is the one case where it is not a hub. |
 | Record a repair | Save what you found, who did the work, and each part / labour cost. Saving does not finish the job and does not charge the rider. Everything you save stays visible in the history. |
 | Wait for parts or a claim | Move the bike to "Waiting for parts", "Warranty claim" or "Insurance claim" and say which parts you expect, or the claim number. |
-| Send for a final check | You must say what you found and who did the work. The same job then shows up in `/service/qc`. |
-| Failed the final check | Write why it failed and send it back to small or big repair. The job keeps its costs and history and can come back for another check. |
+| Decide what happens next | The job page asks one question — "What do you want to do?" — and lists the real choices: keep working, send it for QC, move it to another list, or send the bike back out. Picking one names the button at the bottom, so the button always does exactly what was picked. Changing the choice clears the confirm tick. |
+| Send it for QC | You must say what you found and who did the work. The same job then shows up in `/service/qc`. |
+| QC failed | Write why it failed and send it back to small or big repair. The job keeps its costs and history and can come back for QC again. |
 | Send the bike back out and charge | A service manager or admin reviews the work, the cost and who pays, then confirms on the same screen. A rider charge is added once; a deposit charge comes off the deposit we hold; a company charge adds nothing to the rider. If the deposit is too small, we refuse it. A ₹0 job is fine. Anything over ₹5,000 is flagged. |
-| Taking a bike back or swapping it | Both screens offer the same four places a bike can go: ready to give out, under repair, final check, or accident. The condition suggests one; if you pick another, say why. Damage needs part-level notes. The bike movement and the service job are saved together, reusing an open job if there is one. |
+| Taking a bike back or swapping it | Both screens offer the same four places a bike can go: ready to deploy, under repair, QC, or accident. The condition suggests one; if you pick another, say why. Damage needs part-level notes. The bike movement and the service job are saved together, reusing an open job if there is one. |
 
 A bike going in for service **does not take it away from the rider**: the rider keeps it on
 paper, and when the work is done the bike goes back to that same rider. Taking a bike back
 or swapping it does detach it, and after service it can become ready to give out. A bike
-with unfinished service costs cannot jump straight to "ready to give out". Sending a bike
-out without a final check is allowed, but you are warned and must say what you checked.
+with unfinished service costs cannot jump straight to "ready to deploy". Sending a bike
+out without QC is allowed, but you are warned and must say what you checked.
+
+**Deboarding settles rent, not damage.** The deboard screen takes the rent still owed and
+works out what is left of the deposit. It does not ask anyone to guess a damage deduction,
+because at that moment nobody has looked at the bike. What the repair costs is decided on
+the service job, and only then does "Who pays?" decide whether it comes out of the deposit.
+
+`/flows` is a hidden page, like `/design-tokens`. It draws the whole journey — a bike's
+life, deboarding, the four ways a bike reaches service, what happens inside service, and
+where the money ends up — for anyone who needs the picture rather than the screens.
 
 Fleet staff can log jobs, write findings and move bikes between lists. A service manager or
 admin decides who pays and sends the bike back out. These are **prototype screen rules, not

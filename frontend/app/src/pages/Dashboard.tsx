@@ -71,7 +71,7 @@ export function Dashboard() {
               to: '/vehicles?state=DEPLOYED',
             },
             {
-              label: 'Ready to give out',
+              label: 'Ready to deploy',
               value: s ? formatNumber(s.readyToDeploy) : '—',
               tone: 'good',
               icon: CheckCircleIcon,
@@ -85,7 +85,7 @@ export function Dashboard() {
               to: '/service/queues?state=UNDER_REPAIR',
             },
             {
-              label: 'Final check',
+              label: 'QC pending',
               value: s ? formatNumber(s.qcPending) : '—',
               tone: 'caution',
               icon: FactCheckIcon,

@@ -69,7 +69,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
     <>
       <PageHeader
         section="Service management"
-        title={mode === 'queues' ? 'Bikes in service' : mode === 'qc' ? 'Final checks' : 'Help desk'}
+        title={mode === 'queues' ? 'Bikes in service' : mode === 'qc' ? 'QC queue' : 'Help desk'}
         icon={SupportAgentIcon}
         actions={canWork ? newJob : undefined}
       />
@@ -77,7 +77,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
         {mode === 'intake' ? 'Log a bike that a rider brought in, or one the roadside / rescue team picked up, and send it straight to the right list.' : 'Open a job to check the bike, note the work and cost, move it to another list, or send it back on the road. No need to go through the bike page.'}
       </Typography>
       {mode === 'qc' ? (
-        <Panel label="Waiting for a final check" subtitle="Open a job, write what you checked, then mark it passed or failed. A failed bike goes back for repair and can come here again." sx={{ mt: 4 }}>
+        <Panel label="Waiting for QC" subtitle="QC is the last check before a bike goes back on the road. Open a job, write what you checked, then pass or fail it. A failed bike goes back for repair and can come here again." sx={{ mt: 4 }}>
           <Mono sx={{ fontSize: 26, fontWeight: 600 }}>{jobs.isPending || jobs.isError ? '—' : qcCount}</Mono>
           <Button component={Link} to="/service/queues" sx={{ ml: 3 }}>See all bikes in service</Button>
         </Panel>
@@ -96,7 +96,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
       </Box>}
       {!canWork && <Alert severity="info" sx={{ mt: 3 }}>You can look at any job, but you cannot change it.</Alert>}
       {mode !== 'qc' && (
-        <Panel label="What needs doing" subtitle="Pick a list to see only those bikes. Small and big repairs are two lists, but the bike is 'Under repair' in both. 'Came in as' tells you how the bike reached us." sx={{ mt: 4 }}>
+        <Panel label="What needs doing" subtitle="Pick a list to see only those bikes. Small and big repairs are two lists, but the bike shows as 'Under repair' in both. The waiting column tells you how long a bike has been sitting." sx={{ mt: 4 }}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             <Button color={allOpenActive ? 'primary' : 'inherit'} variant={allOpenActive ? 'contained' : 'outlined'} onClick={() => setParams({ status: 'OPEN' }, { replace: true })}>Still open{jobs.data ? ` (${openCount})` : ''}</Button>
             {SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY').map((q) => (
@@ -125,7 +125,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
           <Alert severity="error" action={<Button color="inherit" onClick={() => void jobs.refetch()}>Retry</Button>}>{jobs.error.message}</Alert>
         ) : rows.length === 0 ? (
           <EmptyState
-            title={mode === 'qc' && !qcCount ? 'No bikes waiting for a final check' : all.length ? 'No jobs match' : 'No jobs yet'}
+            title={mode === 'qc' && !qcCount ? 'No bikes waiting for QC' : all.length ? 'No jobs match' : 'No jobs yet'}
             description={mode === 'qc' ? 'Bikes show up here once the repair work is done. Clear the filters to see everything waiting.' : all.length ? 'Try a different search or filter.' : 'A job is created on its own when a rider gives a bike back. Use New job for roadside help, the rescue team, or a rider who came to the hub.'}
             action={all.length ? <Button onClick={() => setParams({ status: 'ALL' }, { replace: true })}>Clear filters</Button> : canWork ? newJob : undefined}
           />
@@ -143,7 +143,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
                   <Mono>{j.items.length || j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'No cost yet'}</Mono>
                 </Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>{j.status === 'CLOSED' ? `Finished ${formatDate(j.closedOn ?? j.updatedOn)}` : `${waitingLabel(j.createdOn)} · came in ${formatDate(j.createdOn)}`}</Typography>
-                <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} sx={{ mt: 2 }}>{j.status === 'CLOSED' ? 'See details' : j.queue === 'QC_PENDING' ? 'Do final check' : 'Open job'}</Button>
+                <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} sx={{ mt: 2 }}>{j.status === 'CLOSED' ? 'See details' : j.queue === 'QC_PENDING' ? 'Do the QC check' : 'Open job'}</Button>
               </Box>
             ))}
           </Box>
@@ -171,7 +171,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
                 </Box>
               ) },
               { key: 'cost', header: 'Cost so far', width: 110, align: 'right', render: (j) => <Mono>{j.items.length || j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'No cost yet'}</Mono> },
-              { key: 'action', header: 'What to do', width: 150, render: (j) => <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }}>{j.status === 'CLOSED' ? 'See details' : j.queue === 'QC_PENDING' ? 'Do final check' : 'Open job'}</Button> },
+              { key: 'action', header: 'What to do', width: 150, render: (j) => <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }}>{j.status === 'CLOSED' ? 'See details' : j.queue === 'QC_PENDING' ? 'Do the QC check' : 'Open job'}</Button> },
             ]}
           />
         )}

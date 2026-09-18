@@ -8,6 +8,8 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,12 +28,15 @@ import { invalidateServiceJobs } from '../../lib/invalidate';
 import { VEHICLE_STATE_LABEL } from '../../lib/labels';
 import { canCloseServiceJob, canManageService } from '../../lib/roles';
 import { hasServiceNote, isServiceQueue, needsDamageAssessment, QUEUE_STATE, queueForCondition, releaseState } from '../../lib/serviceWorkflow';
+import { HUBS } from '../../mocks/seed';
 import { SERVICE_QUEUES, type DamageCategory, type ServiceJob, type ServiceJobItem, type ServiceJobSource, type ServiceLiability, type ServiceQueue } from '../../types';
 import { CATEGORY_LABEL, LIABILITY_LABEL, SOURCE_LABEL, SERVICE_QUEUE_LABEL } from '../../lib/serviceJobLabels';
 
 const deskPath = '/service/assistance';
 const columns = { display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' }, gap: 4, mt: 4, alignItems: 'start' };
 const damageCategories = ['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const;
+type Intent = 'STAY' | 'QC' | 'MOVE' | 'QC_FAIL' | 'RELEASE';
+type IntentOption = { id: Intent; label: string; hint: string; cta: string; disabled?: boolean };
 const requiresReference = (queue: ServiceQueue) => ['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(queue);
 
 function useDeskReturn() {
@@ -94,7 +99,13 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
                   }}>
                     {(['WALK_IN', 'RSA', 'QRT', 'INSPECTION'] as const).map((value) => <MenuItem key={value} value={value}>{SOURCE_LABEL[value]}</MenuItem>)}
                   </TextField>
-                  <TextField label={source === 'RSA' || source === 'QRT' ? 'Where did it break down?' : 'Which hub is it at?'} value={location} onChange={(e) => setLocation(e.target.value)} helperText={`Left blank, we use ${picked?.hub ?? 'the bike\u2019s hub'}.`} />
+                  {source === 'RSA' || source === 'QRT' ? (
+                    <TextField label="Where did it break down?" value={location} onChange={(e) => setLocation(e.target.value)} helperText="Road, landmark or area where the bike stopped." />
+                  ) : (
+                    <TextField select label="Which hub is it at?" value={location || picked?.hub || ''} onChange={(e) => setLocation(e.target.value)} helperText={picked ? `We filled in ${picked.hub}, the hub on the bike\u2019s record. Change it if the bike is somewhere else.` : 'Pick the bike first and we fill in its hub.'}>
+                      {HUBS.map((hub) => <MenuItem key={hub} value={hub}>{hub}</MenuItem>)}
+                    </TextField>
+                  )}
                   <TextField select label="How bad is the damage?" value={category} onChange={(e) => {
                     const value = damageCategories.find((c) => c === e.target.value);
                     if (value) { setCategory(value); setQueue(queueForCondition(value)); }
@@ -157,7 +168,9 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const canRelease = canCloseServiceJob(user.roleKey);
   const vehicle = useQuery({ queryKey: ['vehicle', job.vehicleId], queryFn: () => getVehicle(job.vehicleId) });
   const [items, setItems] = useState(() => job.items.map((item) => ({ label: item.label, cost: (item.costPaise / 100).toFixed(2), kind: item.kind ?? 'PART' })));
-  const [queue, setQueue] = useState(job.queue);
+  const inQC = job.queue === 'QC_PENDING';
+  const [intent, setIntent] = useState<Intent>('STAY');
+  const [moveQueue, setMoveQueue] = useState<ServiceQueue>(job.queue === 'MINOR_REPAIR' ? 'PARTS_WAITING' : 'MINOR_REPAIR');
   const [category, setCategory] = useState<DamageCategory | ''>(needsDamageAssessment(job) ? '' : job.damageCategory);
   const [findings, setFindings] = useState(job.workSummary);
   const [note, setNote] = useState('');
@@ -165,13 +178,29 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const [liability, setLiability] = useState<ServiceLiability>(job.liability ?? (job.riderId ? 'RIDER' : 'COMPANY'));
   const [technician, setTechnician] = useState(job.technician ?? '');
   const [confirmation, setConfirmation] = useState('');
-  const signature = JSON.stringify({ items, queue, category, findings, note, reference, liability, technician });
+  const failQueue: ServiceQueue = category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : 'MINOR_REPAIR';
+  const queue: ServiceQueue = intent === 'STAY' ? job.queue : intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
+  const signature = JSON.stringify({ items, intent, queue, category, findings, note, reference, liability, technician });
   const priced: ServiceJobItem[] = items.map((item) => ({ label: item.label.trim(), costPaise: Math.round(Number(item.cost) * 100), kind: item.kind }));
   const valid = items.every((item, i) => item.label.trim() && /^\d+(\.\d{1,2})?$/.test(item.cost) && Number.isSafeInteger(priced[i].costPaise) && priced[i].costPaise >= 0);
   const total = priced.reduce((sum, item) => sum + (Number.isFinite(item.costPaise) && item.costPaise >= 0 ? item.costPaise : 0), 0);
   const releasing = queue === 'READY_TO_DEPLOY';
-  const moving = queue !== job.queue;
   const targetState = releasing ? releaseState(vehicle.data?.currentRiderId ?? null) : QUEUE_STATE[queue];
+  const backToRider = Boolean(vehicle.data?.currentRiderId);
+  const releaseHint = canRelease
+    ? backToRider ? 'The same rider gets this bike back and the cost is charged now.' : 'The bike becomes Ready to deploy and the cost is charged now.'
+    : 'Only a service manager or admin can do this.';
+  const options: IntentOption[] = inQC ? [
+    { id: 'RELEASE', label: 'QC passed \u2014 send the bike back out', hint: releaseHint, cta: 'Pass QC and send the bike out', disabled: !canRelease },
+    { id: 'QC_FAIL', label: 'QC failed \u2014 send it back for repair', hint: `Goes back to ${SERVICE_QUEUE_LABEL[failQueue]}. Nothing is charged.`, cta: `Send back to ${SERVICE_QUEUE_LABEL[failQueue]}` },
+    { id: 'STAY', label: 'Not finished checking \u2014 just save my notes', hint: 'The bike stays in QC.', cta: 'Save my notes' },
+  ] : [
+    { id: 'STAY', label: 'Still working on it \u2014 save my notes', hint: `The bike stays in ${SERVICE_QUEUE_LABEL[job.queue]}.`, cta: 'Save my notes' },
+    { id: 'QC', label: 'Work is done \u2014 send it for QC', hint: 'QC is the last check before the bike goes back on the road.', cta: 'Send it for QC' },
+    { id: 'MOVE', label: 'Move it to a different list', hint: 'Use this when you are waiting on parts, a warranty or an insurance claim.', cta: `Move to ${SERVICE_QUEUE_LABEL[moveQueue]}` },
+    { id: 'RELEASE', label: 'Skip QC and send the bike back out', hint: canRelease ? `${releaseHint} Only for bikes that needed no work.` : releaseHint, cta: 'Send the bike out without QC', disabled: !canRelease },
+  ];
+  const chosen = options.find((option) => option.id === intent) ?? options[0];
   const save = useMutation({
     mutationFn: () => {
       if (!editable || !category || confirmation !== signature || !valid || !hasServiceNote(note)) throw new Error('Fill in the damage, what you found, the costs, and tick the confirm box.');
@@ -190,6 +219,15 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
     },
   });
   const patchItem = (index: number, patch: Partial<(typeof items)[number]>) => setItems(items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  const blocker = !category ? 'Pick how bad the damage is.'
+    : !valid ? 'Fix the cost lines.'
+    : (releasing || queue === 'QC_PENDING') && !findings.trim() ? 'Write what you found, even if it was nothing.'
+    : (releasing || queue === 'QC_PENDING') && !technician.trim() ? 'Say who did the work.'
+    : requiresReference(queue) && !reference.trim() ? 'Add the parts or claim details.'
+    : !hasServiceNote(note) ? 'Write a line in the box above.'
+    : releasing && !canRelease ? 'Only a service manager or admin can send a bike back out.'
+    : confirmation !== signature ? 'Tick the confirm box.'
+    : '';
   const ready = Boolean(category) && valid && Number.isSafeInteger(total) && hasServiceNote(note) && confirmation === signature &&
     (!requiresReference(queue) || reference.trim()) &&
     (!(releasing || queue === 'QC_PENDING') || (technician.trim() && findings.trim())) &&
@@ -222,14 +260,14 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
               </Box>
             </Box>}
           </Panel>
-          <Panel label="What you found, and what it costs" subtitle="Write it down as you go. You can save part-way. When the work is done, send the bike for a final check before it goes back out.">
+          <Panel label="What you found, and what it costs" subtitle="Write it down as you go. You can save part-way. When the work is done, send the bike for QC \u2014 the last check before it goes back on the road.">
             {editable ? (
               <Box component="fieldset" disabled={save.isPending} sx={{ border: 0, p: 0, m: 0, minWidth: 0, display: 'grid', gap: 3 }}>
                 <TextField select label="How bad is the damage?" value={category} helperText={!category ? 'Nobody has noted this yet. Look at the bike and pick one before saving.' : undefined} onChange={(e) => { const next = damageCategories.find((c) => c === e.target.value); if (next) setCategory(next); }}>
                   {damageCategories.map((c) => <MenuItem key={c} value={c}>{CATEGORY_LABEL[c]}</MenuItem>)}
                 </TextField>
                 <TextField label="What did you find, and what did you do?" multiline minRows={3} value={findings} onChange={(e) => setFindings(e.target.value)} helperText="Which parts, what was wrong, what you fixed. If nothing needed fixing, say so." />
-                <TextField label="Who did the work?" value={technician} onChange={(e) => setTechnician(e.target.value)} helperText="Needed before the bike can go for a final check or back out on the road." />
+                <TextField label="Who did the work?" value={technician} onChange={(e) => setTechnician(e.target.value)} helperText="Needed before the bike can go for QC or back out on the road." />
                 {items.map((item, index) => (
                   <Box key={index} sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr) 40px', sm: '100px minmax(0, 1fr) 110px 40px' }, gap: 2 }}>
                     <TextField select label="Type" value={item.kind} onChange={(e) => { const kind = e.target.value; if (kind === 'PART' || kind === 'LABOUR' || kind === 'OTHER') patchItem(index, { kind }); }} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
@@ -274,28 +312,36 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
           {total > 500000 && <Alert severity="warning" sx={{ mb: 3 }}>This is over ₹5,000. Check the amounts and who pays before the bike goes back out.</Alert>}
           {editable ? (
             <Box sx={{ display: 'grid', gap: 3 }}>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                {job.queue === 'QC_PENDING' ? (
-                  <><Button onClick={() => { setQueue('READY_TO_DEPLOY'); setNote(''); }} disabled={!canRelease || save.isPending}>Final check passed</Button><Button color="inherit" onClick={() => { setQueue(category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : 'MINOR_REPAIR'); setNote(''); }}>Final check failed</Button></>
-                ) : <Button onClick={() => setQueue('QC_PENDING')}>Send for final check</Button>}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>What do you want to do?</Typography>
+                <Typography variant="caption" color="text.secondary">Pick one. The button at the bottom does exactly what you pick.</Typography>
+                <RadioGroup value={intent} onChange={(e) => { setIntent(e.target.value as Intent); setConfirmation(''); }} sx={{ mt: 1 }}>
+                  {options.map((option) => (
+                    <FormControlLabel key={option.id} value={option.id} disabled={option.disabled || save.isPending} control={<Radio size="small" />} sx={{ alignItems: 'flex-start', mb: 1, '& .MuiRadio-root': { pt: 0 } }}
+                      label={<Box sx={{ pt: '2px' }}><Typography variant="body2">{option.label}</Typography><Typography variant="caption" color="text.secondary">{option.hint}</Typography></Box>} />
+                  ))}
+                </RadioGroup>
               </Box>
-              <TextField select label="Where does the bike go next?" value={queue} onChange={(e) => { if (isServiceQueue(e.target.value)) setQueue(e.target.value); }}>
-                {SERVICE_QUEUES.map((q) => <MenuItem key={q} value={q} disabled={q === 'READY_TO_DEPLOY' && !canRelease}>{q === 'READY_TO_DEPLOY' ? vehicle.data?.currentRiderId ? 'Back to the same rider' : 'Ready to give out' : SERVICE_QUEUE_LABEL[q]}</MenuItem>)}
-              </TextField>
-              <Typography variant="body2">The bike will show as <strong>{VEHICLE_STATE_LABEL[targetState]}</strong>.</Typography>
+              {intent === 'MOVE' && (
+                <TextField select label="Which list?" value={moveQueue} onChange={(e) => { if (isServiceQueue(e.target.value)) setMoveQueue(e.target.value); }}>
+                  {SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY' && q !== 'QC_PENDING').map((q) => <MenuItem key={q} value={q}>{SERVICE_QUEUE_LABEL[q]}</MenuItem>)}
+                </TextField>
+              )}
+              <Typography variant="body2">After you save, the bike will show as <strong>{VEHICLE_STATE_LABEL[targetState]}</strong> and sit in <strong>{releasing ? 'no list \u2014 it is out of service management' : SERVICE_QUEUE_LABEL[queue]}</strong>.</Typography>
               {requiresReference(queue) && <TextField label={queue === 'PARTS_WAITING' ? 'Which parts, and when are they expected?' : 'Claim number or who to follow up with'} value={reference} onChange={(e) => setReference(e.target.value)} required />}
               {canRelease ? (
                 <TextField select label="Who pays?" value={liability} onChange={(e) => { const next = e.target.value; if (next === 'RIDER' || next === 'DEPOSIT' || next === 'COMPANY') setLiability(next); }}>
                   {(['RIDER', 'DEPOSIT', 'COMPANY'] as const).map((value) => <MenuItem key={value} value={value} disabled={!job.riderId && value !== 'COMPANY'}>{LIABILITY_LABEL[value]}</MenuItem>)}
                 </TextField>
               ) : <Alert severity="info">You can write down what you found and move the bike between lists. A service manager or admin decides who pays and sends the bike back out.</Alert>}
-              <Typography variant="body2" color="text.secondary">{job.riderId ? 'The rider is charged only when the bike finally goes back out, not when you save or send it for a final check.' : 'No rider on this bike, so the company covers the cost.'}</Typography>
-              <TextField label={job.queue === 'QC_PENDING' ? 'What did you check?' : 'Why are you making this change?'} required multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} helperText="A line or two. If you are waiting on parts or a claim, say what for. If the bike is going back out, say what you checked." />
-              {releasing && job.queue !== 'QC_PENDING' && <Alert severity="warning">This sends the bike out without a final check. Write what you checked and why you are skipping it.</Alert>}
+              <Typography variant="body2" color="text.secondary">{job.riderId ? 'The rider is charged only when the bike finally goes back out, not when you save or send it for QC.' : 'No rider on this bike, so the company covers the cost.'}</Typography>
+              <TextField label={inQC ? 'What did you check?' : intent === 'STAY' ? 'What did you do just now?' : 'Why are you making this change?'} required multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} helperText="A line or two. If you are waiting on parts or a claim, say what for. If the bike is going back out, say what you checked." />
+              {releasing && !inQC && <Alert severity="warning">This sends the bike out without QC. Write what you checked and why you are skipping it.</Alert>}
               {!valid && <Alert severity="warning">Every line needs a short description and an amount of ₹0 or more, up to two decimals.</Alert>}
               <FormControlLabel control={<Checkbox checked={confirmation === signature} onChange={(e) => setConfirmation(e.target.checked ? signature : '')} />} label={releasing ? 'I approve this work, the cost, and sending the bike back out.' : 'I confirm these details and where the bike is going.'} />
               {save.isError && <Alert severity="error">{save.error.message}</Alert>}
-              <Button onClick={() => save.mutate()} disabled={!ready || save.isPending || vehicle.isPending || vehicle.isError}>{save.isPending ? 'Saving…' : releasing ? 'Send the bike back out and finish' : moving ? `Move to ${SERVICE_QUEUE_LABEL[queue]}` : 'Save for now'}</Button>
+              <Button onClick={() => save.mutate()} disabled={!ready || save.isPending || vehicle.isPending || vehicle.isError}>{save.isPending ? 'Saving\u2026' : chosen.cta}</Button>
+              {blocker && <Typography variant="caption" color="text.secondary" sx={{ mt: -2 }}>Before you can do that: {blocker}</Typography>}
             </Box>
           ) : <DefinitionList items={[
             { label: 'Who paid', value: job.liability ? LIABILITY_LABEL[job.liability] : 'Nobody was charged' },

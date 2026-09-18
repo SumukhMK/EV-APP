@@ -14,7 +14,7 @@ export const SOURCE_LABEL: Record<ServiceJobSource, string> = {
 export const SERVICE_QUEUE_LABEL: Record<ServiceQueue, string> = {
   ASSESSMENT: 'Needs checking', MINOR_REPAIR: 'Small repair', MAJOR_REPAIR: 'Big repair',
   ACCIDENT: 'Accident', WARRANTY: 'Warranty claim', INSURANCE: 'Insurance claim',
-  PARTS_WAITING: 'Waiting for parts', QC_PENDING: 'Final check', READY_TO_DEPLOY: 'Done, back on the road',
+  PARTS_WAITING: 'Waiting for parts', QC_PENDING: 'QC', READY_TO_DEPLOY: 'Ready to deploy',
 };
 export const LIABILITY_LABEL: Record<ServiceLiability, string> = {
   DEPOSIT: 'Take it from the deposit', RIDER: 'Rider pays', COMPANY: 'Company pays',

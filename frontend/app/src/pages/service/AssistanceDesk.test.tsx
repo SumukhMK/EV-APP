@@ -57,7 +57,7 @@ async function fillWork(user: ReturnType<typeof userEvent.setup>) {
   await user.paste('Mirror repaired and road tested');
   await user.click(screen.getByRole('textbox', { name: 'Who did the work?' }));
   await user.paste('Inspector');
-  await user.click(screen.getByRole('textbox', { name: 'Why are you making this change?' }));
+  await user.click(screen.getByRole('textbox', { name: 'What did you do just now?' }));
   await user.paste('Repair completed');
 }
 
@@ -111,7 +111,7 @@ describe('service workbench stories', () => {
     expect(screen.getByText(/You can write down what you found/)).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Who pays?' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Save for now' }));
+    await user.click(screen.getByRole('button', { name: 'Save my notes' }));
     expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(job.workSummary).toContain('road tested');
     expect(job.liability).toBeNull();
@@ -131,21 +131,21 @@ describe('service workbench stories', () => {
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '.01');
     expect(screen.getByText(/over ₹5,000/)).toBeInTheDocument();
     expect(screen.getByText('₹5,000.01')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Send for final check' }));
+    await user.click(screen.getByRole('radio', { name: /Work is done/ }));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Move to Final check' }));
-    await screen.findByRole('button', { name: 'Final check passed' });
+    await user.click(screen.getByRole('button', { name: 'Send it for QC' }));
+    await screen.findByRole('radio', { name: /QC passed/ });
     expect(screen.getByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(0);
-    await user.click(screen.getByRole('button', { name: 'Final check passed' }));
+    await user.click(screen.getByRole('radio', { name: /QC passed/ }));
     await user.click(screen.getByRole('textbox', { name: 'What did you check?' }));
     await user.paste('Road test and brakes passed');
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Send the bike back out and finish' }));
+    await user.click(screen.getByRole('button', { name: 'Pass QC and send the bike out' }));
     expect(await screen.findByText(/This job is finished/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(1);
     expect(riderCharges[0].amount).toBe(500001);
-    expect(screen.queryByRole('button', { name: 'Send the bike back out and finish' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Pass QC and send the bike out' })).not.toBeInTheDocument();
     expect(job.activity).toHaveLength(3);
     expect(job.inspections).toHaveLength(2);
   });
@@ -159,7 +159,7 @@ describe('service workbench stories', () => {
     await user.type(screen.getByRole('textbox', { name: 'Item 1' }), 'Mirror');
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '-5');
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save for now' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save my notes' })).toBeDisabled();
     await user.clear(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }));
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '200');
     expect(screen.getByRole('checkbox')).not.toBeChecked();
@@ -173,11 +173,11 @@ describe('service workbench stories', () => {
     await fillWork(user);
     expect(screen.getByText(/Nobody has noted this yet/)).toBeInTheDocument();
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save for now' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save my notes' })).toBeDisabled();
     await user.click(screen.getByRole('combobox', { name: 'How bad is the damage?' }));
     await user.click(screen.getByRole('option', { name: 'Small damage' }));
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save for now' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save my notes' })).toBeEnabled();
   });
 
   it('opens the existing job from inspection instead of requiring the vehicle-detail hop', async () => {
@@ -194,7 +194,7 @@ describe('service workbench stories', () => {
     expect(await screen.findByRole('link', { name: qc.id })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: repair.id })).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Do final check' })).toHaveAttribute('href', `/service/assistance/${qc.id}`);
+    expect(screen.getByRole('link', { name: 'Do the QC check' })).toHaveAttribute('href', `/service/assistance/${qc.id}`);
   });
 
   it('prevents duplicate intake with a direct existing-job link', async () => {
@@ -234,6 +234,40 @@ describe('service workbench stories', () => {
     expect(await screen.findByText('No jobs yet')).toBeInTheDocument();
   });
 
+  it('picks the hub from a list at intake and only asks for a free-text spot for roadside jobs', async () => {
+    const vehicle = vehicles.find((v) => v.state === 'DEPLOYED')!;
+    const user = userEvent.setup();
+    show('/service/assistance/new');
+    await user.click(screen.getByRole('combobox', { name: 'Bike' }));
+    await user.paste(vehicle.id);
+    await user.click(await screen.findByRole('option', { name: new RegExp(vehicle.id) }));
+    const hub = screen.getByRole('combobox', { name: 'Which hub is it at?' });
+    expect(hub).toHaveTextContent(vehicle.hub);
+    await user.click(hub);
+    expect(screen.getByRole('option', { name: 'Whitefield' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('combobox', { name: 'How did the bike reach us?' }));
+    await user.click(screen.getByRole('option', { name: 'Roadside help (RSA)' }));
+    expect(screen.queryByRole('combobox', { name: 'Which hub is it at?' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Where did it break down?' })).toBeInTheDocument();
+  });
+
+  it('offers one next action at a time and names the button after the chosen one', async () => {
+    const job = seed();
+    const user = userEvent.setup();
+    show(`/service/assistance/${job.id}`);
+    await fillWork(user);
+    expect(screen.getByRole('radio', { name: /Still working on it/ })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Save my notes' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Which list?' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /Move it to a different list/ }));
+    await user.click(screen.getByRole('combobox', { name: 'Which list?' }));
+    await user.click(screen.getByRole('option', { name: 'Waiting for parts' }));
+    expect(screen.getByRole('button', { name: 'Move to Waiting for parts' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect(screen.getByText(/Add the parts or claim details/)).toBeInTheDocument();
+  });
+
   it('retains edited work after a failed save', async () => {
     const job = seed();
     vi.spyOn(api, 'updateServiceJob').mockRejectedValueOnce(new Error('Could not save job'));
@@ -241,7 +275,7 @@ describe('service workbench stories', () => {
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Save for now' }));
+    await user.click(screen.getByRole('button', { name: 'Save my notes' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not save job');
     expect(screen.getByRole('textbox', { name: 'What did you find, and what did you do?' })).toHaveValue('Mirror repaired and road tested');
     expect(job.workSummary).toBe('');

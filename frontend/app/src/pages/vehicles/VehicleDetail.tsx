@@ -91,7 +91,7 @@ export function VehicleDetail() {
               Exchange
             </Button>}
             <Button color="inherit" component={Link} to={activeService ? `/service/assistance/${activeService.id}` : `/service/inspection?vehicle=${v.id}`}>
-              {activeService ? 'Open service job' : 'Inspection / service'}
+              {activeService ? 'Open service job' : 'Check this bike'}
             </Button>
           </>
         }
@@ -181,7 +181,7 @@ export function VehicleDetail() {
             <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
               Nobody has this bike. A bike can only be given out when it is{' '}
               <Box component="span" sx={{ color: tones.good.fg }}>
-                Ready to give out
+                Ready to deploy
               </Box>
               .
             </Typography>

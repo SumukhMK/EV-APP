@@ -219,7 +219,7 @@ export function ExchangeVehicle() {
             <Box sx={{ mt: 4 }}>
               <InfoStrip>
 "Being picked up" is not offered here — that is a separate job. For the bike coming back,
-                choose ready to give out, under repair, final check, or accident.
+                choose ready to deploy, under repair, QC, or accident.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
@@ -239,7 +239,7 @@ export function ExchangeVehicle() {
             )}
           </Panel>
 
-          <Panel label="The new bike" subtitle="Bikes that passed their final check and are ready to go out.">
+          <Panel label="The new bike" subtitle="Bikes that passed QC and are ready to go out.">
             <Controller
               control={form.control}
               name="toVehicleId"

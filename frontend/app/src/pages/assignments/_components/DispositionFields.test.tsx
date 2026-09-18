@@ -25,7 +25,7 @@ describe('return destinations', () => {
     const user = userEvent.setup();
     render(<ReturnForm condition={condition} />);
     await user.click(screen.getByRole('combobox', { name: 'Where does the bike go next?' }));
-    for (const label of ['Ready to give out', 'Under repair', 'Final check', 'Accident']) {
+    for (const label of ['Ready to deploy', 'Under repair', 'QC pending', 'Accident']) {
       expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
     }
     expect(screen.getAllByRole('option')).toHaveLength(4);
@@ -42,7 +42,7 @@ describe('return destinations', () => {
     const user = userEvent.setup();
     const { rerender } = render(<ReturnForm condition="MINOR" />);
     await user.click(screen.getByRole('combobox', { name: 'Where does the bike go next?' }));
-    await user.click(screen.getByRole('option', { name: 'Ready to give out' }));
+    await user.click(screen.getByRole('option', { name: 'Ready to deploy' }));
     rerender(<ReturnForm condition="ACCIDENT" />);
     expect(screen.getByRole('status')).toHaveTextContent('READY_TO_DEPLOY');
   });

@@ -85,17 +85,17 @@ const REPAIR_PLANS: SeedPlan[] = [
 
 const QC_PLANS: SeedPlan[] = [
   { queue: 'QC_PENDING', source: 'REGISTRY', category: 'MINOR', daysAgo: 23,
-    notes: 'Older record. Repair finished, waiting on the final check.' },
+    notes: 'Older record. Repair finished, waiting on QC.' },
   { queue: 'QC_PENDING', source: 'DEBOARD', category: 'NONE', daysAgo: 3,
-    notes: 'Rider gave it back in good shape. No repair needed, just the final check.',
-    work: { summary: 'Nothing to repair. Brakes, lights, horn and battery lock all checked.', technician: 'Dhananjay', note: 'Sent for final check with no work needed.', items: [] } },
+    notes: 'Rider gave it back in good shape. No repair needed, just QC.',
+    work: { summary: 'Nothing to repair. Brakes, lights, horn and battery lock all checked.', technician: 'Dhananjay', note: 'Sent for QC with no work needed.', items: [] } },
   { queue: 'QC_PENDING', source: 'RSA', category: 'MINOR', daysAgo: 5,
     notes: 'Flat rear tyre on the road. Roadside team brought it in.', location: 'HSR Layout, 27th Main',
-    work: { summary: 'Rear tube and tyre replaced, wheel balanced.', technician: 'Abhinandan', note: 'Repair done, sent for final check.',
+    work: { summary: 'Rear tube and tyre replaced, wheel balanced.', technician: 'Abhinandan', note: 'Repair done, sent for QC.',
       items: [{ label: 'Rear tyre', costPaise: 138000, kind: 'PART' }, { label: 'Tube and fitting', costPaise: 42000, kind: 'LABOUR' }] } },
   { queue: 'QC_PENDING', source: 'INSPECTION', category: 'NONE', daysAgo: 2,
     notes: 'Routine check before going back out.',
-    work: { summary: 'Full check done. Brake pads at half life, everything else fine.', technician: 'Dhananjay', note: 'Nothing to fix. Sent for the final check.', items: [] } },
+    work: { summary: 'Full check done. Brake pads at half life, everything else fine.', technician: 'Dhananjay', note: 'Nothing to fix. Sent for QC.', items: [] } },
 ];
 
 const ACCIDENT_PLANS: SeedPlan[] = [
@@ -282,10 +282,10 @@ export function recordServiceReturn(vehicle: Vehicle, req: {
   nextState: VehicleState; note: string; date: string;
 }) {
   validateCategory(req.category);
-  if (!(RETURN_DESTINATIONS as readonly string[]).includes(req.nextState)) throw new ApiError('Pick one: Ready to give out, Under repair, Final check, or Accident', 400, 'nextVehicleState');
+  if (!(RETURN_DESTINATIONS as readonly string[]).includes(req.nextState)) throw new ApiError('Pick one: Ready to deploy, Under repair, QC, or Accident', 400, 'nextVehicleState');
   const existing = activeJobForVehicle(vehicle.id);
   if (existing && existing.totalCostPaise > 0 && req.nextState === 'READY_TO_DEPLOY') {
-    throw new ApiError('This bike still has an open service job with costs on it. Finish that job before marking the bike ready to give out.', 409, 'nextVehicleState');
+    throw new ApiError('This bike still has an open service job with costs on it. Finish that job before marking the bike ready to deploy.', 409, 'nextVehicleState');
   }
   const queue = queueForDisposition(req.nextState, req.category);
   const job = existing ?? makeJob({
@@ -334,9 +334,9 @@ export function updateServiceJobRecord(req: UpdateServiceJobRequest): ServiceJob
   }
   const releasing = req.queue === 'READY_TO_DEPLOY';
   if ((releasing || req.queue === 'QC_PENDING') && !req.technician?.trim()) {
-    throw new ApiError('Say who did the work before the final check or before the bike goes back out', 400, 'technician');
+    throw new ApiError('Say who did the work before QC or before the bike goes back out', 400, 'technician');
   }
-  if ((releasing || req.queue === 'QC_PENDING') && !req.workSummary.trim()) throw new ApiError('Write what you did, or say that no repair was needed, before the final check or before the bike goes back out', 400, 'workSummary');
+  if ((releasing || req.queue === 'QC_PENDING') && !req.workSummary.trim()) throw new ApiError('Write what you did, or say that no repair was needed, before QC or before the bike goes back out', 400, 'workSummary');
   if (total > 0 && releasing && !req.liability) {
     throw new ApiError('Pick who pays before the bike goes back out', 400, 'liability');
   }

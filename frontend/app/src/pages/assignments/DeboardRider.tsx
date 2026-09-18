@@ -125,7 +125,10 @@ export function DeboardRider() {
         nextVehicleState: values.nextVehicleState,
         // Rupees at the desk, paise on the wire. Converted once, here.
         outstandingRent: values.outstandingRentRupees * 100,
-        depositRefund: values.depositRefundRupees * 100,
+        // Worked out here, not typed: deposit held minus the rent owed. Anything
+        // the damage costs is taken off later, on the service job, once the bike
+        // has actually been looked at.
+        depositRefund: Math.max(0, (rider?.depositHeld ?? 0) - values.outstandingRentRupees * 100),
         note: values.note,
         damageItems: values.damageItems,
       }),
@@ -177,7 +180,8 @@ export function DeboardRider() {
   // What the deposit covers after the outstanding rent. Shown unclamped: a
   // negative figure means the rider owes more than the deposit covers, and
   // hiding that would be hiding the argument the desk needs to have.
-  const net = (rider?.depositHeld ?? 0) - outstanding;
+  const net = (rider?.depositHeld ?? 0) - (picked.outstandingRentRupees ?? 0) * 100;
+  const refundPaise = Math.max(0, net);
   const netLabel = net >= 0 ? rupeesWithSymbol(net) : `−${rupeesWithSymbol(-net)}`;
 
   return (
@@ -302,32 +306,29 @@ export function DeboardRider() {
 
           <Panel
             label="Money"
-            subtitle="Type in the refund yourself. How much to hold back for damage is your call at the desk, not a formula."
+            subtitle="Only the rent is settled here. Damage is not priced yet."
           >
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-              {/* A number input hands back a string unless it is asked not to. */}
-              <TextField
-                label="Rent still owed (₹)"
-                type="number"
-                {...form.register('outstandingRentRupees', { valueAsNumber: true })}
-                error={Boolean(form.formState.errors.outstandingRentRupees)}
-                helperText={form.formState.errors.outstandingRentRupees?.message}
-              />
-              <TextField
-                label="Deposit being returned (₹)"
-                type="number"
-                {...form.register('depositRefundRupees', { valueAsNumber: true })}
-                error={Boolean(form.formState.errors.depositRefundRupees)}
-                helperText={form.formState.errors.depositRefundRupees?.message}
-              />
-            </Box>
+            {/* A number input hands back a string unless it is asked not to. */}
+            <TextField
+              label="Rent still owed (₹)"
+              type="number"
+              fullWidth
+              {...form.register('outstandingRentRupees', { valueAsNumber: true })}
+              error={Boolean(form.formState.errors.outstandingRentRupees)}
+              helperText={form.formState.errors.outstandingRentRupees?.message ?? `Our records show ${rupeesWithSymbol(Math.max(0, outstanding))} owed this week. Type what the desk agreed.`}
+            />
             <Box sx={{ mt: 5 }}>
               <DerivedField
-                label="Rider gets back, after rent owed"
+                label="Deposit left after rent owed"
                 value={netLabel}
-                derivation="Deposit held − outstanding rent. Negative means the deposit does not cover what is owed."
+                derivation="Deposit held − rent still owed. Negative means the rent owed is more than the deposit covers."
               />
             </Box>
+            <Alert severity="info" sx={{ mt: 4 }}>
+              Do not guess a damage deduction here. The bike has to be checked first. Whatever the repair
+              costs is decided on the service job, and if it is set to come out of the deposit, it is taken
+              off then. The rider is refunded after that.
+            </Alert>
           </Panel>
           </Box>
 
@@ -363,10 +364,10 @@ export function DeboardRider() {
                     ),
                   },
                   {
-                    label: 'Deposit refunded',
+                    label: 'Deposit left, before repairs',
                     value: (
                       <Mono sx={{ fontSize: 13 }}>
-                        {rupeesWithSymbol((picked.depositRefundRupees ?? 0) * 100)}
+                        {rupeesWithSymbol(refundPaise)}
                       </Mono>
                     ),
                   },

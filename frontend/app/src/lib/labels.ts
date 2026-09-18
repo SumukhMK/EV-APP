@@ -21,12 +21,12 @@ import type {
 
 export const VEHICLE_STATE_LABEL: Record<VehicleState, string> = {
   INDUCTED: 'New in fleet',
-  READY_TO_DEPLOY: 'Ready to give out',
+  READY_TO_DEPLOY: 'Ready to deploy',
   DEPLOYED: 'With a rider',
   RETURNED: 'Back at the hub',
   RECOVERY: 'Being picked up',
   UNDER_REPAIR: 'Under repair',
-  QC_PENDING: 'Final check',
+  QC_PENDING: 'QC pending',
   ACCIDENT: 'Accident',
   RETIRED: 'Scrapped',
 };
@@ -164,7 +164,7 @@ export const USER_ROLE_SCOPE: Record<UserRole, string> = {
   SUPER_ADMIN: 'The platform owner. Every tenant, every bike, plans and the shared blacklist.',
   TENANT_ADMIN: 'Runs one fleet end to end — bikes, riders, rent, service, dashboards.',
   FLEET_STAFF: 'Day-to-day bike work: adding bikes, checking them, recording returns.',
-  SERVICE_MANAGER: 'The workshop: repairs, final checks and what the repair costs.',
+  SERVICE_MANAGER: 'The workshop: repairs, QC checks and what a repair costs.',
 };
 
 export const USER_STATUS_LABEL: Record<UserStatus, string> = {

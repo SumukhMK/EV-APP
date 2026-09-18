@@ -87,7 +87,7 @@ export function DispositionFields<T extends FieldValues>({
         options={nextStateOptions}
       />
       <Box sx={{ color: 'text.secondary', fontSize: 13 }}>
-        We suggest: {condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'Final check'}.
+        We suggest: {condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'QC pending'}.
         You can pick any of the four. If you change it, say why in the notes before you confirm.
       </Box>
     </Box>

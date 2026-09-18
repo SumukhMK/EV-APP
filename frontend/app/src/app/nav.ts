@@ -3,7 +3,6 @@ import type { UserRole } from '../types';
 import SpeedIcon from '@mui/icons-material/SpeedOutlined';
 import TodayIcon from '@mui/icons-material/TodayOutlined';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheelerOutlined';
-import BuildIcon from '@mui/icons-material/BuildOutlined';
 import HandymanIcon from '@mui/icons-material/HandymanOutlined';
 import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
 import SupportAgentIcon from '@mui/icons-material/SupportAgentOutlined';
@@ -77,8 +76,7 @@ export const NAV: NavSection[] = [
     roles: ALL_ROLES,
     items: [
       { label: 'Bikes in service', path: '/service/queues', icon: HandymanIcon, owner: 'smk', artboard: 22 },
-      { label: 'Final checks', path: '/service/qc', icon: FactCheckIcon, owner: 'smk', artboard: 14 },
-      { label: 'Check a bike', path: '/service/inspection', icon: BuildIcon, owner: 'smk', artboard: 13 },
+      { label: 'QC queue', path: '/service/qc', icon: FactCheckIcon, owner: 'smk', artboard: 14 },
       { label: 'Help desk', path: '/service/assistance', icon: SupportAgentIcon, owner: 'smk' },
     ],
   },

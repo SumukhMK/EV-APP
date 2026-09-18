@@ -98,7 +98,7 @@ export function TodayOperations() {
         <StatTiles
           tiles={[
             {
-              label: 'Ready to give out',
+              label: 'Ready to deploy',
               value: n(f?.readyToDeploy),
               tone: 'good',
               icon: CheckCircleIcon,
@@ -112,7 +112,7 @@ export function TodayOperations() {
               to: '/service/queues?state=UNDER_REPAIR',
             },
             {
-              label: 'Final check',
+              label: 'QC pending',
               value: n(f?.qcPending),
               tone: 'caution',
               icon: FactCheckIcon,
