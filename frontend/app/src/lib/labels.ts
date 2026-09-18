@@ -20,21 +20,21 @@ import type {
  */
 
 export const VEHICLE_STATE_LABEL: Record<VehicleState, string> = {
-  INDUCTED: 'New in fleet',
-  READY_TO_DEPLOY: 'Ready to deploy',
-  DEPLOYED: 'With a rider',
-  RETURNED: 'Back at the hub',
-  RECOVERY: 'Being picked up',
-  UNDER_REPAIR: 'Under repair',
-  QC_PENDING: 'QC pending',
+  INDUCTED: 'Onboarding',
+  READY_TO_DEPLOY: 'Ready to Deploy',
+  DEPLOYED: 'Active',
+  RETURNED: 'Returned (legacy)',
+  RECOVERY: 'Recovery',
+  UNDER_REPAIR: 'In Service',
+  QC_PENDING: 'Quality Check',
   ACCIDENT: 'Accident',
-  RETIRED: 'Scrapped',
+  RETIRED: 'Retired',
 };
 
 export const VEHICLE_STATE_TONE: Record<VehicleState, StatusTone> = {
   INDUCTED: 'neutral',
-  READY_TO_DEPLOY: 'good',
-  DEPLOYED: 'accent',
+  READY_TO_DEPLOY: 'accent',
+  DEPLOYED: 'good',
   RETURNED: 'neutral',
   RECOVERY: 'warn',
   UNDER_REPAIR: 'warn',
@@ -44,17 +44,56 @@ export const VEHICLE_STATE_TONE: Record<VehicleState, StatusTone> = {
 };
 
 /**
+ * The six main gates every `VehicleState` belongs to — a display-only
+ * grouping, no schema change. Lifecycle timelines lead with the gate (bold,
+ * one colour per gate) and show the specific state underneath as the
+ * lighter sub-stage. See docs/superpowers/specs for the source proposal.
+ */
+export const VEHICLE_GATES = ['ONBOARDING', 'QC', 'ACTIVE', 'SERVICE', 'RTD', 'RETIRED'] as const;
+export type VehicleGate = (typeof VEHICLE_GATES)[number];
+
+export const VEHICLE_STATE_GATE: Record<VehicleState, VehicleGate> = {
+  INDUCTED: 'ONBOARDING',
+  QC_PENDING: 'QC',
+  READY_TO_DEPLOY: 'RTD',
+  DEPLOYED: 'ACTIVE',
+  RECOVERY: 'ACTIVE',
+  ACCIDENT: 'ACTIVE',
+  RETURNED: 'SERVICE', // legacy state — sits between a return and its repair
+  UNDER_REPAIR: 'SERVICE',
+  RETIRED: 'RETIRED',
+};
+
+export const VEHICLE_GATE_LABEL: Record<VehicleGate, string> = {
+  ONBOARDING: 'Onboarding',
+  QC: 'Quality Check',
+  ACTIVE: 'Active',
+  SERVICE: 'Service',
+  RTD: 'Ready to Deploy',
+  RETIRED: 'Retired',
+};
+
+export const VEHICLE_GATE_TONE: Record<VehicleGate, StatusTone> = {
+  ONBOARDING: 'neutral',
+  QC: 'caution',
+  ACTIVE: 'good',
+  SERVICE: 'warn',
+  RTD: 'accent',
+  RETIRED: 'neutral',
+};
+
+/**
  * The only transitions the UI offers. Enforced server-side later; until then
  * this is what stops the demo showing a nonsense move.
  */
 export const VEHICLE_TRANSITIONS: Record<VehicleState, VehicleState[]> = {
-  INDUCTED: ['READY_TO_DEPLOY', 'UNDER_REPAIR'],
-  READY_TO_DEPLOY: ['DEPLOYED', 'UNDER_REPAIR', 'RETIRED'],
-  DEPLOYED: ['RETURNED', 'ACCIDENT', 'RECOVERY'],
-  RETURNED: ['UNDER_REPAIR', 'QC_PENDING', 'READY_TO_DEPLOY'],
-  RECOVERY: ['UNDER_REPAIR', 'QC_PENDING', 'READY_TO_DEPLOY', 'RETIRED'],
-  UNDER_REPAIR: ['QC_PENDING', 'ACCIDENT', 'RETIRED'],
+  INDUCTED: ['QC_PENDING'],
   QC_PENDING: ['READY_TO_DEPLOY', 'UNDER_REPAIR'],
+  READY_TO_DEPLOY: ['DEPLOYED', 'UNDER_REPAIR', 'RETIRED'],
+  DEPLOYED: ['UNDER_REPAIR', 'QC_PENDING', 'RECOVERY', 'ACCIDENT'],
+  RETURNED: [],                     // legacy — no outbound transitions
+  RECOVERY: ['UNDER_REPAIR', 'ACCIDENT', 'RETIRED'],
+  UNDER_REPAIR: ['QC_PENDING', 'ACCIDENT', 'RETIRED'],
   ACCIDENT: ['UNDER_REPAIR', 'RETIRED'],
   RETIRED: [],
 };
@@ -74,15 +113,23 @@ export const PAYMENT_STATUS_TONE: Record<PaymentStatus, StatusTone> = {
 };
 
 export const RIDER_STATUS_LABEL: Record<RiderStatus, string> = {
+  ONBOARDING: 'Onboarding',
   ACTIVE: 'Active',
-  INACTIVE: 'Inactive',
+  SUSPENDED: 'Suspended',
+  DEBOARDED: 'Deboarded',
+  OFFBOARDED: 'Offboarded',
   BLACKLISTED: 'Blacklisted',
+  INACTIVE: 'Inactive (legacy)',
 };
 
 export const RIDER_STATUS_TONE: Record<RiderStatus, StatusTone> = {
+  ONBOARDING: 'neutral',
   ACTIVE: 'good',
-  INACTIVE: 'neutral',
+  SUSPENDED: 'bad',
+  DEBOARDED: 'warn',
+  OFFBOARDED: 'neutral',
   BLACKLISTED: 'bad',
+  INACTIVE: 'neutral',
 };
 
 export const KYC_STATUS_LABEL: Record<KycStatus, string> = {

@@ -6,11 +6,11 @@ import type {
   VehicleLifecycleEvent,
   VehicleState,
 } from '../types';
-import { MODELS, mulberry32, pick } from './seed';
+import { FIRST_NAMES, LAST_NAMES, MODELS, mulberry32, pick } from './seed';
 
 /**
  * Fleet composition is pinned to the dashboard tiles in artboard 02:
- * 137 total = 97 deployed + 22 ready + 9 under repair + 4 QC + 2 accident + 3 recovery.
+ * 137 total = 97 active + 22 ready to deploy + 9 in service + 4 quality check + 2 accident + 3 recovery.
  */
 export const FLEET_MIX: Record<VehicleState, number> = {
   DEPLOYED: 97,
@@ -24,7 +24,13 @@ export const FLEET_MIX: Record<VehicleState, number> = {
   RETIRED: 0,
 };
 
-/** The twelve rows drawn on artboard 03, verbatim. These lead the list. */
+/**
+ * The twelve rows drawn on artboard 03, verbatim. These lead the list.
+ *
+ * Rider stays tagged until receipt is generated at QC release, so service-state
+ * vehicles (UNDER_REPAIR, QC_PENDING, ACCIDENT) keep their rider. Only
+ * RTD (no rider) and the designed RTD bikes have null.
+ */
 const DESIGNED: ReadonlyArray<
   [id: string, chassis: string, model: string, battery: BatteryType, state: VehicleState, rider: string | null, vendor: string | null]
 > = [
@@ -32,12 +38,12 @@ const DESIGNED: ReadonlyArray<
   ['FBLSS003B', 'MD9ESLM1225873232', 'Sprinto-SunM', 'Sun Mobility', 'DEPLOYED', 'Raju Debnath', 'Sun Mobility'],
   ['BLRSS0431', 'SESEAG03202300497', 'Eagle-SunM', 'Sun Mobility', 'READY_TO_DEPLOY', null, 'Sun Mobility'],
   ['FBLSS0112', 'MD9ESLM1225873418', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Ashwin Kamath', 'Sun Mobility'],
-  ['BLRSS0407', 'SESEAG03202300402', 'Eagle-SunM', 'Sun Mobility', 'UNDER_REPAIR', null, 'Sun Mobility'],
+  ['BLRSS0407', 'SESEAG03202300402', 'Eagle-SunM', 'Sun Mobility', 'UNDER_REPAIR', 'Arjun Mehta', 'Sun Mobility'],
   ['FBLSS0086', 'MD9ESLM1225873101', 'Sprinto-SunM Pro', 'Sun Mobility', 'DEPLOYED', 'Nabam Tada', 'Sun Mobility'],
-  ['BLRSS0419', 'SESEAG03202300455', 'Eagle-SunM', 'Sun Mobility', 'QC_PENDING', null, 'Sun Mobility'],
+  ['BLRSS0419', 'SESEAG03202300455', 'Eagle-SunM', 'Sun Mobility', 'QC_PENDING', 'Vikram Patil', 'Sun Mobility'],
   ['FBLSS0129', 'MD9ESLM1225873560', 'Sprinto-BS', 'Battery Smart', 'DEPLOYED', 'Imran Shaikh', 'Battery Smart'],
   ['BLRSS0436', 'SESEAG03202300508', 'Eagle-SunM', 'Sun Mobility', 'READY_TO_DEPLOY', null, 'Sun Mobility'],
-  ['FBLSS0074', 'MD9ESLM1225872944', 'Sprinto-SunM', 'Sun Mobility', 'ACCIDENT', null, 'Sun Mobility'],
+  ['FBLSS0074', 'MD9ESLM1225872944', 'Sprinto-SunM', 'Sun Mobility', 'ACCIDENT', 'Nitin Desai', 'Sun Mobility'],
   ['BLRSS0412', 'SESEAG03202300428', 'Eagle-SunM', 'Sun Mobility', 'DEPLOYED', 'Lalit Chhetri', 'Sun Mobility'],
   ['FBLSS0141', 'MD9ESLM1225873677', 'Sprinto-SunM Plus', 'Sun Mobility', 'DEPLOYED', 'Sohail Ahmed', 'Sun Mobility'],
 ];
@@ -76,6 +82,14 @@ function weightedHub(rng: () => number, state: VehicleState): string {
   return table[table.length - 1][0];
 }
 
+/**
+ * Service-state vehicles that came from a rider keep their rider tagged until
+ * receipt is generated at QC release. Only wear-and-tear jobs from RTD have
+ * no rider. The first generated vehicle per service state is the RTD case;
+ * every other one keeps a rider name so the rider builder can pair them.
+ */
+const SERVICE_STATES: VehicleState[] = ['UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT', 'RECOVERY'];
+
 function buildFleet(): Vehicle[] {
   const rng = mulberry32(20260824);
   const out: Vehicle[] = DESIGNED.map(([id, chassisNumber, model, batteryType, state, currentRiderName, batteryVendor], i) => ({
@@ -97,18 +111,28 @@ function buildFleet(): Vehicle[] {
   const remaining: Record<VehicleState, number> = { ...FLEET_MIX };
   for (const v of out) remaining[v.state] -= 1;
 
+  // Track how many generated per service state — first one is RTD wear & tear (no rider).
+  const serviceGenCount: Record<string, number> = {};
+
   let eagle = 437;
   let sprinto = 142;
   for (const state of Object.keys(remaining) as VehicleState[]) {
     for (let n = 0; n < remaining[state]; n += 1) {
       const isEagle = rng() < 0.55;
-      // Chassis runs off the same counter as the id rather than off the rng.
-      // A random suffix out of a few hundred values collided six times in a
-      // 137-row fleet — invisible on screen, and exactly the kind of thing a
-      // chassis lookup or a dedupe check would later trip over. The ranges start
-      // clear of the designed rows above (eagle ≤ 00508, sprinto ≤ 73677).
       const seq = isEagle ? eagle++ : sprinto++;
       const model = isEagle ? 'Eagle-SunM' : pick(rng, MODELS.slice(1));
+
+      // Service-state vehicles: first generated one per state has no rider (RTD
+      // wear & tear / company-pays). All others keep their rider tagged.
+      const isService = SERVICE_STATES.includes(state);
+      const genIdx = serviceGenCount[state] ?? 0;
+      serviceGenCount[state] = genIdx + 1;
+      // Service vehicles with riders get names here (rider builder pairs them).
+      // DEPLOYED vehicles get names from the rider builder, not here.
+      const riderName = isService && genIdx > 0
+        ? `${pick(rng, FIRST_NAMES)} ${pick(rng, LAST_NAMES)}`
+        : null;
+
       out.push({
         id: isEagle ? `BLRSS0${seq}` : `FBLSS0${seq}`,
         chassisNumber: isEagle
@@ -119,8 +143,8 @@ function buildFleet(): Vehicle[] {
         batteryVendor: model === 'Sprinto-BS' ? 'Battery Smart' : 'Sun Mobility',
         hub: weightedHub(rng, state),
         state,
-        currentRiderId: null,
-        currentRiderName: null,
+        currentRiderId: null,      // filled by the rider builder
+        currentRiderName: riderName,
         inductedOn: `202${4 + Math.floor(rng() * 2)}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 28)).padStart(2, '0')}`,
         registrationNumber: null,
         odometerKm: 500 + Math.floor(rng() * 21000),

@@ -212,7 +212,7 @@ export function AssignVehicle() {
                   '—'
                 ),
               },
-              { label: 'Bike becomes', value: 'With a rider' },
+              { label: 'Bike becomes', value: 'Active' },
             ]}
           />
           <TextField

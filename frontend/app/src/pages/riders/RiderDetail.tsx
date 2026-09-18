@@ -197,8 +197,8 @@ export function RiderDetail() {
               {canTakeBike ? (
                 <>
                   No bike yet. A bike can only be given out when it is{' '}
-                  <Box component="span" sx={{ color: tones.good.fg }}>
-                    Ready to deploy
+                  <Box component="span" sx={{ color: tones.accent.fg }}>
+                    Ready to Deploy
                   </Box>
                   .
                 </>

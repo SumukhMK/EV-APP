@@ -57,42 +57,42 @@ export function Dashboard() {
         {/*
           Every tile leads to the set it counts. The four fleet-state tiles go
           to the vehicles list pre-filtered on that state, so the figure and
-          the list can be reconciled in one click. Under repair used to open
-          the inspection form, which is where a bike is *sent* to repair, not
+          the list can be reconciled in one click. In Service used to open
+          the inspection form, which is where a bike is *sent* for service, not
           where the nine already there can be seen.
         */}
         <StatTiles
           tiles={[
             { label: 'Total fleet', value: s ? formatNumber(s.totalFleet) : '—', icon: TwoWheelerIcon, to: '/vehicles' },
             {
-              label: 'Out with riders',
+              label: 'Active',
               value: s ? formatNumber(s.deployed) : '—',
               icon: RocketIcon,
               to: '/vehicles?state=DEPLOYED',
             },
             {
-              label: 'Ready to deploy',
+              label: 'Ready to Deploy',
               value: s ? formatNumber(s.readyToDeploy) : '—',
-              tone: 'good',
+              tone: 'accent',
               icon: CheckCircleIcon,
               to: '/vehicles?state=READY_TO_DEPLOY',
             },
             {
-              label: 'Under repair',
+              label: 'In Service',
               value: s ? formatNumber(s.underRepair) : '—',
               tone: 'warn',
               icon: BuildIcon,
               to: '/service/queues?state=UNDER_REPAIR',
             },
             {
-              label: 'QC pending',
+              label: 'Quality Check',
               value: s ? formatNumber(s.qcPending) : '—',
               tone: 'caution',
               icon: FactCheckIcon,
               to: '/service/qc',
             },
             {
-              label: 'Being picked up',
+              label: 'Recovery',
               value: s ? formatNumber(s.recovery) : '—',
               tone: 'warn',
               icon: ReplayIcon,

@@ -270,8 +270,7 @@ export function DeboardRider() {
                 options={CONDITIONS}
               />
               <InfoStrip>
-"Being picked up" is not offered here — that is a separate job. These are the same four
-                places a bike can go that you see in Today's operations.
+Recovery is not offered here — that is a separate job. Choose Quality Check, In Service, or Accident.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>

@@ -19,11 +19,11 @@ const rbac = (act: UserRole[]): Record<UserRole, { canView: boolean; canAct: boo
 export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   {
     id: 'INDUCTED',
-    position: { x: 0, y: 0 },
+    position: { x: 80, y: 40 },
     type: 'flow',
     data: {
       label: VEHICLE_STATE_LABEL.INDUCTED,
-      description: 'Just added to the system, not yet checked',
+      description: 'Onboarding — just added to the system, not yet QC checked. Must pass Quality Check before going to fleet.',
       tone: VEHICLE_STATE_TONE.INDUCTED,
       screens: [{ path: '/vehicles/new', label: 'Add vehicle' }],
       actors: ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF'],
@@ -47,11 +47,12 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'QC_PENDING',
-    position: { x: 400, y: 0 },
+    position: { x: 420, y: 40 },
     type: 'flow',
     data: {
       label: SERVICE_QUEUE_LABEL.QC_PENDING,
-      description: 'Waiting for quality check before release',
+      description:
+        'Quality check gate before release. Rider already decoupled (at receipt in Service). QC pass → Ready to Deploy. QC fail → back to Service. Same rider can be re-assigned at RTD.',
       tone: VEHICLE_STATE_TONE.QC_PENDING,
       screens: [{ path: '/service/qc', label: 'QC queue' }],
       actors: ALL_ROLES,
@@ -62,6 +63,7 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
       fields: [
         { name: 'queue', type: 'ServiceQueue', example: 'QC_PENDING' },
         { name: 'status', type: 'ServiceJobStatus', example: 'OPEN' },
+        { name: 'currentRiderId', type: 'string | null', example: 'RDR-0012 if rider-caused' },
       ],
       permissions: rbac(ALL_ROLES),
       permissionFn: 'canManageService',
@@ -73,16 +75,17 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'READY_TO_DEPLOY',
-    position: { x: 800, y: 0 },
+    position: { x: 760, y: 40 },
     type: 'flow',
     data: {
       label: VEHICLE_STATE_LABEL.READY_TO_DEPLOY,
-      description: 'Checked, free, can go out to a rider',
+      description:
+        'Ready to Deploy — no rider attached, QC passed. Assign to any rider (including the previous one). If wear & tear found, send to Service (company pays).',
       tone: VEHICLE_STATE_TONE.READY_TO_DEPLOY,
       screens: [{ path: '/vehicles?state=READY_TO_DEPLOY', label: 'Vehicles (filtered)' }],
       actors: ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF'],
-      actions: ['Assign to rider', 'Retire'],
-      triggers: ['QC passed'],
+      actions: ['Assign to rider', 'Retire', 'Send for repair (wear & tear)'],
+      triggers: ['QC passed + payment settled'],
       typeName: 'VehicleState',
       relatedTypes: ['Vehicle'],
       fields: [
@@ -99,11 +102,12 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'DEPLOYED',
-    position: { x: 1200, y: 0 },
+    position: { x: 1140, y: 40 },
     type: 'flow',
     data: {
       label: VEHICLE_STATE_LABEL.DEPLOYED,
-      description: 'Out on the road with an active rider',
+      description:
+        'Active — on the road with a rider. Rider tagged (Vehicle.currentRiderId set). Tag stays through Service until receipt generated.',
       tone: VEHICLE_STATE_TONE.DEPLOYED,
       screens: [{ path: '/vehicles?state=DEPLOYED', label: 'Vehicles (filtered)' }],
       actors: ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF'],
@@ -126,25 +130,27 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'UNDER_REPAIR',
-    position: { x: 800, y: 400 },
+    position: { x: 540, y: 340 },
     type: 'flow',
     data: {
       label: VEHICLE_STATE_LABEL.UNDER_REPAIR,
-      description: 'At the hub, being worked on (any service queue)',
+      description:
+        'In service at the hub. Rider stays tagged until receipt is generated (cost estimated + liability decided). Receipt = decouple point — Vehicle.currentRiderId cleared, ServiceJob.riderId kept for payment. If from RTD (wear & tear), no rider — company pays.',
       tone: VEHICLE_STATE_TONE.UNDER_REPAIR,
       screens: [
         { path: '/service/queues', label: 'Bikes in service' },
         { path: '/service/assistance', label: 'Help desk' },
       ],
       actors: ALL_ROLES,
-      actions: ['Assess damage', 'Repair', 'Move queue', 'Send to QC'],
-      triggers: ['Deboard with damage', 'Walk-in', 'RSA/QRT pickup arrived', 'QC failed'],
+      actions: ['Assess damage', 'Repair', 'Estimate cost', 'Decide liability', 'Move queue', 'Send to QC'],
+      triggers: ['Deboard with damage', 'Walk-in', 'RSA/QRT pickup arrived', 'QC failed', 'RTD needs part change'],
       typeName: 'VehicleState',
       relatedTypes: ['ServiceJob', 'ServiceQueue'],
       fields: [
         { name: 'queue', type: 'ServiceQueue', example: 'MINOR_REPAIR' },
         { name: 'items', type: 'ServiceJobItem[]', example: '[{label:"Headlamp", costPaise:96000}]' },
         { name: 'technician', type: 'string | null', example: 'Abhinandan' },
+        { name: 'currentRiderId', type: 'string | null', example: 'RDR-0012 or null if from RTD' },
       ],
       permissions: rbac(ALL_ROLES),
       permissionFn: 'canManageService',
@@ -156,11 +162,12 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'RECOVERY',
-    position: { x: 1200, y: 400 },
+    position: { x: 980, y: 340 },
     type: 'flow',
     data: {
       label: VEHICLE_STATE_LABEL.RECOVERY,
-      description: 'Bike in the field, team dispatched to collect it',
+      description:
+        'Recovery — bike in the field, team dispatched. Rider still tagged until receipt at Service.',
       tone: VEHICLE_STATE_TONE.RECOVERY,
       screens: [
         { path: '/recovery', label: 'Recovery board' },
@@ -186,11 +193,12 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'ACCIDENT',
-    position: { x: 400, y: 400 },
+    position: { x: 120, y: 340 },
     type: 'flow',
     data: {
       label: VEHICLE_STATE_LABEL.ACCIDENT,
-      description: 'Serious incident — investigation or major repair',
+      description:
+        'Serious incident — investigation or major repair. Rider still tagged. ServiceJob.riderId locks liability. Decoupled at receipt, then vehicle flows through QC → RTD.',
       tone: VEHICLE_STATE_TONE.ACCIDENT,
       screens: [{ path: '/vehicles?state=ACCIDENT', label: 'Vehicles (filtered)' }],
       actors: ALL_ROLES,
@@ -212,7 +220,7 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'RETURNED',
-    position: { x: 1200, y: 200 },
+    position: { x: 1140, y: 190 },
     type: 'flow',
     data: {
       label: VEHICLE_STATE_LABEL.RETURNED,
@@ -236,7 +244,7 @@ export const VEHICLE_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'RETIRED',
-    position: { x: 0, y: 400 },
+    position: { x: 80, y: 520 },
     type: 'flow',
     data: {
       label: VEHICLE_STATE_LABEL.RETIRED,
@@ -323,11 +331,32 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     },
   },
 
+  // RTD → repair (company-owned, no rider)
+  {
+    id: 'e-rtd-repair',
+    source: 'READY_TO_DEPLOY',
+    target: 'UNDER_REPAIR',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
+    type: 'flow',
+    data: {
+      trigger: 'Wear & tear / part change needed',
+      actor: ['FLEET_STAFF'],
+      operation: 'createServiceJob()',
+      modes: ['operational', 'data', 'rbac', 'asis'],
+      asIs: 'exists',
+      toBe: 'unchanged',
+      changeNote: '',
+    },
+  },
+
   // Return paths
   {
     id: 'e-deployed-repair',
     source: 'DEPLOYED',
     target: 'UNDER_REPAIR',
+    sourceHandle: 'bottom',
+    targetHandle: 'right',
     type: 'flow',
     data: {
       trigger: 'Deboard/walk-in with damage',
@@ -343,6 +372,8 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     id: 'e-deployed-recovery',
     source: 'DEPLOYED',
     target: 'RECOVERY',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: SOURCE_LABEL.RSA + ' / ' + SOURCE_LABEL.QRT,
@@ -359,6 +390,8 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     id: 'e-deployed-accident',
     source: 'DEPLOYED',
     target: 'ACCIDENT',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: 'Accident reported',
@@ -374,6 +407,8 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     id: 'e-deployed-qc',
     source: 'DEPLOYED',
     target: 'QC_PENDING',
+    sourceHandle: 'bottom',
+    targetHandle: 'right',
     type: 'flow',
     data: {
       trigger: 'Deboard with no damage',
@@ -423,6 +458,8 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     id: 'e-repair-qc',
     source: 'UNDER_REPAIR',
     target: 'QC_PENDING',
+    sourceHandle: 'top',
+    targetHandle: 'bottom',
     type: 'flow',
     data: {
       trigger: 'Work done, sent for QC',
@@ -438,6 +475,8 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     id: 'e-qc-fail',
     source: 'QC_PENDING',
     target: 'UNDER_REPAIR',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: 'QC failed',
@@ -485,6 +524,8 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     id: 'e-rtd-retired',
     source: 'READY_TO_DEPLOY',
     target: 'RETIRED',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: 'Scrapped',
@@ -500,6 +541,8 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     id: 'e-repair-retired',
     source: 'UNDER_REPAIR',
     target: 'RETIRED',
+    sourceHandle: 'bottom',
+    targetHandle: 'right',
     type: 'flow',
     data: {
       trigger: 'Beyond repair',
@@ -530,6 +573,8 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
     id: 'e-accident-retired',
     source: 'ACCIDENT',
     target: 'RETIRED',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: 'Total loss',
@@ -594,7 +639,7 @@ export const VEHICLE_EDGES: Edge<FlowEdgeData>[] = [
 export const MONEY_NODES: Node<FlowNodeData>[] = [
   {
     id: 'M_JOB_OPEN',
-    position: { x: 0, y: 0 },
+    position: { x: 100, y: 40 },
     type: 'flow',
     data: {
       label: 'Service job opens',
@@ -618,7 +663,7 @@ export const MONEY_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'M_JOB_CLOSE',
-    position: { x: 400, y: 0 },
+    position: { x: 500, y: 40 },
     type: 'flow',
     data: {
       label: 'Job closes',
@@ -652,7 +697,7 @@ export const MONEY_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'M_DEPOSIT',
-    position: { x: 200, y: 200 },
+    position: { x: 100, y: 230 },
     type: 'flow',
     data: {
       label: LIABILITY_LABEL.DEPOSIT,
@@ -676,7 +721,7 @@ export const MONEY_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'M_RIDER_PAYS',
-    position: { x: 600, y: 200 },
+    position: { x: 780, y: 230 },
     type: 'flow',
     data: {
       label: LIABILITY_LABEL.RIDER,
@@ -700,7 +745,7 @@ export const MONEY_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'M_COMPANY',
-    position: { x: 400, y: 200 },
+    position: { x: 440, y: 230 },
     type: 'flow',
     data: {
       label: LIABILITY_LABEL.COMPANY,
@@ -719,12 +764,13 @@ export const MONEY_NODES: Node<FlowNodeData>[] = [
       toBe: 'unchanged',
       changeNote: '',
       problems: [],
-      moneyDetail: 'Company absorbs the cost. No charge to rider, no deposit deduction.',
+      moneyDetail:
+        'Company absorbs the cost. No charge to rider, no deposit deduction. Always applies when vehicle came from RTD (wear & tear, no rider tagged). Also used for goodwill cases on rider-caused damage.',
     },
   },
   {
     id: 'M_PAYMENT_RUN',
-    position: { x: 600, y: 400 },
+    position: { x: 780, y: 400 },
     type: 'flow',
     data: {
       label: 'Weekly payment run',
@@ -748,7 +794,7 @@ export const MONEY_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'M_OVERDUE',
-    position: { x: 600, y: 600 },
+    position: { x: 780, y: 560 },
     type: 'flow',
     data: {
       label: 'Overdue',
@@ -772,7 +818,7 @@ export const MONEY_NODES: Node<FlowNodeData>[] = [
   },
   {
     id: 'M_RECOVERY',
-    position: { x: 600, y: 800 },
+    position: { x: 780, y: 720 },
     type: 'flow',
     data: {
       label: 'Recovery',
@@ -816,6 +862,8 @@ export const MONEY_EDGES: Edge<FlowEdgeData>[] = [
     id: 'me-close-deposit',
     source: 'M_JOB_CLOSE',
     target: 'M_DEPOSIT',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: LIABILITY_LABEL.DEPOSIT,
@@ -831,6 +879,8 @@ export const MONEY_EDGES: Edge<FlowEdgeData>[] = [
     id: 'me-close-company',
     source: 'M_JOB_CLOSE',
     target: 'M_COMPANY',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: LIABILITY_LABEL.COMPANY,
@@ -846,6 +896,8 @@ export const MONEY_EDGES: Edge<FlowEdgeData>[] = [
     id: 'me-close-rider',
     source: 'M_JOB_CLOSE',
     target: 'M_RIDER_PAYS',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: LIABILITY_LABEL.RIDER,
@@ -861,6 +913,8 @@ export const MONEY_EDGES: Edge<FlowEdgeData>[] = [
     id: 'me-rider-run',
     source: 'M_RIDER_PAYS',
     target: 'M_PAYMENT_RUN',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: 'Next billing cycle',
@@ -876,6 +930,8 @@ export const MONEY_EDGES: Edge<FlowEdgeData>[] = [
     id: 'me-run-overdue',
     source: 'M_PAYMENT_RUN',
     target: 'M_OVERDUE',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: 'Not paid',
@@ -891,6 +947,8 @@ export const MONEY_EDGES: Edge<FlowEdgeData>[] = [
     id: 'me-overdue-recovery',
     source: 'M_OVERDUE',
     target: 'M_RECOVERY',
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
     type: 'flow',
     data: {
       trigger: 'Repossession due',

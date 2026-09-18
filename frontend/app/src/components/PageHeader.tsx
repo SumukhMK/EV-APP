@@ -99,17 +99,17 @@ export function PageHeader({
           </Typography>
         </Box>
       </Box>
-      {actions || backTo ? (
-        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', rowGap: 2 }}>
+      {(actions || backTo || meta) && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', alignSelf: { xs: 'flex-end', sm: 'auto' } }}>
+          {meta}
           {backTo && (
             <Button color="inherit" component={Link} to={backTo} startIcon={<ArrowBackIcon sx={{ fontSize: 16 }} />}>
               {backLabel ?? 'Back to list'}
             </Button>
           )}
           {actions}
-        </Stack>
-      ) : null}
-      {meta}
+        </Box>
+      )}
     </Box>
   );
 }

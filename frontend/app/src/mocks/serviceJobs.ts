@@ -54,22 +54,32 @@ interface SeedPlan {
 }
 
 const REPAIR_PLANS: SeedPlan[] = [
-  { queue: 'ASSESSMENT', source: 'REGISTRY', category: 'NONE', daysAgo: 19,
-    notes: 'Older record. Nobody wrote down what is wrong — look at the bike and note it before anything else.' },
-  { queue: 'ASSESSMENT', source: 'REGISTRY', category: 'NONE', daysAgo: 16,
-    notes: 'Older record. Came off the road with no notes. Needs someone to look at it.' },
+  // Index 0 → designed UNDER_REPAIR vehicle (has rider "Arjun Mehta"). Rider-caused.
   { queue: 'MINOR_REPAIR', source: 'DEBOARD', category: 'MINOR', daysAgo: 12,
     notes: 'Rider handed it back with a cracked mirror and a loose indicator stalk.',
     work: { summary: 'Mirror glass replaced. Indicator stalk refitted and tested.', technician: 'Dhananjay', note: 'Mirror done, road test pending.',
       items: [{ label: 'Mirror glass', costPaise: 42000, kind: 'PART' }, { label: 'Fitting', costPaise: 20000, kind: 'LABOUR' }] } },
+  // Index 1 → first generated UNDER_REPAIR (no rider — RTD wear & tear, company pays).
+  // REGISTRY/ASSESSMENT with no work: test verifies "unchecked" UI path via needsDamageAssessment().
+  { queue: 'ASSESSMENT', source: 'REGISTRY', category: 'NONE', daysAgo: 19,
+    notes: 'Migrated record. Wear and tear found during RTD check — no rider to charge.' },
+  // Index 2+ → generated vehicles with riders.
+  { queue: 'ASSESSMENT', source: 'REGISTRY', category: 'NONE', daysAgo: 16,
+    notes: 'Migrated record. Came off the road with no notes.',
+    work: { summary: 'Visual check done. Minor scuffs on panels, brakes at 60%.', technician: 'Dhananjay', note: 'Assessed — minor scuffs, no structural issue.',
+      items: [{ label: 'Panel touch-up', costPaise: 15000, kind: 'LABOUR' }] } },
   { queue: 'MINOR_REPAIR', source: 'WALK_IN', category: 'MINOR', daysAgo: 4,
-    notes: 'Rider came to the hub: brakes feel soft, rear pads worn thin.', location: 'Whitefield hub' },
+    notes: 'Rider came to the hub: brakes feel soft, rear pads worn thin.', location: 'Whitefield hub',
+    work: { summary: 'Rear brake pads replaced. Front pads at 40%, noted for next visit.', technician: 'Abhinandan', note: 'Rear pads swapped, front still OK.',
+      items: [{ label: 'Rear brake pads', costPaise: 32000, kind: 'PART' }, { label: 'Fitting and adjustment', costPaise: 18000, kind: 'LABOUR' }] } },
   { queue: 'MAJOR_REPAIR', source: 'RSA', category: 'MAJOR', daysAgo: 9,
     notes: 'Picked up from the roadside. Motor cut out and would not restart.', location: 'Outer Ring Road, Marathahalli',
     work: { summary: 'Controller tested and replaced. Wiring loom checked end to end.', technician: 'Abhinandan', note: 'Controller swapped, now on test.',
       items: [{ label: 'Motor controller', costPaise: 184000, kind: 'PART' }, { label: 'Diagnosis and fitting', costPaise: 60000, kind: 'LABOUR' }] } },
   { queue: 'MAJOR_REPAIR', source: 'EXCHANGE', category: 'MAJOR', daysAgo: 6,
-    notes: 'Swapped out for a spare bike. Rear suspension knocking and swingarm play.' },
+    notes: 'Swapped out for a spare bike. Rear suspension knocking and swingarm play.',
+    work: { summary: 'Swingarm bearing replaced. Rear shock inspected — serviceable but monitor.', technician: 'Dhananjay', note: 'Swingarm fixed, shock to watch.',
+      items: [{ label: 'Swingarm bearing set', costPaise: 72000, kind: 'PART' }, { label: 'Labour', costPaise: 45000, kind: 'LABOUR' }] } },
   { queue: 'WARRANTY', source: 'INSPECTION', category: 'MINOR', daysAgo: 8, reference: 'WR-2026-0431 · e-Sprinto, reply expected 22 Sep',
     notes: 'Routine check found the battery lock failing. Still inside warranty, so the maker pays.',
     work: { summary: 'Battery lock assembly sent back to the maker under warranty. Bike held until the replacement lands.', technician: 'Dhananjay', note: 'Claim raised with the maker.', items: [] } },
@@ -84,25 +94,34 @@ const REPAIR_PLANS: SeedPlan[] = [
 ];
 
 const QC_PLANS: SeedPlan[] = [
-  { queue: 'QC_PENDING', source: 'REGISTRY', category: 'MINOR', daysAgo: 23,
-    notes: 'Older record. Repair finished, waiting on QC.' },
+  // Index 0 → designed QC vehicle (BLRSS0419, rider "Vikram Patil"). Rider-caused.
   { queue: 'QC_PENDING', source: 'DEBOARD', category: 'NONE', daysAgo: 3,
     notes: 'Rider gave it back in good shape. No repair needed, just QC.',
     work: { summary: 'Nothing to repair. Brakes, lights, horn and battery lock all checked.', technician: 'Dhananjay', note: 'Sent for QC with no work needed.', items: [] } },
+  // Index 1 → first generated QC (no rider — RTD wear & tear).
+  { queue: 'QC_PENDING', source: 'INSPECTION', category: 'NONE', daysAgo: 2,
+    notes: 'Routine check before going back out. Company-owned maintenance.',
+    work: { summary: 'Full check done. Brake pads at half life, everything else fine.', technician: 'Dhananjay', note: 'Nothing to fix. Sent for QC.', items: [] } },
+  // Index 2+ → generated vehicles with riders.
   { queue: 'QC_PENDING', source: 'RSA', category: 'MINOR', daysAgo: 5,
     notes: 'Flat rear tyre on the road. Roadside team brought it in.', location: 'HSR Layout, 27th Main',
     work: { summary: 'Rear tube and tyre replaced, wheel balanced.', technician: 'Abhinandan', note: 'Repair done, sent for QC.',
       items: [{ label: 'Rear tyre', costPaise: 138000, kind: 'PART' }, { label: 'Tube and fitting', costPaise: 42000, kind: 'LABOUR' }] } },
-  { queue: 'QC_PENDING', source: 'INSPECTION', category: 'NONE', daysAgo: 2,
-    notes: 'Routine check before going back out.',
-    work: { summary: 'Full check done. Brake pads at half life, everything else fine.', technician: 'Dhananjay', note: 'Nothing to fix. Sent for QC.', items: [] } },
+  { queue: 'QC_PENDING', source: 'REGISTRY', category: 'MINOR', daysAgo: 23,
+    notes: 'Migrated record. Repair finished, receipt generated, rider decoupled. Waiting on QC.',
+    work: { summary: 'Chain and sprocket replaced. Brakes bled.', technician: 'Abhinandan', note: 'Repair done, QC next.',
+      items: [{ label: 'Chain and sprocket set', costPaise: 85000, kind: 'PART' }, { label: 'Labour', costPaise: 30000, kind: 'LABOUR' }] } },
 ];
 
 const ACCIDENT_PLANS: SeedPlan[] = [
+  // Index 0 → designed ACCIDENT vehicle (FBLSS0074, rider "Nitin Desai"). Rider-caused.
   { queue: 'ACCIDENT', source: 'QRT', category: 'ACCIDENT', daysAgo: 7,
-    notes: 'Rescue team brought it in after a fall. Rider unhurt. Front end badly bent.', location: 'Whitefield main road' },
+    notes: 'Rescue team brought it in after a fall. Rider unhurt. Front end badly bent.', location: 'Whitefield main road',
+    work: { summary: 'Front fender crumpled, headlamp shattered, handlebar bent. Awaiting parts quote.', technician: 'Abhinandan', note: 'Damage documented, waiting on quote.',
+      items: [{ label: 'Front fender', costPaise: 145000, kind: 'PART' }, { label: 'Headlamp assembly', costPaise: 96000, kind: 'PART' }, { label: 'Handlebar', costPaise: 68000, kind: 'PART' }] } },
+  // Index 1 → generated ACCIDENT (no rider — hit while parked at hub, company absorbs).
   { queue: 'ACCIDENT', source: 'DEBOARD', category: 'ACCIDENT', daysAgo: 21,
-    notes: 'Rider gave it back after an accident and left the fleet. Frame looks bent.',
+    notes: 'Found damaged at the hub. Frame looks bent — possibly hit while parked.',
     work: { summary: 'Frame alignment checked — bent beyond an economical repair. Sent up for a scrap decision.', technician: 'Abhinandan', note: 'Waiting on a call about scrapping it.',
       items: [{ label: 'Frame inspection', costPaise: 35000, kind: 'LABOUR' }] } },
 ];
@@ -282,10 +301,10 @@ export function recordServiceReturn(vehicle: Vehicle, req: {
   nextState: VehicleState; note: string; date: string;
 }) {
   validateCategory(req.category);
-  if (!(RETURN_DESTINATIONS as readonly string[]).includes(req.nextState)) throw new ApiError('Pick one: Ready to deploy, Under repair, QC, or Accident', 400, 'nextVehicleState');
+  if (!(RETURN_DESTINATIONS as readonly string[]).includes(req.nextState)) throw new ApiError('Pick one: Quality Check, In Service, or Accident', 400, 'nextVehicleState');
   const existing = activeJobForVehicle(vehicle.id);
   if (existing && existing.totalCostPaise > 0 && req.nextState === 'READY_TO_DEPLOY') {
-    throw new ApiError('This bike still has an open service job with costs on it. Finish that job before marking the bike ready to deploy.', 409, 'nextVehicleState');
+    throw new ApiError('This bike still has an open service job with costs on it. Finish that job before marking the bike Ready to Deploy.', 409, 'nextVehicleState');
   }
   const queue = queueForDisposition(req.nextState, req.category);
   const job = existing ?? makeJob({
@@ -368,6 +387,11 @@ export function updateServiceJobRecord(req: UpdateServiceJobRequest): ServiceJob
   if (releasing && total > 0 && req.liability && req.liability !== 'COMPANY' && job.riderId) {
     addRiderCharge({ riderId: job.riderId, serviceJobId: job.id, vehicleId: job.vehicleId, amount: total, liability: req.liability });
     if (req.liability === 'DEPOSIT' && rider) rider.depositHeld -= total;
+  }
+  // Receipt generated → decouple rider from vehicle. ServiceJob.riderId stays for payment audit.
+  if (releasing && vehicle.currentRiderId) {
+    vehicle.currentRiderId = null;
+    vehicle.currentRiderName = null;
   }
   return job;
 }

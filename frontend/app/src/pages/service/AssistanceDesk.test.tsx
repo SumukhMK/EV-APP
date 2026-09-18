@@ -69,7 +69,7 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     const vehicle = vehicles.find((v) => v.state === 'DEPLOYED')!;
     show();
-    await user.click(screen.getAllByRole('link', { name: 'New job' })[0]);
+    await user.click(screen.getByRole('link', { name: 'New job' }));
     expect(await screen.findByText('Take a bike in for service')).toBeInTheDocument();
     await user.click(screen.getByRole('combobox', { name: 'Bike' }));
     await user.paste(vehicle.id);
@@ -95,7 +95,7 @@ describe('service workbench stories', () => {
     await user.click(screen.getByRole('button', { name: 'Big repair (1)' }));
     expect(await screen.findByRole('link', { name: major.id })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: minor.id })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Open job' }));
+    await user.click(screen.getByRole('link', { name: 'Open' }));
     expect(await screen.findByRole('textbox', { name: 'What did you find, and what did you do?' })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Back to jobs' }));
     expect(await screen.findByRole('link', { name: major.id })).toBeInTheDocument();
@@ -133,19 +133,21 @@ describe('service workbench stories', () => {
     expect(screen.getByText('₹5,000.01')).toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: /Work is done/ }));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Send it for QC' }));
+    await user.click(screen.getByRole('button', { name: 'Send for Quality Check' }));
     await screen.findByRole('radio', { name: /QC passed/ });
     expect(screen.getByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(0);
+    // Use "Check all" button for QC checks, then approve repair
+    await user.click(screen.getByRole('button', { name: 'Check all' }));
+    await user.click(screen.getByRole('checkbox', { name: /Repair verified/ }));
     await user.click(screen.getByRole('radio', { name: /QC passed/ }));
-    await user.click(screen.getByRole('textbox', { name: 'What did you check?' }));
-    await user.paste('Road test and brakes passed');
-    await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Pass QC and send the bike out' }));
+    // Tick confirm
+    await user.click(screen.getByRole('checkbox', { name: /I approve/ }));
+    await user.click(screen.getByRole('button', { name: 'Pass QC and release' }));
     expect(await screen.findByText(/This job is finished/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(1);
     expect(riderCharges[0].amount).toBe(500001);
-    expect(screen.queryByRole('button', { name: 'Pass QC and send the bike out' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Pass QC and release' })).not.toBeInTheDocument();
     expect(job.activity).toHaveLength(3);
     expect(job.inspections).toHaveLength(2);
   });
@@ -158,8 +160,10 @@ describe('service workbench stories', () => {
     await user.click(screen.getByRole('button', { name: 'Add a cost line' }));
     await user.type(screen.getByRole('textbox', { name: 'Item 1' }), 'Mirror');
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '-5');
+    // Button is always enabled now (shakes on invalid submit). Confirmation resets on edit.
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save my notes' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Save my notes' }));
+    expect(job.status).toBe('OPEN'); // save did not go through
     await user.clear(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }));
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '200');
     expect(screen.getByRole('checkbox')).not.toBeChecked();
@@ -172,8 +176,11 @@ describe('service workbench stories', () => {
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
     expect(screen.getByText(/Nobody has noted this yet/)).toBeInTheDocument();
+    // Submit without picking severity — save does not go through.
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save my notes' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Save my notes' }));
+    expect(job.status).toBe('OPEN');
+    // Pick severity, re-confirm, save succeeds.
     await user.click(screen.getByRole('combobox', { name: 'How bad is the damage?' }));
     await user.click(screen.getByRole('option', { name: 'Small damage' }));
     await user.click(screen.getByRole('checkbox'));
@@ -194,7 +201,7 @@ describe('service workbench stories', () => {
     expect(await screen.findByRole('link', { name: qc.id })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: repair.id })).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Do the QC check' })).toHaveAttribute('href', `/service/assistance/${qc.id}`);
+    expect(screen.getByRole('link', { name: 'QC check' })).toHaveAttribute('href', `/service/assistance/${qc.id}`);
   });
 
   it('prevents duplicate intake with a direct existing-job link', async () => {
@@ -214,15 +221,15 @@ describe('service workbench stories', () => {
     expect(screen.queryByRole('textbox', { name: 'What did you find, and what did you do?' })).not.toBeInTheDocument();
   });
 
-  it('shows how long a job has waited rather than how it arrived', async () => {
+  it('shows both source and queue columns with waiting time', async () => {
     const job = seed();
     job.createdOn = new Date(Date.now() - 9 * 86_400_000).toISOString();
     show('/service/queues');
     expect(await screen.findByRole('columnheader', { name: 'Waiting' })).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Came in as' })).not.toBeInTheDocument();
-    expect(screen.getByText('Waiting 9 days')).toBeInTheDocument();
-    // Source is still a filter and still searchable, just not a column.
-    expect(screen.getByRole('combobox', { name: 'Came in as' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Source' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Queue' })).toBeInTheDocument();
+    expect(screen.getByText('9 days')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Source' })).toBeInTheDocument();
   });
 
   it('shows list failures rather than empty-state success and allows retry', async () => {

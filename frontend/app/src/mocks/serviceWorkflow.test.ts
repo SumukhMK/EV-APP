@@ -199,8 +199,8 @@ describe('service workflow integrity', () => {
     update(job, { queue: 'QC_PENDING', items, liability: 'RIDER', note: 'Mounting tightened' });
     expect((await listQcQueue()).some((q) => q.jobId === job.id)).toBe(true);
     await decideQc(vehicle.id, true, 'Mounting and road test passed', 'QC inspector');
-    expect(vehicle.state).toBe('DEPLOYED');
-    expect(vehicle.currentRiderId).toBe(job.riderId);
+    expect(vehicle.state).toBe('READY_TO_DEPLOY');
+    expect(vehicle.currentRiderId).toBeNull();
     expect(job.status).toBe('CLOSED');
     expect(riderCharges).toHaveLength(1);
     const rider = riders.find((r) => r.id === job.riderId)!;
@@ -267,7 +267,7 @@ describe('return disposition consistency', () => {
     const vehicle = vehicles.find((v) => v.id === body.vehicleId)!;
     expect(vehicle.state).toBe(destination);
     expect(vehicle.currentRiderId).toBeNull();
-    expect(riders.find((r) => r.id === body.riderId)?.status).toBe('INACTIVE');
+    expect(riders.find((r) => r.id === body.riderId)?.status).toBe('DEBOARDED');
     expect(serviceJobs).toHaveLength(1);
     expect(serviceJobs[0].damageNotes).toContain('Cracked glass');
     expect(serviceJobs[0].activity[0].vehicleState).toBe(destination);
@@ -290,20 +290,26 @@ describe('return disposition consistency', () => {
   });
 
   it('requires an override reason before changing assignment or job', async () => {
-    const body = deboardBody('READY_TO_DEPLOY');
+    const body = deboardBody('QC_PENDING');
     await expect(deboardRider({ ...body, note: '' })).rejects.toThrow(/override/);
     expect(vehicles.find((v) => v.id === body.vehicleId)?.state).toBe('DEPLOYED');
     expect(serviceJobs).toHaveLength(0);
   });
 
-  it('rejects missing damage details and an unclosed bill without partially deboarding', async () => {
+  it('rejects missing damage details without partially deboarding', async () => {
     const body = deboardBody('UNDER_REPAIR');
     await expect(deboardRider({ ...body, damageItems: [] })).rejects.toThrow(/damaged parts/);
+    expect(riders.find((r) => r.id === body.riderId)?.currentVehicleId).toBe(body.vehicleId);
+    expect(serviceJobs).toHaveLength(0);
+  });
+
+  it('allows deboard to QC with an open costed job — bill stays on ServiceJob.riderId', async () => {
+    const body = deboardBody('QC_PENDING');
     const job = createServiceJob({ vehicleId: body.vehicleId, riderId: body.riderId, source: 'RSA', damageCategory: 'MINOR', damageNotes: 'Mirror broken' });
     update(job, { items: [{ label: 'Mirror', costPaise: 10000 }] });
-    await expect(deboardRider({ ...body, nextVehicleState: 'READY_TO_DEPLOY' })).rejects.toThrow(/open service job/);
-    expect(riders.find((r) => r.id === body.riderId)?.currentVehicleId).toBe(body.vehicleId);
-    expect(job.status).toBe('IN_PROGRESS');
+    await deboardRider({ ...body, nextVehicleState: 'QC_PENDING' });
+    expect(riders.find((r) => r.id === body.riderId)?.currentVehicleId).toBeNull();
+    expect(job.riderId).toBe(body.riderId);
     expect(job.totalCostPaise).toBe(10000);
   });
 
@@ -319,6 +325,6 @@ describe('return disposition consistency', () => {
     assigned.state = 'READY_TO_DEPLOY';
     const rider = riders.find((r) => r.status === 'ACTIVE' && r.id !== assigned.currentRiderId)!;
     rider.currentVehicleId = null;
-    await expect(assignVehicle({ riderId: rider.id, vehicleId: assigned.id, startedOn: '2026-09-18' })).rejects.toThrow(/not ready/);
+    await expect(assignVehicle({ riderId: rider.id, vehicleId: assigned.id, startedOn: '2026-09-18' })).rejects.toThrow(/not Ready to Deploy/);
   });
 });

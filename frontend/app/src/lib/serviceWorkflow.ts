@@ -1,7 +1,10 @@
 import { SERVICE_QUEUES, type DamageCategory, type ServiceJob, type ServiceQueue, type VehicleState } from '../types';
 
-/** Return disposition is a workflow, not a direct DEPLOYED-state transition. */
-export const RETURN_DESTINATIONS = ['READY_TO_DEPLOY', 'UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT'] as const;
+/**
+ * Return disposition — where the vehicle goes when a rider brings it back.
+ * READY_TO_DEPLOY removed: every return must go through QC or service first.
+ */
+export const RETURN_DESTINATIONS = ['QC_PENDING', 'UNDER_REPAIR', 'ACCIDENT'] as const;
 export type ReturnDestination = (typeof RETURN_DESTINATIONS)[number];
 
 export const QUEUE_STATE: Record<ServiceQueue, VehicleState> = {
@@ -37,6 +40,11 @@ export function queueForDisposition(state: VehicleState, category: DamageCategor
   return category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : category === 'MINOR' ? 'MINOR_REPAIR' : 'ASSESSMENT';
 }
 
-export function releaseState(assignedRiderId: string | null): VehicleState {
-  return assignedRiderId ? 'DEPLOYED' : 'READY_TO_DEPLOY';
+/**
+ * After QC passes, vehicle always goes to RTD. Rider was decoupled at receipt
+ * generation (in UNDER_REPAIR). Re-assignment happens at RTD, even for the
+ * same rider — keeps the lifecycle clean.
+ */
+export function releaseState(_assignedRiderId: string | null): VehicleState {
+  return 'READY_TO_DEPLOY';
 }

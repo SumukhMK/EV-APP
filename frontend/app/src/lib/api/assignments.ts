@@ -29,7 +29,7 @@ function requireDeployable(vehicleId: string, field = 'vehicleId') {
   const v = vehicles.find((x) => x.id === vehicleId);
   if (!v) throw new ApiError(`No vehicle with id ${vehicleId}`, 404, field);
   if (v.state !== 'READY_TO_DEPLOY' || v.currentRiderId) {
-    throw new ApiError(`${v.id} is not ready to deploy`, 409, field);
+    throw new ApiError(`${v.id} is not Ready to Deploy`, 409, field);
   }
   return v;
 }
@@ -135,7 +135,7 @@ export async function deboardRider(body: DeboardRiderRequest): Promise<Rider> {
   const note = returnNote(body);
   recordServiceReturn(vehicle, { riderId: rider.id, source: 'DEBOARD', category: body.returnCondition, nextState: body.nextVehicleState, note, date: body.returnedOn });
   close(rider, vehicle, body.nextVehicleState);
-  rider.status = 'INACTIVE';
+  rider.status = 'DEBOARDED';
   void body.outstandingRent;
   void body.depositRefund;
   return delay(rider, 460);

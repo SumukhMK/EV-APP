@@ -21,14 +21,14 @@ function DamageDraft() {
 }
 
 describe('return destinations', () => {
-  it.each(['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const)('shows all four operational destinations for %s', async (condition) => {
+  it.each(['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const)('shows all three operational destinations for %s', async (condition) => {
     const user = userEvent.setup();
     render(<ReturnForm condition={condition} />);
     await user.click(screen.getByRole('combobox', { name: 'Where does the bike go next?' }));
-    for (const label of ['Ready to deploy', 'Under repair', 'QC pending', 'Accident']) {
+    for (const label of ['Quality Check', 'In Service', 'Accident']) {
       expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
     }
-    expect(screen.getAllByRole('option')).toHaveLength(4);
+    expect(screen.getAllByRole('option')).toHaveLength(3);
   });
 
   it.each([
@@ -40,11 +40,12 @@ describe('return destinations', () => {
 
   it('preserves a deliberate destination override when severity changes', async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<ReturnForm condition="MINOR" />);
+    const { rerender } = render(<ReturnForm condition="NONE" />);
+    // Default for NONE is QC_PENDING. Override to In Service.
     await user.click(screen.getByRole('combobox', { name: 'Where does the bike go next?' }));
-    await user.click(screen.getByRole('option', { name: 'Ready to deploy' }));
+    await user.click(screen.getByRole('option', { name: 'In Service' }));
     rerender(<ReturnForm condition="ACCIDENT" />);
-    expect(screen.getByRole('status')).toHaveTextContent('READY_TO_DEPLOY');
+    expect(screen.getByRole('status')).toHaveTextContent('UNDER_REPAIR');
   });
 
   it('lets an operator clear unfinished damage rows after selecting no damage', async () => {

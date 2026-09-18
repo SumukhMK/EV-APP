@@ -1,7 +1,11 @@
 import type { Iso8601, Paise } from './common';
 import type { PaymentMethod } from './payment';
 
-export const RIDER_STATUSES = ['ACTIVE', 'INACTIVE', 'BLACKLISTED'] as const;
+export const RIDER_STATUSES = [
+  'ONBOARDING', 'ACTIVE', 'SUSPENDED', 'DEBOARDED', 'OFFBOARDED', 'BLACKLISTED',
+  /** @deprecated Use SUSPENDED or DEBOARDED instead. Kept for legacy data. */
+  'INACTIVE',
+] as const;
 
 export type RiderStatus = (typeof RIDER_STATUSES)[number];
 export type KycStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';

@@ -218,8 +218,8 @@ export function ExchangeVehicle() {
             </Box>
             <Box sx={{ mt: 4 }}>
               <InfoStrip>
-"Being picked up" is not offered here — that is a separate job. For the bike coming back,
-                choose ready to deploy, under repair, QC, or accident.
+Recovery is not offered here — that is a separate job. For the bike coming back,
+                choose Quality Check, In Service, or Accident.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
