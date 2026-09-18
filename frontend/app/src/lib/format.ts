@@ -16,3 +16,7 @@ const timeFmt = new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-d
 export const formatDate = (iso: string) => dateFmt.format(new Date(iso));
 export const formatDateTime = (iso: string) => `${dateFmt.format(new Date(iso))} ${timeFmt.format(new Date(iso))}`;
 export const formatNumber = (n: number) => inr.format(n);
+
+/** Whole days between an ISO timestamp and now, never negative. */
+export const daysSince = (iso: string) =>
+  Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));

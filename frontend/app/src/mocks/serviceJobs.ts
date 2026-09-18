@@ -1,12 +1,12 @@
 import type {
   CloseServiceJobRequest, CreateServiceJobRequest, DamageCategory, InspectionRequest, ServiceJob,
-  ServiceJobItem, UpdateServiceJobRequest, Vehicle, VehicleState,
+  ServiceJobItem, ServiceJobSource, ServiceQueue, UpdateServiceJobRequest, Vehicle, VehicleState,
 } from '../types';
 import { ApiError } from '../lib/api/client';
 import { hasServiceNote, isServiceQueue, QUEUE_STATE, RETURN_DESTINATIONS, queueForCondition, queueForDisposition, releaseState } from '../lib/serviceWorkflow';
 import { addRiderCharge } from './riderCharges';
 import { riders } from './riders';
-import { lifecycleByVehicle, qcRepairDetails, vehicles } from './vehicles';
+import { lifecycleByVehicle, vehicles } from './vehicles';
 
 const iso = () => new Date().toISOString();
 let nextId = 1;
@@ -25,21 +25,212 @@ function makeJob(req: CreateServiceJobRequest): ServiceJob {
   };
 }
 
-// Existing vehicles enter the workbench without inventing repair severities or sources.
-export const serviceJobs: ServiceJob[] = vehicles
-  .filter((v) => ['UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT'].includes(v.state))
-  .map((v) => {
-    const detail = qcRepairDetails[v.id];
-    const job = makeJob({
-      vehicleId: v.id, riderId: v.currentRiderId, source: 'REGISTRY',
-      damageCategory: v.state === 'ACCIDENT' ? 'ACCIDENT' : detail?.category === 'MINOR' || detail?.category === 'MAJOR' ? detail.category : 'NONE',
-      queue: v.state === 'QC_PENDING' ? 'QC_PENDING' : v.state === 'ACCIDENT' ? 'ACCIDENT' : 'ASSESSMENT',
-      damageNotes: detail?.repairSummary ?? 'Migrated fleet record. Assess and record the findings before release.',
-      occurredOn: detail?.closedOn ?? v.inductedOn,
-    });
-    job.technician = detail?.technician ?? null;
-    return job;
+/**
+ * Fixture jobs. Every bike sitting in a service state gets exactly one open
+ * job, and the spread is deliberate: each service list, each way a bike can
+ * arrive, each damage level, each status and each way a job can be paid for
+ * has at least one record. A demo that only ever shows "Needs checking" hides
+ * most of the screen, so the fixture walks the whole workbench instead.
+ *
+ * Bikes whose damage was never written down keep source REGISTRY and land in
+ * Needs checking — the app must still ask an operator what is wrong rather
+ * than invent a severity.
+ */
+interface SeedWork {
+  summary: string;
+  technician: string;
+  items: ServiceJobItem[];
+  note: string;
+}
+interface SeedPlan {
+  queue: ServiceQueue;
+  source: ServiceJobSource;
+  category: DamageCategory;
+  notes: string;
+  daysAgo: number;
+  reference?: string;
+  location?: string;
+  work?: SeedWork;
+}
+
+const REPAIR_PLANS: SeedPlan[] = [
+  { queue: 'ASSESSMENT', source: 'REGISTRY', category: 'NONE', daysAgo: 19,
+    notes: 'Older record. Nobody wrote down what is wrong — look at the bike and note it before anything else.' },
+  { queue: 'ASSESSMENT', source: 'REGISTRY', category: 'NONE', daysAgo: 16,
+    notes: 'Older record. Came off the road with no notes. Needs someone to look at it.' },
+  { queue: 'MINOR_REPAIR', source: 'DEBOARD', category: 'MINOR', daysAgo: 12,
+    notes: 'Rider handed it back with a cracked mirror and a loose indicator stalk.',
+    work: { summary: 'Mirror glass replaced. Indicator stalk refitted and tested.', technician: 'Dhananjay', note: 'Mirror done, road test pending.',
+      items: [{ label: 'Mirror glass', costPaise: 42000, kind: 'PART' }, { label: 'Fitting', costPaise: 20000, kind: 'LABOUR' }] } },
+  { queue: 'MINOR_REPAIR', source: 'WALK_IN', category: 'MINOR', daysAgo: 4,
+    notes: 'Rider came to the hub: brakes feel soft, rear pads worn thin.', location: 'Whitefield hub' },
+  { queue: 'MAJOR_REPAIR', source: 'RSA', category: 'MAJOR', daysAgo: 9,
+    notes: 'Picked up from the roadside. Motor cut out and would not restart.', location: 'Outer Ring Road, Marathahalli',
+    work: { summary: 'Controller tested and replaced. Wiring loom checked end to end.', technician: 'Abhinandan', note: 'Controller swapped, now on test.',
+      items: [{ label: 'Motor controller', costPaise: 184000, kind: 'PART' }, { label: 'Diagnosis and fitting', costPaise: 60000, kind: 'LABOUR' }] } },
+  { queue: 'MAJOR_REPAIR', source: 'EXCHANGE', category: 'MAJOR', daysAgo: 6,
+    notes: 'Swapped out for a spare bike. Rear suspension knocking and swingarm play.' },
+  { queue: 'WARRANTY', source: 'INSPECTION', category: 'MINOR', daysAgo: 8, reference: 'WR-2026-0431 · e-Sprinto, reply expected 22 Sep',
+    notes: 'Routine check found the battery lock failing. Still inside warranty, so the maker pays.',
+    work: { summary: 'Battery lock assembly sent back to the maker under warranty. Bike held until the replacement lands.', technician: 'Dhananjay', note: 'Claim raised with the maker.', items: [] } },
+  { queue: 'INSURANCE', source: 'QRT', category: 'ACCIDENT', daysAgo: 14, reference: 'CLM-88214 · surveyor visited 6 Sep',
+    notes: 'Rescue team brought it in after a side-on hit at a junction. Insurance is handling it.', location: 'Sarjapur Road junction',
+    work: { summary: 'Photographed for the surveyor. Front panel, forks and headlamp all need replacing.', technician: 'Abhinandan', note: 'Waiting on the insurance decision.',
+      items: [{ label: 'Front panel set', costPaise: 268000, kind: 'PART' }, { label: 'Fork assembly', costPaise: 195000, kind: 'PART' }] } },
+  { queue: 'PARTS_WAITING', source: 'DEBOARD', category: 'MAJOR', daysAgo: 11, reference: 'Charging harness — expected 22 Sep',
+    notes: 'Rider gave it back because it would not charge. Harness is burnt.',
+    work: { summary: 'Charging harness burnt at the connector. New harness on order.', technician: 'Dhananjay', note: 'Part ordered, nothing more to do until it arrives.',
+      items: [{ label: 'Charging harness', costPaise: 88000, kind: 'PART' }] } },
+];
+
+const QC_PLANS: SeedPlan[] = [
+  { queue: 'QC_PENDING', source: 'REGISTRY', category: 'MINOR', daysAgo: 23,
+    notes: 'Older record. Repair finished, waiting on the final check.' },
+  { queue: 'QC_PENDING', source: 'DEBOARD', category: 'NONE', daysAgo: 3,
+    notes: 'Rider gave it back in good shape. No repair needed, just the final check.',
+    work: { summary: 'Nothing to repair. Brakes, lights, horn and battery lock all checked.', technician: 'Dhananjay', note: 'Sent for final check with no work needed.', items: [] } },
+  { queue: 'QC_PENDING', source: 'RSA', category: 'MINOR', daysAgo: 5,
+    notes: 'Flat rear tyre on the road. Roadside team brought it in.', location: 'HSR Layout, 27th Main',
+    work: { summary: 'Rear tube and tyre replaced, wheel balanced.', technician: 'Abhinandan', note: 'Repair done, sent for final check.',
+      items: [{ label: 'Rear tyre', costPaise: 138000, kind: 'PART' }, { label: 'Tube and fitting', costPaise: 42000, kind: 'LABOUR' }] } },
+  { queue: 'QC_PENDING', source: 'INSPECTION', category: 'NONE', daysAgo: 2,
+    notes: 'Routine check before going back out.',
+    work: { summary: 'Full check done. Brake pads at half life, everything else fine.', technician: 'Dhananjay', note: 'Nothing to fix. Sent for the final check.', items: [] } },
+];
+
+const ACCIDENT_PLANS: SeedPlan[] = [
+  { queue: 'ACCIDENT', source: 'QRT', category: 'ACCIDENT', daysAgo: 7,
+    notes: 'Rescue team brought it in after a fall. Rider unhurt. Front end badly bent.', location: 'Whitefield main road' },
+  { queue: 'ACCIDENT', source: 'DEBOARD', category: 'ACCIDENT', daysAgo: 21,
+    notes: 'Rider gave it back after an accident and left the fleet. Frame looks bent.',
+    work: { summary: 'Frame alignment checked — bent beyond an economical repair. Sent up for a scrap decision.', technician: 'Abhinandan', note: 'Waiting on a call about scrapping it.',
+      items: [{ label: 'Frame inspection', costPaise: 35000, kind: 'LABOUR' }] } },
+];
+
+/** Jobs that already finished, so closed records and charges are explorable. */
+interface ClosedPlan {
+  state: VehicleState;
+  source: ServiceJobSource;
+  category: DamageCategory;
+  liability: ServiceJob['liability'];
+  notes: string;
+  summary: string;
+  technician: string;
+  items: ServiceJobItem[];
+  daysAgo: number;
+  /** Bills to an earlier week, so the run shows money carried forward. */
+  earlierPeriod?: boolean;
+}
+
+const CLOSED_PLANS: ClosedPlan[] = [
+  { state: 'DEPLOYED', source: 'WALK_IN', category: 'MINOR', liability: 'RIDER', daysAgo: 5,
+    notes: 'Rider came to the hub with a broken brake lever after dropping the bike.',
+    summary: 'Brake lever and cable replaced. Road tested and handed back to the same rider.', technician: 'Dhananjay',
+    items: [{ label: 'Brake lever', costPaise: 38000, kind: 'PART' }, { label: 'Cable and fitting', costPaise: 26000, kind: 'LABOUR' }] },
+  { state: 'DEPLOYED', source: 'RSA', category: 'MAJOR', liability: 'DEPOSIT', daysAgo: 9,
+    notes: 'Kerb hit on the roadside. Roadside team recovered it.',
+    summary: 'Front fork straightened, headlamp replaced, wheel realigned. Taken out of the deposit we hold.', technician: 'Abhinandan',
+    items: [{ label: 'Headlamp assembly', costPaise: 96000, kind: 'PART' }, { label: 'Fork straightening', costPaise: 84000, kind: 'LABOUR' }] },
+  { state: 'DEPLOYED', source: 'QRT', category: 'MINOR', liability: 'RIDER', daysAgo: 17, earlierPeriod: true,
+    notes: 'Rescue team swapped a dead battery lock at the roadside.',
+    summary: 'Battery lock replaced on the spot. Charged to the rider, still unpaid.', technician: 'Dhananjay',
+    items: [{ label: 'Battery lock', costPaise: 52000, kind: 'PART' }] },
+  { state: 'DEPLOYED', source: 'EXCHANGE', category: 'NONE', liability: 'COMPANY', daysAgo: 13,
+    notes: 'Bike swapped because the rider changed to a longer shift. No damage.',
+    summary: 'Checked over, cleaned and sent back out. Nothing charged to the rider.', technician: 'Dhananjay', items: [] },
+  { state: 'READY_TO_DEPLOY', source: 'INSPECTION', category: 'NONE', liability: 'COMPANY', daysAgo: 2,
+    notes: 'Routine check before the bike goes to a new rider.',
+    summary: 'Full check passed. No work needed.', technician: 'Abhinandan', items: [] },
+];
+
+const DAY_MS = 86_400_000;
+const seedDate = (daysAgo: number) => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
+
+function seedJob(vehicle: Vehicle, plan: SeedPlan): ServiceJob {
+  const createdOn = seedDate(plan.daysAgo);
+  const job = makeJob({
+    vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: plan.source,
+    damageCategory: plan.category, queue: plan.queue, damageNotes: plan.notes,
+    location: plan.location ?? vehicle.hub, reference: plan.reference, occurredOn: createdOn,
   });
+  job.activity.push({ occurredOn: createdOn, actor: 'Fleet desk', note: plan.notes, queue: plan.queue, vehicleState: vehicle.state });
+  if (plan.work) {
+    const workedOn = seedDate(Math.max(0, plan.daysAgo - 1));
+    job.workSummary = plan.work.summary;
+    job.technician = plan.work.technician;
+    job.items = plan.work.items.map((item) => ({ ...item }));
+    job.totalCostPaise = job.items.reduce((sum, item) => sum + item.costPaise, 0);
+    job.status = 'IN_PROGRESS';
+    job.updatedOn = workedOn;
+    job.activity.push({ occurredOn: workedOn, actor: plan.work.technician, note: plan.work.note, queue: plan.queue, vehicleState: vehicle.state });
+    job.inspections.push({
+      vehicleId: vehicle.id, category: plan.category, notes: plan.work.summary,
+      items: job.items.map((item) => ({ ...item })), technician: plan.work.technician,
+      estimatedCostPaise: job.totalCostPaise, nextState: vehicle.state,
+      occurredOn: workedOn, actor: plan.work.technician,
+    });
+  }
+  return job;
+}
+
+function seedClosedJob(vehicle: Vehicle, plan: ClosedPlan): ServiceJob {
+  const createdOn = seedDate(plan.daysAgo);
+  const closedOn = seedDate(Math.max(0, plan.daysAgo - 1));
+  const job = makeJob({
+    vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: plan.source,
+    damageCategory: plan.category, queue: 'MINOR_REPAIR', damageNotes: plan.notes,
+    location: vehicle.hub, occurredOn: createdOn,
+  });
+  const items = plan.items.map((item) => ({ ...item }));
+  const total = items.reduce((sum, item) => sum + item.costPaise, 0);
+  Object.assign(job, {
+    queue: 'READY_TO_DEPLOY' as ServiceQueue, status: 'CLOSED' as const, closedOn, updatedOn: closedOn,
+    workSummary: plan.summary, technician: plan.technician, items, totalCostPaise: total,
+    liability: total > 0 ? plan.liability : 'COMPANY',
+  });
+  job.activity.push(
+    { occurredOn: createdOn, actor: 'Fleet desk', note: plan.notes, queue: 'MINOR_REPAIR', vehicleState: 'UNDER_REPAIR' },
+    { occurredOn: closedOn, actor: plan.technician, note: plan.summary, queue: 'READY_TO_DEPLOY', vehicleState: vehicle.state },
+  );
+  job.inspections.push({
+    vehicleId: vehicle.id, category: plan.category, notes: plan.summary, items: items.map((item) => ({ ...item })),
+    technician: plan.technician, estimatedCostPaise: total, nextState: vehicle.state,
+    occurredOn: closedOn, actor: plan.technician,
+  });
+  if (total > 0 && job.riderId && job.liability && job.liability !== 'COMPANY') {
+    addRiderCharge({
+      riderId: job.riderId, serviceJobId: job.id, vehicleId: job.vehicleId,
+      amount: total, liability: job.liability, period: plan.earlierPeriod ? 'PREVIOUS' : 'CURRENT',
+    });
+    const rider = riders.find((r) => r.id === job.riderId);
+    if (job.liability === 'DEPOSIT' && rider) rider.depositHeld = Math.max(0, rider.depositHeld - total);
+  }
+  return job;
+}
+
+function buildSeedJobs(): ServiceJob[] {
+  const byState = (state: VehicleState) => vehicles.filter((v) => v.state === state);
+  const jobs: ServiceJob[] = [];
+  const plans: Array<[VehicleState, SeedPlan[]]> = [
+    ['UNDER_REPAIR', REPAIR_PLANS], ['QC_PENDING', QC_PLANS], ['ACCIDENT', ACCIDENT_PLANS],
+  ];
+  for (const [state, list] of plans) {
+    const pool = byState(state);
+    // More bikes than written plans is normal — the extras repeat the plans so
+    // every bike in a service state still has exactly one job to open.
+    pool.forEach((vehicle, index) => jobs.push(seedJob(vehicle, list[index % list.length])));
+  }
+  const used = new Set(jobs.map((j) => j.vehicleId));
+  for (const plan of CLOSED_PLANS) {
+    const vehicle = byState(plan.state).find((v) => !used.has(v.id) && (plan.liability === 'COMPANY' || v.currentRiderId));
+    if (!vehicle) continue;
+    used.add(vehicle.id);
+    jobs.push(seedClosedJob(vehicle, plan));
+  }
+  return jobs.sort((a, b) => b.createdOn.localeCompare(a.createdOn));
+}
+
+export const serviceJobs: ServiceJob[] = buildSeedJobs();
 
 export function activeJobForVehicle(vehicleId: string) {
   return serviceJobs.find((job) => job.vehicleId === vehicleId && job.status !== 'CLOSED');

@@ -154,6 +154,17 @@ with no recorded damage start in **Needs checking** rather than being guessed in
 big repair. Today's Operations counts service requests logged in the period you pick; its
 movement totals and the billing run's periods are still sample data.
 
+The jobs table shows what staff act on: the bike, what it needs, how bad the damage is,
+the status, **how long it has been waiting**, the cost so far, and the next thing to do.
+How a bike arrived is context rather than a work signal, so it is a filter and a line on
+the job itself, not a column competing for width.
+
+The fixtures deliberately cover the whole workbench: every list has bikes in it, every way
+a bike can arrive appears, all four damage levels and all three statuses are present, and
+finished jobs exist for each way a repair can be paid for. Some of those finished jobs bill
+the current week and one bills the week before, so the weekly run shows both **Repairs** and
+**Old dues** rather than a column of zeroes.
+
 Mock data survives normal navigation but **resets on a full page reload**. This work does
 not add a backend, real sign-in, photo uploads or a parts inventory.
 

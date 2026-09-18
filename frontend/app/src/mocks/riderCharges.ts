@@ -20,15 +20,24 @@ const CURRENT_PERIOD_START: Record<'MONDAY' | 'WEDNESDAY', string> = {
   WEDNESDAY: '2026-08-26',
 };
 
+/** The week before the current run — fixtures use it to show money carried forward. */
+export const PREVIOUS_PERIOD_START: Record<'MONDAY' | 'WEDNESDAY', string> = {
+  MONDAY: '2026-08-17',
+  WEDNESDAY: '2026-08-19',
+};
+
 export function addRiderCharge(input: {
   riderId: string;
   serviceJobId: string;
   vehicleId: string;
   amount: number;
   liability: ServiceLiability;
+  /** Fixtures only: bill an earlier week so arrears have something to show. */
+  period?: 'CURRENT' | 'PREVIOUS';
 }): RiderCharge {
   const rider = riders.find((r) => r.id === input.riderId);
-  const periodStart = CURRENT_PERIOD_START[rider?.billingDay ?? 'MONDAY'];
+  const table = input.period === 'PREVIOUS' ? PREVIOUS_PERIOD_START : CURRENT_PERIOD_START;
+  const periodStart = table[rider?.billingDay ?? 'MONDAY'];
 
   const charge: RiderCharge = {
     id: `CHG-${String(nextId++).padStart(4, '0')}`,

@@ -214,6 +214,17 @@ describe('service workbench stories', () => {
     expect(screen.queryByRole('textbox', { name: 'What did you find, and what did you do?' })).not.toBeInTheDocument();
   });
 
+  it('shows how long a job has waited rather than how it arrived', async () => {
+    const job = seed();
+    job.createdOn = new Date(Date.now() - 9 * 86_400_000).toISOString();
+    show('/service/queues');
+    expect(await screen.findByRole('columnheader', { name: 'Waiting' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Came in as' })).not.toBeInTheDocument();
+    expect(screen.getByText('Waiting 9 days')).toBeInTheDocument();
+    // Source is still a filter and still searchable, just not a column.
+    expect(screen.getByRole('combobox', { name: 'Came in as' })).toBeInTheDocument();
+  });
+
   it('shows list failures rather than empty-state success and allows retry', async () => {
     vi.spyOn(api, 'listServiceJobs').mockRejectedValueOnce(new Error('Could not load jobs'));
     const user = userEvent.setup();

@@ -10,8 +10,8 @@ import { getServiceJob, listServiceJobs } from '../lib/api/serviceJobs';
 import { withLiveServiceFigures, runsByDay } from './payments';
 import { listRiders } from '../lib/api/riders';
 import { deboardRiderSchema, exchangeVehicleSchema } from '../lib/schemas/assignment';
-import { RETURN_DESTINATIONS } from '../lib/serviceWorkflow';
-import type { DeboardRiderRequest, ServiceJob, UpdateServiceJobRequest } from '../types';
+import { needsDamageAssessment, QUEUE_STATE, RETURN_DESTINATIONS } from '../lib/serviceWorkflow';
+import { SERVICE_QUEUES, type DeboardRiderRequest, type ServiceJob, type UpdateServiceJobRequest } from '../types';
 
 vi.mock('../lib/api/client', async (original) => ({
   ...await original<typeof import('../lib/api/client')>(),
@@ -21,6 +21,7 @@ vi.mock('../lib/api/client', async (original) => ({
 const initialVehicles = structuredClone(vehicles);
 const initialRiders = structuredClone(riders);
 const initialJobs = structuredClone(serviceJobs);
+const initialCharges = structuredClone(riderCharges);
 const initialLifecycle = structuredClone(lifecycleByVehicle);
 function reset() {
   vehicles.splice(0, vehicles.length, ...structuredClone(initialVehicles));
@@ -56,11 +57,53 @@ function deboardBody(next: DeboardRiderRequest['nextVehicleState']): DeboardRide
 }
 
 describe('service workflow integrity', () => {
-  it('imports every existing repair / accident / QC vehicle without inventing source or severity splits', () => {
+  it('gives every repair / accident / QC bike exactly one open job in a matching list', () => {
     const held = initialVehicles.filter((v) => ['UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT'].includes(v.state));
-    expect(initialJobs).toHaveLength(held.length);
-    expect(initialJobs.every((job) => job.source === 'REGISTRY')).toBe(true);
-    expect(initialJobs.filter((job) => job.queue === 'ASSESSMENT')).toHaveLength(initialVehicles.filter((v) => v.state === 'UNDER_REPAIR').length);
+    const open = initialJobs.filter((job) => job.status !== 'CLOSED');
+    expect(open).toHaveLength(held.length);
+    for (const vehicle of held) {
+      const forVehicle = open.filter((job) => job.vehicleId === vehicle.id);
+      expect(forVehicle).toHaveLength(1);
+      expect(QUEUE_STATE[forVehicle[0].queue]).toBe(vehicle.state);
+    }
+  });
+
+  it('covers every list, arrival route, damage level, status and payer so the whole workbench is explorable', () => {
+    const open = initialJobs.filter((job) => job.status !== 'CLOSED');
+    for (const queue of SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY')) {
+      expect(open.some((job) => job.queue === queue)).toBe(true);
+    }
+    for (const source of ['DEBOARD', 'EXCHANGE', 'RSA', 'QRT', 'WALK_IN', 'INSPECTION', 'REGISTRY'] as const) {
+      expect(initialJobs.some((job) => job.source === source)).toBe(true);
+    }
+    for (const category of ['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const) {
+      expect(initialJobs.some((job) => job.damageCategory === category)).toBe(true);
+    }
+    for (const status of ['OPEN', 'IN_PROGRESS', 'CLOSED'] as const) {
+      expect(initialJobs.some((job) => job.status === status)).toBe(true);
+    }
+    for (const liability of ['RIDER', 'DEPOSIT', 'COMPANY'] as const) {
+      expect(initialJobs.some((job) => job.status === 'CLOSED' && job.liability === liability)).toBe(true);
+    }
+    // Jobs waiting on someone else must say what for, or the list is useless.
+    expect(initialJobs.filter((job) => ['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(job.queue)).every((job) => job.reference)).toBe(true);
+    // Priced work, unpriced work and a finished record all appear.
+    expect(initialJobs.some((job) => job.status !== 'CLOSED' && job.totalCostPaise > 0)).toBe(true);
+    expect(initialJobs.some((job) => job.status === 'OPEN' && !job.items.length)).toBe(true);
+  });
+
+  it('bills the fixture charges to this week and the week before, so repairs and old dues both show', () => {
+    expect(initialCharges.some((c) => c.liability === 'RIDER' && c.periodStart === '2026-08-24')).toBe(true);
+    expect(initialCharges.some((c) => c.liability === 'RIDER' && c.periodStart < '2026-08-24' && c.status === 'OPEN')).toBe(true);
+    expect(initialCharges.some((c) => c.liability === 'DEPOSIT' && c.status === 'SETTLED')).toBe(true);
+    expect(initialCharges.every((c) => initialJobs.some((job) => job.id === c.serviceJobId && job.status === 'CLOSED'))).toBe(true);
+  });
+
+  it('still asks an operator what is wrong with a migrated bike instead of inventing a severity', () => {
+    const migrated = initialJobs.filter((job) => job.source === 'REGISTRY');
+    expect(migrated.length).toBeGreaterThan(0);
+    expect(migrated.some(needsDamageAssessment)).toBe(true);
+    expect(migrated.filter(needsDamageAssessment).every((job) => job.damageCategory === 'NONE' && job.queue === 'ASSESSMENT')).toBe(true);
   });
 
   it.each(['RSA', 'QRT', 'WALK_IN'] as const)('%s intake moves the vehicle but preserves the rider assignment', (source) => {
