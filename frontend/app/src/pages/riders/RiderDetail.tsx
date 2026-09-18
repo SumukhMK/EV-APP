@@ -196,9 +196,9 @@ export function RiderDetail() {
             <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
               {canTakeBike ? (
                 <>
-                  Not assigned. A bike can be assigned only from{' '}
+                  No bike yet. A bike can only be given out when it is{' '}
                   <Box component="span" sx={{ color: tones.good.fg }}>
-                    Ready to deploy
+                    Ready to give out
                   </Box>
                   .
                 </>

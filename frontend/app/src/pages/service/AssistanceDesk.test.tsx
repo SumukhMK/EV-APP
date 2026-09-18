@@ -52,12 +52,12 @@ function seed(category: ServiceJob['damageCategory'] = 'MINOR', assigned = true)
 }
 async function fillWork(user: ReturnType<typeof userEvent.setup>) {
   // The assigned-bike actions appear after the separate vehicle query finishes.
-  await screen.findByRole('link', { name: 'Exchange bike' });
-  await user.click(await screen.findByRole('textbox', { name: 'Inspection findings / work done' }));
+  await screen.findByRole('link', { name: 'Give another bike' });
+  await user.click(await screen.findByRole('textbox', { name: 'What did you find, and what did you do?' }));
   await user.paste('Mirror repaired and road tested');
-  await user.click(screen.getByRole('textbox', { name: 'Technician / inspector' }));
+  await user.click(screen.getByRole('textbox', { name: 'Who did the work?' }));
   await user.paste('Inspector');
-  await user.click(screen.getByRole('textbox', { name: 'Update / movement reason' }));
+  await user.click(screen.getByRole('textbox', { name: 'Why are you making this change?' }));
   await user.paste('Repair completed');
 }
 
@@ -70,15 +70,15 @@ describe('service workbench stories', () => {
     const vehicle = vehicles.find((v) => v.state === 'DEPLOYED')!;
     show();
     await user.click(screen.getAllByRole('link', { name: 'New job' })[0]);
-    expect(await screen.findByText('Receive vehicle / service request')).toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'Vehicle' }));
+    expect(await screen.findByText('Take a bike in for service')).toBeInTheDocument();
+    await user.click(screen.getByRole('combobox', { name: 'Bike' }));
     await user.paste(vehicle.id);
     await user.click(await screen.findByRole('option', { name: new RegExp(vehicle.id) }));
-    await user.click(screen.getByRole('textbox', { name: /Reported issue/ }));
+    await user.click(screen.getByRole('textbox', { name: /What is wrong with the bike/ }));
     await user.paste('Mirror cracked');
-    await user.click(screen.getByRole('checkbox', { name: 'Confirm this intake and vehicle movement.' }));
-    await user.click(screen.getByRole('button', { name: 'Receive and open job' }));
-    expect(await screen.findByText('Reported issue')).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'Yes, take this bike in and move it.' }));
+    await user.click(screen.getByRole('button', { name: 'Take it in and open the job' }));
+    expect(await screen.findByText('What was reported')).toBeInTheDocument();
     expect(vehicle.state).toBe('UNDER_REPAIR');
     expect(serviceJobs).toHaveLength(1);
     expect(serviceJobs[0]).toMatchObject({ vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: 'WALK_IN', queue: 'MINOR_REPAIR' });
@@ -92,11 +92,11 @@ describe('service workbench stories', () => {
     show('/service/queues?queue=MINOR_REPAIR');
     expect(await screen.findByRole('link', { name: minor.id })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: major.id })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Major repair (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Big repair (1)' }));
     expect(await screen.findByRole('link', { name: major.id })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: minor.id })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Inspect / work' }));
-    expect(await screen.findByRole('textbox', { name: 'Inspection findings / work done' })).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Open job' }));
+    expect(await screen.findByRole('textbox', { name: 'What did you find, and what did you do?' })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Back to jobs' }));
     expect(await screen.findByRole('link', { name: major.id })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: minor.id })).not.toBeInTheDocument();
@@ -107,12 +107,12 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`, 'FLEET_STAFF');
     await fillWork(user);
-    expect(screen.getByRole('link', { name: 'Exchange bike' })).toHaveAttribute('href', `/assignments/exchange?riderId=${job.riderId}`);
-    expect(screen.getByText(/Fleet staff can record findings/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Give another bike' })).toHaveAttribute('href', `/assignments/exchange?riderId=${job.riderId}`);
+    expect(screen.getByText(/You can write down what you found/)).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Who pays?' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Save progress' }));
-    expect(await screen.findByText(/Progress saved/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save for now' }));
+    expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(job.workSummary).toContain('road tested');
     expect(job.liability).toBeNull();
     expect(job.status).toBe('IN_PROGRESS');
@@ -124,28 +124,28 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
-    await user.click(screen.getByRole('button', { name: 'Add part / labour' }));
-    await user.type(screen.getByRole('textbox', { name: 'Part / work 1' }), 'Mirror');
+    await user.click(screen.getByRole('button', { name: 'Add a cost line' }));
+    await user.type(screen.getByRole('textbox', { name: 'Item 1' }), 'Mirror');
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '5000');
-    expect(screen.queryByText(/Above ₹5,000/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/over ₹5,000/)).not.toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '.01');
-    expect(screen.getByText(/Above ₹5,000/)).toBeInTheDocument();
+    expect(screen.getByText(/over ₹5,000/)).toBeInTheDocument();
     expect(screen.getByText('₹5,000.01')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Send to QC' }));
+    await user.click(screen.getByRole('button', { name: 'Send for final check' }));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Move to QC pending' }));
-    await screen.findByRole('button', { name: 'Pass QC' });
-    expect(screen.getByText(/Progress saved/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Move to Final check' }));
+    await screen.findByRole('button', { name: 'Final check passed' });
+    expect(screen.getByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(0);
-    await user.click(screen.getByRole('button', { name: 'Pass QC' }));
-    await user.click(screen.getByRole('textbox', { name: 'QC findings / movement reason' }));
+    await user.click(screen.getByRole('button', { name: 'Final check passed' }));
+    await user.click(screen.getByRole('textbox', { name: 'What did you check?' }));
     await user.paste('Road test and brakes passed');
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Confirm release & close' }));
-    expect(await screen.findByText(/Job closed. The vehicle was released/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send the bike back out and finish' }));
+    expect(await screen.findByText(/This job is finished/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(1);
     expect(riderCharges[0].amount).toBe(500001);
-    expect(screen.queryByRole('button', { name: 'Confirm release & close' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send the bike back out and finish' })).not.toBeInTheDocument();
     expect(job.activity).toHaveLength(3);
     expect(job.inspections).toHaveLength(2);
   });
@@ -155,11 +155,11 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
-    await user.click(screen.getByRole('button', { name: 'Add part / labour' }));
-    await user.type(screen.getByRole('textbox', { name: 'Part / work 1' }), 'Mirror');
+    await user.click(screen.getByRole('button', { name: 'Add a cost line' }));
+    await user.type(screen.getByRole('textbox', { name: 'Item 1' }), 'Mirror');
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '-5');
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save progress' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save for now' })).toBeDisabled();
     await user.clear(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }));
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '200');
     expect(screen.getByRole('checkbox')).not.toBeChecked();
@@ -171,20 +171,20 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
-    expect(screen.getByText(/Severity was not recorded/)).toBeInTheDocument();
+    expect(screen.getByText(/Nobody has noted this yet/)).toBeInTheDocument();
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save progress' })).toBeDisabled();
-    await user.click(screen.getByRole('combobox', { name: 'Damage severity' }));
-    await user.click(screen.getByRole('option', { name: 'Minor' }));
+    expect(screen.getByRole('button', { name: 'Save for now' })).toBeDisabled();
+    await user.click(screen.getByRole('combobox', { name: 'How bad is the damage?' }));
+    await user.click(screen.getByRole('option', { name: 'Small damage' }));
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save progress' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save for now' })).toBeEnabled();
   });
 
   it('opens the existing job from inspection instead of requiring the vehicle-detail hop', async () => {
     const job = seed();
     show(`/service/inspection?vehicle=${job.vehicleId}`);
     expect(await screen.findByText(`${job.vehicleId} · ${job.id}`)).toBeInTheDocument();
-    expect(await screen.findByRole('textbox', { name: 'Inspection findings / work done' })).toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'What did you find, and what did you do?' })).toBeInTheDocument();
   });
 
   it('scopes QC to awaiting work and does not offer misleading global Closed filters', async () => {
@@ -194,14 +194,14 @@ describe('service workbench stories', () => {
     expect(await screen.findByRole('link', { name: qc.id })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: repair.id })).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Review QC' })).toHaveAttribute('href', `/service/assistance/${qc.id}`);
+    expect(screen.getByRole('link', { name: 'Do final check' })).toHaveAttribute('href', `/service/assistance/${qc.id}`);
   });
 
   it('prevents duplicate intake with a direct existing-job link', async () => {
     const job = seed();
     show(`/service/assistance/new?vehicle=${job.vehicleId}`);
-    expect(await screen.findByRole('link', { name: 'Continue existing job' })).toHaveAttribute('href', `/service/assistance/${job.id}`);
-    expect(screen.queryByRole('button', { name: 'Receive and open job' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Carry on with the open job' })).toHaveAttribute('href', `/service/assistance/${job.id}`);
+    expect(screen.queryByRole('button', { name: 'Take it in and open the job' })).not.toBeInTheDocument();
   });
 
   it('keeps closed records accessible without editing and supports unknown filters', async () => {
@@ -210,8 +210,8 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show('/service/assistance?status=old-status');
     await user.click(await screen.findByRole('link', { name: job.id }));
-    expect(await screen.findByText('Resolution')).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: 'Inspection findings / work done' })).not.toBeInTheDocument();
+    expect(await screen.findByText('How it ended')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'What did you find, and what did you do?' })).not.toBeInTheDocument();
   });
 
   it('shows list failures rather than empty-state success and allows retry', async () => {
@@ -230,9 +230,9 @@ describe('service workbench stories', () => {
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Save progress' }));
+    await user.click(screen.getByRole('button', { name: 'Save for now' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not save job');
-    expect(screen.getByRole('textbox', { name: 'Inspection findings / work done' })).toHaveValue('Mirror repaired and road tested');
+    expect(screen.getByRole('textbox', { name: 'What did you find, and what did you do?' })).toHaveValue('Mirror repaired and road tested');
     expect(job.workSummary).toBe('');
   });
 });

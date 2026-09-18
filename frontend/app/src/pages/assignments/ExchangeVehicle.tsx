@@ -148,7 +148,7 @@ export function ExchangeVehicle() {
         <PageHeader section="Riders" title="Exchange vehicle" />
         <EmptyState
           title="No rider is holding a bike"
-          description="An exchange swaps one bike for another, so it needs a rider who already has one. Assign a bike first."
+          description="A swap needs a rider who already has a bike. Give someone a bike first."
           action={
             <Button component={Link} to="/assignments/assign">
               Assign a bike
@@ -171,7 +171,7 @@ export function ExchangeVehicle() {
                 Cancel
               </Button>
               <Button type="submit" disabled={save.isPending || !confirmed}>
-                {save.isPending ? 'Recording…' : 'Record exchange'}
+                {save.isPending ? 'Saving…' : 'Save the swap'}
               </Button>
             </>
           }
@@ -185,8 +185,8 @@ export function ExchangeVehicle() {
 
         <Box sx={{ display: 'grid', gap: 5, mt: 5, '& > *': { minWidth: 0 } }}>
           <Panel
-            label="Current assignment"
-            subtitle="Only riders who currently have a bike."
+            label="Who is swapping?"
+            subtitle="Only riders who have a bike right now."
             sx={{ maxWidth: layout.readingMax }}
           >
             <RiderSearchSelect
@@ -204,32 +204,32 @@ export function ExchangeVehicle() {
           </Panel>
 
           <Panel
-            label="Return"
-            subtitle="Condition suggests a destination. Explain any override before confirming the exchange."
+            label="The bike coming back"
+            subtitle="The condition you pick suggests where the bike should go. If you choose something else, say why."
             sx={{ maxWidth: layout.readingMax }}
           >
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
               <SelectField
                 control={form.control}
                 name="returnCondition"
-                label="Condition on return"
+                label="What condition is the bike in?"
                 options={CONDITIONS}
               />
             </Box>
             <Box sx={{ mt: 4 }}>
               <InfoStrip>
-                Recovery is deliberately not an option in this flow — a bike that needs recovering
-                is a different process. Choose RTD, Under repair, QC or Accident for the returned vehicle.
+"Being picked up" is not offered here — that is a separate job. For the bike coming back,
+                choose ready to give out, under repair, final check, or accident.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
               <DispositionFields
                 control={form.control}
                 reasonName="reason"
-                reasonLabel="Reason for exchange"
+                reasonLabel="Why the swap?"
                 reasonOptions={REASONS}
                 dateName="occurredOn"
-                dateLabel="Exchanged on"
+                dateLabel="Date of the swap"
                 nextStateName="nextVehicleState"
                 condition={picked.returnCondition}
               />
@@ -239,7 +239,7 @@ export function ExchangeVehicle() {
             )}
           </Panel>
 
-          <Panel label="Replacement bike" subtitle="Bikes that passed QC and are ready to go out.">
+          <Panel label="The new bike" subtitle="Bikes that passed their final check and are ready to go out.">
             <Controller
               control={form.control}
               name="toVehicleId"
@@ -282,7 +282,7 @@ export function ExchangeVehicle() {
               ]}
             />
             <TextField
-              label="Notes / destination override reason"
+              label="Notes"
               multiline
               minRows={2}
               fullWidth
@@ -291,7 +291,7 @@ export function ExchangeVehicle() {
               error={Boolean(form.formState.errors.note)}
               helperText={form.formState.errors.note?.message}
             />
-            <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm both vehicles and the return destination." />
+            <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm both bikes and where the old one goes." />
           </Panel>
         </Box>
       </Box>

@@ -63,22 +63,22 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
     <>
       <PageHeader
         section="Service management"
-        title={mode === 'queues' ? 'Service queues' : mode === 'qc' ? 'QC queue' : 'Assistance desk'}
+        title={mode === 'queues' ? 'Bikes in service' : mode === 'qc' ? 'Final checks' : 'Help desk'}
         icon={SupportAgentIcon}
         actions={canWork ? newJob : undefined}
       />
       <Typography color="text.secondary" variant="body2" sx={{ mt: 3 }}>
-        {mode === 'intake' ? 'Receive a walk-in, RSA or QRT request and route the vehicle immediately.' : 'Open a job to inspect, record work, move queues or release the vehicle. No detour through the vehicle register.'}
+        {mode === 'intake' ? 'Log a bike that a rider brought in, or one the roadside / rescue team picked up, and send it straight to the right list.' : 'Open a job to check the bike, note the work and cost, move it to another list, or send it back on the road. No need to go through the bike page.'}
       </Typography>
       {mode === 'qc' ? (
-        <Panel label="Awaiting QC" subtitle="Review a job, record pass / fail findings, then confirm. Failed jobs return to repair and can re-enter this queue." sx={{ mt: 4 }}>
+        <Panel label="Waiting for a final check" subtitle="Open a job, write what you checked, then mark it passed or failed. A failed bike goes back for repair and can come here again." sx={{ mt: 4 }}>
           <Mono sx={{ fontSize: 26, fontWeight: 600 }}>{jobs.isPending || jobs.isError ? '—' : qcCount}</Mono>
-          <Button component={Link} to="/service/queues" sx={{ ml: 3 }}>View all service jobs</Button>
+          <Button component={Link} to="/service/queues" sx={{ ml: 3 }}>See all bikes in service</Button>
         </Panel>
       ) : <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: { xs: 2, sm: 3 }, mt: 4 }}>
         {[
-          { label: 'Open', value: openCount, filter: 'OPEN' },
-          { label: 'Closed', value: all.length - openCount, filter: 'CLOSED' },
+          { label: 'Still open', value: openCount, filter: 'OPEN' },
+          { label: 'Finished', value: all.length - openCount, filter: 'CLOSED' },
           { label: 'All jobs', value: all.length, filter: 'ALL' },
         ].map((tile) => (
           <Box key={tile.label} component={Link} to={`${basePath}?status=${tile.filter}`} sx={{ color: 'inherit', textDecoration: 'none' }}>
@@ -88,11 +88,11 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
           </Box>
         ))}
       </Box>}
-      {!canWork && <Alert severity="info" sx={{ mt: 3 }}>View-only access. You can open any job to review its details.</Alert>}
+      {!canWork && <Alert severity="info" sx={{ mt: 3 }}>You can look at any job, but you cannot change it.</Alert>}
       {mode !== 'qc' && (
-        <Panel label="Service categories" subtitle="Minor / Major are repair subqueues, not different vehicle states. Source tells us how the job arrived." sx={{ mt: 4 }}>
+        <Panel label="What needs doing" subtitle="Pick a list to see only those bikes. Small and big repairs are two lists, but the bike is 'Under repair' in both. 'Came in as' tells you how the bike reached us." sx={{ mt: 4 }}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-            <Button color={allOpenActive ? 'primary' : 'inherit'} variant={allOpenActive ? 'contained' : 'outlined'} onClick={() => setParams({ status: 'OPEN' }, { replace: true })}>All open ({openCount})</Button>
+            <Button color={allOpenActive ? 'primary' : 'inherit'} variant={allOpenActive ? 'contained' : 'outlined'} onClick={() => setParams({ status: 'OPEN' }, { replace: true })}>Still open ({openCount})</Button>
             {SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY').map((q) => (
               <Button key={q} color={status === 'OPEN' && queue === q ? 'primary' : 'inherit'} variant={status === 'OPEN' && queue === q ? 'contained' : 'outlined'} onClick={() => { const next = new URLSearchParams(); next.set('queue', q); next.set('status', 'OPEN'); setParams(next, { replace: true }); }}>
                 {SERVICE_QUEUE_LABEL[q]} ({all.filter((j) => j.status !== 'CLOSED' && j.queue === q).length})
@@ -101,17 +101,17 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
           </Box>
         </Panel>
       )}
-      {repairOnly && <Alert severity="info" sx={{ mt: 3 }}>Showing every Under repair subqueue: assessment, minor, major, warranty, insurance and parts waiting.</Alert>}
-      <Panel label="Jobs" subtitle={jobs.data ? `${rows.length} matching jobs` : undefined} sx={{ mt: 4 }}>
+      {repairOnly && <Alert severity="info" sx={{ mt: 3 }}>Showing every bike marked Under repair: still to check, small repair, big repair, warranty, insurance and waiting for parts.</Alert>}
+      <Panel label="Jobs" subtitle={jobs.data ? `${rows.length} jobs match` : undefined} sx={{ mt: 4 }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: mode === 'qc' ? 'minmax(0, 1fr) 220px' : 'minmax(0, 1fr) 180px 220px' }, gap: 3, mb: 4 }}>
-          <TextField label="Search jobs" placeholder="Job, vehicle, source or notes" value={search} onChange={(e) => updateFilter('search', e.target.value)} />
+          <TextField label="Search jobs" placeholder="Job number, bike number or notes" value={search} onChange={(e) => updateFilter('search', e.target.value)} />
           {mode !== 'qc' && <TextField select label="Status" value={status} onChange={(e) => updateFilter('status', e.target.value)}>
-            <MenuItem value="OPEN">Open</MenuItem>
-            <MenuItem value="CLOSED">Closed</MenuItem>
+            <MenuItem value="OPEN">Still open</MenuItem>
+            <MenuItem value="CLOSED">Finished</MenuItem>
             <MenuItem value="ALL">All jobs</MenuItem>
           </TextField>}
-          <TextField select label="Request source" value={source} onChange={(e) => updateFilter('source', e.target.value)}>
-            <MenuItem value="ALL">All sources</MenuItem>
+          <TextField select label="Came in as" value={source} onChange={(e) => updateFilter('source', e.target.value)}>
+            <MenuItem value="ALL">Any way</MenuItem>
             {(Object.keys(SOURCE_LABEL) as ServiceJobSource[]).map((s) => <MenuItem key={s} value={s}>{SOURCE_LABEL[s]}</MenuItem>)}
           </TextField>
         </Box>
@@ -119,8 +119,8 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
           <Alert severity="error" action={<Button color="inherit" onClick={() => void jobs.refetch()}>Retry</Button>}>{jobs.error.message}</Alert>
         ) : rows.length === 0 ? (
           <EmptyState
-            title={mode === 'qc' && !qcCount ? 'No vehicles awaiting QC' : all.length ? 'No matching jobs' : 'No jobs yet'}
-            description={mode === 'qc' ? 'Completed work sent to QC appears here. Clear search/source filters to see the whole QC queue.' : all.length ? 'Try a different search or status.' : 'Deboarding creates a job automatically. Use New job for RSA, QRT or a walk-in.'}
+            title={mode === 'qc' && !qcCount ? 'No bikes waiting for a final check' : all.length ? 'No jobs match' : 'No jobs yet'}
+            description={mode === 'qc' ? 'Bikes show up here once the repair work is done. Clear the filters to see everything waiting.' : all.length ? 'Try a different search or filter.' : 'A job is created on its own when a rider gives a bike back. Use New job for roadside help, the rescue team, or a rider who came to the hub.'}
             action={all.length ? <Button onClick={() => setParams({ status: 'ALL' }, { replace: true })}>Clear filters</Button> : canWork ? newJob : undefined}
           />
         ) : mobile ? (
@@ -129,16 +129,16 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
               <Box key={j.id} sx={{ borderTop: 1, borderColor: 'divider', pt: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                   <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} color="inherit"><Mono>{j.id}</Mono></Button>
-                  <StateChip label={j.status === 'CLOSED' ? 'Closed' : j.status === 'IN_PROGRESS' ? 'In progress' : 'Open'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} />
+                  <StateChip label={j.status === 'CLOSED' ? 'Finished' : j.status === 'IN_PROGRESS' ? 'Being worked on' : 'Not started'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} />
                 </Box>
                 <Typography variant="body2" sx={{ mt: 2 }}>{j.vehicleId} · {SOURCE_LABEL[j.source]}</Typography>
                 <Typography variant="body2" sx={{ mt: 2 }}>{SERVICE_QUEUE_LABEL[j.queue]}</Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mt: 2 }}>
-                  <StateChip label={needsDamageAssessment(j) ? 'Not assessed' : CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} />
-                  <Mono>{j.items.length || j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'Not priced'}</Mono>
+                  <StateChip label={needsDamageAssessment(j) ? 'Not checked yet' : CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} />
+                  <Mono>{j.items.length || j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'No cost yet'}</Mono>
                 </Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Opened {formatDate(j.createdOn)}</Typography>
-                <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} sx={{ mt: 2 }}>{j.status === 'CLOSED' ? 'View record' : j.queue === 'QC_PENDING' ? 'Review QC' : 'Inspect / work'}</Button>
+                <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} sx={{ mt: 2 }}>{j.status === 'CLOSED' ? 'See details' : j.queue === 'QC_PENDING' ? 'Do final check' : 'Open job'}</Button>
               </Box>
             ))}
           </Box>
@@ -148,19 +148,19 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
             rows={rows}
             getRowKey={(j) => j.id}
             columns={[
-              { key: 'job', header: 'Job / vehicle', width: 180, render: (j) => (
+              { key: 'job', header: 'Job / bike', width: 180, render: (j) => (
                 <Box>
                   <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} color="inherit" sx={{ px: 0 }}><Mono>{j.id}</Mono></Button>
                   <Mono sx={{ display: 'block', color: 'text.secondary' }}>{j.vehicleId}</Mono>
                 </Box>
               ) },
-              { key: 'source', header: 'Source', width: 180, render: (j) => SOURCE_LABEL[j.source] },
-              { key: 'queue', header: 'Service queue', width: 150, render: (j) => SERVICE_QUEUE_LABEL[j.queue] },
-              { key: 'damage', header: 'Damage', width: 110, render: (j) => <StateChip label={needsDamageAssessment(j) ? 'Not assessed' : CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} /> },
-              { key: 'status', header: 'Status', width: 110, render: (j) => <StateChip label={j.status === 'CLOSED' ? 'Closed' : j.status === 'IN_PROGRESS' ? 'In progress' : 'Open'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} /> },
-              { key: 'opened', header: 'Opened', width: 130, render: (j) => formatDate(j.createdOn) },
-              { key: 'cost', header: 'Work cost', width: 110, align: 'right', render: (j) => <Mono>{j.items.length || j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'Not priced'}</Mono> },
-              { key: 'action', header: 'Next action', width: 140, render: (j) => <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }}>{j.status === 'CLOSED' ? 'View record' : j.queue === 'QC_PENDING' ? 'Review QC' : 'Inspect / work'}</Button> },
+              { key: 'source', header: 'Came in as', width: 180, render: (j) => SOURCE_LABEL[j.source] },
+              { key: 'queue', header: 'What it needs', width: 150, render: (j) => SERVICE_QUEUE_LABEL[j.queue] },
+              { key: 'damage', header: 'Damage', width: 110, render: (j) => <StateChip label={needsDamageAssessment(j) ? 'Not checked yet' : CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} /> },
+              { key: 'status', header: 'Status', width: 120, render: (j) => <StateChip label={j.status === 'CLOSED' ? 'Finished' : j.status === 'IN_PROGRESS' ? 'Being worked on' : 'Not started'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} /> },
+              { key: 'opened', header: 'Came in on', width: 130, render: (j) => formatDate(j.createdOn) },
+              { key: 'cost', header: 'Cost so far', width: 110, align: 'right', render: (j) => <Mono>{j.items.length || j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'No cost yet'}</Mono> },
+              { key: 'action', header: 'What to do', width: 150, render: (j) => <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }}>{j.status === 'CLOSED' ? 'See details' : j.queue === 'QC_PENDING' ? 'Do final check' : 'Open job'}</Button> },
             ]}
           />
         )}

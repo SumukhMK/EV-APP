@@ -110,46 +110,52 @@ Check a change at 390, 900, 1440 and 1920 before calling it done.
 
 ## Service management workflow
 
-**Queue → work record → save / route / release.** There is no compulsory fleet-list,
-vehicle-detail or separate Inspection detour. Service queues, QC and Assistance Desk
-are views of the same work records, not independent lists.
+**Find the bike → open its job → write what you did → send it where it needs to go.**
+There is no forced trip through the bike list or a separate inspection screen. "Bikes in
+service", "Final checks" and "Help desk" are three views of the same jobs, not three lists.
 
-| Concept | Meaning |
+The screens use everyday words. The table below maps them to the terms in the code.
+
+| On screen | In the code | What it means |
+|---|---|---|
+| Came in as | Request source | How the bike reached us: a rider gave it back, a swap, roadside help (RSA), the rescue team (QRT), the rider came to the hub, or a routine check. Older records say "Older record". |
+| How bad is the damage? | Damage severity | No damage, small, big or accident. It suggests where the bike should go. |
+| What it needs / list | Service category | Needs checking, small repair, big repair, accident, warranty claim, insurance claim, waiting for parts, or final check. |
+| Bike shows as | Vehicle state | Where the bike stands in the fleet. Small and big repairs are two separate lists, but in both the bike shows as "Under repair". |
+| Final check | QC | The last look at a bike before it goes back on the road. |
+| Ready to give out | RTD | The bike passed its final check and can go to a rider. |
+| Who pays? | Liability | Take it from the deposit, the rider pays, or the company pays. |
+
+| What staff need to do | How it works |
 |---|---|
-| Request source | How the job arrived: deboard, exchange, RSA, QRT, walk-in or inspection. Migrated records say Registry. |
-| Damage severity | None, minor, major or accident; suggests the initial destination. |
-| Service category | Assessment, minor repair, major repair, accident, warranty, insurance, parts waiting or QC. |
-| Vehicle state | The physical fleet state. Minor and major are distinct work queues but both mean Under repair. |
+| Find work | `/service/queues` filters the job list in place. Every row opens its job directly. The search and filters stay in the address bar, so "Back to jobs" brings you back to the same view. |
+| Log a roadside, rescue or walk-in job | "New job" records the bike, how it came in, how bad the damage is, what is wrong, where it is, and which list it goes to. Confirming moves the bike straight away and opens the job. If the bike already has an open job, you are sent to that one instead of opening a second. |
+| Check a bike you already have | `/service/inspection?vehicle=…` fills in the bike and jumps to its open job. If there is none, take it in for a check and write your findings on the job. |
+| Record a repair | Save what you found, who did the work, and each part / labour cost. Saving does not finish the job and does not charge the rider. Everything you save stays visible in the history. |
+| Wait for parts or a claim | Move the bike to "Waiting for parts", "Warranty claim" or "Insurance claim" and say which parts you expect, or the claim number. |
+| Send for a final check | You must say what you found and who did the work. The same job then shows up in `/service/qc`. |
+| Failed the final check | Write why it failed and send it back to small or big repair. The job keeps its costs and history and can come back for another check. |
+| Send the bike back out and charge | A service manager or admin reviews the work, the cost and who pays, then confirms on the same screen. A rider charge is added once; a deposit charge comes off the deposit we hold; a company charge adds nothing to the rider. If the deposit is too small, we refuse it. A ₹0 job is fine. Anything over ₹5,000 is flagged. |
+| Taking a bike back or swapping it | Both screens offer the same four places a bike can go: ready to give out, under repair, final check, or accident. The condition suggests one; if you pick another, say why. Damage needs part-level notes. The bike movement and the service job are saved together, reusing an open job if there is one. |
 
-| Staff story | Flow and recorded details |
-|---|---|
-| Find work | `/service/queues` filters the work list in place. Each row opens its work record directly. Search, source and category filters live in the URL; Back to jobs restores them. |
-| Receive RSA / QRT / hub walk-in | New job records vehicle, source, severity, issue/affected parts, location and destination. Confirmation immediately moves the vehicle and opens the record. Existing active jobs are linked instead of duplicated. |
-| Inspect an existing bike | `/service/inspection?vehicle=…` preselects the vehicle and goes directly to an existing job. Otherwise receive it for assessment, then record findings on its work record. |
-| Record repair | Save findings, technician and itemised parts/labour/other costs without closing the job or billing the rider. Saved work snapshots and movement history remain visible. |
-| Wait for parts / claim | Route to Parts waiting, Warranty or Insurance with the awaited parts/ETA or claim reference/follow-up. |
-| Send to QC | Findings and technician are required. The same job appears in `/service/qc`. |
-| Fail QC / rework | Record failure findings and return to minor/major repair. The same job retains costs and history and can be sent to QC again. |
-| Release / charge | Service/admin reviews findings, exact costs and liability, then confirms inline. Rider liability posts once to the mock ledger; deposit liability deducts the held balance; company liability posts no rider charge. Insufficient deposit is rejected. Zero-cost releases are allowed. Costs above ₹5,000 are flagged. |
-| Deboard / exchange | Both offer RTD, Under repair, QC and Accident. Severity suggests a default; an override needs a reason. Damage requires part-level detail. Assignment changes and service routing happen in one validated mutation, reusing an active job when present. |
+A bike going in for service **does not take it away from the rider**: the rider keeps it on
+paper, and when the work is done the bike goes back to that same rider. Taking a bike back
+or swapping it does detach it, and after service it can become ready to give out. A bike
+with unfinished service costs cannot jump straight to "ready to give out". Sending a bike
+out without a final check is allowed, but you are warned and must say what you checked.
 
-A **service visit does not deboard the rider**: the assignment stays linked and release
-returns that bike to its rider (`DEPLOYED`). A deboard or exchange explicitly detaches the
-old bike; after service it can become RTD. Pending service costs must be resolved before
-a return can skip straight to RTD. A service/admin release outside QC is explicitly warned
-and requires recorded checks/reason.
+Fleet staff can log jobs, write findings and move bikes between lists. A service manager or
+admin decides who pays and sends the bike back out. These are **prototype screen rules, not
+real server-side permissions**. Finished jobs are read-only. Forms confirm inline instead of
+opening pop-ups.
 
-Fleet staff may receive, inspect, save work and route jobs. Service/admin approves final
-release and liability. These are **prototype UI gates, not server-side authorisation**.
-Closed records remain read-only. Forms use inline confirmation instead of workflow modals.
+The list counts and the live fleet numbers come from the same records. Older repair bikes
+with no recorded damage start in **Needs checking** rather than being guessed into small or
+big repair. Today's Operations counts service requests logged in the period you pick; its
+movement totals and the billing run's periods are still sample data.
 
-Queue counts and live vehicle outcomes come from the same records. Existing repair bikes
-without known severity start in **Needs assessment**, rather than fabricated minor/major
-splits. Today's Operations sources count recorded intakes in the selected period; its
-movement totals and the billing run's periods remain historical fixtures.
-
-Mock data survives client-side navigation but **resets on a full page reload**. This work
-does not add backend persistence, real authentication, photo uploads or a parts inventory.
+Mock data survives normal navigation but **resets on a full page reload**. This work does
+not add a backend, real sign-in, photo uploads or a parts inventory.
 
 ## Unbuilt screens
 

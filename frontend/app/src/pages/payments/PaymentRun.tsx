@@ -109,12 +109,12 @@ export function PaymentRun() {
             { label: 'Total billed', value: run.data ? rupees(billed) : '—', icon: RequestQuoteIcon },
             { label: 'Collected', value: run.data ? rupees(collected) : '—', tone: 'good', icon: PriceCheckIcon },
             {
-              label: 'Outstanding',
+              label: 'Still unpaid',
               value: run.data ? rupees(outstanding) : '—',
               tone: outstanding > 0 ? 'bad' : 'good',
               icon: PendingIcon,
             },
-            { label: 'Fully paid', value: run.data ? `${settled}/${rows.length}` : '—', icon: DoneAllIcon },
+            { label: 'Paid in full', value: run.data ? `${settled}/${rows.length}` : '—', icon: DoneAllIcon },
           ]}
         />
       </Box>
@@ -139,8 +139,8 @@ export function PaymentRun() {
           <EmptyState title="Loading the run…" />
         ) : rows.length === 0 ? (
           <EmptyState
-            title="Nothing to bill this period"
-            description="A rider appears here once they hold a bike on this billing day."
+            title="Nothing to bill this week"
+            description="A rider shows up here once they have a bike on this billing day."
           />
         ) : stacked ? (
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -241,7 +241,7 @@ export function PaymentRun() {
                     },
                     {
                       key: 'service',
-                      header: 'Service',
+                      header: 'Repairs',
                       align: 'right' as const,
                       width: 74,
                       render: (r: PaymentPeriodRow) => (
@@ -252,7 +252,7 @@ export function PaymentRun() {
                     },
                     {
                       key: 'arrears',
-                      header: 'Arrears',
+                      header: 'Old dues',
                       align: 'right' as const,
                       width: 74,
                       render: (r: PaymentPeriodRow) => (

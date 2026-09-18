@@ -20,13 +20,13 @@ import type {
  */
 
 export const VEHICLE_STATE_LABEL: Record<VehicleState, string> = {
-  INDUCTED: 'Inducted',
-  READY_TO_DEPLOY: 'Ready to deploy',
-  DEPLOYED: 'Deployed',
-  RETURNED: 'Returned',
-  RECOVERY: 'Recovery',
+  INDUCTED: 'New in fleet',
+  READY_TO_DEPLOY: 'Ready to give out',
+  DEPLOYED: 'With a rider',
+  RETURNED: 'Back at the hub',
+  RECOVERY: 'Being picked up',
   UNDER_REPAIR: 'Under repair',
-  QC_PENDING: 'QC pending',
+  QC_PENDING: 'Final check',
   ACCIDENT: 'Accident',
   RETIRED: 'Scrapped',
 };
@@ -98,10 +98,10 @@ export const KYC_STATUS_TONE: Record<KycStatus, StatusTone> = {
 };
 
 export const DUNNING_LABEL: Record<DunningStage, string> = {
-  REMINDER_DUE: 'Reminder due',
-  WARNING_1: 'Warning 1',
-  WARNING_2: 'Warning 2',
-  REPOSSESSION_DUE: 'Repossession due',
+  REMINDER_DUE: 'Send a reminder',
+  WARNING_1: 'First warning',
+  WARNING_2: 'Second warning',
+  REPOSSESSION_DUE: 'Take the bike back',
 };
 
 export const DUNNING_TONE: Record<DunningStage, StatusTone> = {
@@ -119,8 +119,8 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 
 export const RETURN_CONDITION_LABEL: Record<ReturnCondition, string> = {
   NONE: 'No damage',
-  MINOR: 'Minor damage',
-  MAJOR: 'Major damage',
+  MINOR: 'Small damage',
+  MAJOR: 'Big damage',
   ACCIDENT: 'Accident',
 };
 
@@ -163,8 +163,8 @@ export const USER_ROLE_TONE: Record<UserRole, StatusTone> = {
 export const USER_ROLE_SCOPE: Record<UserRole, string> = {
   SUPER_ADMIN: 'The platform owner. Every tenant, every bike, plans and the shared blacklist.',
   TENANT_ADMIN: 'Runs one fleet end to end — bikes, riders, rent, service, dashboards.',
-  FLEET_STAFF: 'Day-to-day fleet work: inductions, inspections, recording returns.',
-  SERVICE_MANAGER: 'The workshop: repairs, QC decisions and service charges.',
+  FLEET_STAFF: 'Day-to-day bike work: adding bikes, checking them, recording returns.',
+  SERVICE_MANAGER: 'The workshop: repairs, final checks and what the repair costs.',
 };
 
 export const USER_STATUS_LABEL: Record<UserStatus, string> = {

@@ -127,7 +127,7 @@ export function PaymentReceipt() {
                 value: <Mono sx={{ fontSize: 13 }}>{rupees(r.billedAmount)}</Mono>,
               },
               {
-                label: 'Service charges',
+                label: 'Repair charges',
                 value: (
                   <Mono sx={{ fontSize: 13, color: r.serviceCharges === 0 ? neutral[500] : undefined }}>
                     {rupees(r.serviceCharges)}
@@ -135,7 +135,7 @@ export function PaymentReceipt() {
                 ),
               },
               {
-                label: 'Arrears carried in',
+                label: 'Unpaid from before',
                 value: (
                   <Mono sx={{ fontSize: 13, color: r.arrears === 0 ? neutral[500] : undefined }}>
                     {rupees(r.arrears)}
@@ -165,7 +165,7 @@ export function PaymentReceipt() {
           </Box>
           {r.balance > 0 && (
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-              <Typography sx={{ fontSize: 13, color: neutral[400] }}>Balance</Typography>
+              <Typography sx={{ fontSize: 13, color: neutral[400] }}>Still to pay</Typography>
               <Mono sx={{ fontSize: 13, color: tones.bad.fg }}>{rupees(r.balance)}</Mono>
             </Box>
           )}

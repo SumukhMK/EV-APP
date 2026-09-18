@@ -47,8 +47,8 @@ export function activeJobForVehicle(vehicleId: string) {
 
 export function requireServiceVehicle(vehicleId: string) {
   const vehicle = vehicles.find((v) => v.id === vehicleId);
-  if (!vehicle) throw new ApiError(`No vehicle with id ${vehicleId}`, 404, 'vehicleId');
-  if (vehicle.state === 'RETIRED') throw new ApiError('A scrapped vehicle cannot enter service', 409, 'vehicleId');
+  if (!vehicle) throw new ApiError(`We could not find bike ${vehicleId}`, 404, 'vehicleId');
+  if (vehicle.state === 'RETIRED') throw new ApiError('This bike has been scrapped, so it cannot go in for service', 409, 'vehicleId');
   return vehicle;
 }
 
@@ -69,13 +69,13 @@ function recordEvent(job: ServiceJob, vehicle: Vehicle, note: string, actor: str
 export function createServiceJob(req: CreateServiceJobRequest): ServiceJob {
   const vehicle = requireServiceVehicle(req.vehicleId);
   validateCategory(req.damageCategory);
-  if (!['DEBOARD', 'EXCHANGE', 'RSA', 'QRT', 'WALK_IN', 'INSPECTION', 'REGISTRY'].includes(req.source)) throw new ApiError('Choose a valid request source', 400, 'source');
-  if (req.riderId !== vehicle.currentRiderId) throw new ApiError('The vehicle assignment changed. Reload before receiving it.', 409, 'riderId');
-  if (!req.damageNotes?.trim()) throw new ApiError('Record the reported issue or inspection reason', 400, 'damageNotes');
-  if (req.queue && !isServiceQueue(req.queue)) throw new ApiError('Unknown service queue', 400, 'queue');
-  if (req.queue === 'READY_TO_DEPLOY') throw new ApiError('Receive the vehicle before recording work and approving release', 400, 'queue');
-  if (req.queue && ['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(req.queue) && !req.reference?.trim()) throw new ApiError('Record the claim reference or awaited parts', 400, 'reference');
-  if (activeJobForVehicle(vehicle.id)) throw new ApiError('This vehicle already has an open service job. Open that job instead.', 409, 'vehicleId');
+  if (!['DEBOARD', 'EXCHANGE', 'RSA', 'QRT', 'WALK_IN', 'INSPECTION', 'REGISTRY'].includes(req.source)) throw new ApiError('Pick how the bike reached us', 400, 'source');
+  if (req.riderId !== vehicle.currentRiderId) throw new ApiError('This bike was given to someone else in the meantime. Refresh the page and try again.', 409, 'riderId');
+  if (!req.damageNotes?.trim()) throw new ApiError('Say what is wrong with the bike, or why you are checking it', 400, 'damageNotes');
+  if (req.queue && !isServiceQueue(req.queue)) throw new ApiError('That list does not exist', 400, 'queue');
+  if (req.queue === 'READY_TO_DEPLOY') throw new ApiError('Take the bike in first. You can send it back out once the work is done.', 400, 'queue');
+  if (req.queue && ['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(req.queue) && !req.reference?.trim()) throw new ApiError('Add the claim number, or say which parts you are waiting for', 400, 'reference');
+  if (activeJobForVehicle(vehicle.id)) throw new ApiError('This bike already has an open job. Open that one instead.', 409, 'vehicleId');
   const job = makeJob(req);
   serviceJobs.push(job);
   const target = QUEUE_STATE[job.queue];
@@ -91,10 +91,10 @@ export function recordServiceReturn(vehicle: Vehicle, req: {
   nextState: VehicleState; note: string; date: string;
 }) {
   validateCategory(req.category);
-  if (!(RETURN_DESTINATIONS as readonly string[]).includes(req.nextState)) throw new ApiError('Choose RTD, Under repair, QC or Accident', 400, 'nextVehicleState');
+  if (!(RETURN_DESTINATIONS as readonly string[]).includes(req.nextState)) throw new ApiError('Pick one: Ready to give out, Under repair, Final check, or Accident', 400, 'nextVehicleState');
   const existing = activeJobForVehicle(vehicle.id);
   if (existing && existing.totalCostPaise > 0 && req.nextState === 'READY_TO_DEPLOY') {
-    throw new ApiError('This bike has unclosed service costs. Send it to QC or close its service job before RTD.', 409, 'nextVehicleState');
+    throw new ApiError('This bike still has an open service job with costs on it. Finish that job before marking the bike ready to give out.', 409, 'nextVehicleState');
   }
   const queue = queueForDisposition(req.nextState, req.category);
   const job = existing ?? makeJob({
@@ -117,49 +117,49 @@ export function recordServiceReturn(vehicle: Vehicle, req: {
 
 export function validateServiceItems(items: ServiceJobItem[]) {
   if (items.some((item) => !item.label.trim() || !Number.isSafeInteger(item.costPaise) || item.costPaise < 0)) {
-    throw new ApiError('Each work item needs a description and a non-negative cost in paise', 400, 'items');
+    throw new ApiError('Every cost line needs a short description and an amount of ₹0 or more', 400, 'items');
   }
   const total = items.reduce((sum, item) => sum + item.costPaise, 0);
-  if (!Number.isSafeInteger(total)) throw new ApiError('The total cost is too large', 400, 'items');
+  if (!Number.isSafeInteger(total)) throw new ApiError('That total is too large', 400, 'items');
   return total;
 }
 
 function validateCategory(category: DamageCategory) {
-  if (!['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'].includes(category)) throw new ApiError('Choose a valid damage severity', 400, 'damageCategory');
+  if (!['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'].includes(category)) throw new ApiError('Pick how bad the damage is', 400, 'damageCategory');
 }
 
 export function updateServiceJobRecord(req: UpdateServiceJobRequest): ServiceJob {
   const job = serviceJobs.find((j) => j.id === req.jobId);
-  if (!job) throw new ApiError(`No service job with id ${req.jobId}`, 404);
-  if (job.status === 'CLOSED') throw new ApiError('This job is already closed', 409);
-  if (!isServiceQueue(req.queue)) throw new ApiError('Unknown service queue', 400, 'queue');
+  if (!job) throw new ApiError(`We could not find job ${req.jobId}`, 404);
+  if (job.status === 'CLOSED') throw new ApiError('This job is already finished', 409);
+  if (!isServiceQueue(req.queue)) throw new ApiError('That list does not exist', 400, 'queue');
   validateCategory(req.damageCategory);
-  if (req.liability && !['RIDER', 'DEPOSIT', 'COMPANY'].includes(req.liability)) throw new ApiError('Choose a valid liability', 400, 'liability');
+  if (req.liability && !['RIDER', 'DEPOSIT', 'COMPANY'].includes(req.liability)) throw new ApiError('Pick who pays', 400, 'liability');
   const vehicle = requireServiceVehicle(job.vehicleId);
   const total = validateServiceItems(req.items);
-  if (!hasServiceNote(req.note)) throw new ApiError('Record findings or a reason for this update', 400, 'note');
+  if (!hasServiceNote(req.note)) throw new ApiError('Write what you found, or why you are making this change', 400, 'note');
   if (['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(req.queue) && !req.reference?.trim()) {
-    throw new ApiError('Add a claim/reference or the parts being awaited', 400, 'reference');
+    throw new ApiError('Add the claim number, or say which parts you are waiting for', 400, 'reference');
   }
   const releasing = req.queue === 'READY_TO_DEPLOY';
   if ((releasing || req.queue === 'QC_PENDING') && !req.technician?.trim()) {
-    throw new ApiError('Name the technician or inspector before QC or release', 400, 'technician');
+    throw new ApiError('Say who did the work before the final check or before the bike goes back out', 400, 'technician');
   }
-  if ((releasing || req.queue === 'QC_PENDING') && !req.workSummary.trim()) throw new ApiError('Record the work done or the no-work inspection result before QC or release', 400, 'workSummary');
+  if ((releasing || req.queue === 'QC_PENDING') && !req.workSummary.trim()) throw new ApiError('Write what you did, or say that no repair was needed, before the final check or before the bike goes back out', 400, 'workSummary');
   if (total > 0 && releasing && !req.liability) {
-    throw new ApiError('Choose who pays before release', 400, 'liability');
+    throw new ApiError('Pick who pays before the bike goes back out', 400, 'liability');
   }
-  if (req.liability && req.liability !== 'COMPANY' && !job.riderId) throw new ApiError('No rider is linked. Select company liability.', 400, 'liability');
+  if (req.liability && req.liability !== 'COMPANY' && !job.riderId) throw new ApiError('No rider is on this bike, so the company has to cover the cost.', 400, 'liability');
   const rider = riders.find((r) => r.id === job.riderId);
   if (releasing && total > 0 && req.liability !== 'COMPANY' && !rider) {
-    throw new ApiError('The linked rider could not be found. Resolve the rider record before charging.', 409);
+    throw new ApiError('We could not find the rider for this bike. Fix the rider record before charging anything.', 409);
   }
   if (releasing && req.liability === 'DEPOSIT' && rider && total > rider.depositHeld) {
-    throw new ApiError('The cost exceeds the deposit held. Choose rider or company liability.', 400, 'liability');
+    throw new ApiError('The cost is more than the deposit we hold. Charge the rider, or let the company cover it.', 400, 'liability');
   }
   if (req.inspection) {
     validateServiceItems(req.inspection.items);
-    if (req.inspection.vehicleId !== vehicle.id) throw new ApiError('The inspection must belong to this vehicle', 400);
+    if (req.inspection.vehicleId !== vehicle.id) throw new ApiError('That check belongs to a different bike', 400);
   }
 
   const previousQueue = job.queue;
@@ -195,15 +195,15 @@ export function recordServiceInspection(body: InspectionRequest, actor = 'Servic
   const vehicle = requireServiceVehicle(body.vehicleId);
   validateCategory(body.category);
   validateServiceItems(body.items);
-  if (!hasServiceNote(body.notes) || !body.technician?.trim()) throw new ApiError('Record findings and an inspector for every inspection', 400);
-  if (!['READY_TO_DEPLOY', 'UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT'].includes(body.nextState)) throw new ApiError('Choose a service outcome', 400);
+  if (!hasServiceNote(body.notes) || !body.technician?.trim()) throw new ApiError('Every check needs notes and the name of whoever did it', 400);
+  if (!['READY_TO_DEPLOY', 'UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT'].includes(body.nextState)) throw new ApiError('Pick where the bike goes next', 400);
   const queue = queueForDisposition(body.nextState, body.category);
   // Inspection estimates are not the final bill. The work record retains both.
   const job = activeJobForVehicle(vehicle.id) ?? createServiceJob({
     vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: 'INSPECTION',
     damageCategory: body.category, damageNotes: body.notes, queue: queue === 'READY_TO_DEPLOY' ? 'ASSESSMENT' : queue, actor,
   });
-  if (queue === 'READY_TO_DEPLOY' && job.totalCostPaise > 0) throw new ApiError('Review costs and liability on the service job before release', 409);
+  if (queue === 'READY_TO_DEPLOY' && job.totalCostPaise > 0) throw new ApiError('Check the costs and who pays on the job before the bike goes back out', 409);
   return updateServiceJobRecord({
     jobId: job.id, queue, damageCategory: body.category, workSummary: body.notes, items: job.items,
     technician: body.technician, liability: job.liability, reference: job.reference,

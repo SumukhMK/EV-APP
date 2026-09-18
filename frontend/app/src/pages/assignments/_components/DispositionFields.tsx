@@ -83,12 +83,12 @@ export function DispositionFields<T extends FieldValues>({
       <SelectField
         control={control}
         name={nextStateName}
-        label="Next vehicle state"
+        label="Where does the bike go next?"
         options={nextStateOptions}
       />
       <Box sx={{ color: 'text.secondary', fontSize: 13 }}>
-        Suggested: {condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'QC pending'}.
-        All four return destinations are available. Explain an override in the notes before confirming.
+        We suggest: {condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'Final check'}.
+        You can pick any of the four. If you change it, say why in the notes before you confirm.
       </Box>
     </Box>
   );

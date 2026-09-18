@@ -76,10 +76,10 @@ export const NAV: NavSection[] = [
     heading: 'Service management',
     roles: ALL_ROLES,
     items: [
-      { label: 'Service queues', path: '/service/queues', icon: HandymanIcon, owner: 'smk', artboard: 22 },
-      { label: 'QC queue', path: '/service/qc', icon: FactCheckIcon, owner: 'smk', artboard: 14 },
-      { label: 'Inspection', path: '/service/inspection', icon: BuildIcon, owner: 'smk', artboard: 13 },
-      { label: 'Assistance desk', path: '/service/assistance', icon: SupportAgentIcon, owner: 'smk' },
+      { label: 'Bikes in service', path: '/service/queues', icon: HandymanIcon, owner: 'smk', artboard: 22 },
+      { label: 'Final checks', path: '/service/qc', icon: FactCheckIcon, owner: 'smk', artboard: 14 },
+      { label: 'Check a bike', path: '/service/inspection', icon: BuildIcon, owner: 'smk', artboard: 13 },
+      { label: 'Help desk', path: '/service/assistance', icon: SupportAgentIcon, owner: 'smk' },
     ],
   },
   {

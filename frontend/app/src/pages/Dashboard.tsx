@@ -65,13 +65,13 @@ export function Dashboard() {
           tiles={[
             { label: 'Total fleet', value: s ? formatNumber(s.totalFleet) : '—', icon: TwoWheelerIcon, to: '/vehicles' },
             {
-              label: 'Deployed',
+              label: 'Out with riders',
               value: s ? formatNumber(s.deployed) : '—',
               icon: RocketIcon,
               to: '/vehicles?state=DEPLOYED',
             },
             {
-              label: 'Ready',
+              label: 'Ready to give out',
               value: s ? formatNumber(s.readyToDeploy) : '—',
               tone: 'good',
               icon: CheckCircleIcon,
@@ -85,28 +85,28 @@ export function Dashboard() {
               to: '/service/queues?state=UNDER_REPAIR',
             },
             {
-              label: 'QC pending',
+              label: 'Final check',
               value: s ? formatNumber(s.qcPending) : '—',
               tone: 'caution',
               icon: FactCheckIcon,
               to: '/service/qc',
             },
             {
-              label: 'Recovery',
+              label: 'Being picked up',
               value: s ? formatNumber(s.recovery) : '—',
               tone: 'warn',
               icon: ReplayIcon,
               to: '/vehicles?state=RECOVERY',
             },
             {
-              label: 'Overdue riders',
+              label: 'Riders behind on rent',
               value: s ? formatNumber(s.overdueRiders) : '—',
               tone: 'bad',
               icon: PeopleAlertIcon,
               to: '/payments/overdue',
             },
             {
-              label: 'Overdue value',
+              label: 'Money owed',
               value: s ? rupees(s.overdueValue) : '—',
               tone: 'bad',
               icon: CurrencyRupeeIcon,

@@ -32,7 +32,7 @@ const BANDS: ScaleBand[] = ['high', 'mid', 'low', 'risk'];
 const TONE_MEANS: Record<StatusTone, string> = {
   accent: 'Deployed — the signature state',
   good: 'Ready, paid, healthy',
-  caution: 'QC pending — queued, not wrong',
+  caution: 'Waiting for a final check — queued, not wrong',
   warn: 'Under repair, recovery',
   bad: 'Accident, overdue',
   neutral: 'Inducted, returned, retired',

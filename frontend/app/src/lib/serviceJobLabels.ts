@@ -2,20 +2,20 @@ import type { DamageCategory, ServiceJobSource, ServiceLiability, ServiceQueue }
 import type { StatusTone } from '../theme/tokens';
 
 export const CATEGORY_LABEL: Record<DamageCategory, string> = {
-  NONE: 'None', MINOR: 'Minor', MAJOR: 'Major', ACCIDENT: 'Accident',
+  NONE: 'No damage', MINOR: 'Small damage', MAJOR: 'Big damage', ACCIDENT: 'Accident',
 };
 export const CATEGORY_TONE: Record<DamageCategory, StatusTone> = {
   NONE: 'neutral', MINOR: 'caution', MAJOR: 'warn', ACCIDENT: 'bad',
 };
 export const SOURCE_LABEL: Record<ServiceJobSource, string> = {
-  DEBOARD: 'Deboard', RSA: 'Roadside assistance (RSA)', QRT: 'Quick response team (QRT)', WALK_IN: 'Walk-in',
-  EXCHANGE: 'Exchange', INSPECTION: 'Inspection', REGISTRY: 'Existing fleet record',
+  DEBOARD: 'Rider gave the bike back', RSA: 'Roadside help (RSA)', QRT: 'Rescue team (QRT)', WALK_IN: 'Rider came to the hub',
+  EXCHANGE: 'Bike swap', INSPECTION: 'Routine check', REGISTRY: 'Older record',
 };
 export const SERVICE_QUEUE_LABEL: Record<ServiceQueue, string> = {
-  ASSESSMENT: 'Needs assessment', MINOR_REPAIR: 'Minor repair', MAJOR_REPAIR: 'Major repair',
-  ACCIDENT: 'Accident', WARRANTY: 'Warranty', INSURANCE: 'Insurance',
-  PARTS_WAITING: 'Awaiting parts', QC_PENDING: 'QC pending', READY_TO_DEPLOY: 'Ready / released',
+  ASSESSMENT: 'Needs checking', MINOR_REPAIR: 'Small repair', MAJOR_REPAIR: 'Big repair',
+  ACCIDENT: 'Accident', WARRANTY: 'Warranty claim', INSURANCE: 'Insurance claim',
+  PARTS_WAITING: 'Waiting for parts', QC_PENDING: 'Final check', READY_TO_DEPLOY: 'Done, back on the road',
 };
 export const LIABILITY_LABEL: Record<ServiceLiability, string> = {
-  DEPOSIT: 'Deduct from deposit', RIDER: 'Charge the rider', COMPANY: 'Write off (company)',
+  DEPOSIT: 'Take it from the deposit', RIDER: 'Rider pays', COMPANY: 'Company pays',
 };

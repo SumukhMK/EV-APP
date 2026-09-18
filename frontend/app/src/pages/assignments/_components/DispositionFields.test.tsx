@@ -24,8 +24,8 @@ describe('return destinations', () => {
   it.each(['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const)('shows all four operational destinations for %s', async (condition) => {
     const user = userEvent.setup();
     render(<ReturnForm condition={condition} />);
-    await user.click(screen.getByRole('combobox', { name: 'Next vehicle state' }));
-    for (const label of ['Ready to deploy', 'Under repair', 'QC pending', 'Accident']) {
+    await user.click(screen.getByRole('combobox', { name: 'Where does the bike go next?' }));
+    for (const label of ['Ready to give out', 'Under repair', 'Final check', 'Accident']) {
       expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
     }
     expect(screen.getAllByRole('option')).toHaveLength(4);
@@ -41,8 +41,8 @@ describe('return destinations', () => {
   it('preserves a deliberate destination override when severity changes', async () => {
     const user = userEvent.setup();
     const { rerender } = render(<ReturnForm condition="MINOR" />);
-    await user.click(screen.getByRole('combobox', { name: 'Next vehicle state' }));
-    await user.click(screen.getByRole('option', { name: 'Ready to deploy' }));
+    await user.click(screen.getByRole('combobox', { name: 'Where does the bike go next?' }));
+    await user.click(screen.getByRole('option', { name: 'Ready to give out' }));
     rerender(<ReturnForm condition="ACCIDENT" />);
     expect(screen.getByRole('status')).toHaveTextContent('READY_TO_DEPLOY');
   });

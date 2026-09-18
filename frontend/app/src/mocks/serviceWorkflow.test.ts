@@ -102,9 +102,9 @@ describe('service workflow integrity', () => {
   it('rejects intake release shortcuts, missing notes and stale rider links without writing anything', () => {
     const vehicle = vehicles.find((v) => v.state === 'DEPLOYED')!;
     const body = { vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: 'RSA' as const, damageCategory: 'NONE' as const, damageNotes: 'Safety check' };
-    expect(() => createServiceJob({ ...body, queue: 'READY_TO_DEPLOY' })).toThrow(/before.*release/);
-    expect(() => createServiceJob({ ...body, damageNotes: '' })).toThrow(/reported issue/);
-    expect(() => createServiceJob({ ...body, riderId: null })).toThrow(/assignment changed/);
+    expect(() => createServiceJob({ ...body, queue: 'READY_TO_DEPLOY' })).toThrow(/send it back out/);
+    expect(() => createServiceJob({ ...body, damageNotes: '' })).toThrow(/what is wrong/);
+    expect(() => createServiceJob({ ...body, riderId: null })).toThrow(/someone else/);
     expect(vehicle.state).toBe('DEPLOYED');
     expect(serviceJobs).toHaveLength(0);
   });
@@ -127,15 +127,15 @@ describe('service workflow integrity', () => {
 
   it('requires real QC findings, work and technician rather than an empty generated prefix', () => {
     const { job } = intake();
-    expect(() => update(job, { queue: 'QC_PENDING', workSummary: '' })).toThrow(/work done/);
-    expect(() => update(job, { queue: 'QC_PENDING', technician: null })).toThrow(/technician/);
-    expect(() => update(job, { queue: 'READY_TO_DEPLOY', note: 'QC passed: ' })).toThrow(/findings/);
+    expect(() => update(job, { queue: 'QC_PENDING', workSummary: '' })).toThrow(/what you did/);
+    expect(() => update(job, { queue: 'QC_PENDING', technician: null })).toThrow(/who did the work/);
+    expect(() => update(job, { queue: 'READY_TO_DEPLOY', note: 'QC passed: ' })).toThrow(/what you found/);
     expect(job.queue).toBe('MINOR_REPAIR');
   });
 
   it.each(['WARRANTY', 'INSURANCE', 'PARTS_WAITING'] as const)('records %s references and prevents partial movement when they are missing', (queue) => {
     const { job, vehicle } = intake();
-    expect(() => update(job, { queue })).toThrow(/reference|parts/);
+    expect(() => update(job, { queue })).toThrow(/claim number|parts/);
     expect(job.queue).toBe('MINOR_REPAIR');
     expect(vehicle.state).toBe('UNDER_REPAIR');
     update(job, { queue, reference: 'Reference 123 / expected tomorrow' });
@@ -164,7 +164,7 @@ describe('service workflow integrity', () => {
     const run = withLiveServiceFigures(runsByDay[rider.billingDay]);
     expect(run.rows.find((row) => row.riderId === job.riderId)?.serviceCharges).toBe(120000);
     expect(job.activity.some((e) => e.note.includes('Mounting is loose'))).toBe(true);
-    expect(() => update(job, { queue: 'READY_TO_DEPLOY', items, liability: 'RIDER' })).toThrow(/already closed/);
+    expect(() => update(job, { queue: 'READY_TO_DEPLOY', items, liability: 'RIDER' })).toThrow(/already finished/);
     expect(riderCharges).toHaveLength(1);
   });
 
@@ -182,7 +182,7 @@ describe('service workflow integrity', () => {
     const { job } = intake();
     const rider = riders.find((r) => r.id === job.riderId)!;
     const before = rider.depositHeld;
-    expect(() => update(job, { queue: 'READY_TO_DEPLOY', liability: 'DEPOSIT', items: [{ label: 'Repair', costPaise: before + 100 }] })).toThrow(/exceeds the deposit/);
+    expect(() => update(job, { queue: 'READY_TO_DEPLOY', liability: 'DEPOSIT', items: [{ label: 'Repair', costPaise: before + 100 }] })).toThrow(/more than the deposit/);
     expect(job.status).toBe('OPEN');
     update(job, { queue: 'READY_TO_DEPLOY', liability: 'DEPOSIT', items: [{ label: 'Repair', costPaise: 100 }] });
     expect(rider.depositHeld).toBe(before - 100);
@@ -211,7 +211,7 @@ describe('service workflow integrity', () => {
 
   it('rejects an incomplete standalone inspection before creating a job or moving the vehicle', () => {
     const vehicle = vehicles.find((v) => v.state === 'READY_TO_DEPLOY')!;
-    expect(() => recordServiceInspection({ vehicleId: vehicle.id, category: 'MINOR', notes: 'Mirror check', items: [], estimatedCostPaise: 0, technician: null, nextState: 'UNDER_REPAIR' })).toThrow(/inspector/);
+    expect(() => recordServiceInspection({ vehicleId: vehicle.id, category: 'MINOR', notes: 'Mirror check', items: [], estimatedCostPaise: 0, technician: null, nextState: 'UNDER_REPAIR' })).toThrow(/whoever did it/);
     expect(vehicle.state).toBe('READY_TO_DEPLOY');
     expect(serviceJobs).toHaveLength(0);
   });
@@ -258,7 +258,7 @@ describe('return disposition consistency', () => {
     await expect(deboardRider({ ...body, damageItems: [] })).rejects.toThrow(/damaged parts/);
     const job = createServiceJob({ vehicleId: body.vehicleId, riderId: body.riderId, source: 'RSA', damageCategory: 'MINOR', damageNotes: 'Mirror broken' });
     update(job, { items: [{ label: 'Mirror', costPaise: 10000 }] });
-    await expect(deboardRider({ ...body, nextVehicleState: 'READY_TO_DEPLOY' })).rejects.toThrow(/unclosed service costs/);
+    await expect(deboardRider({ ...body, nextVehicleState: 'READY_TO_DEPLOY' })).rejects.toThrow(/open service job/);
     expect(riders.find((r) => r.id === body.riderId)?.currentVehicleId).toBe(body.vehicleId);
     expect(job.status).toBe('IN_PROGRESS');
     expect(job.totalCostPaise).toBe(10000);

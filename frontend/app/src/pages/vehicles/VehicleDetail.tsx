@@ -179,9 +179,9 @@ export function VehicleDetail() {
             </>
           ) : (
             <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-              Not assigned. A bike can be assigned only from{' '}
+              Nobody has this bike. A bike can only be given out when it is{' '}
               <Box component="span" sx={{ color: tones.good.fg }}>
-                Ready to deploy
+                Ready to give out
               </Box>
               .
             </Typography>

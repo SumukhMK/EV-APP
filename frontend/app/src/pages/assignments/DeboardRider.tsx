@@ -163,7 +163,7 @@ export function DeboardRider() {
         <PageHeader section="Riders" title="Deboard rider" />
         <EmptyState
           title="No rider is holding a bike"
-          description="Deboarding closes an open assignment, and no rider has one open right now."
+          description="This screen takes a bike back from a rider, and nobody has one right now."
           action={
             <Button component={Link} to="/riders">
               Back to the register
@@ -192,7 +192,7 @@ export function DeboardRider() {
                 Cancel
               </Button>
               <Button type="submit" disabled={save.isPending || !confirmed}>
-                {save.isPending ? 'Deboarding…' : 'Finalise deboard'}
+                {save.isPending ? 'Saving…' : 'Finish and take the bike back'}
               </Button>
             </>
           }
@@ -221,7 +221,7 @@ export function DeboardRider() {
           }}
         >
           <Box sx={{ display: 'grid', gap: 5, minWidth: 0 }}>
-          <Panel label="Assignment being closed">
+          <Panel label="Rider and bike">
             <RiderSearchSelect
               label="Rider"
               placeholder="Search by name, rider id, phone or bike id"
@@ -246,8 +246,8 @@ export function DeboardRider() {
           </Panel>
 
           <Panel
-            label="Why the bike is coming back"
-            subtitle="Condition suggests a destination. Choose RTD, Under repair, QC or Accident; explain any override."
+            label="Why is the bike coming back?"
+            subtitle="The condition you pick suggests where the bike should go. You can choose something else, just say why."
           >
             {/* The note sits beside the control it qualifies rather than under
                 it — a lone select in a two-column row left half the panel bare. */}
@@ -262,22 +262,22 @@ export function DeboardRider() {
               <SelectField
                 control={form.control}
                 name="returnCondition"
-                label="Condition on return"
+                label="What condition is the bike in?"
                 options={CONDITIONS}
               />
               <InfoStrip>
-                Recovery is deliberately not an option in this flow — a bike that needs recovering
-                is a different process. These are the same four outcomes shown in Today's operations.
+"Being picked up" is not offered here — that is a separate job. These are the same four
+                places a bike can go that you see in Today's operations.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
               <DispositionFields
                 control={form.control}
                 reasonName="reason"
-                reasonLabel="Deboard reason"
+                reasonLabel="Why is the rider giving it back?"
                 reasonOptions={REASONS}
                 dateName="returnedOn"
-                dateLabel="Returned on"
+                dateLabel="Date it came back"
                 nextStateName="nextVehicleState"
                 condition={picked.returnCondition}
               />
@@ -288,11 +288,11 @@ export function DeboardRider() {
               </Box>
             )}
             <TextField
-              label="Notes / destination override reason"
+              label="Notes"
               multiline
               minRows={3}
               fullWidth
-              placeholder="Describe any damage, missing parts or dispute"
+              placeholder="Any damage, missing parts, or a disagreement. Also say why if you changed where the bike goes."
               sx={{ mt: 5 }}
               {...form.register('note')}
               error={Boolean(form.formState.errors.note)}
@@ -301,20 +301,20 @@ export function DeboardRider() {
           </Panel>
 
           <Panel
-            label="Settlement"
-            subtitle="Type in the refund yourself. How much to hold back for damage is a call made at the desk, not a formula."
+            label="Money"
+            subtitle="Type in the refund yourself. How much to hold back for damage is your call at the desk, not a formula."
           >
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
               {/* A number input hands back a string unless it is asked not to. */}
               <TextField
-                label="Outstanding rent (₹)"
+                label="Rent still owed (₹)"
                 type="number"
                 {...form.register('outstandingRentRupees', { valueAsNumber: true })}
                 error={Boolean(form.formState.errors.outstandingRentRupees)}
                 helperText={form.formState.errors.outstandingRentRupees?.message}
               />
               <TextField
-                label="Deposit refunded (₹)"
+                label="Deposit being returned (₹)"
                 type="number"
                 {...form.register('depositRefundRupees', { valueAsNumber: true })}
                 error={Boolean(form.formState.errors.depositRefundRupees)}
@@ -323,7 +323,7 @@ export function DeboardRider() {
             </Box>
             <Box sx={{ mt: 5 }}>
               <DerivedField
-                label="Net after outstanding rent"
+                label="Rider gets back, after rent owed"
                 value={netLabel}
                 derivation="Deposit held − outstanding rent. Negative means the deposit does not cover what is owed."
               />
@@ -336,8 +336,8 @@ export function DeboardRider() {
               the form, then check what it is about to do. */}
           <Box sx={{ position: { lg: 'sticky' }, top: 16, minWidth: 0 }}>
             <Panel
-              label="Before you finalise"
-              subtitle="What this closes, as it stands right now."
+              label="Before you finish"
+              subtitle="Here is what will happen when you confirm."
             >
               <DefinitionList
                 divider="top"
@@ -374,13 +374,13 @@ export function DeboardRider() {
                 ]}
               />
               <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 3 }}>
-                The vehicle movement and service record are saved together. QC and repair jobs are immediately available in Service queues.
+                The bike movement and the service job are saved together. The job shows up in Bikes in service straight away.
               </Typography>
               <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
                 The rider becomes inactive and the bike is freed up. Onboard them again to bring
                 them back.
               </Typography>
-              <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm the rider, destination and settlement." />
+              <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm the rider, where the bike goes, and the money." />
             </Panel>
           </Box>
         </Box>
