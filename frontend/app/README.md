@@ -106,6 +106,19 @@ Breakpoints are MUI's defaults (`sm` 600, `md` 900, `lg` 1200, `xl` 1536). Three
 
 Check a change at 390, 900, 1440 and 1920 before calling it done.
 
+## Assistance desk workflow
+
+- `/service/assistance` lists open and closed jobs with URL-backed search/status filters.
+- **New job** opens `/service/assistance/new`, not a modal. Select a vehicle, source,
+  damage category and notes; creation takes you straight to the new job record.
+- `/service/assistance/:jobId` shows the report, work items and cost/liability summary.
+  Review costs and tick the inline confirmation before closing. Closed jobs remain
+  accessible as read-only records. **Back to jobs** restores the originating filters.
+- Service/admin personas can create and close jobs; fleet staff can read job records.
+  These are prototype UI gates, not server-side authorisation.
+- Mock jobs survive client-side navigation but reset on a full page reload; these routes
+  do not add backend persistence.
+
 ## Unbuilt screens
 
 Every route in the wireframe exists. Unbuilt ones render `Placeholder`, which names the artboard

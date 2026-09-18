@@ -1,161 +1,50 @@
-import { useState } from 'react';
 import SupportAgentIcon from '@mui/icons-material/SupportAgentOutlined';
 import AddIcon from '@mui/icons-material/AddOutlined';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
-import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PageHeader } from '../../components/PageHeader';
-import { Panel } from '../../components/Panel';
-import { StateChip } from '../../components/StateChip';
-import { EmptyState } from '../../components/EmptyState';
-import { Mono } from '../../components/Mono';
-import { SimpleTable } from '../../components/SimpleTable';
-import { RecordSearchSelect } from '../../components/RecordSearchSelect';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import { invalidateServiceJobs } from '../../lib/invalidate';
-import { closeServiceJob, createServiceJob, listServiceJobs } from '../../lib/api/serviceJobs';
-import { listInspectableVehicles } from '../../lib/api/vehicles';
-import { formatDate, rupees, rupeesWithSymbol } from '../../lib/format';
-import { VEHICLE_STATE_LABEL } from '../../lib/labels';
-import { accent, neutral, type StatusTone } from '../../theme/tokens';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import { useQuery } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/sessionContext';
+import { EmptyState } from '../../components/EmptyState';
+import { PageHeader } from '../../components/PageHeader';
+import { Mono } from '../../components/Mono';
+import { Panel } from '../../components/Panel';
+import { SimpleTable } from '../../components/SimpleTable';
+import { StateChip } from '../../components/StateChip';
+import { listServiceJobs } from '../../lib/api/serviceJobs';
+import { formatDate, rupeesWithSymbol } from '../../lib/format';
 import { canCloseServiceJob } from '../../lib/roles';
-import type { DamageCategory, ServiceJob, ServiceJobItem, ServiceLiability, ServiceJobSource } from '../../types';
+import { CATEGORY_LABEL, CATEGORY_TONE, SOURCE_LABEL } from '../../lib/serviceJobLabels';
 
-const CATEGORY_TONE: Record<DamageCategory, StatusTone> = {
-  NONE: 'neutral',
-  MINOR: 'caution',
-  MAJOR: 'warn',
-  ACCIDENT: 'bad',
-};
-
-const CATEGORY_LABEL: Record<DamageCategory, string> = {
-  NONE: 'None',
-  MINOR: 'Minor',
-  MAJOR: 'Major',
-  ACCIDENT: 'Accident',
-};
-
-const SOURCE_LABEL: Record<ServiceJobSource, string> = {
-  DEBOARD: 'Deboard',
-  RSA: 'Roadside assistance',
-  QRT: 'Quick response team',
-  WALK_IN: 'Walk-in',
-};
-
-const LIABILITY_OPTIONS: Array<{ value: ServiceLiability; label: string }> = [
-  { value: 'DEPOSIT', label: 'Deduct from deposit' },
-  { value: 'RIDER', label: 'Charge the rider' },
-  { value: 'COMPANY', label: 'Write off (company)' },
-];
-
-const LOGGABLE_SOURCES: Array<{ value: ServiceJobSource; label: string }> = [
-  { value: 'WALK_IN', label: 'Walk-in' },
-  { value: 'RSA', label: 'RSA' },
-  { value: 'QRT', label: 'QRT' },
-];
-
-const LOGGABLE_CATEGORIES: Array<{ value: DamageCategory; label: string }> = [
-  { value: 'MINOR', label: 'Minor' },
-  { value: 'MAJOR', label: 'Major' },
-  { value: 'ACCIDENT', label: 'Accident' },
-];
-
-/** One priced line while the desk is still working the job — cost typed as a string so a half-entered number does not fight the field. */
-interface DraftItem {
-  label: string;
-  costRupees: string;
-}
-
-/**
- * Where an RSA call, a QRT dispatch, a walk-in, or a deboard's damage tag gets
- * worked: the desk opens the job, prices what it actually took — part by
- * part — and says who is liable. Closing is the one action in this screen,
- * because that is the one action that turns a job into money: a `RIDER` or
- * `DEPOSIT` liability posts straight through to that rider's `RiderCharge`
- * ledger, which the weekly run reads without anyone re-typing a number.
- *
- * A deboard tags a job automatically. RSA, QRT and a walk-in do not have an
- * upstream form of their own, so this screen is also where that team logs
- * one in the first place — "New job" below "Open job".
- */
 export function AssistanceDesk() {
-  const queryClient = useQueryClient();
   const { user } = useSession();
+  const mobile = useMediaQuery(useTheme().breakpoints.down('sm'));
   const canWork = canCloseServiceJob(user.roleKey);
-  const [opening, setOpening] = useState<ServiceJob | null>(null);
-  const [items, setItems] = useState<DraftItem[]>([{ label: '', costRupees: '' }]);
-  const [liability, setLiability] = useState<ServiceLiability>('RIDER');
-  const [technician, setTechnician] = useState('');
-
-  const [logging, setLogging] = useState(false);
-  const [newVehicleId, setNewVehicleId] = useState('');
-  const [newSource, setNewSource] = useState<ServiceJobSource>('WALK_IN');
-  const [newCategory, setNewCategory] = useState<DamageCategory>('MINOR');
-  const [newNotes, setNewNotes] = useState('');
-
-  const jobs = useQuery({ queryKey: ['service-jobs', 'open'], queryFn: () => listServiceJobs() });
-  const openJobs = (jobs.data ?? []).filter((j) => j.status !== 'CLOSED');
-
-  const eligibleVehicles = useQuery({
-    queryKey: ['vehicles', 'inspectable'],
-    queryFn: listInspectableVehicles,
-    enabled: logging,
-  });
-  const pickedVehicle = eligibleVehicles.data?.find((v) => v.id === newVehicleId) ?? null;
-
-  const close = useMutation({
-    mutationFn: (payload: { jobId: string; items: ServiceJobItem[]; liability: ServiceLiability; technician: string | null }) =>
-      closeServiceJob(payload),
-    onSuccess: () => {
-      invalidateServiceJobs(queryClient);
-      setOpening(null);
-    },
-  });
-
-  const log = useMutation({
-    mutationFn: () =>
-      createServiceJob({
-        vehicleId: newVehicleId,
-        riderId: pickedVehicle?.currentRiderId ?? null,
-        source: newSource,
-        damageCategory: newCategory,
-        damageNotes: newNotes.trim() || null,
-      }),
-    onSuccess: () => {
-      invalidateServiceJobs(queryClient);
-      setLogging(false);
-      setNewVehicleId('');
-      setNewSource('WALK_IN');
-      setNewCategory('MINOR');
-      setNewNotes('');
-    },
-  });
-
-  function startWorking(job: ServiceJob) {
-    setOpening(job);
-    setItems([{ label: '', costRupees: '' }]);
-    setLiability('RIDER');
-    setTechnician('');
-  }
-
-  const validItems = items
-    .map((i) => ({ label: i.label.trim(), costPaise: Math.round((Number(i.costRupees) || 0) * 100) }))
-    .filter((i) => i.label.length > 0 && i.costPaise > 0);
-
-  const totalPaise = validItems.reduce((sum, i) => sum + i.costPaise, 0);
-  const highValue = totalPaise > 500000;
+  const [params, setParams] = useSearchParams();
+  const search = params.get('search') ?? '';
+  const rawStatus = params.get('status') ?? 'OPEN';
+  const status = ['OPEN', 'CLOSED', 'ALL'].includes(rawStatus) ? rawStatus : 'ALL';
+  const jobs = useQuery({ queryKey: ['service-jobs', 'list'], queryFn: () => listServiceJobs() });
+  const all = jobs.data ?? [];
+  const openCount = all.filter((j) => j.status !== 'CLOSED').length;
+  const rows = all.filter((j) =>
+    (status === 'ALL' || (status === 'CLOSED' ? j.status === 'CLOSED' : j.status !== 'CLOSED')) &&
+    `${j.id} ${j.vehicleId} ${j.damageNotes ?? ''} ${SOURCE_LABEL[j.source]}`.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  const returnTo = `/service/assistance${params.size ? `?${params}` : ''}`;
+  const updateFilter = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+  };
+  const newJob = <Button component={Link} to="/service/assistance/new" state={{ returnTo }} startIcon={<AddIcon />}>New job</Button>;
 
   return (
     <>
@@ -163,253 +52,78 @@ export function AssistanceDesk() {
         section="Service management"
         title="Assistance desk"
         icon={SupportAgentIcon}
-        meta={
-          <Mono sx={{ fontSize: 12, color: neutral[500] }}>
-            {openJobs.length} job{openJobs.length === 1 ? '' : 's'} open
-          </Mono>
-        }
-        actions={
-          canWork ? (
-            <Button startIcon={<AddIcon />} onClick={() => setLogging(true)}>
-              New job
-            </Button>
-          ) : undefined
-        }
+        actions={canWork ? newJob : undefined}
       />
-
-      <Panel sx={{ mt: 5, p: { xs: '4px 12px 12px', sm: '4px 20px 12px' } }}>
-        {openJobs.length === 0 ? (
+      <Typography color="text.secondary" variant="body2" sx={{ mt: 3 }}>Log requests, record the work, and review who pays.</Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: { xs: 2, sm: 3 }, mt: 4 }}>
+        {[
+          { label: 'Open', value: openCount, filter: 'OPEN' },
+          { label: 'Closed', value: all.length - openCount, filter: 'CLOSED' },
+          { label: 'All jobs', value: all.length, filter: 'ALL' },
+        ].map((tile) => (
+          <Box key={tile.label} component={Link} to={`/service/assistance?status=${tile.filter}`} sx={{ color: 'inherit', textDecoration: 'none' }}>
+            <Panel label={tile.label} sx={{ p: { xs: 2.5, sm: 4 }, '&:hover': { borderColor: 'primary.main' } }}>
+              <Mono sx={{ fontSize: 26, fontWeight: 600 }}>{jobs.isPending || jobs.isError ? '—' : tile.value}</Mono>
+            </Panel>
+          </Box>
+        ))}
+      </Box>
+      {!canWork && <Alert severity="info" sx={{ mt: 3 }}>View-only access. You can open any job to review its details.</Alert>}
+      <Panel label="Jobs" sx={{ mt: 4 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) 200px' }, gap: 3, mb: 4 }}>
+          <TextField label="Search jobs" placeholder="Job, vehicle, source or notes" value={search} onChange={(e) => updateFilter('search', e.target.value)} />
+          <TextField select label="Status" value={status} onChange={(e) => updateFilter('status', e.target.value)}>
+            <MenuItem value="OPEN">Open ({openCount})</MenuItem>
+            <MenuItem value="CLOSED">Closed ({all.length - openCount})</MenuItem>
+            <MenuItem value="ALL">All jobs ({all.length})</MenuItem>
+          </TextField>
+        </Box>
+        {jobs.isPending ? <EmptyState title="Loading jobs…" /> : jobs.isError ? (
+          <Alert severity="error" action={<Button color="inherit" onClick={() => void jobs.refetch()}>Retry</Button>}>{jobs.error.message}</Alert>
+        ) : rows.length === 0 ? (
           <EmptyState
-            title="Nothing open"
-            description="Jobs appear here from a deboard's damage tag, or from New job above for an RSA or QRT call and a walk-in."
+            title={all.length ? 'No matching jobs' : 'No jobs yet'}
+            description={all.length ? 'Try a different search or status.' : 'Deboarding creates a job automatically. Use New job for RSA, QRT or a walk-in.'}
+            action={all.length ? <Button onClick={() => setParams({ status: 'ALL' }, { replace: true })}>Clear filters</Button> : canWork ? newJob : undefined}
           />
+        ) : mobile ? (
+          <Box sx={{ display: 'grid', gap: 3 }}>
+            {rows.map((j) => (
+              <Box key={j.id} sx={{ borderTop: 1, borderColor: 'divider', pt: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} color="inherit"><Mono>{j.id}</Mono></Button>
+                  <StateChip label={j.status === 'CLOSED' ? 'Closed' : j.status === 'IN_PROGRESS' ? 'In progress' : 'Open'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} />
+                </Box>
+                <Typography variant="body2" sx={{ mt: 2 }}>{j.vehicleId} · {SOURCE_LABEL[j.source]}</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mt: 2 }}>
+                  <StateChip label={CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} />
+                  <Mono>{j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'Not priced'}</Mono>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Opened {formatDate(j.createdOn)}</Typography>
+              </Box>
+            ))}
+          </Box>
         ) : (
           <SimpleTable
-            rows={openJobs}
+            scrollable
+            rows={rows}
             getRowKey={(j) => j.id}
             columns={[
-              { key: 'id', header: 'Job', width: 110, render: (j) => <Mono sx={{ color: accent[300] }}>{j.id}</Mono> },
-              { key: 'vehicle', header: 'Vehicle', width: 110, render: (j) => <Mono>{j.vehicleId}</Mono> },
-              { key: 'source', header: 'Source', width: 150, render: (j) => SOURCE_LABEL[j.source] },
-              {
-                key: 'category',
-                header: 'Damage',
-                width: 110,
-                render: (j) => <StateChip label={CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} />,
-              },
-              {
-                key: 'notes',
-                header: 'Notes',
-                width: 260,
-                render: (j) => <Box component="span" sx={{ color: neutral[400] }}>{j.damageNotes || '—'}</Box>,
-              },
-              { key: 'opened', header: 'Opened', width: 110, render: (j) => <Mono sx={{ fontSize: 13 }}>{formatDate(j.createdOn)}</Mono> },
-              {
-                key: 'action',
-                header: 'Action',
-                align: 'right',
-                width: 130,
-                render: (j) =>
-                  canWork ? (
-                    <Button onClick={() => startWorking(j)} disabled={close.isPending}>
-                      Open job
-                    </Button>
-                  ) : (
-                    <Box component="span" sx={{ color: neutral[500], fontSize: 12 }}>View only</Box>
-                  ),
-              },
+              { key: 'job', header: 'Job / vehicle', width: 180, render: (j) => (
+                <Box>
+                  <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} color="inherit" sx={{ px: 0 }}><Mono>{j.id}</Mono></Button>
+                  <Mono sx={{ display: 'block', color: 'text.secondary' }}>{j.vehicleId}</Mono>
+                </Box>
+              ) },
+              { key: 'source', header: 'Source', width: 180, render: (j) => SOURCE_LABEL[j.source] },
+              { key: 'damage', header: 'Damage', width: 110, render: (j) => <StateChip label={CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} /> },
+              { key: 'status', header: 'Status', width: 110, render: (j) => <StateChip label={j.status === 'CLOSED' ? 'Closed' : j.status === 'IN_PROGRESS' ? 'In progress' : 'Open'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} /> },
+              { key: 'opened', header: 'Opened', width: 130, render: (j) => formatDate(j.createdOn) },
+              { key: 'cost', header: 'Final cost', width: 110, align: 'right', render: (j) => <Mono>{j.status === 'CLOSED' ? rupeesWithSymbol(j.totalCostPaise) : 'Not priced'}</Mono> },
             ]}
           />
         )}
       </Panel>
-
-      <Typography sx={{ fontSize: 12, color: neutral[500], mt: 3 }}>
-        Closing a job with the rider or the deposit liable posts a charge straight to that rider's
-        payment record — the weekly run and the rider's ledger pick it up without re-entry.
-      </Typography>
-
-      <Dialog open={Boolean(opening)} onClose={() => setOpening(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 16 }}>
-          Work job · {opening?.id} · {opening?.vehicleId}
-        </DialogTitle>
-        <DialogContent>
-          <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 4 }}>
-            {opening && SOURCE_LABEL[opening.source]} · {opening && CATEGORY_LABEL[opening.damageCategory]} damage
-            {opening?.damageNotes ? ` — ${opening.damageNotes}` : ''}
-          </Typography>
-
-          <Typography variant="overline">Line items</Typography>
-          <Box sx={{ display: 'grid', gap: 3, mt: 2 }}>
-            {items.map((item, index) => (
-              <Box key={index} sx={{ display: 'grid', gridTemplateColumns: '1fr 140px auto', gap: 2, alignItems: 'start' }}>
-                <TextField
-                  label="Part / work done"
-                  size="small"
-                  value={item.label}
-                  onChange={(e) => {
-                    const next = [...items];
-                    next[index] = { ...next[index], label: e.target.value };
-                    setItems(next);
-                  }}
-                />
-                <TextField
-                  label="Cost (₹)"
-                  size="small"
-                  type="number"
-                  value={item.costRupees}
-                  onChange={(e) => {
-                    const next = [...items];
-                    next[index] = { ...next[index], costRupees: e.target.value };
-                    setItems(next);
-                  }}
-                />
-                <IconButton
-                  aria-label="Remove item"
-                  size="small"
-                  onClick={() => setItems(items.filter((_, i) => i !== index))}
-                >
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            ))}
-            <Box>
-              <Button size="small" startIcon={<AddIcon />} onClick={() => setItems([...items, { label: '', costRupees: '' }])}>
-                Add line item
-              </Button>
-            </Box>
-          </Box>
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3, mt: 5 }}>
-            <TextField
-              select
-              label="Liability"
-              size="small"
-              value={liability}
-              onChange={(e) => setLiability(e.target.value as ServiceLiability)}
-            >
-              {LIABILITY_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Technician"
-              size="small"
-              value={technician}
-              onChange={(e) => setTechnician(e.target.value)}
-            />
-          </Box>
-
-          <Stack direction="row" sx={{ mt: 5, justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Total</Typography>
-            <Mono sx={{ fontSize: 16 }}>{rupees(totalPaise)}</Mono>
-          </Stack>
-          {highValue && (
-            <Typography sx={{ fontSize: 12.5, color: 'warning.main', mt: 2 }}>
-              Flagged for review — this job is over {rupeesWithSymbol(500000)}.
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 6, pb: 5 }}>
-          <Button color="inherit" onClick={() => setOpening(null)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() =>
-              opening &&
-              close.mutate({
-                jobId: opening.id,
-                items: validItems,
-                liability,
-                technician: technician.trim() || null,
-              })
-            }
-            disabled={validItems.length === 0 || close.isPending}
-          >
-            {close.isPending ? 'Closing…' : 'Close job'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={logging} onClose={() => setLogging(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontSize: 16 }}>Log a job</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 4 }}>
-            For an RSA call, a QRT dispatch, or a walk-in — a deboard tags its own job automatically
-            and does not need one logged here.
-          </Typography>
-
-          <Box sx={{ display: 'grid', gap: 4 }}>
-            <RecordSearchSelect
-              label="Vehicle"
-              placeholder="Search a bike"
-              value={newVehicleId}
-              onChange={setNewVehicleId}
-              options={(eligibleVehicles.data ?? []).map((v) => ({
-                id: v.id,
-                primary: v.model,
-                secondary: VEHICLE_STATE_LABEL[v.state],
-                trailing: v.currentRiderName ?? v.chassisNumber,
-              }))}
-              loading={eligibleVehicles.isLoading}
-            />
-
-            <Box>
-              <Typography variant="overline" sx={{ mb: 1.5, display: 'block' }}>
-                Source
-              </Typography>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={newSource}
-                onChange={(_, next) => next && setNewSource(next)}
-              >
-                {LOGGABLE_SOURCES.map((s) => (
-                  <ToggleButton key={s.value} value={s.value} sx={{ px: 4, textTransform: 'none', fontSize: 13 }}>
-                    {s.label}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-            </Box>
-
-            <Box>
-              <Typography variant="overline" sx={{ mb: 1.5, display: 'block' }}>
-                Damage category
-              </Typography>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={newCategory}
-                onChange={(_, next) => next && setNewCategory(next)}
-              >
-                {LOGGABLE_CATEGORIES.map((c) => (
-                  <ToggleButton key={c.value} value={c.value} sx={{ px: 4, textTransform: 'none', fontSize: 13 }}>
-                    {c.label}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-            </Box>
-
-            <TextField
-              label="Notes"
-              multiline
-              minRows={2}
-              value={newNotes}
-              onChange={(e) => setNewNotes(e.target.value)}
-              placeholder="What was reported, where, what it needs"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 6, pb: 5 }}>
-          <Button color="inherit" onClick={() => setLogging(false)}>
-            Cancel
-          </Button>
-          <Button onClick={() => log.mutate()} disabled={!newVehicleId || log.isPending}>
-            {log.isPending ? 'Logging…' : 'Log job'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </>
   );
 }

@@ -51,6 +51,12 @@ const ServiceManagement = lazy(() =>
 const AssistanceDesk = lazy(() =>
   import('../pages/service/AssistanceDesk').then((m) => ({ default: m.AssistanceDesk })),
 );
+const NewAssistanceJob = lazy(() =>
+  import('../pages/service/AssistanceJob').then((m) => ({ default: m.NewAssistanceJob })),
+);
+const AssistanceJob = lazy(() =>
+  import('../pages/service/AssistanceJob').then((m) => ({ default: m.AssistanceJob })),
+);
 
 // Riders — Abhiram
 const RidersList = lazy(() => import('../pages/riders/RidersList').then((m) => ({ default: m.RidersList })));
@@ -107,6 +113,8 @@ export const router = createBrowserRouter([
       { path: '/service/qc', element: <QcQueue /> },
       { path: '/service/inspection', element: <Inspection /> },
       { path: '/service/assistance', element: <AssistanceDesk /> },
+      { path: '/service/assistance/new', element: <NewAssistanceJob /> },
+      { path: '/service/assistance/:jobId', element: <AssistanceJob /> },
       // Legacy paths from before Service management had its own section.
       { path: '/inspections', element: <Navigate to="/service/inspection" replace /> },
       { path: '/qc', element: <Navigate to="/service/qc" replace /> },
