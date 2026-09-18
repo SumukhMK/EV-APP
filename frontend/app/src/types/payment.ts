@@ -1,5 +1,6 @@
 import type { Iso8601, Paise } from './common';
 import type { BillingDay } from './rider';
+import type { ServiceLiability } from './serviceJob';
 
 export type PaymentStatus = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
 
@@ -70,6 +71,30 @@ export interface RiderPaymentRow {
 }
 
 export type PaymentMethod = 'UPI' | 'CASH' | 'BANK_TRANSFER';
+
+/**
+ * A cost posted to a rider once an assistance-desk job closes with
+ * `liability: 'RIDER'` or `'DEPOSIT'`. `serviceCharges` on a `PaymentPeriodRow`
+ * is the sum of the `RIDER`-liability charges whose `periodStart` matches the
+ * run; a `DEPOSIT` charge never appears on the run because it is settled
+ * against the deposit, not billed. `arrears` is the sum of `OPEN` charges
+ * whose `periodStart` is before the current run — money owed that carried
+ * forward rather than being paid in the week it was charged.
+ */
+export type RiderChargeStatus = 'OPEN' | 'SETTLED';
+
+export interface RiderCharge {
+  id: string;
+  riderId: string;
+  serviceJobId: string;
+  vehicleId: string;
+  amount: Paise;
+  liability: ServiceLiability;
+  status: RiderChargeStatus;
+  /** The billing period this charge should first appear against. */
+  periodStart: Iso8601;
+  createdOn: Iso8601;
+}
 
 /**
  * A single rider's receipt for one billing period (screen 16).

@@ -38,14 +38,18 @@ const TodayOperations = lazy(() =>
 // Fleet — SMK
 const VehiclesList = lazy(() => import('../pages/vehicles/VehiclesList').then((m) => ({ default: m.VehiclesList })));
 const AddVehicle = lazy(() => import('../pages/vehicles/AddVehicle').then((m) => ({ default: m.AddVehicle })));
+const EditVehicle = lazy(() => import('../pages/vehicles/EditVehicle').then((m) => ({ default: m.EditVehicle })));
 const BulkUploadVehicles = lazy(() =>
   import('../pages/vehicles/BulkUploadVehicles').then((m) => ({ default: m.BulkUploadVehicles })),
 );
 const VehicleDetail = lazy(() => import('../pages/vehicles/VehicleDetail').then((m) => ({ default: m.VehicleDetail })));
-const Inspection = lazy(() => import('../pages/workshop/Inspection').then((m) => ({ default: m.Inspection })));
+const Inspection = lazy(() => import('../pages/service/Inspection').then((m) => ({ default: m.Inspection })));
 const QcQueue = lazy(() => import('../pages/workshop/QcQueue').then((m) => ({ default: m.QcQueue })));
 const ServiceManagement = lazy(() =>
   import('../pages/service/ServiceManagement').then((m) => ({ default: m.ServiceManagement })),
+);
+const AssistanceDesk = lazy(() =>
+  import('../pages/service/AssistanceDesk').then((m) => ({ default: m.AssistanceDesk })),
 );
 
 // Riders — Abhiram
@@ -96,9 +100,17 @@ export const router = createBrowserRouter([
       { path: '/vehicles/new', element: <AddVehicle /> },
       { path: '/vehicles/bulk-upload', element: <BulkUploadVehicles /> },
       { path: '/vehicles/:vehicleId', element: <VehicleDetail /> },
-      { path: '/inspections', element: <Inspection /> },
-      { path: '/qc', element: <QcQueue /> },
-      { path: '/service', element: <ServiceManagement /> },
+      { path: '/vehicles/:vehicleId/edit', element: <EditVehicle /> },
+
+      // Service management — SMK
+      { path: '/service/queues', element: <ServiceManagement /> },
+      { path: '/service/qc', element: <QcQueue /> },
+      { path: '/service/inspection', element: <Inspection /> },
+      { path: '/service/assistance', element: <AssistanceDesk /> },
+      // Legacy paths from before Service management had its own section.
+      { path: '/inspections', element: <Navigate to="/service/inspection" replace /> },
+      { path: '/qc', element: <Navigate to="/service/qc" replace /> },
+      { path: '/service', element: <Navigate to="/service/queues" replace /> },
 
       // Riders — Abhiram
       { path: '/riders', element: <RidersList /> },

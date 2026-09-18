@@ -13,12 +13,15 @@ import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
 import { getVehicle } from '../../lib/api/vehicles';
 import { getRider } from '../../lib/api/riders';
+import { canEditVehicle } from '../../lib/roles';
+import { useSession } from '../../app/sessionContext';
 import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
 
 export function VehicleDetail() {
   const { vehicleId = '' } = useParams();
+  const { user } = useSession();
 
   const vehicle = useQuery({
     queryKey: ['vehicle', vehicleId],
@@ -63,6 +66,8 @@ export function VehicleDetail() {
     <>
       <PageHeader
         section="Fleet / Vehicles"
+        backTo="/vehicles"
+        backLabel="Back to vehicles"
         title={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
             <Mono sx={{ fontSize: { xs: 22, sm: 25, xl: 28 }, letterSpacing: 0 }}>{v.id}</Mono>
@@ -71,10 +76,15 @@ export function VehicleDetail() {
         }
         actions={
           <>
+            {canEditVehicle(user.roleKey) && (
+              <Button color="inherit" component={Link} to={`/vehicles/${v.id}/edit`}>
+                Edit
+              </Button>
+            )}
             <Button color="inherit" component={Link} to="/assignments/exchange">
               Exchange
             </Button>
-            <Button color="inherit" component={Link} to={`/inspections?vehicle=${v.id}`}>
+            <Button color="inherit" component={Link} to={`/service/inspection?vehicle=${v.id}`}>
               Inspection
             </Button>
           </>

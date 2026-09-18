@@ -71,7 +71,18 @@ export const deboardRiderSchema = z.object({
     .int('Enter whole rupees')
     .min(0, 'A refund cannot be negative — a deduction larger than the deposit is an amount owed, and how that is recorded has not been decided yet'),
   note: z.string().trim().max(500, 'Keep the note under 500 characters').optional(),
-});
+  /** Part-level damage detail, required once the bike is tagged as damaged. */
+  damageItems: z.array(
+    z.object({
+      part: z.string().trim().min(1, 'Name the part or area'),
+      note: z.string().trim().max(300, 'Keep the note under 300 characters').optional(),
+    }),
+  ),
+})
+  .refine((v) => v.returnCondition === 'NONE' || v.damageItems.length > 0, {
+    message: 'Add at least one damaged part before continuing',
+    path: ['damageItems'],
+  });
 
 export type DeboardRiderValues = z.infer<typeof deboardRiderSchema>;
 

@@ -1,11 +1,19 @@
 import { useMemo, useState } from 'react';
 import BuildIcon from '@mui/icons-material/BuildOutlined';
+import AddIcon from '@mui/icons-material/AddOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import IconButton from '@mui/material/IconButton';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
+import Stack from '@mui/material/Stack';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import TextField from '@mui/material/TextField';
@@ -21,7 +29,7 @@ import { Mono } from '../../components/Mono';
 import { RecordSearchSelect } from '../../components/RecordSearchSelect';
 import { listInspectableVehicles, recordInspection } from '../../lib/api/vehicles';
 import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE } from '../../lib/labels';
-import { formatNumber } from '../../lib/format';
+import { formatNumber, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
 import type { DamageCategory, VehicleState } from '../../types';
 
@@ -30,8 +38,8 @@ import type { DamageCategory, VehicleState } from '../../types';
  *
  * Outcome is chosen first, because it determines what else the form needs:
  * "no work needed" asks for nothing more, the other two ask for a category, a
- * technician and notes. Showing all of it at once is how the paper process
- * ended up with half-filled forms.
+ * technician and a priced line-by-line record. Showing all of it at once is
+ * how the paper process ended up with half-filled forms.
  */
 const OUTCOMES: Array<{ value: VehicleState; label: string; hint: string }> = [
   { value: 'READY_TO_DEPLOY', label: 'Ready to deploy', hint: 'No work needed' },
@@ -47,27 +55,42 @@ const CATEGORIES: Array<{ value: DamageCategory; label: string }> = [
 
 const TECHNICIANS = ['Dhananjay', 'Abhinandan'];
 
+/** One priced line while the record is being built — a part, a labour charge. */
+interface DraftItem {
+  label: string;
+  costRupees: string;
+}
+
 export function Inspection() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
 
-  const [vehicleId, setVehicleId] = useState('');
+  // Deep link from a vehicle's detail page: ?vehicle=BLRSS0388. Seeded into
+  // state at construction, not just read off `params` at render time — the
+  // field used to stay blank until the operator typed into it because only
+  // the resolved-record lookup below consulted `preselected`, never the
+  // control's own value.
+  const [vehicleId, setVehicleId] = useState(() => params.get('vehicle') ?? '');
   const [outcome, setOutcome] = useState<VehicleState>('UNDER_REPAIR');
   const [category, setCategory] = useState<DamageCategory>('MINOR');
   const [technician, setTechnician] = useState(TECHNICIANS[0]);
   const [notes, setNotes] = useState('');
+  const [items, setItems] = useState<DraftItem[]>([{ label: '', costRupees: '' }]);
   const [saved, setSaved] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const options = useQuery({ queryKey: ['vehicles', 'inspectable'], queryFn: listInspectableVehicles });
 
-  // Deep link from a vehicle's detail page: ?vehicle=BLRSS0388
-  const preselected = params.get('vehicle');
-  const resolved = useMemo(() => {
-    if (vehicleId) return options.data?.find((v) => v.id === vehicleId) ?? null;
-    if (!preselected) return null;
-    return options.data?.find((v) => v.id === preselected) ?? null;
-  }, [vehicleId, preselected, options.data]);
+  const resolved = useMemo(
+    () => options.data?.find((v) => v.id === vehicleId) ?? null,
+    [vehicleId, options.data],
+  );
+
+  const priced = items
+    .map((i) => ({ label: i.label.trim(), costPaise: Math.round((Number(i.costRupees) || 0) * 100) }))
+    .filter((i) => i.label.length > 0 && i.costPaise > 0);
+  const totalPaise = priced.reduce((sum, i) => sum + i.costPaise, 0);
 
   const save = useMutation({
     mutationFn: () =>
@@ -75,7 +98,9 @@ export function Inspection() {
         vehicleId: resolved!.id,
         category: outcome === 'READY_TO_DEPLOY' ? 'NONE' : category,
         notes,
-        estimatedCostPaise: null,
+        items: priced,
+        estimatedCostPaise: priced.length > 0 ? totalPaise : null,
+        technician: outcome === 'READY_TO_DEPLOY' ? null : technician,
         nextState: outcome,
       }),
     onSuccess: (v) => {
@@ -83,6 +108,8 @@ export function Inspection() {
       setSaved(`${v.id} moved to ${VEHICLE_STATE_LABEL[v.state]}.`);
       setVehicleId('');
       setNotes('');
+      setItems([{ label: '', costRupees: '' }]);
+      setConfirmOpen(false);
     },
   });
 
@@ -91,16 +118,18 @@ export function Inspection() {
   return (
     <>
       <PageHeader
-        section="Workshop"
+        section="Service management"
         title="Inspection and state change"
         icon={BuildIcon}
+        backTo="/vehicles"
+        backLabel="Back to vehicles"
         actions={
           <>
             <Button color="inherit" onClick={() => navigate('/vehicles')}>
               Cancel
             </Button>
             <Button
-              onClick={() => save.mutate()}
+              onClick={() => setConfirmOpen(true)}
               disabled={!resolved || save.isPending || (needsWorkshop && notes.trim().length === 0)}
             >
               {save.isPending ? 'Recording…' : 'Record inspection'}
@@ -196,6 +225,62 @@ export function Inspection() {
                 ))}
               </ToggleButtonGroup>
 
+              <Typography variant="overline" sx={{ mb: 1.5 }}>
+                Parts and labour
+              </Typography>
+              <Box sx={{ display: 'grid', gap: 2, mb: 3 }}>
+                {items.map((item, index) => (
+                  <Box
+                    key={index}
+                    sx={{ display: 'grid', gridTemplateColumns: '1fr 120px auto', gap: 2, alignItems: 'start' }}
+                  >
+                    <TextField
+                      label="Part / labour"
+                      size="small"
+                      value={item.label}
+                      onChange={(e) => {
+                        const next = [...items];
+                        next[index] = { ...next[index], label: e.target.value };
+                        setItems(next);
+                      }}
+                    />
+                    <TextField
+                      label="Cost (₹)"
+                      size="small"
+                      type="number"
+                      value={item.costRupees}
+                      onChange={(e) => {
+                        const next = [...items];
+                        next[index] = { ...next[index], costRupees: e.target.value };
+                        setItems(next);
+                      }}
+                    />
+                    <IconButton
+                      aria-label="Remove line"
+                      size="small"
+                      onClick={() => setItems(items.filter((_, i) => i !== index))}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ))}
+                <Box>
+                  <Button
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => setItems([...items, { label: '', costRupees: '' }])}
+                  >
+                    Add line
+                  </Button>
+                </Box>
+              </Box>
+              {priced.length > 0 && (
+                <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 5 }}>
+                  <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Estimated cost</Typography>
+                  <Mono sx={{ fontSize: 14 }}>{rupees(totalPaise)}</Mono>
+                </Stack>
+              )}
+
               <TextField
                 label="Notes"
                 multiline
@@ -255,6 +340,29 @@ export function Inspection() {
           </Panel>
         </Box>
       </Box>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 16 }}>Confirm inspection · {resolved?.id}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+            This moves the vehicle to{' '}
+            <Box component="span" sx={{ color: tones[VEHICLE_STATE_TONE[outcome]].fg }}>
+              {VEHICLE_STATE_LABEL[outcome]}
+            </Box>
+            {priced.length > 0 ? ` at an estimated cost of ${rupees(totalPaise)}.` : '.'} This cannot be
+            undone from here.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 6, pb: 5 }}>
+          <Button color="inherit" onClick={() => setConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? 'Recording…' : 'Confirm'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
+

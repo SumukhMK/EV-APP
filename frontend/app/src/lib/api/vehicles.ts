@@ -9,6 +9,7 @@ import type {
   VehicleDetail,
   VehicleState,
   QcQueueItem,
+  UpdateVehicleRequest,
 } from '../../types';
 import {
   assignmentsByVehicle,
@@ -129,6 +130,30 @@ export async function createVehicle(body: CreateVehicleRequest): Promise<Vehicle
   return delay(created, 420);
 }
 
+/** Corrects an existing vehicle's specification. Never touches its state, its
+ *  rider, or its identity — those change through the assignment and
+ *  inspection flows, not here. */
+export async function updateVehicle(body: UpdateVehicleRequest): Promise<VehicleDetail> {
+  const v = vehicles.find((x) => x.id === body.vehicleId);
+  if (!v) throw new ApiError(`No vehicle with id ${body.vehicleId}`, 404);
+
+  v.model = body.model;
+  v.batteryType = body.batteryType;
+  v.batteryVendor = body.batteryVendor ?? null;
+  v.hub = body.hub;
+  v.registrationNumber = body.registrationNumber ?? null;
+
+  const existing = deviceNumbers[v.id];
+  deviceNumbers[v.id] = {
+    motor: body.motorNumber ?? existing?.motor ?? '',
+    controller: body.controllerNumber ?? existing?.controller ?? '',
+    rfid: body.rfidTag ?? existing?.rfid ?? '',
+    iot: existing?.iot ?? null,
+  };
+
+  return delay(await getVehicle(v.id), 380);
+}
+
 /** Dry run. The real endpoint validates server-side and returns the same shape. */
 export async function previewBulkUpload(fileName: string): Promise<BulkUploadPreview> {
   const rows = bulkUploadRows;
@@ -152,6 +177,13 @@ export async function recordInspection(body: InspectionRequest): Promise<Vehicle
   const v = vehicles.find((x) => x.id === body.vehicleId);
   if (!v) throw new ApiError(`No vehicle with id ${body.vehicleId}`, 404);
   v.state = body.nextState;
+  // Category, items, cost and technician go to the inspection record
+  // server-side; only the vehicle's state is simulated here.
+  void body.category;
+  void body.notes;
+  void body.items;
+  void body.estimatedCostPaise;
+  void body.technician;
   return delay(v, 380);
 }
 

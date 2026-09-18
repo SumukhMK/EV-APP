@@ -85,6 +85,8 @@ export function RiderDetail() {
     <>
       <PageHeader
         section="Riders"
+        backTo="/riders"
+        backLabel="Back to riders"
         title={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
             <Box component="span">{r.name}</Box>

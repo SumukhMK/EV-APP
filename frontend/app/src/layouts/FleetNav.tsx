@@ -163,8 +163,15 @@ export function FleetNav({
                       '& svg': { fontSize: 17, flex: '0 0 auto' },
                       '&:hover': { color: base.text, background: neutral[900] },
                       // was a hardcoded purple rgba, which stayed purple in
-                      // light mode — the accent is a token now.
-                      '&.active': { color: base.accent, background: mix(base.accent, 10) },
+                      // light mode — the accent is a token now. The bar reads
+                      // even in greyscale/colour-blind view, where fill alone
+                      // (the old style) was the only signal of "you are here".
+                      '&.active': {
+                        color: base.accent,
+                        fontWeight: 600,
+                        background: mix(base.accent, 16),
+                        boxShadow: `inset 3px 0 0 0 ${base.accent}`,
+                      },
                     }}
                   >
                     <Icon />

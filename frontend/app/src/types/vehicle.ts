@@ -88,6 +88,24 @@ export interface CreateVehicleRequest {
   inductedOn: Iso8601;
 }
 
+/**
+ * What editing an existing vehicle's record sends. Identity — the id, the
+ * chassis number, when it was inducted — is fixed at creation and never sent
+ * here; this is a correction to the record, not a re-registration.
+ */
+export interface UpdateVehicleRequest {
+  vehicleId: string;
+  make: string;
+  model: string;
+  batteryType: BatteryType;
+  batteryVendor?: string | null;
+  hub: string;
+  registrationNumber?: string | null;
+  motorNumber?: string | null;
+  controllerNumber?: string | null;
+  rfidTag?: string | null;
+}
+
 /** Server response to a dry-run bulk upload — the preview table on screen 06. */
 export interface BulkUploadRow {
   rowNumber: number;
@@ -109,11 +127,22 @@ export interface BulkUploadPreview {
 /** Screen 13: an inspection recorded against a returned or damaged vehicle. */
 export type DamageCategory = 'NONE' | 'MINOR' | 'MAJOR' | 'ACCIDENT';
 
+/** One priced line of an inspection's costing — a part, a labour charge. */
+export interface InspectionItem {
+  label: string;
+  costPaise: number;
+}
+
 export interface InspectionRequest {
   vehicleId: string;
   category: DamageCategory;
   notes: string;
+  /** Parts and labour, priced line by line rather than one estimate. */
+  items: InspectionItem[];
+  /** Sum of `items` — carried alongside them so a saved record's total never
+   *  has to be recomputed differently from what was actually itemised. */
   estimatedCostPaise: number | null;
+  technician: string | null;
   /** The state the vehicle moves into once the inspection is saved. */
   nextState: VehicleState;
 }

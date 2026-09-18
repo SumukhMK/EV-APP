@@ -15,6 +15,7 @@ import RequestQuoteIcon from '@mui/icons-material/RequestQuoteOutlined';
 import PriceCheckIcon from '@mui/icons-material/PriceCheckOutlined';
 import PendingIcon from '@mui/icons-material/PendingActionsOutlined';
 import DoneAllIcon from '@mui/icons-material/DoneAllOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmberOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StatTiles } from '../../components/StatTiles';
@@ -26,8 +27,14 @@ import { RecordPaymentDialog, type CollectTarget } from './RecordPaymentDialog';
 import { getCurrentPaymentRun } from '../../lib/api/payments';
 import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
-import { accent, neutral } from '../../theme/tokens';
+import { accent, neutral, status as tones } from '../../theme/tokens';
+import { useSession } from '../../app/sessionContext';
+import { canCollectPayments } from '../../lib/roles';
 import type { BillingDay, PaymentPeriodRow } from '../../types';
+
+// A due amount above this is flagged for a second look before it's collected
+// — the same ₹5,000 line the assistance desk uses for a service job.
+const REVIEW_THRESHOLD = 5000;
 
 /**
  * The weekly billing run (artboard 15): every rider due in the current period,
@@ -41,6 +48,8 @@ import type { BillingDay, PaymentPeriodRow } from '../../types';
 export function PaymentRun() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { user } = useSession();
+  const canCollect = canCollectPayments(user.roleKey);
   // The figures that must survive to a phone are who owes and whether they
   // paid. The workings — days, per-day, service, arrears — are what get shed
   // first, then the plan amount; the receipt carries all of them anyway.
@@ -156,12 +165,17 @@ export function PaymentRun() {
                   <StateChip label={PAYMENT_STATUS_LABEL[r.status]} tone={PAYMENT_STATUS_TONE[r.status]} />
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                  <Mono sx={{ fontSize: 13, color: neutral[400] }}>Due {rupees(r.totalDue)}</Mono>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Mono sx={{ fontSize: 13, color: neutral[400] }}>Due {rupees(r.totalDue)}</Mono>
+                    {r.totalDue > REVIEW_THRESHOLD && (
+                      <WarningAmberIcon sx={{ fontSize: 15, color: tones.bad.fg }} titleAccess="Above ₹5,000 — review" />
+                    )}
+                  </Box>
                   <Mono sx={{ fontSize: 13, color: r.amountPaid === 0 ? neutral[600] : undefined }}>
                     Paid {rupees(r.amountPaid)}
                   </Mono>
                 </Box>
-                {owing(r) && (
+                {owing(r) && canCollect && (
                   <Button
                     color="inherit"
                     size="small"
@@ -253,7 +267,14 @@ export function PaymentRun() {
                 header: 'Total due',
                 align: 'right',
                 width: 88,
-                render: (r) => <Mono>{rupees(r.totalDue)}</Mono>,
+                render: (r) => (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.75 }}>
+                    {r.totalDue > REVIEW_THRESHOLD && (
+                      <WarningAmberIcon sx={{ fontSize: 14, color: tones.bad.fg }} titleAccess="Above ₹5,000 — review" />
+                    )}
+                    <Mono>{rupees(r.totalDue)}</Mono>
+                  </Box>
+                ),
               },
               {
                 key: 'paid',
@@ -280,7 +301,7 @@ export function PaymentRun() {
                 align: 'right',
                 width: 84,
                 render: (r) =>
-                  owing(r) ? (
+                  owing(r) && canCollect ? (
                     <Button
                       color="inherit"
                       size="small"
@@ -300,6 +321,8 @@ export function PaymentRun() {
                     >
                       Collect
                     </Button>
+                  ) : owing(r) ? (
+                    <Box component="span" sx={{ color: neutral[500], fontSize: 12 }}>Due</Box>
                   ) : (
                     <Box component="span" sx={{ color: neutral[500], fontSize: 12 }}>Settled</Box>
                   ),

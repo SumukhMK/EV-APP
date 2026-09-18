@@ -20,10 +20,12 @@ import { SelectField } from '../../components/form/SelectField';
 import { RiderSearchSelect } from './_components/RiderSearchSelect';
 import { SelectionSummary } from './_components/SelectionSummary';
 import { DispositionFields } from './_components/DispositionFields';
+import { DamageItemsField } from './_components/DamageItemsField';
 import { deboardRider } from '../../lib/api/assignments';
+import { createServiceJob } from '../../lib/api/serviceJobs';
 import { listAssignedRiders, listRiderPayments } from '../../lib/api/riders';
 import { ApiError } from '../../lib/api/client';
-import { invalidateAssignments } from '../../lib/invalidate';
+import { invalidateAssignments, invalidateServiceJobs } from '../../lib/invalidate';
 import {
   deboardRiderSchema,
   today,
@@ -84,6 +86,7 @@ export function DeboardRider() {
       outstandingRentRupees: 0,
       depositRefundRupees: 0,
       note: '',
+      damageItems: [],
     },
     mode: 'onBlur',
   });
@@ -136,6 +139,22 @@ export function DeboardRider() {
   const submit = form.handleSubmit(async (values) => {
     setBanner(null);
     const updated = await save.mutateAsync(values);
+    // The damage tag is what routes the bike into service: NONE never opens a
+    // job (an undamaged bike just goes to QC via `nextVehicleState`), MINOR/
+    // MAJOR/ACCIDENT always does, so the assistance desk and QC see the job
+    // the moment the desk finalises the deboard.
+    if (values.returnCondition !== 'NONE') {
+      await createServiceJob({
+        vehicleId: values.vehicleId,
+        riderId: values.riderId,
+        source: 'DEBOARD',
+        damageCategory: values.returnCondition,
+        damageNotes: values.damageItems
+          .map((i) => (i.note ? `${i.part}: ${i.note}` : i.part))
+          .join('; '),
+      });
+      invalidateServiceJobs(queryClient);
+    }
     navigate(`/riders/${updated.id}`);
   });
 
@@ -275,6 +294,11 @@ export function DeboardRider() {
                 condition={picked.returnCondition}
               />
             </Box>
+            {picked.returnCondition && picked.returnCondition !== 'NONE' && (
+              <Box sx={{ mt: 5 }}>
+                <DamageItemsField />
+              </Box>
+            )}
             <TextField
               label="Note (optional)"
               multiline
@@ -361,6 +385,11 @@ export function DeboardRider() {
                   { label: 'Rider becomes', value: 'Inactive' },
                 ]}
               />
+              {picked.returnCondition && picked.returnCondition !== 'NONE' && (
+                <Typography sx={{ fontSize: 13, color: 'warning.main', mt: 3 }}>
+                  A service job opens for this bike when the deboard is finalised.
+                </Typography>
+              )}
               <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
                 The rider becomes inactive and the bike is freed up. Onboard them again to bring
                 them back.

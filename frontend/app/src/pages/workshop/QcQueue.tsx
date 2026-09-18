@@ -55,6 +55,7 @@ export function QcQueue() {
   const compact = useMediaQuery(theme.breakpoints.down('lg'));
   const stacked = useMediaQuery(theme.breakpoints.down('sm'));
   const [failing, setFailing] = useState<QcQueueItem | null>(null);
+  const [passing, setPassing] = useState<QcQueueItem | null>(null);
   const [reason, setReason] = useState('');
 
   const queue = useQuery({ queryKey: ['qc', 'queue'], queryFn: listQcQueue });
@@ -65,6 +66,7 @@ export function QcQueue() {
     onSuccess: () => {
       invalidateVehicles(queryClient);
       setFailing(null);
+      setPassing(null);
       setReason('');
     },
   });
@@ -75,7 +77,7 @@ export function QcQueue() {
   return (
     <>
       <PageHeader
-        section="Workshop"
+        section="Service management"
         title="QC queue"
         icon={FactCheckIcon}
         meta={
@@ -115,11 +117,7 @@ export function QcQueue() {
                   <Button color="inherit" onClick={() => setFailing(q)} fullWidth>
                     Fail
                   </Button>
-                  <Button
-                    onClick={() => decide.mutate({ vehicleId: q.vehicleId, pass: true })}
-                    disabled={decide.isPending}
-                    fullWidth
-                  >
+                  <Button onClick={() => setPassing(q)} disabled={decide.isPending} fullWidth>
                     Pass
                   </Button>
                 </Stack>
@@ -184,10 +182,7 @@ export function QcQueue() {
                     <Button color="inherit" onClick={() => setFailing(q)}>
                       Fail
                     </Button>
-                    <Button
-                      onClick={() => decide.mutate({ vehicleId: q.vehicleId, pass: true })}
-                      disabled={decide.isPending}
-                    >
+                    <Button onClick={() => setPassing(q)} disabled={decide.isPending}>
                       Pass
                     </Button>
                   </Stack>
@@ -228,6 +223,27 @@ export function QcQueue() {
             disabled={reason.trim().length === 0 || decide.isPending}
           >
             Fail QC
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(passing)} onClose={() => setPassing(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 16 }}>Confirm QC pass · {passing?.vehicleId}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+            This moves the vehicle straight to Ready to deploy. It can be assigned to a rider as soon
+            as this is confirmed.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 6, pb: 5 }}>
+          <Button color="inherit" onClick={() => setPassing(null)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => passing && decide.mutate({ vehicleId: passing.vehicleId, pass: true })}
+            disabled={decide.isPending}
+          >
+            Pass QC
           </Button>
         </DialogActions>
       </Dialog>

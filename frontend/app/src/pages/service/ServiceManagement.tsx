@@ -48,7 +48,7 @@ export function ServiceManagement() {
 
   return (
     <>
-      <PageHeader section="Fleet" title="Service queues" icon={HandymanIcon} />
+      <PageHeader section="Service management" title="Service queues" icon={HandymanIcon} />
 
       <Box
         sx={{

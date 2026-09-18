@@ -65,7 +65,7 @@ export function VehiclePicker({
     return (
       <Typography sx={{ fontSize: 14, color: 'text.secondary', py: 4 }}>
         No bikes are ready to deploy. A bike becomes ready once it passes{' '}
-        <Box component={Link} to="/qc" sx={{ color: 'inherit' }}>
+        <Box component={Link} to="/service/qc" sx={{ color: 'inherit' }}>
           QC
         </Box>
         .
