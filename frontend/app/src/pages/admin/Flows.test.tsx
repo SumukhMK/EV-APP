@@ -1,13 +1,33 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Flows } from './Flows';
 
-describe('flows reference page', () => {
-  it('draws the service and money journeys and links to the real screens', () => {
+// ReactFlow uses ResizeObserver internally; jsdom does not provide it.
+// Must be a real class (new ResizeObserver(...)), not an arrow function.
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+beforeAll(() => {
+  global.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+});
+
+describe('interactive flows page', () => {
+  it('renders the page header and mode tabs', () => {
     render(<MemoryRouter><Flows /></MemoryRouter>);
     expect(screen.getByText('How the work flows')).toBeInTheDocument();
-    expect(screen.getByText('QC')).toBeInTheDocument();
-    expect(screen.getByText('Repair charges column').closest('a')).toHaveAttribute('href', '/payments/run');
+    expect(screen.getByText('How it works')).toBeInTheDocument();
+    expect(screen.getByText('What we store')).toBeInTheDocument();
+    expect(screen.getByText('Who can do what')).toBeInTheDocument();
+    expect(screen.getByText('What changes')).toBeInTheDocument();
+    expect(screen.getByText('Where money flows')).toBeInTheDocument();
+  });
+
+  it('shows the legend', () => {
+    render(<MemoryRouter><Flows /></MemoryRouter>);
+    expect(screen.getByText('Legend:')).toBeInTheDocument();
   });
 });
