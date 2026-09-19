@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { StateChip } from '../../components/StateChip';
@@ -48,6 +49,8 @@ export function AssignVehicle() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<AssignVehicleValues | null>(null);
 
   const riders = useQuery({
     queryKey: ['riders', 'assignable'],
@@ -77,10 +80,10 @@ export function AssignVehicle() {
     },
   });
 
-  const submit = form.handleSubmit(async (values) => {
+  const submit = form.handleSubmit((values) => {
     setBanner(null);
-    const rider = await save.mutateAsync(values);
-    navigate(`/riders/${rider.id}`);
+    setPendingValues(values);
+    setConfirmOpen(true);
   });
 
   const picked = useWatch({ control: form.control });
@@ -231,6 +234,24 @@ export function AssignVehicle() {
           </Typography>
         </Panel>
       </Box>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Assign the bike?"
+        message="The bike becomes active and rent starts for the rider."
+        info={pendingValues ? `${rider?.name ?? pendingValues.riderId} gets ${pendingValues.vehicleId} at ${rupeesWithSymbol(rider?.planAmount ?? 0)} a week. Rent starts on the assignment date and the bike stays with the rider until it is returned.` : undefined}
+        confirmLabel="Assign bike"
+        tone="neutral"
+        dismissible
+        pending={save.isPending}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          if (!pendingValues) return;
+          save.mutateAsync(pendingValues)
+            .then((r) => navigate(`/riders/${r.id}`))
+            .catch(() => { /* errors are surfaced by the mutation's onError */ });
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </Box>
   );
 }
