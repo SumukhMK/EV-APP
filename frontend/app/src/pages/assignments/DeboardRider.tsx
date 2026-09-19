@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
@@ -68,6 +69,8 @@ export function DeboardRider() {
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
   const [confirmedValues, setConfirmedValues] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<DeboardRiderValues | null>(null);
 
   const riders = useQuery({
     queryKey: ['riders', 'assigned'],
@@ -149,7 +152,8 @@ export function DeboardRider() {
   const submit = form.handleSubmit((values) => {
     setBanner(null);
     if (!confirmed) { setBanner('Confirm the return destination and settlement before finalising.'); return; }
-    save.mutate(values);
+    setPendingValues(values);
+    setConfirmOpen(true);
   });
 
   if (riders.isLoading) {
@@ -385,6 +389,18 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
           </Box>
         </Box>
       </Box>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Finish and take the bike back?"
+        message="The rider is decoupled from the bike and the settlement is final."
+        info={pendingValues ? `${rupeesWithSymbol(outstanding)} of rent is settled${net >= 0 ? ` and ${rupeesWithSymbol(net)} of deposit is refunded` : ' — the deposit does not cover the rent owed'}. The bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.` : undefined}
+        confirmLabel="Finish and take the bike back"
+        tone="bad"
+        dismissible={false}
+        pending={save.isPending}
+        onConfirm={() => { setConfirmOpen(false); if (pendingValues) save.mutate(pendingValues); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </FormProvider>
   );
 }

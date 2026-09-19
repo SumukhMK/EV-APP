@@ -11,7 +11,10 @@ export const FLOW_MODES: { id: FlowMode; label: string }[] = [
   { id: 'money', label: 'Where money flows' },
 ];
 
+// @xyflow/react v12 requires node/edge data to satisfy Record<string, unknown>.
+// The index signature is what makes the constraint pass; known keys stay typed.
 export interface FlowNodeData {
+  [key: string]: unknown;
   label: string;
   description: string;
   tone: StatusTone;
@@ -42,11 +45,12 @@ export interface FlowNodeData {
 }
 
 export interface FlowEdgeData {
+  [key: string]: unknown;
   trigger: string;
   actor: UserRole[];
   operation: string;
   modes: FlowMode[];
   asIs: 'exists' | 'bypass';
-  toBe: 'unchanged' | 'removed' | 'added';
+  toBe: 'unchanged' | 'removed' | 'added' | 'modified';
   changeNote: string;
 }

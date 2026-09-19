@@ -14,11 +14,10 @@ import { useSession } from '../../app/sessionContext';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { Mono } from '../../components/Mono';
-import { Panel } from '../../components/Panel';
 import { SimpleTable } from '../../components/SimpleTable';
 import { StateChip } from '../../components/StateChip';
 import { listServiceJobs } from '../../lib/api/serviceJobs';
-import { daysSince, formatDate, preciseRupeesWithSymbol as rupeesWithSymbol } from '../../lib/format';
+import { daysSince, preciseRupeesWithSymbol as rupeesWithSymbol } from '../../lib/format';
 import { canManageService } from '../../lib/roles';
 import { CATEGORY_LABEL, CATEGORY_TONE, SOURCE_LABEL, SERVICE_QUEUE_LABEL } from '../../lib/serviceJobLabels';
 import { SERVICE_QUEUES, type ServiceJobSource } from '../../types';
@@ -46,7 +45,6 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
   const jobs = useQuery({ queryKey: ['service-jobs', 'list'], queryFn: () => listServiceJobs() });
   const all = jobs.data ?? [];
   const openCount = all.filter((j) => j.status !== 'CLOSED').length;
-  const qcCount = all.filter((j) => j.status !== 'CLOSED' && j.queue === 'QC_PENDING').length;
   const rows = all.filter((j) =>
     (status === 'ALL' || (status === 'CLOSED' ? j.status === 'CLOSED' : j.status !== 'CLOSED')) &&
     (queue === 'ALL' || j.queue === queue) &&

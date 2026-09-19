@@ -101,8 +101,6 @@ const OVERDUE_TARGET = 16;
  * The rider stays tagged (currentVehicleId set) because receipt hasn't been
  * generated yet — consistent with the flow where rider decouples at QC release.
  */
-const RIDER_ELIGIBLE_STATES: ReadonlyArray<Rider['status']> = ['ACTIVE'];
-
 function buildRiders(): Rider[] {
   const rng = mulberry32(9140824);
   const deployed = vehicles.filter((v) => v.state === 'DEPLOYED');

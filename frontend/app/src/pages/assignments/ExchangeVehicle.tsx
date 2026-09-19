@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
@@ -66,6 +67,8 @@ export function ExchangeVehicle() {
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
   const [confirmedValues, setConfirmedValues] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<ExchangeVehicleValues | null>(null);
 
   const riders = useQuery({
     queryKey: ['riders', 'assigned'],
@@ -131,7 +134,8 @@ export function ExchangeVehicle() {
   const submit = form.handleSubmit((values) => {
     setBanner(null);
     if (!confirmed) { setBanner('Confirm both vehicles and the return destination before exchanging.'); return; }
-    save.mutate(values);
+    setPendingValues(values);
+    setConfirmOpen(true);
   });
 
   if (riders.isLoading) {
@@ -295,6 +299,18 @@ Recovery is not offered here — that is a separate job. For the bike coming bac
           </Panel>
         </Box>
       </Box>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Save the swap?"
+        message="The rider's bike changes and the returned bike enters service."
+        info={pendingValues ? `${rider?.name ?? rider?.id ?? 'The rider'} swaps ${pendingValues.fromVehicleId} for ${pendingValues.toVehicleId}. The returned bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.` : undefined}
+        confirmLabel="Save the swap"
+        tone="bad"
+        dismissible={false}
+        pending={save.isPending}
+        onConfirm={() => { setConfirmOpen(false); if (pendingValues) save.mutate(pendingValues); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </FormProvider>
   );
 }

@@ -971,15 +971,15 @@ export function nodesForMode(mode: FlowMode): Node<FlowNodeData>[] {
   return VEHICLE_NODES.filter((n) => n.data.asIs !== 'dead');
 }
 
-export function edgesForMode(mode: FlowMode, role?: UserRole): Edge<FlowEdgeData>[] {
+export function edgesForMode(mode: FlowMode, _role?: UserRole): Edge<FlowEdgeData>[] {
   if (mode === 'money') return MONEY_EDGES;
 
-  let edges = VEHICLE_EDGES.filter((e) => e.data.modes.includes(mode));
+  let edges = VEHICLE_EDGES.filter((e) => e.data?.modes.includes(mode));
 
   if (mode === 'asis') return edges; // show all including bypasses
 
   // operational, data — hide bypass-only edges
-  edges = edges.filter((e) => e.data.asIs !== 'bypass');
+  edges = edges.filter((e) => e.data?.asIs !== 'bypass');
 
   // rbac — no further filtering, but the UI will grey out based on role
   return edges;

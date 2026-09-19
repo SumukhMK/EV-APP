@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/sessionContext';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
@@ -217,6 +218,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const [liability, setLiability] = useState<ServiceLiability>(job.liability ?? (job.riderId ? 'RIDER' : 'COMPANY'));
   const [technician, setTechnician] = useState(job.technician ?? '');
   const [confirmation, setConfirmation] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const failQueue: ServiceQueue = category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : 'MINOR_REPAIR';
   const queue: ServiceQueue = intent === 'STAY' ? job.queue : intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
   const signature = JSON.stringify({ items, intent, queue, category, findings, note, reference, liability, technician, qcChecks, repairApproved });
@@ -312,23 +314,23 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
           {inQC && editable ? (
             /* ── QC checklist mode ── */
             <Panel label="Quality Check" subtitle="Inspect every item. Tick each one.">
-              {/* Check all / uncheck all */}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+              {/* Check all / uncheck all — left on mobile, right from sm up */}
+              <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, mb: 1 }}>
                 {QC_CHECKS.every((c) => qcChecks[c.id])
                   ? <Button size="small" color="inherit" onClick={() => setQcChecks(Object.fromEntries(QC_CHECKS.map((c) => [c.id, false])) as Record<QcCheckId, boolean>)}>Uncheck all</Button>
                   : <Button size="small" onClick={() => setQcChecks(Object.fromEntries(QC_CHECKS.map((c) => [c.id, true])) as Record<QcCheckId, boolean>)}>Check all</Button>
                 }
               </Box>
-              {/* 3×3 safety checklist grid */}
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+              {/* Safety checklist — single column */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 1 }}>
                 {QC_CHECKS.map((check) => (
                   <FormControlLabel
                     key={check.id}
                     sx={{
                       border: 1, borderColor: qcChecks[check.id] ? 'success.main' : 'divider',
-                      borderRadius: 1.5, m: 0, px: 1.5, py: 1,
+                      borderRadius: 1.5, m: 0, px: 1.5, py: 1, minWidth: 0,
                       bgcolor: qcChecks[check.id] ? 'success.main' : 'transparent',
-                      '& .MuiTypography-root': { color: qcChecks[check.id] ? 'success.contrastText' : 'text.primary' },
+                      '& .MuiTypography-root': { color: qcChecks[check.id] ? 'success.contrastText' : 'text.primary', minWidth: 0 },
                       transition: 'all 0.15s',
                     }}
                     control={<Checkbox size="small" checked={qcChecks[check.id]} onChange={(e) => setQcChecks({ ...qcChecks, [check.id]: e.target.checked })} sx={{ color: qcChecks[check.id] ? 'success.contrastText' : undefined, '&.Mui-checked': { color: 'success.contrastText' } }} />}
@@ -454,7 +456,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
               {!valid && <Alert severity="warning">Every line needs a short description and an amount of ₹0 or more, up to two decimals.</Alert>}
               <FormControlLabel control={<Checkbox checked={confirmation === signature} onChange={(e) => setConfirmation(e.target.checked ? signature : '')} />} label={releasing ? 'I approve this work, the cost, and sending the bike back out.' : 'I confirm these details and where the bike is going.'} />
               {save.isError && <Alert severity="error">{save.error.message}</Alert>}
-              <Button onClick={() => { if (!ready) { shakeField(); return; } save.mutate(); }} disabled={save.isPending || vehicle.isPending || vehicle.isError}>{save.isPending ? 'Saving...' : chosen.cta}</Button>
+              <Button onClick={() => { if (!ready) { shakeField(); return; } if (releasing) { setConfirmOpen(true); return; } save.mutate(); }} disabled={save.isPending || vehicle.isPending || vehicle.isError}>{save.isPending ? 'Saving...' : chosen.cta}</Button>
               {blocker && <Typography variant="caption" color="text.secondary" sx={{ mt: -2 }}>{blocker}</Typography>}
             </Box>
           ) : <DefinitionList items={[
@@ -464,6 +466,18 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
           ]} />}
         </Panel>
       </Box>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Release the bike?"
+        message="The bike leaves service management and the rider is charged."
+        info={`${job.riderId ? `Rider ${job.riderId} is charged ${rupeesWithSymbol(total)}${liability === 'DEPOSIT' ? ' from their deposit' : liability === 'COMPANY' ? ' — the company covers it' : ''}.` : 'No rider on this bike — the company covers the cost.'} The bike moves to ${VEHICLE_STATE_LABEL[targetState]}.`}
+        confirmLabel={chosen.cta}
+        tone="bad"
+        dismissible={false}
+        pending={save.isPending}
+        onConfirm={() => { setConfirmOpen(false); save.mutate(); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </>
   );
 }
