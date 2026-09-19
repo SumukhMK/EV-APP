@@ -11,20 +11,37 @@ import { DefinitionList } from '../../components/DefinitionList';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
-import { getVehicle } from '../../lib/api/vehicles';
+import { getVehicle, getVehicleServiceHistory } from '../../lib/api/vehicles';
 import { getRider } from '../../lib/api/riders';
-import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../../lib/labels';
+import { canEditVehicle } from '../../lib/roles';
+import { useSession } from '../../app/sessionContext';
+import {
+  VEHICLE_STATE_LABEL,
+  VEHICLE_STATE_TONE,
+  VEHICLE_STATE_GATE,
+  VEHICLE_GATE_LABEL,
+  VEHICLE_GATE_TONE,
+  PAYMENT_STATUS_LABEL,
+  PAYMENT_STATUS_TONE,
+} from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
+import { SERVICE_QUEUE_LABEL, SOURCE_LABEL } from '../../lib/serviceJobLabels';
 
 export function VehicleDetail() {
   const { vehicleId = '' } = useParams();
+  const { user } = useSession();
 
   const vehicle = useQuery({
     queryKey: ['vehicle', vehicleId],
     queryFn: () => getVehicle(vehicleId),
     retry: false,
   });
+  const service = useQuery({
+    queryKey: ['service-jobs', 'vehicle', vehicleId],
+    queryFn: () => getVehicleServiceHistory(vehicleId),
+  });
+  const activeService = service.data?.find((job) => job.status !== 'CLOSED');
 
   const rider = useQuery({
     queryKey: ['rider', vehicle.data?.currentRiderId],
@@ -63,6 +80,8 @@ export function VehicleDetail() {
     <>
       <PageHeader
         section="Fleet / Vehicles"
+        backTo="/vehicles"
+        backLabel="Back to vehicles"
         title={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
             <Mono sx={{ fontSize: { xs: 22, sm: 25, xl: 28 }, letterSpacing: 0 }}>{v.id}</Mono>
@@ -71,15 +90,31 @@ export function VehicleDetail() {
         }
         actions={
           <>
-            <Button color="inherit" component={Link} to="/assignments/exchange">
+            {canEditVehicle(user.roleKey) && (
+              <Button color="inherit" component={Link} to={`/vehicles/${v.id}/edit`}>
+                Edit
+              </Button>
+            )}
+            {v.currentRiderId && <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${v.currentRiderId}`}>
               Exchange
-            </Button>
-            <Button color="inherit" component={Link} to={`/inspections?vehicle=${v.id}`}>
-              Inspection
+            </Button>}
+            <Button color="inherit" component={Link} to={activeService ? `/service/assistance/${activeService.id}` : `/service/inspection?vehicle=${v.id}`}>
+              {activeService ? 'Open service job' : 'Check this bike'}
             </Button>
           </>
         }
       />
+
+      <Panel label="Service records" sx={{ mt: 5 }}>
+        {service.isError ? <Typography color="error">{service.error.message}</Typography> : service.isPending ? <Typography>Loading service history…</Typography> : service.data?.length ? (
+          <SimpleTable scrollable rows={service.data} getRowKey={(job) => job.id} columns={[
+            { key: 'id', header: 'Work record', render: (job) => <Button component={Link} to={`/service/assistance/${job.id}`}>{job.id}</Button> },
+            { key: 'source', header: 'Source', render: (job) => SOURCE_LABEL[job.source] },
+            { key: 'queue', header: 'Category', render: (job) => SERVICE_QUEUE_LABEL[job.queue] },
+            { key: 'status', header: 'Status', render: (job) => job.status === 'CLOSED' ? 'Closed' : 'Open' },
+          ]} />
+        ) : <Typography color="text.secondary">No service record yet.</Typography>}
+      </Panel>
 
       <Box sx={{
           display: 'grid',
@@ -152,9 +187,9 @@ export function VehicleDetail() {
             </>
           ) : (
             <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-              Not assigned. A bike can be assigned only from{' '}
-              <Box component="span" sx={{ color: tones.good.fg }}>
-                Ready to deploy
+              Nobody has this bike. A bike can only be given out when it is{' '}
+              <Box component="span" sx={{ color: tones.accent.fg }}>
+                Ready to Deploy
               </Box>
               .
             </Typography>
@@ -173,31 +208,42 @@ export function VehicleDetail() {
             // padding is for the dots, which hang on a negative margin and
             // would otherwise be clipped by the scroll box.
             overflowX: 'auto',
-            pt: 1,
+            pt: 2,
             pb: 1,
           }}
         >
-          {v.lifecycle.map((s, i) => (
-            <Box
-              key={`${s.state}-${s.occurredOn}-${i}`}
-              sx={{ flex: 1, minWidth: 132, display: 'flex', flexDirection: 'column', gap: 2.5 }}
-            >
-              <Box sx={{ height: '1px', background: neutral[800] }} />
+          {v.lifecycle.map((s, i) => {
+            const gate = VEHICLE_STATE_GATE[s.state];
+            const gateTone = tones[VEHICLE_GATE_TONE[gate]];
+            return (
               <Box
-                sx={{
-                  width: 9,
-                  height: 9,
-                  borderRadius: '50%',
-                  mt: '-14px',
-                  background: tones[VEHICLE_STATE_TONE[s.state]].fg,
-                }}
-              />
-              <Typography sx={{ fontSize: 13, color: tones[VEHICLE_STATE_TONE[s.state]].fg }}>
-                {VEHICLE_STATE_LABEL[s.state]}
-              </Typography>
-              <Mono sx={{ fontSize: 11, color: neutral[500] }}>{formatDate(s.occurredOn)}</Mono>
-            </Box>
-          ))}
+                key={`${s.state}-${s.occurredOn}-${i}`}
+                sx={{ flex: 1, minWidth: 132, display: 'flex', flexDirection: 'column', gap: 1.5 }}
+              >
+                <Box sx={{ height: '1px', background: neutral[800] }} />
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    mt: '-16px',
+                    background: gateTone.fg,
+                    border: `2px solid`,
+                    borderColor: 'background.default',
+                  }}
+                />
+                {/* Bold gate — the six-gate grouping. Sub-stage chip below is the
+                    lighter, state-specific detail inside that gate. */}
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: gateTone.fg }}>
+                  {VEHICLE_GATE_LABEL[gate]}
+                </Typography>
+                <StateChip label={VEHICLE_STATE_LABEL[s.state]} tone={VEHICLE_STATE_TONE[s.state]} />
+                <Mono sx={{ fontSize: 11, color: neutral[500] }}>{formatDate(s.occurredOn)}</Mono>
+                {s.note && <Typography variant="caption" sx={{ pr: 3 }}>{s.note}</Typography>}
+                {s.actor && <Typography variant="caption" color="text.secondary">{s.actor}</Typography>}
+              </Box>
+            );
+          })}
         </Box>
       </Panel>
 

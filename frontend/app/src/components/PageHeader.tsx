@@ -1,8 +1,10 @@
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 import type { SvgIconComponent } from '@mui/icons-material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
+import { Link } from 'react-router-dom';
 import { accent, layout, neutral } from '../theme/tokens';
 
 /**
@@ -26,6 +28,8 @@ export function PageHeader({
   icon: Icon,
   actions,
   meta,
+  backTo,
+  backLabel,
 }: {
   section: string;
   title: ReactNode;
@@ -33,6 +37,15 @@ export function PageHeader({
   actions?: ReactNode;
   /** Right-hand text used where a screen has no actions, e.g. the clock on the dashboard. */
   meta?: ReactNode;
+  /**
+   * Path back to the list this record was opened from. Rendered as the first
+   * action, ahead of anything screen-specific, so "how do I get back" reads
+   * the same way on every detail screen rather than being buried in prose or
+   * left to the browser's back button.
+   */
+  backTo?: string;
+  /** Defaults to "Back to list" — override for a more specific label. */
+  backLabel?: string;
 }) {
   return (
     <Box
@@ -85,12 +98,17 @@ export function PageHeader({
           </Typography>
         </Box>
       </Box>
-      {actions ? (
-        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', rowGap: 2 }}>
+      {(actions || backTo || meta) && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', alignSelf: { xs: 'flex-end', sm: 'auto' } }}>
+          {meta}
+          {backTo && (
+            <Button color="inherit" component={Link} to={backTo} startIcon={<ArrowBackIcon sx={{ fontSize: 16 }} />}>
+              {backLabel ?? 'Back to list'}
+            </Button>
+          )}
           {actions}
-        </Stack>
-      ) : null}
-      {meta}
+        </Box>
+      )}
     </Box>
   );
 }

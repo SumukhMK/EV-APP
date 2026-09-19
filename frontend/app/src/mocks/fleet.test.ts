@@ -50,11 +50,22 @@ describe('fleet fixture', () => {
     expect(new Set(vehicles.map((v) => v.chassisNumber)).size).toBe(vehicles.length);
   });
 
-  it('gives a rider to deployed bikes and to no others', () => {
+  it('gives a rider to deployed and most service-state bikes', () => {
+    const SERVICE_STATES = ['UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT', 'RECOVERY'];
     for (const v of vehicles) {
-      if (v.state === 'DEPLOYED') expect(v.currentRiderName, v.id).toBeTruthy();
-      else expect(v.currentRiderName, v.id).toBeNull();
+      if (v.state === 'DEPLOYED') {
+        expect(v.currentRiderName, v.id).toBeTruthy();
+      } else if (SERVICE_STATES.includes(v.state)) {
+        // Most service bikes keep their rider; first generated per state is RTD wear & tear (no rider).
+        // Just verify the field is string or null — both are valid.
+        expect(typeof v.currentRiderName === 'string' || v.currentRiderName === null, v.id).toBe(true);
+      } else {
+        expect(v.currentRiderName, v.id).toBeNull();
+      }
     }
+    // At least some service-state bikes have riders (rider-caused damage).
+    const serviceWithRider = vehicles.filter((v) => SERVICE_STATES.includes(v.state) && v.currentRiderName);
+    expect(serviceWithRider.length).toBeGreaterThan(0);
   });
 
   it('is stable across reads — the seed, not the clock, decides', () => {

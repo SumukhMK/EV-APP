@@ -57,39 +57,39 @@ export function Dashboard() {
         {/*
           Every tile leads to the set it counts. The four fleet-state tiles go
           to the vehicles list pre-filtered on that state, so the figure and
-          the list can be reconciled in one click. Under repair used to open
-          the inspection form, which is where a bike is *sent* to repair, not
+          the list can be reconciled in one click. In Service used to open
+          the inspection form, which is where a bike is *sent* for service, not
           where the nine already there can be seen.
         */}
         <StatTiles
           tiles={[
             { label: 'Total fleet', value: s ? formatNumber(s.totalFleet) : '—', icon: TwoWheelerIcon, to: '/vehicles' },
             {
-              label: 'Deployed',
+              label: 'Active',
               value: s ? formatNumber(s.deployed) : '—',
               icon: RocketIcon,
               to: '/vehicles?state=DEPLOYED',
             },
             {
-              label: 'Ready',
+              label: 'Ready to Deploy',
               value: s ? formatNumber(s.readyToDeploy) : '—',
-              tone: 'good',
+              tone: 'accent',
               icon: CheckCircleIcon,
               to: '/vehicles?state=READY_TO_DEPLOY',
             },
             {
-              label: 'Under repair',
+              label: 'In Service',
               value: s ? formatNumber(s.underRepair) : '—',
               tone: 'warn',
               icon: BuildIcon,
-              to: '/vehicles?state=UNDER_REPAIR',
+              to: '/service/queues?state=UNDER_REPAIR',
             },
             {
-              label: 'QC pending',
+              label: 'Quality Check',
               value: s ? formatNumber(s.qcPending) : '—',
               tone: 'caution',
               icon: FactCheckIcon,
-              to: '/vehicles?state=QC_PENDING',
+              to: '/service/qc',
             },
             {
               label: 'Recovery',
@@ -99,14 +99,14 @@ export function Dashboard() {
               to: '/vehicles?state=RECOVERY',
             },
             {
-              label: 'Overdue riders',
+              label: 'Riders behind on rent',
               value: s ? formatNumber(s.overdueRiders) : '—',
               tone: 'bad',
               icon: PeopleAlertIcon,
               to: '/payments/overdue',
             },
             {
-              label: 'Overdue value',
+              label: 'Money owed',
               value: s ? rupees(s.overdueValue) : '—',
               tone: 'bad',
               icon: CurrencyRupeeIcon,

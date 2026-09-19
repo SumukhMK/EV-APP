@@ -65,6 +65,7 @@ export interface ExchangeVehicleRequest {
   /** Defaulted from `returnCondition`, overridable by the operator. */
   nextVehicleState: VehicleState;
   note?: string;
+  damageItems: Array<{ part: string; note?: string }>;
 }
 
 export interface DeboardRiderRequest {
@@ -80,4 +81,5 @@ export interface DeboardRiderRequest {
   /** Deposit handed back after deductions. */
   depositRefund: Paise;
   note?: string;
+  damageItems: Array<{ part: string; note?: string }>;
 }

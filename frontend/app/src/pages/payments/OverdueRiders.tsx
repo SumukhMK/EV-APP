@@ -102,7 +102,7 @@ export function OverdueRiders() {
         {overdue.isLoading ? (
           <EmptyState title="Loading…" />
         ) : rows.length === 0 ? (
-          <EmptyState title="No one is overdue" description="Every rider is current on rent." />
+          <EmptyState title="Nobody is behind" description="Every rider has paid their rent." />
         ) : (
           <SimpleTable
             rows={rows}
@@ -171,7 +171,7 @@ export function OverdueRiders() {
               },
               {
                 key: 'stage',
-                header: 'Stage',
+                header: 'What happens next',
                 width: 150,
                 render: (o) => <StateChip label={DUNNING_LABEL[o.stage]} tone={DUNNING_TONE[o.stage]} />,
               },

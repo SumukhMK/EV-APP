@@ -8,6 +8,7 @@ import UploadIcon from '@mui/icons-material/UploadFileOutlined';
 import { invalidateVehicles } from '../../lib/invalidate';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { StatTiles } from '../../components/StatTiles';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
@@ -54,6 +55,7 @@ export function BulkUploadVehicles() {
   const queryClient = useQueryClient();
   const [preview, setPreview] = useState<BulkUploadPreview | null>(null);
   const [done, setDone] = useState<number | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const validate = useMutation({
     mutationFn: (file: File) => previewBulkUpload(file.name),
@@ -134,7 +136,7 @@ export function BulkUploadVehicles() {
             subtitle={`${preview.fileName} — rows with an error are skipped. Fix them in the file and upload again.`}
             sx={{ mt: 5 }}
             action={
-              <Button onClick={() => commit.mutate(preview)} disabled={commit.isPending || preview.validRows === 0}>
+              <Button onClick={() => setConfirmOpen(true)} disabled={commit.isPending || preview.validRows === 0}>
                 {commit.isPending ? 'Importing…' : `Import ${preview.validRows} vehicles`}
               </Button>
             }
@@ -172,6 +174,18 @@ export function BulkUploadVehicles() {
           </Panel>
         </>
       )}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Import vehicles?"
+        message={`${preview?.validRows ?? 0} clean rows will be added to the registry.`}
+        info={`Only the ${preview?.validRows ?? 0} rows without errors are imported. ${preview?.errorRows ?? 0} rows with errors are skipped — fix them in the file and upload again.`}
+        confirmLabel={`Import ${preview?.validRows ?? 0} vehicles`}
+        tone="bad"
+        dismissible={false}
+        pending={commit.isPending}
+        onConfirm={() => { setConfirmOpen(false); if (preview) commit.mutate(preview); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </>
   );
 }

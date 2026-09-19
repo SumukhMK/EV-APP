@@ -48,3 +48,23 @@ export const ADD_VEHICLE_DEFAULTS: AddVehicleValues = {
   rfidTag: '',
   notes: '',
 };
+
+/**
+ * Validation for editing an existing vehicle's record. Identity fields —
+ * the vehicle id, the chassis number, the purchase date — are not asked for:
+ * they are facts about how the bike entered the fleet, not corrections a desk
+ * makes later.
+ */
+export const editVehicleSchema = z.object({
+  hub: z.string().trim().min(1, 'Hub is required'),
+  make: z.string().trim().min(1, 'Make is required'),
+  model: z.string().min(1, 'Model is required'),
+  batteryType: z.enum(['Sun Mobility', 'Battery Smart', 'Yuma', 'Honda Swap']),
+  batteryVendor: z.string().trim().optional(),
+  registrationNumber: z.string().trim().optional(),
+  motorNumber: z.string().trim().optional(),
+  controllerNumber: z.string().trim().optional(),
+  rfidTag: z.string().trim().optional(),
+});
+
+export type EditVehicleValues = z.infer<typeof editVehicleSchema>;

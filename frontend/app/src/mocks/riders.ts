@@ -96,9 +96,17 @@ const NO_BIKE: ReadonlyArray<
 /** Overdue riders the dashboard counts: 16. Two of them are designed rows. */
 const OVERDUE_TARGET = 16;
 
+/**
+ * Service-state vehicles with a rider name get paired with a rider here.
+ * The rider stays tagged (currentVehicleId set) because receipt hasn't been
+ * generated yet — consistent with the flow where rider decouples at QC release.
+ */
 function buildRiders(): Rider[] {
   const rng = mulberry32(9140824);
   const deployed = vehicles.filter((v) => v.state === 'DEPLOYED');
+  const inService = vehicles.filter((v) =>
+    ['UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT', 'RECOVERY'].includes(v.state) && v.currentRiderName,
+  );
   const out: Rider[] = [];
   const takenVehicles = new Set<string>();
 
@@ -130,10 +138,11 @@ function buildRiders(): Rider[] {
   }
 
   let n = 44;
+  // Riders for deployed bikes
   for (const bike of deployed) {
     if (takenVehicles.has(bike.id)) continue;
     const id = `R${String(n++).padStart(2, '0')}`;
-    const name = `${pick(rng, FIRST_NAMES)} ${pick(rng, LAST_NAMES)}`;
+    const name = bike.currentRiderName ?? `${pick(rng, FIRST_NAMES)} ${pick(rng, LAST_NAMES)}`;
     out.push({
       id,
       name,
@@ -150,6 +159,30 @@ function buildRiders(): Rider[] {
       paymentDay: pick(rng, PAYMENT_DAYS),
       paymentMode: pick(rng, PAYMENT_MODES),
     });
+    takenVehicles.add(bike.id);
+  }
+
+  // Riders for service-state bikes (still tagged until receipt generated)
+  for (const bike of inService) {
+    if (takenVehicles.has(bike.id)) continue;
+    const id = `R${String(n++).padStart(2, '0')}`;
+    out.push({
+      id,
+      name: bike.currentRiderName!,
+      phone: `${6 + Math.floor(rng() * 4)}${String(Math.floor(rng() * 1e9)).padStart(9, '0')}`,
+      status: 'ACTIVE',
+      kycStatus: 'VERIFIED',
+      planAmount: pick(rng, [1600, 1700, 1750, 1900, 1950, 1999, 2099]) * 100,
+      depositHeld: pick(rng, [2000, 3000, 5000]) * 100,
+      billingDay: out.filter((r) => r.billingDay === 'MONDAY').length < 58 ? 'MONDAY' : 'WEDNESDAY',
+      currentVehicleId: bike.id,
+      onboardedOn: `202${5 + Math.floor(rng() * 2)}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 28)).padStart(2, '0')}`,
+      paymentStatus: 'PAID',
+      platform: pick(rng, PLATFORMS),
+      paymentDay: pick(rng, PAYMENT_DAYS),
+      paymentMode: pick(rng, PAYMENT_MODES),
+    });
+    takenVehicles.add(bike.id);
   }
 
   // Spread the remaining overdue and partial flags over the generated riders.

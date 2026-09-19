@@ -85,6 +85,8 @@ export function RiderDetail() {
     <>
       <PageHeader
         section="Riders"
+        backTo="/riders"
+        backLabel="Back to riders"
         title={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
             <Box component="span">{r.name}</Box>
@@ -194,9 +196,9 @@ export function RiderDetail() {
             <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
               {canTakeBike ? (
                 <>
-                  Not assigned. A bike can be assigned only from{' '}
-                  <Box component="span" sx={{ color: tones.good.fg }}>
-                    Ready to deploy
+                  No bike yet. A bike can only be given out when it is{' '}
+                  <Box component="span" sx={{ color: tones.accent.fg }}>
+                    Ready to Deploy
                   </Box>
                   .
                 </>

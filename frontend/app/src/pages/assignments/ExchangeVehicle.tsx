@@ -3,6 +3,8 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
@@ -19,11 +22,12 @@ import { VehiclePicker } from './VehiclePicker';
 import { RiderSearchSelect } from './_components/RiderSearchSelect';
 import { SelectionSummary } from './_components/SelectionSummary';
 import { DispositionFields } from './_components/DispositionFields';
+import { DamageItemsField } from './_components/DamageItemsField';
 import { exchangeVehicle } from '../../lib/api/assignments';
 import { listAssignedRiders } from '../../lib/api/riders';
 import { getVehicle } from '../../lib/api/vehicles';
 import { ApiError } from '../../lib/api/client';
-import { invalidateAssignments } from '../../lib/invalidate';
+import { invalidateAssignments, invalidateServiceJobs } from '../../lib/invalidate';
 import {
   exchangeVehicleSchema,
   today,
@@ -62,6 +66,9 @@ export function ExchangeVehicle() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
+  const [confirmedValues, setConfirmedValues] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<ExchangeVehicleValues | null>(null);
 
   const riders = useQuery({
     queryKey: ['riders', 'assigned'],
@@ -77,15 +84,16 @@ export function ExchangeVehicle() {
       occurredOn: today(),
       reason: 'BREAKDOWN',
       returnCondition: 'NONE',
-      // The condition default for a DEPLOYED bike with no damage is RETURNED;
-      // DispositionFields re-derives it from the condition on mount.
-      nextVehicleState: 'RETURNED',
+      nextVehicleState: 'QC_PENDING',
       note: '',
+      damageItems: [],
     },
     mode: 'onBlur',
   });
 
   const picked = useWatch({ control: form.control });
+  const confirmationKey = JSON.stringify(picked);
+  const confirmed = confirmedValues === confirmationKey;
   const rider = riders.data?.find((r) => r.id === picked.riderId);
 
   // The bike being handed back is not a choice — it is whichever one the rider
@@ -109,7 +117,11 @@ export function ExchangeVehicle() {
 
   const save = useMutation({
     mutationFn: (values: ExchangeVehicleValues) => exchangeVehicle(values),
-    onSuccess: () => invalidateAssignments(queryClient),
+    onSuccess: (updated) => {
+      invalidateAssignments(queryClient);
+      invalidateServiceJobs(queryClient);
+      navigate(`/riders/${updated.id}`);
+    },
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
         form.setError(error.field as keyof ExchangeVehicleValues, { message: error.message });
@@ -119,10 +131,11 @@ export function ExchangeVehicle() {
     },
   });
 
-  const submit = form.handleSubmit(async (values) => {
+  const submit = form.handleSubmit((values) => {
     setBanner(null);
-    const updated = await save.mutateAsync(values);
-    navigate(`/riders/${updated.id}`);
+    if (!confirmed) { setBanner('Confirm both vehicles and the return destination before exchanging.'); return; }
+    setPendingValues(values);
+    setConfirmOpen(true);
   });
 
   if (riders.isLoading) {
@@ -139,7 +152,7 @@ export function ExchangeVehicle() {
         <PageHeader section="Riders" title="Exchange vehicle" />
         <EmptyState
           title="No rider is holding a bike"
-          description="An exchange swaps one bike for another, so it needs a rider who already has one. Assign a bike first."
+          description="A swap needs a rider who already has a bike. Give someone a bike first."
           action={
             <Button component={Link} to="/assignments/assign">
               Assign a bike
@@ -161,8 +174,8 @@ export function ExchangeVehicle() {
               <Button color="inherit" component={Link} to="/riders">
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending}>
-                {save.isPending ? 'Recording…' : 'Record exchange'}
+              <Button type="submit" disabled={save.isPending || !confirmed}>
+                {save.isPending ? 'Saving…' : 'Save the swap'}
               </Button>
             </>
           }
@@ -176,8 +189,8 @@ export function ExchangeVehicle() {
 
         <Box sx={{ display: 'grid', gap: 5, mt: 5, '& > *': { minWidth: 0 } }}>
           <Panel
-            label="Current assignment"
-            subtitle="Only riders who currently have a bike."
+            label="Who is swapping?"
+            subtitle="Only riders who have a bike right now."
             sx={{ maxWidth: layout.readingMax }}
           >
             <RiderSearchSelect
@@ -195,40 +208,42 @@ export function ExchangeVehicle() {
           </Panel>
 
           <Panel
-            label="Return"
-            subtitle="The condition decides where the returned bike goes next. It never goes straight back to the ready pool."
+            label="The bike coming back"
+            subtitle="The condition you pick suggests where the bike should go. If you choose something else, say why."
             sx={{ maxWidth: layout.readingMax }}
           >
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
               <SelectField
                 control={form.control}
                 name="returnCondition"
-                label="Condition on return"
+                label="What condition is the bike in?"
                 options={CONDITIONS}
               />
             </Box>
             <Box sx={{ mt: 4 }}>
               <InfoStrip>
-                Recovery is deliberately not an option in this flow — a bike that needs recovering
-                is a different process. The returned bike goes to QC or the workshop.
+Recovery is not offered here — that is a separate job. For the bike coming back,
+                choose Quality Check, In Service, or Accident.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
               <DispositionFields
                 control={form.control}
                 reasonName="reason"
-                reasonLabel="Reason for exchange"
+                reasonLabel="Why the swap?"
                 reasonOptions={REASONS}
                 dateName="occurredOn"
-                dateLabel="Exchanged on"
+                dateLabel="Date of the swap"
                 nextStateName="nextVehicleState"
-                currentState={bike.data?.state ?? 'DEPLOYED'}
                 condition={picked.returnCondition}
               />
             </Box>
+            {picked.returnCondition && (picked.returnCondition !== 'NONE' || Boolean(picked.damageItems?.length)) && (
+              <Box sx={{ mt: 4 }}><DamageItemsField noDamage={picked.returnCondition === 'NONE'} /></Box>
+            )}
           </Panel>
 
-          <Panel label="Replacement bike" subtitle="Bikes that passed QC and are ready to go out.">
+          <Panel label="The new bike" subtitle="Bikes that passed QC and are ready to go out.">
             <Controller
               control={form.control}
               name="toVehicleId"
@@ -271,7 +286,7 @@ export function ExchangeVehicle() {
               ]}
             />
             <TextField
-              label="Note (optional)"
+              label="Notes"
               multiline
               minRows={2}
               fullWidth
@@ -280,9 +295,22 @@ export function ExchangeVehicle() {
               error={Boolean(form.formState.errors.note)}
               helperText={form.formState.errors.note?.message}
             />
+            <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm both bikes and where the old one goes." />
           </Panel>
         </Box>
       </Box>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Save the swap?"
+        message="The rider's bike changes and the returned bike enters service."
+        info={pendingValues ? `${rider?.name ?? rider?.id ?? 'The rider'} swaps ${pendingValues.fromVehicleId} for ${pendingValues.toVehicleId}. The returned bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.` : undefined}
+        confirmLabel="Save the swap"
+        tone="bad"
+        dismissible={false}
+        pending={save.isPending}
+        onConfirm={() => { setConfirmOpen(false); if (pendingValues) save.mutate(pendingValues); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </FormProvider>
   );
 }

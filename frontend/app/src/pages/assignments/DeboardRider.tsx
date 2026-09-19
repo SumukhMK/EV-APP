@@ -3,6 +3,8 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
@@ -11,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
@@ -20,10 +23,11 @@ import { SelectField } from '../../components/form/SelectField';
 import { RiderSearchSelect } from './_components/RiderSearchSelect';
 import { SelectionSummary } from './_components/SelectionSummary';
 import { DispositionFields } from './_components/DispositionFields';
+import { DamageItemsField } from './_components/DamageItemsField';
 import { deboardRider } from '../../lib/api/assignments';
 import { listAssignedRiders, listRiderPayments } from '../../lib/api/riders';
 import { ApiError } from '../../lib/api/client';
-import { invalidateAssignments } from '../../lib/invalidate';
+import { invalidateAssignments, invalidateServiceJobs } from '../../lib/invalidate';
 import {
   deboardRiderSchema,
   today,
@@ -64,6 +68,9 @@ export function DeboardRider() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
+  const [confirmedValues, setConfirmedValues] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<DeboardRiderValues | null>(null);
 
   const riders = useQuery({
     queryKey: ['riders', 'assigned'],
@@ -78,17 +85,18 @@ export function DeboardRider() {
       returnedOn: today(),
       reason: 'OTHER',
       returnCondition: 'NONE',
-      // The condition default for a DEPLOYED bike with no damage is RETURNED;
-      // DispositionFields re-derives it from the condition on mount.
-      nextVehicleState: 'RETURNED',
+      nextVehicleState: 'QC_PENDING',
       outstandingRentRupees: 0,
       depositRefundRupees: 0,
       note: '',
+      damageItems: [],
     },
     mode: 'onBlur',
   });
 
   const picked = useWatch({ control: form.control });
+  const confirmationKey = JSON.stringify(picked);
+  const confirmed = confirmedValues === confirmationKey;
   const rider = riders.data?.find((r) => r.id === picked.riderId);
 
   // The bike is whichever one the rider holds, carried in the form so the
@@ -120,10 +128,18 @@ export function DeboardRider() {
         nextVehicleState: values.nextVehicleState,
         // Rupees at the desk, paise on the wire. Converted once, here.
         outstandingRent: values.outstandingRentRupees * 100,
-        depositRefund: values.depositRefundRupees * 100,
+        // Worked out here, not typed: deposit held minus the rent owed. Anything
+        // the damage costs is taken off later, on the service job, once the bike
+        // has actually been looked at.
+        depositRefund: Math.max(0, (rider?.depositHeld ?? 0) - values.outstandingRentRupees * 100),
         note: values.note,
+        damageItems: values.damageItems,
       }),
-    onSuccess: () => invalidateAssignments(queryClient),
+    onSuccess: (updated) => {
+      invalidateAssignments(queryClient);
+      invalidateServiceJobs(queryClient);
+      navigate(`/riders/${updated.id}`);
+    },
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
         form.setError(error.field as keyof DeboardRiderValues, { message: error.message });
@@ -133,10 +149,11 @@ export function DeboardRider() {
     },
   });
 
-  const submit = form.handleSubmit(async (values) => {
+  const submit = form.handleSubmit((values) => {
     setBanner(null);
-    const updated = await save.mutateAsync(values);
-    navigate(`/riders/${updated.id}`);
+    if (!confirmed) { setBanner('Confirm the return destination and settlement before finalising.'); return; }
+    setPendingValues(values);
+    setConfirmOpen(true);
   });
 
   if (riders.isLoading) {
@@ -153,7 +170,7 @@ export function DeboardRider() {
         <PageHeader section="Riders" title="Deboard rider" />
         <EmptyState
           title="No rider is holding a bike"
-          description="Deboarding closes an open assignment, and no rider has one open right now."
+          description="This screen takes a bike back from a rider, and nobody has one right now."
           action={
             <Button component={Link} to="/riders">
               Back to the register
@@ -167,7 +184,8 @@ export function DeboardRider() {
   // What the deposit covers after the outstanding rent. Shown unclamped: a
   // negative figure means the rider owes more than the deposit covers, and
   // hiding that would be hiding the argument the desk needs to have.
-  const net = (rider?.depositHeld ?? 0) - outstanding;
+  const net = (rider?.depositHeld ?? 0) - (picked.outstandingRentRupees ?? 0) * 100;
+  const refundPaise = Math.max(0, net);
   const netLabel = net >= 0 ? rupeesWithSymbol(net) : `−${rupeesWithSymbol(-net)}`;
 
   return (
@@ -181,8 +199,8 @@ export function DeboardRider() {
               <Button color="inherit" component={Link} to="/riders">
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending}>
-                {save.isPending ? 'Deboarding…' : 'Finalise deboard'}
+              <Button type="submit" disabled={save.isPending || !confirmed}>
+                {save.isPending ? 'Saving…' : 'Finish and take the bike back'}
               </Button>
             </>
           }
@@ -211,7 +229,7 @@ export function DeboardRider() {
           }}
         >
           <Box sx={{ display: 'grid', gap: 5, minWidth: 0 }}>
-          <Panel label="Assignment being closed">
+          <Panel label="Rider and bike">
             <RiderSearchSelect
               label="Rider"
               placeholder="Search by name, rider id, phone or bike id"
@@ -236,8 +254,8 @@ export function DeboardRider() {
           </Panel>
 
           <Panel
-            label="Why the bike is coming back"
-            subtitle="The condition decides where the bike goes next. Even an undamaged bike goes through QC before it can go out again."
+            label="Why is the bike coming back?"
+            subtitle="The condition you pick suggests where the bike should go. You can choose something else, just say why."
           >
             {/* The note sits beside the control it qualifies rather than under
                 it — a lone select in a two-column row left half the panel bare. */}
@@ -252,35 +270,36 @@ export function DeboardRider() {
               <SelectField
                 control={form.control}
                 name="returnCondition"
-                label="Condition on return"
+                label="What condition is the bike in?"
                 options={CONDITIONS}
               />
               <InfoStrip>
-                Recovery is deliberately not an option in this flow — a bike that needs recovering
-                is a different process. The returned bike goes to QC or the workshop.
+Recovery is not offered here — that is a separate job. Choose Quality Check, In Service, or Accident.
               </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
               <DispositionFields
                 control={form.control}
                 reasonName="reason"
-                reasonLabel="Deboard reason"
+                reasonLabel="Why is the rider giving it back?"
                 reasonOptions={REASONS}
                 dateName="returnedOn"
-                dateLabel="Returned on"
+                dateLabel="Date it came back"
                 nextStateName="nextVehicleState"
-                // A rider holding a bike means it is DEPLOYED — the register's
-                // one-to-one rule, enforced by the assignment API.
-                currentState="DEPLOYED"
                 condition={picked.returnCondition}
               />
             </Box>
+            {picked.returnCondition && (picked.returnCondition !== 'NONE' || Boolean(picked.damageItems?.length)) && (
+              <Box sx={{ mt: 5 }}>
+                <DamageItemsField noDamage={picked.returnCondition === 'NONE'} />
+              </Box>
+            )}
             <TextField
-              label="Note (optional)"
+              label="Notes"
               multiline
               minRows={3}
               fullWidth
-              placeholder="Describe any damage, missing parts or dispute"
+              placeholder="Any damage, missing parts, or a disagreement. Also say why if you changed where the bike goes."
               sx={{ mt: 5 }}
               {...form.register('note')}
               error={Boolean(form.formState.errors.note)}
@@ -289,33 +308,30 @@ export function DeboardRider() {
           </Panel>
 
           <Panel
-            label="Settlement"
-            subtitle="Type in the refund yourself. How much to hold back for damage is a call made at the desk, not a formula."
+            label="Money"
+            subtitle="Only the rent is settled here. Damage is not priced yet."
           >
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-              {/* A number input hands back a string unless it is asked not to. */}
-              <TextField
-                label="Outstanding rent (₹)"
-                type="number"
-                {...form.register('outstandingRentRupees', { valueAsNumber: true })}
-                error={Boolean(form.formState.errors.outstandingRentRupees)}
-                helperText={form.formState.errors.outstandingRentRupees?.message}
-              />
-              <TextField
-                label="Deposit refunded (₹)"
-                type="number"
-                {...form.register('depositRefundRupees', { valueAsNumber: true })}
-                error={Boolean(form.formState.errors.depositRefundRupees)}
-                helperText={form.formState.errors.depositRefundRupees?.message}
-              />
-            </Box>
+            {/* A number input hands back a string unless it is asked not to. */}
+            <TextField
+              label="Rent still owed (₹)"
+              type="number"
+              fullWidth
+              {...form.register('outstandingRentRupees', { valueAsNumber: true })}
+              error={Boolean(form.formState.errors.outstandingRentRupees)}
+              helperText={form.formState.errors.outstandingRentRupees?.message ?? `Our records show ${rupeesWithSymbol(Math.max(0, outstanding))} owed this week. Type what the desk agreed.`}
+            />
             <Box sx={{ mt: 5 }}>
               <DerivedField
-                label="Net after outstanding rent"
+                label="Deposit left after rent owed"
                 value={netLabel}
-                derivation="Deposit held − outstanding rent. Negative means the deposit does not cover what is owed."
+                derivation="Deposit held − rent still owed. Negative means the rent owed is more than the deposit covers."
               />
             </Box>
+            <Alert severity="info" sx={{ mt: 4 }}>
+              Do not guess a damage deduction here. The bike has to be checked first. Whatever the repair
+              costs is decided on the service job, and if it is set to come out of the deposit, it is taken
+              off then. The rider is refunded after that.
+            </Alert>
           </Panel>
           </Box>
 
@@ -324,8 +340,8 @@ export function DeboardRider() {
               the form, then check what it is about to do. */}
           <Box sx={{ position: { lg: 'sticky' }, top: 16, minWidth: 0 }}>
             <Panel
-              label="Before you finalise"
-              subtitle="What this closes, as it stands right now."
+              label="Before you finish"
+              subtitle="Here is what will happen when you confirm."
             >
               <DefinitionList
                 divider="top"
@@ -351,24 +367,40 @@ export function DeboardRider() {
                     ),
                   },
                   {
-                    label: 'Deposit refunded',
+                    label: 'Deposit left, before repairs',
                     value: (
                       <Mono sx={{ fontSize: 13 }}>
-                        {rupeesWithSymbol((picked.depositRefundRupees ?? 0) * 100)}
+                        {rupeesWithSymbol(refundPaise)}
                       </Mono>
                     ),
                   },
                   { label: 'Rider becomes', value: 'Inactive' },
                 ]}
               />
+              <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 3 }}>
+                The bike movement and the service job are saved together. The job shows up in Bikes in service straight away.
+              </Typography>
               <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
                 The rider becomes inactive and the bike is freed up. Onboard them again to bring
                 them back.
               </Typography>
+              <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm the rider, where the bike goes, and the money." />
             </Panel>
           </Box>
         </Box>
       </Box>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Finish and take the bike back?"
+        message="The rider is decoupled from the bike and the settlement is final."
+        info={pendingValues ? `${rupeesWithSymbol(outstanding)} of rent is settled${net >= 0 ? ` and ${rupeesWithSymbol(net)} of deposit is refunded` : ' — the deposit does not cover the rent owed'}. The bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.` : undefined}
+        confirmLabel="Finish and take the bike back"
+        tone="bad"
+        dismissible={false}
+        pending={save.isPending}
+        onConfirm={() => { setConfirmOpen(false); if (pendingValues) save.mutate(pendingValues); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </FormProvider>
   );
 }

@@ -48,6 +48,23 @@ export function invalidatePayments(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ['rider'] });
 }
 
+/**
+ * A service job opened, was worked, or closed — the queue counts, the
+ * assistance desk list, and (once a job posts a rider charge) the payments
+ * screens all read off it.
+ */
+export function invalidateServiceJobs(qc: QueryClient) {
+  invalidateVehicles(qc);
+  invalidateRiders(qc);
+  qc.invalidateQueries({ queryKey: ['service-jobs'] });
+  qc.invalidateQueries({ queryKey: ['operations'] });
+  qc.invalidateQueries({ queryKey: ['rider-payments'] });
+  qc.invalidateQueries({ queryKey: ['service'] });
+  qc.invalidateQueries({ queryKey: ['dashboard'] });
+  qc.invalidateQueries({ queryKey: ['payments'] });
+  qc.invalidateQueries({ queryKey: ['rider'] });
+}
+
 /** An account was edited — refetch the accounts list. */
 export function invalidateUsers(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ['users'] });

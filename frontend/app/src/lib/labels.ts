@@ -20,21 +20,21 @@ import type {
  */
 
 export const VEHICLE_STATE_LABEL: Record<VehicleState, string> = {
-  INDUCTED: 'Inducted',
-  READY_TO_DEPLOY: 'Ready to deploy',
-  DEPLOYED: 'Deployed',
-  RETURNED: 'Returned',
+  INDUCTED: 'Onboarding',
+  READY_TO_DEPLOY: 'Ready to Deploy',
+  DEPLOYED: 'Active',
+  RETURNED: 'Returned (legacy)',
   RECOVERY: 'Recovery',
-  UNDER_REPAIR: 'Under repair',
-  QC_PENDING: 'QC pending',
+  UNDER_REPAIR: 'In Service',
+  QC_PENDING: 'Quality Check',
   ACCIDENT: 'Accident',
-  RETIRED: 'Scrapped',
+  RETIRED: 'Retired',
 };
 
 export const VEHICLE_STATE_TONE: Record<VehicleState, StatusTone> = {
   INDUCTED: 'neutral',
-  READY_TO_DEPLOY: 'good',
-  DEPLOYED: 'accent',
+  READY_TO_DEPLOY: 'accent',
+  DEPLOYED: 'good',
   RETURNED: 'neutral',
   RECOVERY: 'warn',
   UNDER_REPAIR: 'warn',
@@ -44,17 +44,56 @@ export const VEHICLE_STATE_TONE: Record<VehicleState, StatusTone> = {
 };
 
 /**
+ * The six main gates every `VehicleState` belongs to — a display-only
+ * grouping, no schema change. Lifecycle timelines lead with the gate (bold,
+ * one colour per gate) and show the specific state underneath as the
+ * lighter sub-stage. See docs/superpowers/specs for the source proposal.
+ */
+export const VEHICLE_GATES = ['ONBOARDING', 'QC', 'ACTIVE', 'SERVICE', 'RTD', 'RETIRED'] as const;
+export type VehicleGate = (typeof VEHICLE_GATES)[number];
+
+export const VEHICLE_STATE_GATE: Record<VehicleState, VehicleGate> = {
+  INDUCTED: 'ONBOARDING',
+  QC_PENDING: 'QC',
+  READY_TO_DEPLOY: 'RTD',
+  DEPLOYED: 'ACTIVE',
+  RECOVERY: 'ACTIVE',
+  ACCIDENT: 'ACTIVE',
+  RETURNED: 'SERVICE', // legacy state — sits between a return and its repair
+  UNDER_REPAIR: 'SERVICE',
+  RETIRED: 'RETIRED',
+};
+
+export const VEHICLE_GATE_LABEL: Record<VehicleGate, string> = {
+  ONBOARDING: 'Onboarding',
+  QC: 'Quality Check',
+  ACTIVE: 'Active',
+  SERVICE: 'Service',
+  RTD: 'Ready to Deploy',
+  RETIRED: 'Retired',
+};
+
+export const VEHICLE_GATE_TONE: Record<VehicleGate, StatusTone> = {
+  ONBOARDING: 'neutral',
+  QC: 'caution',
+  ACTIVE: 'good',
+  SERVICE: 'warn',
+  RTD: 'accent',
+  RETIRED: 'neutral',
+};
+
+/**
  * The only transitions the UI offers. Enforced server-side later; until then
  * this is what stops the demo showing a nonsense move.
  */
 export const VEHICLE_TRANSITIONS: Record<VehicleState, VehicleState[]> = {
-  INDUCTED: ['READY_TO_DEPLOY', 'UNDER_REPAIR'],
-  READY_TO_DEPLOY: ['DEPLOYED', 'UNDER_REPAIR', 'RETIRED'],
-  DEPLOYED: ['RETURNED', 'ACCIDENT', 'RECOVERY'],
-  RETURNED: ['UNDER_REPAIR', 'QC_PENDING', 'READY_TO_DEPLOY'],
-  RECOVERY: ['UNDER_REPAIR', 'QC_PENDING', 'READY_TO_DEPLOY', 'RETIRED'],
-  UNDER_REPAIR: ['QC_PENDING', 'ACCIDENT', 'RETIRED'],
+  INDUCTED: ['QC_PENDING'],
   QC_PENDING: ['READY_TO_DEPLOY', 'UNDER_REPAIR'],
+  READY_TO_DEPLOY: ['DEPLOYED', 'UNDER_REPAIR', 'RETIRED'],
+  DEPLOYED: ['UNDER_REPAIR', 'QC_PENDING', 'RECOVERY', 'ACCIDENT'],
+  RETURNED: [],                     // legacy — no outbound transitions
+  RECOVERY: ['UNDER_REPAIR', 'ACCIDENT', 'RETIRED'],
+  UNDER_REPAIR: ['QC_PENDING', 'ACCIDENT', 'RETIRED'],
   ACCIDENT: ['UNDER_REPAIR', 'RETIRED'],
   RETIRED: [],
 };
@@ -74,15 +113,23 @@ export const PAYMENT_STATUS_TONE: Record<PaymentStatus, StatusTone> = {
 };
 
 export const RIDER_STATUS_LABEL: Record<RiderStatus, string> = {
+  ONBOARDING: 'Onboarding',
   ACTIVE: 'Active',
-  INACTIVE: 'Inactive',
+  SUSPENDED: 'Suspended',
+  DEBOARDED: 'Deboarded',
+  OFFBOARDED: 'Offboarded',
   BLACKLISTED: 'Blacklisted',
+  INACTIVE: 'Inactive (legacy)',
 };
 
 export const RIDER_STATUS_TONE: Record<RiderStatus, StatusTone> = {
+  ONBOARDING: 'neutral',
   ACTIVE: 'good',
-  INACTIVE: 'neutral',
+  SUSPENDED: 'bad',
+  DEBOARDED: 'warn',
+  OFFBOARDED: 'neutral',
   BLACKLISTED: 'bad',
+  INACTIVE: 'neutral',
 };
 
 export const KYC_STATUS_LABEL: Record<KycStatus, string> = {
@@ -98,10 +145,10 @@ export const KYC_STATUS_TONE: Record<KycStatus, StatusTone> = {
 };
 
 export const DUNNING_LABEL: Record<DunningStage, string> = {
-  REMINDER_DUE: 'Reminder due',
-  WARNING_1: 'Warning 1',
-  WARNING_2: 'Warning 2',
-  REPOSSESSION_DUE: 'Repossession due',
+  REMINDER_DUE: 'Send a reminder',
+  WARNING_1: 'First warning',
+  WARNING_2: 'Second warning',
+  REPOSSESSION_DUE: 'Take the bike back',
 };
 
 export const DUNNING_TONE: Record<DunningStage, StatusTone> = {
@@ -119,8 +166,8 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 
 export const RETURN_CONDITION_LABEL: Record<ReturnCondition, string> = {
   NONE: 'No damage',
-  MINOR: 'Minor damage',
-  MAJOR: 'Major damage',
+  MINOR: 'Small damage',
+  MAJOR: 'Big damage',
   ACCIDENT: 'Accident',
 };
 
@@ -129,18 +176,6 @@ export const RETURN_CONDITION_TONE: Record<ReturnCondition, StatusTone> = {
   MINOR: 'caution',
   MAJOR: 'warn',
   ACCIDENT: 'bad',
-};
-
-/**
- * Where a bike lands when it comes back. This is the whole reason a return
- * captures a condition: an undamaged bike goes to QC before it can be let out
- * again, and a damaged one cannot skip the workshop on someone's say-so.
- */
-export const RETURN_CONDITION_NEXT_STATE: Record<ReturnCondition, VehicleState> = {
-  NONE: 'RETURNED',
-  MINOR: 'UNDER_REPAIR',
-  MAJOR: 'UNDER_REPAIR',
-  ACCIDENT: 'ACCIDENT',
 };
 
 export const EXCHANGE_REASON_LABEL: Record<ExchangeReason, string> = {
@@ -175,8 +210,8 @@ export const USER_ROLE_TONE: Record<UserRole, StatusTone> = {
 export const USER_ROLE_SCOPE: Record<UserRole, string> = {
   SUPER_ADMIN: 'The platform owner. Every tenant, every bike, plans and the shared blacklist.',
   TENANT_ADMIN: 'Runs one fleet end to end — bikes, riders, rent, service, dashboards.',
-  FLEET_STAFF: 'Day-to-day fleet work: inductions, inspections, recording returns.',
-  SERVICE_MANAGER: 'The workshop: repairs, QC decisions and service charges.',
+  FLEET_STAFF: 'Day-to-day bike work: adding bikes, checking them, recording returns.',
+  SERVICE_MANAGER: 'The workshop: repairs, QC checks and what a repair costs.',
 };
 
 export const USER_STATUS_LABEL: Record<UserStatus, string> = {
@@ -239,11 +274,7 @@ export const WORKING_PLATFORMS = [
   'Borzo', 'Dunzo', 'Other',
 ] as const;
 
-/**
- * Where a bike lands when it comes back. This is the whole reason a return
- * captures a condition: an undamaged bike goes to QC before it can be let out
- * again, and a damaged one cannot skip the workshop on someone's say-so.
- */
+/** Suggested return destinations. An operator override requires a reason. */
 export const CONDITION_DEFAULT_STATE: Record<ReturnCondition, VehicleState> = {
   NONE: 'QC_PENDING',
   MINOR: 'UNDER_REPAIR',

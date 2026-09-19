@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { recordPayment } from '../../lib/api/payments';
 import { invalidatePayments } from '../../lib/invalidate';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { PAYMENT_METHOD_LABEL } from '../../lib/labels';
 import { rupees } from '../../lib/format';
 import { neutral } from '../../theme/tokens';
@@ -46,6 +47,7 @@ export function RecordPaymentDialog({
 
   const [amountRupees, setAmountRupees] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('UPI');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Refill the default each time a different rider's dialog opens. Done during
   // render rather than in an effect, so the field never paints one frame of the
@@ -72,7 +74,8 @@ export function RecordPaymentDialog({
   const valid = paise > 0 && paise <= balance;
 
   return (
-    <Dialog open={Boolean(target)} onClose={onClose} maxWidth="xs" fullWidth>
+    <>
+      <Dialog open={Boolean(target)} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ fontSize: 16 }}>
         Record payment · {target?.riderName}
       </DialogTitle>
@@ -121,10 +124,23 @@ export function RecordPaymentDialog({
         <Button color="inherit" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={() => valid && collect.mutate(paise)} disabled={!valid || collect.isPending}>
+        <Button onClick={() => valid && setConfirmOpen(true)} disabled={!valid || collect.isPending}>
           Record {valid ? rupees(paise) : ''}
         </Button>
       </DialogActions>
-    </Dialog>
+      </Dialog>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Record the payment?"
+        message={`${rupees(paise)} against ${target?.riderName}'s current period.`}
+        info={`Method: ${PAYMENT_METHOD_LABEL[method]}. Balance after: ${rupees(Math.max(0, balance - paise))}.`}
+        confirmLabel={`Record ${valid ? rupees(paise) : ''}`}
+        tone="neutral"
+        dismissible
+        pending={collect.isPending}
+        onConfirm={() => { setConfirmOpen(false); collect.mutate(paise); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }
