@@ -30,12 +30,12 @@ const TONES: StatusTone[] = ['accent', 'good', 'caution', 'warn', 'bad', 'neutra
 const BANDS: ScaleBand[] = ['high', 'mid', 'low', 'risk'];
 
 const TONE_MEANS: Record<StatusTone, string> = {
-  accent: 'Deployed — the signature state',
-  good: 'Ready, paid, healthy',
-  caution: 'QC pending — queued, not wrong',
-  warn: 'Under repair, recovery',
+  accent: 'Ready to Deploy — available in the fleet',
+  good: 'Active, paid, healthy',
+  caution: 'Quality Check — queued, not wrong',
+  warn: 'In Service, Recovery',
   bad: 'Accident, overdue',
-  neutral: 'Inducted, returned, retired',
+  neutral: 'Onboarding, retired',
 };
 
 const BAND_MEANS: Record<ScaleBand, string> = {

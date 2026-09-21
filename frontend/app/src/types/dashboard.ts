@@ -37,6 +37,7 @@ export interface OperationsPeriodSummary {
  */
 export interface ServiceQueueCounts {
   underRepair: {
+    assessment: number;
     minor: number;
     major: number;
     accident: number;

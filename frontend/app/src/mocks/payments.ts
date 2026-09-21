@@ -12,8 +12,10 @@ import type {
 } from '../types';
 import { riders } from './riders';
 import { mulberry32, pick } from './seed';
+import { arrearsBeforePeriod, chargesForPeriod } from './riderCharges';
 
 const rupees = (n: number) => n * 100;
+const DAY_MS = 86_400_000;
 
 /** Artboard 15, the Monday 24 Aug run, verbatim. */
 const DESIGNED_ROWS: PaymentPeriodRow[] = [
@@ -74,6 +76,13 @@ function row(
 function buildRun(billingDay: BillingDay): PaymentRun {
   const designed = new Map(DESIGNED_ROWS.map((r) => [r.riderId, r]));
 
+  // The Wednesday cycle bills the same week, three days later.
+  const monday = billingDay === 'MONDAY';
+  const periodStart = monday ? '2026-08-24' : '2026-08-26';
+  const periodEnd = monday ? '2026-08-30' : '2026-09-01';
+  const periodStartMs = Date.parse(periodStart);
+  const periodEndMs = Date.parse(periodEnd);
+
   const rows = riders
     // A rider with no bike has no open plan, so there is nothing to bill.
     .filter((r) => r.currentVehicleId && r.billingDay === billingDay)
@@ -83,29 +92,69 @@ function buildRun(billingDay: BillingDay): PaymentRun {
 
       const paid = r.paymentStatus === 'PAID';
       const partial = r.paymentStatus === 'PARTIAL';
+      const perDayAmount = Math.round(r.planAmount / 7);
+
+      // A rider onboarded partway through this period bills only the days
+      // they actually held the bike within it — the wireframe billed every
+      // derived row a full week regardless of when the assignment started,
+      // which overcharges a rider who joined mid-week. `onboardedOn` is the
+      // closest thing the fixture has to an assignment start date; a real
+      // assignment record would carry its own, but the shape is the same.
+      const onboardedMs = Date.parse(r.onboardedOn);
+      const effectiveStartMs = Math.max(periodStartMs, onboardedMs);
+      const daysBilled =
+        effectiveStartMs > periodEndMs ? 0 : Math.min(7, Math.round((periodEndMs - effectiveStartMs) / DAY_MS) + 1);
+      const billedAmount = perDayAmount * daysBilled;
+
       return {
         riderId: r.id,
         riderName: r.name,
         vehicleId: r.currentVehicleId ?? '—',
         planAmount: r.planAmount,
-        daysBilled: 7,
-        perDayAmount: Math.round(r.planAmount / 7),
-        billedAmount: r.planAmount,
+        daysBilled,
+        perDayAmount,
+        billedAmount,
         serviceCharges: 0,
         arrears: 0,
-        totalDue: r.planAmount,
-        amountPaid: paid ? r.planAmount : partial ? Math.round(r.planAmount * 0.6) : 0,
+        totalDue: billedAmount,
+        amountPaid: paid ? billedAmount : partial ? Math.round(billedAmount * 0.6) : 0,
         status: r.paymentStatus,
       };
     });
 
-  // The Wednesday cycle bills the same week, three days later.
-  const monday = billingDay === 'MONDAY';
+  return { periodStart, periodEnd, billingDay, rows };
+}
+
+/**
+ * `serviceCharges` and `arrears` were flat zeros on every derived row and
+ * static wireframe numbers on the designed ones — nothing in the app ever
+ * wrote them, so a closed assistance-desk job had nowhere to go. This overlays
+ * whatever the `RiderCharge` ledger (mocks/riderCharges.ts) actually holds for
+ * the row's rider and period on top of the row's baseline, and recomputes
+ * `totalDue` to match. It reads the ledger fresh on every call and never
+ * mutates the stored row, so calling it twice never double-counts a charge.
+ */
+export function withLiveServiceFigures(run: PaymentRun): PaymentRun {
   return {
-    periodStart: monday ? '2026-08-24' : '2026-08-26',
-    periodEnd: monday ? '2026-08-30' : '2026-09-01',
-    billingDay,
-    rows,
+    ...run,
+    rows: run.rows.map((row) => {
+      const liveService = chargesForPeriod(row.riderId, run.periodStart).reduce(
+        (sum, c) => sum + c.amount,
+        0,
+      );
+      const liveArrears = arrearsBeforePeriod(row.riderId, run.periodStart).reduce(
+        (sum, c) => sum + c.amount,
+        0,
+      );
+      const serviceCharges = row.serviceCharges + liveService;
+      const arrears = row.arrears + liveArrears;
+      return {
+        ...row,
+        serviceCharges,
+        arrears,
+        totalDue: row.billedAmount + serviceCharges + arrears,
+      };
+    }),
   };
 }
 
@@ -135,7 +184,7 @@ export function paymentReceiptFor(riderId: string): PaymentReceipt | null {
   // them rather than assuming Monday — otherwise every Wednesday rider's
   // receipt reads "no line in this period".
   const run = Object.values(runsByDay).find((r) => r.rows.some((x) => x.riderId === riderId));
-  const row = run?.rows.find((r) => r.riderId === riderId);
+  const row = run && withLiveServiceFigures(run).rows.find((r) => r.riderId === riderId);
   if (!run || !row) return null;
 
   const rng = mulberry32(hash(`receipt-${riderId}`));
@@ -242,15 +291,29 @@ export function recordPaymentInRun(
   amount: Paise,
   method: PaymentMethod,
 ): PaymentPeriodRow {
-  const row = Object.values(runsByDay)
-    .flatMap((r) => r.rows)
-    .find((r) => r.riderId === riderId);
-  if (!row) throw new Error(`No run line for ${riderId}`);
+  const run = Object.values(runsByDay).find((r) => r.rows.some((x) => x.riderId === riderId));
+  const row = run?.rows.find((r) => r.riderId === riderId);
+  if (!run || !row) throw new Error(`No run line for ${riderId}`);
 
-  row.amountPaid = Math.min(row.totalDue, row.amountPaid + amount);
-  row.status = row.amountPaid >= row.totalDue ? 'PAID' : row.amountPaid > 0 ? 'PARTIAL' : row.status;
+  // What is actually owed includes any live service charge or arrears, not
+  // just the row's stored baseline — a collection has to clear the whole
+  // amount due, service charges included, before the rider reads PAID.
+  const liveTotalDue = withLiveServiceFigures(run).rows.find((r) => r.riderId === riderId)!.totalDue;
+
+  row.amountPaid = Math.min(liveTotalDue, row.amountPaid + amount);
+  row.status = row.amountPaid >= liveTotalDue ? 'PAID' : row.amountPaid > 0 ? 'PARTIAL' : row.status;
   recordedPayments.set(riderId, { method, paidOn: iso(Date.now()) });
-  return { ...row };
+
+  // A period read as PAID has cleared everything folded into its total,
+  // service charges and carried arrears included — settle those charges so
+  // they stop counting as arrears against a future period.
+  if (row.status === 'PAID') {
+    for (const c of [...chargesForPeriod(riderId, run.periodStart), ...arrearsBeforePeriod(riderId, run.periodStart)]) {
+      c.status = 'SETTLED';
+    }
+  }
+
+  return { ...row, totalDue: liveTotalDue };
 }
 
 /**
@@ -265,7 +328,6 @@ export function recordPaymentInRun(
  * state the register allows, and inventing one here would be inventing a rule.
  */
 const PERIODS = 8;
-const DAY_MS = 86_400_000;
 
 /** The Monday run's period start, so a rider's weeks line up with the run. */
 const CURRENT_PERIOD_START = Date.parse('2026-08-24T00:00:00+05:30');

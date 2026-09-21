@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateUser } from '../../lib/api/users';
 import { invalidateUsers } from '../../lib/invalidate';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { USER_ROLE_LABEL, USER_STATUS_LABEL } from '../../lib/labels';
 import { USER_ROLES, type User, type UserRole, type UserStatus } from '../../types';
 
@@ -52,6 +53,7 @@ export function EditUserDialog({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<UserRole>('FLEET_STAFF');
   const [status, setStatus] = useState<UserStatus>('ACTIVE');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Load the target's values when a different account's dialog opens. Done in
   // render, not an effect, so the fields never flash the previous user first.
@@ -78,7 +80,8 @@ export function EditUserDialog({
   const valid = nameOk && emailOk;
 
   return (
-    <Dialog open={Boolean(target)} onClose={onClose} maxWidth="xs" fullWidth>
+    <>
+      <Dialog open={Boolean(target)} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ fontSize: 16 }}>Edit user · {target?.name}</DialogTitle>
       <DialogContent>
         <Stack spacing={3.5} sx={{ mt: 1 }}>
@@ -121,10 +124,23 @@ export function EditUserDialog({
         <Button color="inherit" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={() => valid && save.mutate()} disabled={!valid || save.isPending}>
+        <Button onClick={() => valid && setConfirmOpen(true)} disabled={!valid || save.isPending}>
           Save changes
         </Button>
       </DialogActions>
-    </Dialog>
+      </Dialog>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Save changes?"
+        message={`Update ${target?.name}'s account.`}
+        info={`Role: ${USER_ROLE_LABEL[role]}. Status: ${USER_STATUS_LABEL[status]}.`}
+        confirmLabel="Save changes"
+        tone="neutral"
+        dismissible
+        pending={save.isPending}
+        onConfirm={() => { setConfirmOpen(false); save.mutate(); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }

@@ -143,7 +143,7 @@ jobs:
         run: |
           BODY="🚲 **Preview deployed** — ${{ steps.preview.outputs.url }}
 
-          Built from \`${{ github.sha }}\`. Lint, tests, typecheck and the 200KB size budget all passed before this went up."
+          Built from \`${{ github.event.pull_request.head.sha || github.sha }}\`. Lint, tests, typecheck and the 200KB size budget all passed before this went up."
           EXISTING=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.number }}/comments" \
             --jq '.[] | select(.body | startswith("🚲 **Preview deployed**")) | .id' | head -1)
           if [ -n "$EXISTING" ]; then

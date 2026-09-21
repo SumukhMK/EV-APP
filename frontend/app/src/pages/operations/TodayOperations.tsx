@@ -40,7 +40,7 @@ import { neutral } from '../../theme/tokens';
 export function TodayOperations() {
   const [period, setPeriod] = useState<{ grain: PeriodGrain; anchorIso: string }>({
     grain: 'DAY',
-    anchorIso: '2026-09-09',
+    anchorIso: new Date().toISOString().slice(0, 10),
   });
 
   const resolved = resolvePeriod(period.grain, period.anchorIso);
@@ -78,14 +78,14 @@ export function TodayOperations() {
         <PeriodToggle grain={period.grain} anchorIso={period.anchorIso} onChange={setPeriod} />
       </Panel>
 
-      <Panel label="Vehicle movement" subtitle={`Events in ${resolved.label}`} sx={{ mt: 5 }}>
+      <Panel label="Bike movement" subtitle={`What happened in ${resolved.label}`} sx={{ mt: 5 }}>
         <StatTiles
           tiles={[
-            { label: 'Deployed', value: n(s?.movement.deployed), icon: RocketIcon },
-            { label: 'Exchanged', value: n(s?.movement.exchanged), icon: SwapIcon },
-            { label: 'Returned', value: n(s?.movement.returned), icon: AssignmentReturnIcon },
+            { label: 'Given out', value: n(s?.movement.deployed), icon: RocketIcon },
+            { label: 'Swapped', value: n(s?.movement.exchanged), icon: SwapIcon },
+            { label: 'Given back', value: n(s?.movement.returned), icon: AssignmentReturnIcon },
             {
-              label: 'Recovered',
+              label: 'Picked up by us',
               value: n(s?.movement.recovered),
               tone: 'warn',
               icon: ReplayIcon,
@@ -94,54 +94,54 @@ export function TodayOperations() {
         />
       </Panel>
 
-      <Panel label="Vehicle outcome" subtitle="The fleet right now" sx={{ mt: 5 }}>
+      <Panel label="Where the bikes are now" subtitle="Click a number to see those bikes" sx={{ mt: 5 }}>
         <StatTiles
           tiles={[
             {
-              label: 'Ready to deploy',
+              label: 'Ready to Deploy',
               value: n(f?.readyToDeploy),
-              tone: 'good',
+              tone: 'accent',
               icon: CheckCircleIcon,
               to: '/vehicles?state=READY_TO_DEPLOY',
             },
             {
-              label: 'Under repair',
+              label: 'In Service',
               value: n(f?.underRepair),
               tone: 'warn',
               icon: BuildIcon,
-              to: '/vehicles?state=UNDER_REPAIR',
+              to: '/service/queues?state=UNDER_REPAIR',
             },
             {
-              label: 'QC pending',
+              label: 'Quality Check',
               value: n(f?.qcPending),
               tone: 'caution',
               icon: FactCheckIcon,
-              to: '/vehicles?state=QC_PENDING',
+              to: '/service/qc',
             },
             {
               label: 'Accident',
               value: n(f?.accident),
               tone: 'bad',
               icon: CarCrashIcon,
-              to: '/vehicles?state=ACCIDENT',
+              to: '/service/queues?queue=ACCIDENT',
             },
           ]}
         />
       </Panel>
 
-      <Panel label="Service source" subtitle={`Events in ${resolved.label}`} sx={{ mt: 5 }}>
+      <Panel label="How bikes came in for service" subtitle={`What happened in ${resolved.label}`} sx={{ mt: 5 }}>
         <StatTiles
           tiles={[
-            { label: 'Roadside assistance', value: n(s?.source.rsa), icon: SupportAgentIcon },
-            { label: 'Walk-in', value: n(s?.source.walkIn), icon: StorefrontIcon },
-            { label: 'Quick response team', value: n(s?.source.qrt), icon: BoltIcon },
+            { label: 'Roadside help', value: n(s?.source.rsa), icon: SupportAgentIcon },
+            { label: 'Rider came to hub', value: n(s?.source.walkIn), icon: StorefrontIcon },
+            { label: 'Rescue team', value: n(s?.source.qrt), icon: BoltIcon },
           ]}
         />
       </Panel>
 
       <Panel
-        label="Hub utilisation"
-        subtitle="Deployed as a share of what each hub holds. The band is derived from the figure, so the bar and the label can never disagree."
+        label="How busy each hub is"
+        subtitle="Of the bikes each hub holds, how many are out with riders."
         sx={{ mt: 5 }}
       >
         {utilisation.isLoading ? (
@@ -153,7 +153,7 @@ export function TodayOperations() {
                 key={h.hub}
                 label={h.hub}
                 percent={h.percent}
-                caption={`${h.deployed} deployed · ${h.idle} idle · ${h.total} held`}
+                caption={`${h.deployed} out · ${h.idle} sitting idle · ${h.total} in total`}
               />
             ))}
           </Box>
@@ -162,10 +162,8 @@ export function TodayOperations() {
 
       <Box sx={{ mt: 5 }}>
         <InfoStrip tone="caution">
-          Movement and service source count events inside the selected period, so they change with
-          the toggle and do not link anywhere — there is no period-scoped vehicle list yet. Vehicle
-          outcome is the fleet as it stands now, which is why those tiles open a list that matches
-          them exactly.
+          The service numbers count requests logged in the period you picked. The "where the bikes are now"
+          numbers are live, and clicking one opens that list of bikes. Movement totals are sample data for now.
         </InfoStrip>
       </Box>
     </>

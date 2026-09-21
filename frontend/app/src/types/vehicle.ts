@@ -37,7 +37,7 @@ export interface Vehicle {
   /** Free text today; becomes a hub reference when hubs are modelled. */
   hub: string;
   state: VehicleState;
-  /** Present only while state is DEPLOYED. */
+  /** Active assignment; retained during a service visit until exchange/deboard. */
   currentRiderId: string | null;
   currentRiderName: string | null;
   inductedOn: Iso8601;
@@ -88,6 +88,24 @@ export interface CreateVehicleRequest {
   inductedOn: Iso8601;
 }
 
+/**
+ * What editing an existing vehicle's record sends. Identity — the id, the
+ * chassis number, when it was inducted — is fixed at creation and never sent
+ * here; this is a correction to the record, not a re-registration.
+ */
+export interface UpdateVehicleRequest {
+  vehicleId: string;
+  make: string;
+  model: string;
+  batteryType: BatteryType;
+  batteryVendor?: string | null;
+  hub: string;
+  registrationNumber?: string | null;
+  motorNumber?: string | null;
+  controllerNumber?: string | null;
+  rfidTag?: string | null;
+}
+
 /** Server response to a dry-run bulk upload — the preview table on screen 06. */
 export interface BulkUploadRow {
   rowNumber: number;
@@ -109,17 +127,30 @@ export interface BulkUploadPreview {
 /** Screen 13: an inspection recorded against a returned or damaged vehicle. */
 export type DamageCategory = 'NONE' | 'MINOR' | 'MAJOR' | 'ACCIDENT';
 
+/** One priced line of an inspection's costing — a part, a labour charge. */
+export interface InspectionItem {
+  label: string;
+  costPaise: number;
+}
+
 export interface InspectionRequest {
   vehicleId: string;
   category: DamageCategory;
   notes: string;
+  /** Parts and labour, priced line by line rather than one estimate. */
+  items: InspectionItem[];
+  /** Sum of `items` — carried alongside them so a saved record's total never
+   *  has to be recomputed differently from what was actually itemised. */
   estimatedCostPaise: number | null;
+  technician: string | null;
   /** The state the vehicle moves into once the inspection is saved. */
   nextState: VehicleState;
 }
 
 /** One repair job waiting on QC (screen 14). */
 export interface QcQueueItem {
+  jobId?: string;
+  riderId?: string | null;
   vehicleId: string;
   model: string;
   repairSummary: string;

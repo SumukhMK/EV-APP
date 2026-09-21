@@ -9,6 +9,9 @@ import type {
 import { riders } from '../../mocks/riders';
 import { vehicles } from '../../mocks/vehicles';
 import { ApiError, delay } from './client';
+import { recordServiceReturn } from '../../mocks/serviceJobs';
+import { CONDITION_DEFAULT_STATE } from '../labels';
+import { RETURN_DESTINATIONS } from '../serviceWorkflow';
 
 /**
  * OWNER: SMK (contract + mock). The three assignment events, screens 10–12.
@@ -25,8 +28,8 @@ import { ApiError, delay } from './client';
 function requireDeployable(vehicleId: string, field = 'vehicleId') {
   const v = vehicles.find((x) => x.id === vehicleId);
   if (!v) throw new ApiError(`No vehicle with id ${vehicleId}`, 404, field);
-  if (v.state !== 'READY_TO_DEPLOY') {
-    throw new ApiError(`${v.id} is not ready to deploy`, 409, field);
+  if (v.state !== 'READY_TO_DEPLOY' || v.currentRiderId) {
+    throw new ApiError(`${v.id} is not Ready to Deploy`, 409, field);
   }
   return v;
 }
@@ -53,6 +56,22 @@ function close(rider: Rider, vehicle: Vehicle, nextState: VehicleState) {
   vehicle.state = nextState;
   vehicle.currentRiderId = null;
   vehicle.currentRiderName = null;
+}
+
+function returnNote(body: ExchangeVehicleRequest | DeboardRiderRequest) {
+  if (!(RETURN_DESTINATIONS as readonly string[]).includes(body.nextVehicleState)) throw new ApiError('Choose a return destination', 400, 'nextVehicleState');
+  if (body.returnCondition === 'NONE' && body.damageItems?.length) throw new ApiError('Clear the damaged-part rows or choose a damage severity', 400, 'damageItems');
+  if (body.returnCondition !== 'NONE' && (!body.damageItems?.length || body.damageItems.some((item) => !item.part.trim()))) {
+    throw new ApiError('Record the damaged parts before returning this bike', 400, 'damageItems');
+  }
+  if (body.nextVehicleState !== CONDITION_DEFAULT_STATE[body.returnCondition] && !body.note?.trim()) {
+    throw new ApiError('Explain the destination override', 400, 'note');
+  }
+  return [
+    body.reason,
+    body.returnCondition !== 'NONE' ? body.damageItems.map((item) => `${item.part}: ${item.note || 'Damage reported'}`).join('; ') : 'No damage reported',
+    body.note,
+  ].filter(Boolean).join('\n');
 }
 
 /** One rider, one bike. The register's oldest rule. */
@@ -93,13 +112,10 @@ export async function exchangeVehicle(body: ExchangeVehicleRequest): Promise<Rid
   const from = vehicles.find((v) => v.id === body.fromVehicleId);
   if (!from) throw new ApiError(`No vehicle with id ${body.fromVehicleId}`, 404, 'fromVehicleId');
   const to = requireDeployable(body.toVehicleId, 'toVehicleId');
-
+  const note = returnNote(body);
+  recordServiceReturn(from, { riderId: rider.id, source: 'EXCHANGE', category: body.returnCondition, nextState: body.nextVehicleState, note, date: body.occurredOn });
   close(rider, from, body.nextVehicleState);
   open(rider, to);
-  void body.occurredOn;
-  void body.reason;
-  void body.note;
-  void body.returnCondition;
   return delay(rider, 460);
 }
 
@@ -116,14 +132,11 @@ export async function deboardRider(body: DeboardRiderRequest): Promise<Rider> {
   }
   const vehicle = vehicles.find((v) => v.id === body.vehicleId);
   if (!vehicle) throw new ApiError(`No vehicle with id ${body.vehicleId}`, 404, 'vehicleId');
-
+  const note = returnNote(body);
+  recordServiceReturn(vehicle, { riderId: rider.id, source: 'DEBOARD', category: body.returnCondition, nextState: body.nextVehicleState, note, date: body.returnedOn });
   close(rider, vehicle, body.nextVehicleState);
-  rider.status = 'INACTIVE';
-  void body.returnedOn;
-  void body.reason;
+  rider.status = 'DEBOARDED';
   void body.outstandingRent;
   void body.depositRefund;
-  void body.note;
-  void body.returnCondition;
   return delay(rider, 460);
 }

@@ -5,10 +5,12 @@ import type {
   OperationsPeriodSummary,
   RecoveryCounts,
   ServiceQueueCounts,
+  ServiceJob,
 } from '../types';
 import dayjs from 'dayjs';
 import { overdueRiders } from './payments';
 import { vehicles } from './vehicles';
+import { serviceJobs } from './serviceJobs';
 
 /**
  * Derived, never hardcoded — if a fixture changes, the tiles follow. The
@@ -117,36 +119,33 @@ export function operationsSummary(startIso: string, endIso: string): OperationsP
     acc.outcome.underRepair += d.outcome.underRepair;
     acc.outcome.qcPending += d.outcome.qcPending;
     acc.outcome.accident += d.outcome.accident;
-    acc.source.rsa += d.source.rsa;
-    acc.source.walkIn += d.source.walkIn;
-    acc.source.qrt += d.source.qrt;
     cur = cur.add(1, 'day');
   }
+  const received = serviceJobs.filter((job) => {
+    const date = job.createdOn.slice(0, 10);
+    return date >= startIso.slice(0, 10) && date <= endIso.slice(0, 10);
+  });
+  acc.source.rsa = received.filter((j) => j.source === 'RSA').length;
+  acc.source.walkIn = received.filter((j) => j.source === 'WALK_IN').length;
+  acc.source.qrt = received.filter((j) => j.source === 'QRT').length;
   return acc;
 }
 
-/**
- * Service queues, derived from the fleet where a real state backs the row so
- * the box cannot contradict the vehicles list — the under-repair total is the
- * bikes actually in `UNDER_REPAIR`, split across the prototype's repair kinds;
- * QC pending and the accident kind track their own states. The live-service
- * sources have no state of their own yet and are seeded.
- */
+/** Queue and arrival-source counts come from the same open work records. */
 export function serviceQueues(): ServiceQueueCounts {
-  const under = vehicles.filter((v) => v.state === 'UNDER_REPAIR').length;
-  const qcPending = vehicles.filter((v) => v.state === 'QC_PENDING').length;
-  const accident = vehicles.filter((v) => v.state === 'ACCIDENT').length;
-
-  // Partition the under-repair total so the seven rows sum to it.
-  const minor = Math.round(under * 0.4);
-  const major = Math.round(under * 0.25);
-  const warranty = Math.round(under * 0.15);
-  const insurance = Math.round(under * 0.1);
-  const partsWaiting = Math.max(0, under - minor - major - warranty - insurance);
-
+  const open = serviceJobs.filter((j) => j.status !== 'CLOSED');
+  const count = (queue: ServiceJob['queue']) => open.filter((j) => j.queue === queue).length;
   return {
-    underRepair: { minor, major, accident, warranty, insurance, partsWaiting, qcPending },
-    inService: { walkIn: 5, rsa: 3, qrt: 2 },
+    underRepair: {
+      assessment: count('ASSESSMENT'), minor: count('MINOR_REPAIR'), major: count('MAJOR_REPAIR'),
+      accident: count('ACCIDENT'), warranty: count('WARRANTY'), insurance: count('INSURANCE'),
+      partsWaiting: count('PARTS_WAITING'), qcPending: count('QC_PENDING'),
+    },
+    inService: {
+      walkIn: open.filter((j) => j.source === 'WALK_IN').length,
+      rsa: open.filter((j) => j.source === 'RSA').length,
+      qrt: open.filter((j) => j.source === 'QRT').length,
+    },
   };
 }
 

@@ -5,7 +5,7 @@ import { neutral } from '../theme/tokens';
 export interface Column<R> {
   key: string;
   header: string;
-  align?: 'left' | 'right';
+  align?: 'left' | 'center' | 'right';
   /**
    * A width *weight*, not a hard size. Columns are laid out as percentages of
    * the table, so a column declared 200 simply gets twice the share of one

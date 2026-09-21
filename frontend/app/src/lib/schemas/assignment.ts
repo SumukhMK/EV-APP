@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { VEHICLE_STATES } from '../../types/vehicle';
+import { RETURN_DESTINATIONS } from '../serviceWorkflow';
+import { CONDITION_DEFAULT_STATE } from '../labels';
 
 /**
  * Validation for the three assignment forms (screens 10–12).
@@ -15,13 +16,17 @@ import { VEHICLE_STATES } from '../../types/vehicle';
  *
  * NOTE FOR SMK REVIEW: `nextVehicleState` was added to exchange and deboard
  * (Tasks 18–19). It used to be computed silently from the return condition in
- * the mutation; it is now an operator-overridable form field, bounded by the
- * vehicle transitions on the screen.
+ * the mutation; it is now an operator-overridable form field offering the
+ * four operational return destinations.
  */
 
 const RETURN_CONDITION = z.enum(['NONE', 'MINOR', 'MAJOR', 'ACCIDENT']);
 
-const NEXT_VEHICLE_STATE = z.enum(VEHICLE_STATES);
+const NEXT_VEHICLE_STATE = z.enum(RETURN_DESTINATIONS);
+const DAMAGE_ITEMS = z.array(z.object({
+  part: z.string().trim().min(1, 'Name the part or area'),
+  note: z.string().trim().max(300, 'Keep the note under 300 characters').optional(),
+}));
 
 export const assignVehicleSchema = z.object({
   riderId: z.string().min(1, 'Pick a rider'),
@@ -43,10 +48,20 @@ export const exchangeVehicleSchema = z
     /** Defaulted from the condition, overridable by the operator. */
     nextVehicleState: NEXT_VEHICLE_STATE,
     note: z.string().trim().max(500, 'Keep the note under 500 characters').optional(),
+    damageItems: DAMAGE_ITEMS,
   })
   .refine((v) => v.toVehicleId !== v.fromVehicleId, {
     message: 'Pick a different bike',
     path: ['toVehicleId'],
+  })
+  .refine((v) => v.returnCondition === 'NONE' || v.damageItems.length > 0, {
+    message: 'Add the damaged parts before continuing', path: ['damageItems'],
+  })
+  .refine((v) => v.returnCondition !== 'NONE' || v.damageItems.length === 0, {
+    message: 'Clear the damaged-part rows or choose a damage severity', path: ['damageItems'],
+  })
+  .refine((v) => v.nextVehicleState === CONDITION_DEFAULT_STATE[v.returnCondition] || Boolean(v.note?.trim()), {
+    message: 'Explain why you are overriding the suggested destination', path: ['note'],
   });
 
 export type ExchangeVehicleValues = z.infer<typeof exchangeVehicleSchema>;
@@ -71,7 +86,19 @@ export const deboardRiderSchema = z.object({
     .int('Enter whole rupees')
     .min(0, 'A refund cannot be negative — a deduction larger than the deposit is an amount owed, and how that is recorded has not been decided yet'),
   note: z.string().trim().max(500, 'Keep the note under 500 characters').optional(),
-});
+  /** Part-level damage detail, required once the bike is tagged as damaged. */
+  damageItems: DAMAGE_ITEMS,
+})
+  .refine((v) => v.returnCondition === 'NONE' || v.damageItems.length > 0, {
+    message: 'Add at least one damaged part before continuing',
+    path: ['damageItems'],
+  })
+  .refine((v) => v.returnCondition !== 'NONE' || v.damageItems.length === 0, {
+    message: 'Clear the damaged-part rows or choose a damage severity', path: ['damageItems'],
+  })
+  .refine((v) => v.nextVehicleState === CONDITION_DEFAULT_STATE[v.returnCondition] || Boolean(v.note?.trim()), {
+    message: 'Explain why you are overriding the suggested destination', path: ['note'],
+  });
 
 export type DeboardRiderValues = z.infer<typeof deboardRiderSchema>;
 
