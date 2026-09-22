@@ -202,6 +202,35 @@ incentives, predictive maintenance, tenant self-signup.
 - No Aadhaar stored in full (masked only).
 - Rupees at the desk, paise on the wire. Converted once, at the API boundary.
 
+## Backend build order
+
+Frontend runs against mocks. Backend builds module by module. Each module done →
+swap one `lib/api/*.ts` file from mock to real fetch. No screen changes.
+
+Full service management design: [`docs/backend/SERVICE_MANAGEMENT.md`](backend/SERVICE_MANAGEMENT.md).
+
+| Stage | Module | Who | Needs | Done when |
+|-------|--------|-----|-------|-----------|
+| S0 | Boot skeleton + auth + RLS + tenants + CI | SMK | — | Login → JWT → correct tenant |
+| S1 | Vehicles: CRUD, state machine, lifecycle, CSV import | SMK | S0 | Create bike, transition states, invalid = 409 |
+| S2 | Riders: CRUD, KYC, Aadhaar masking | Abhiram | S0 | Create rider, masked Aadhaar |
+| S3 | Users: CRUD, roles, RBAC on all endpoints | SMK | S0 | Staff blocked from payments |
+| S4 | Service: 4 tables, 7 endpoints, QC, async events | SMK | S0, S1, S2 | 17 test scenarios pass |
+| S5 | Assignments: assign, exchange, deboard (calls facade) | Abhiram | S0–S4 | Deboard minor → job created |
+| S6 | Payments: charges, run, receipts, overdue, dunning | SMK | S0, S2, S4 | Close job rider-pays → charge in run |
+
+S1 and S2 run parallel. S4 and S5-shell run parallel. S5-wiring and S6 run parallel.
+
+### Cross-module contracts
+
+| Contract | Published by | Used by | Type |
+|----------|-------------|---------|------|
+| `ServiceJobFacade.openJob()` | SMK (service) | Abhiram (assignment) | Java interface |
+| `ServiceJobClosedEvent` | SMK (service) | SMK (payment) | Background event |
+| `VehicleService.transitionState()` | SMK (vehicle) | SMK (service) | Same transaction call |
+
+---
+
 ## Still open (from Ashok)
 
 - **Billing day.** The app runs a fixed Wed→Tue week. Does every rider bill on the
