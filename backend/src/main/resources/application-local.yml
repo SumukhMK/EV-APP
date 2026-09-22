@@ -1,0 +1,40 @@
+# Local development against `docker compose up` in this folder.
+#
+# Every value here is a development value and none of it is a secret worth
+# protecting — the database listens on localhost, and the signing key below
+# signs tokens that are only ever accepted by a container on this machine.
+# Deployed environments supply all of it through the environment and never load
+# this profile.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/evrental
+    username: evrental
+    password: evrental
+
+  jpa:
+    # Off by default — turn it on for one debugging session, not for a workday.
+    show-sql: false
+
+server:
+  error:
+    # The opposite of production, on purpose: locally the message is the point.
+    include-stacktrace: on_param
+    include-message: always
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  cors:
+    # The Vite dev server.
+    allowed-origins: http://localhost:5173
+  jwt:
+    secret: local-development-signing-key-not-a-secret-32b+
+
+logging:
+  level:
+    com.evrental: DEBUG
+    org.flywaydb: INFO

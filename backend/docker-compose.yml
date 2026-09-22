@@ -1,0 +1,85 @@
+# Local dependencies, and optionally the API itself.
+#
+#   docker compose up -d                   Postgres only.
+#                                          Run the API with ./mvnw spring-boot:run —
+#                                          this is the working loop, because devtools
+#                                          restarts on a recompile and a debugger
+#                                          attaches with no port plumbing.
+#
+#   docker compose --profile full up -d --build
+#                                          ...plus the API in a container. For a demo
+#                                          box, or for checking that the thing runs
+#                                          from environment variables alone.
+#
+# The API sits behind a profile rather than being a fourth ordinary service so
+# that the common command stays the fast one. Nothing here is used by CI or by
+# any deployed environment.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: evrental-postgres
+    environment:
+      # The bootstrap superuser. The application does NOT connect as this — it
+      # connects as `evrental`, created by the init script below, because a
+      # superuser bypasses every row-level security policy in V001.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: evrental
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Same file the test suite runs, so local and CI databases cannot drift.
+      # Runs once, on an empty data directory: `docker compose down -v` to redo it.
+      - ./src/main/resources/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d evrental']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # No mail server here yet. Nothing sends mail until the notification module
+  # (S6), and a local SMTP sink that exists before anything writes to it is a
+  # container to keep running for no reason — MailHog is amd64-only and would
+  # run under emulation on an ARM Mac besides. Added back with the module, when
+  # the choice of sink can be made against a real need.
+
+  # Only started by `--profile full`. See the header.
+  api:
+    profiles: ['full']
+    build:
+      context: .
+    container_name: evrental-api
+    ports:
+      - '8080:8080'
+    environment:
+      # `postgres`, not `localhost`: inside the network a service is reachable
+      # by its name, and localhost is the container itself. This is the single
+      # most common reason a containerised app cannot find its database.
+      DB_URL: jdbc:postgresql://postgres:5432/evrental
+      DB_USER: evrental
+      DB_PASSWORD: evrental
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      # A development key for a container on this machine. Deployed
+      # environments pass a real one in; export JWT_SECRET to override.
+      JWT_SECRET: ${JWT_SECRET:-local-development-signing-key-not-a-secret-32b+}
+      # No SPRING_PROFILES_ACTIVE. The point of running it this way is that it
+      # is configured from the environment, like a deployed instance — setting
+      # `local` here would quietly point it back at localhost:5432.
+    depends_on:
+      postgres:
+        # Not just "started": Flyway runs at boot and needs a database that is
+        # actually accepting connections, not one that has merely been created.
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/actuator/health | grep -q ''"status":"UP"''']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      # Flyway plus a cold JVM: give it room before the first check counts.
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

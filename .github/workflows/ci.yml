@@ -5,9 +5,12 @@
 # builds anything. So the bytes Ashok loads are byte-identical to the bytes the
 # tests ran against — there is no second build that could drift from the first.
 #
-#   push to any branch  →  verify
+#   push to any branch  →  verify (site) ∥ backend (API)
 #   push to main        →  verify → deploy to production
 #   PR into main        →  verify → deploy to a preview URL, commented on the PR
+#
+# `backend` runs alongside `verify` and gates nothing else: the API is not part
+# of the bundle Netlify serves, so a red backend must not stop a site deploy.
 #
 # A branch with an open PR runs twice (once for the push, once for the PR).
 # That is the price of gating pushes on branches that have no PR yet, which is
@@ -80,6 +83,41 @@ jobs:
         with:
           name: dist
           path: frontend/app/dist
+          retention-days: 7
+          if-no-files-found: error
+
+  # The backend gate. Independent of `verify`: the API and the site are built
+  # and shipped separately, so a backend failure must not block a frontend
+  # deploy and vice versa. They run in parallel.
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      # `verify` is compile + test. The tests start a real Postgres 16 through
+      # Testcontainers — the Docker daemon is already running on this runner —
+      # because the schema's row-level security and partial unique indexes do
+      # not exist in an in-memory database, so a green run on H2 would prove
+      # nothing about the database this actually deploys against.
+      - name: Build and test
+        run: ./mvnw -B -ntp verify
+
+      - name: Upload the jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-jar
+          path: backend/target/*.jar
           retention-days: 7
           if-no-files-found: error
 
