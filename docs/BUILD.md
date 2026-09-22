@@ -202,6 +202,42 @@ incentives, predictive maintenance, tenant self-signup.
 - No Aadhaar stored in full (masked only).
 - Rupees at the desk, paise on the wire. Converted once, at the API boundary.
 
+## Backend build order
+
+The frontend is built and runs against mocks. The backend builds module by module,
+each one unlocking the next frontend swap (`lib/api/*.ts` mock → real fetch).
+Full service management design:
+[`docs/superpowers/specs/2026-09-22-service-management-backend-design.md`](superpowers/specs/2026-09-22-service-management-backend-design.md).
+
+| Stage | Module | Owner | Depends on | Finish line |
+|-------|--------|-------|------------|-------------|
+| S0 | Boot skeleton + auth + RLS + tenants + CI | **SMK** | — | Login → JWT → `/auth/me` returns correct tenant, RLS proven |
+| S1 | Vehicle: CRUD, state machine, lifecycle, bulk CSV | **SMK** | S0 | INDUCTED→QC_PENDING works; invalid transition → 409 |
+| S2 | Rider: CRUD, KYC, Aadhaar masking | **Abhiram** | S0 | Rider created with masked Aadhaar |
+| S3 | User: CRUD, roles, RBAC on all endpoints | **SMK** | S0 | FLEET_STAFF blocked from `/payments/**` |
+| S4 | **Service**: 4 tables, 7 endpoints, facade, state machine, QC, async event | **SMK** | S0, S1, S2 | 17-scenario test matrix in spec |
+| S5 | Assignment: assign, exchange, deboard (calls `ServiceJobFacade`) | **Abhiram** | S0–S4 | Deboard MINOR → job created, vehicle=UNDER_REPAIR |
+| S6 | Payment: charges, run, receipts, overdue, dunning | **SMK** | S0, S2, S4 | Close job RIDER → charge → appears in payment run |
+
+**Parallel tracks:** S1 and S2 run in parallel (week 2-3). S4 and S5-shell run
+in parallel (week 3-5). S5-wiring and S6 run in parallel (week 5-6).
+
+### Cross-module contracts
+
+| Contract | Published by | Consumed by | Type |
+|----------|-------------|-------------|------|
+| `ServiceJobFacade.openJob()` | SMK (service module) | Abhiram (assignment module) | Internal Java interface — not REST |
+| `ServiceJobClosedEvent` | SMK (service module) | SMK (payment module) | Spring `ApplicationEvent` → `@Async` listener |
+| `VehicleService.transitionState()` | SMK (vehicle module) | SMK (service module) | Sync call, same transaction |
+
+### Frontend swap plan
+
+Each backend module done → corresponding `frontend/app/src/lib/api/*.ts` swaps
+mock imports to real `fetch`. No screen changes. `client.ts` already has
+`API_BASE = '/api/v1'`.
+
+---
+
 ## Still open (from Ashok)
 
 - **Billing day.** The app runs a fixed Wed→Tue week. Does every rider bill on the

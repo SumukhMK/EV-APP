@@ -61,11 +61,24 @@ Module boundaries (`com.evrental.*`):
 |---|---|
 | `auth` | login, refresh, me, password reset |
 | `platform` | super-admin: tenants, plans, inquiries, analytics |
-| `tenantadmin` | vehicles, riders, assignments, payments, service, recovery |
+| `vehicle` | vehicle CRUD, state machine (9 states, allowed transitions), lifecycle events, bulk CSV import |
+| `rider` | rider CRUD, KYC status, Aadhaar masking |
+| `assignment` | assign bike to rider, exchange, deboard. Deboard/exchange call `ServiceJobFacade` to open a service job |
+| `service` | **service management** — 4 tables (`service_jobs`, `service_job_events`, `service_job_items`, `qc_inspections`), 7 REST endpoints, state machine enforcement, QC gate, async charge event. See [`docs/superpowers/specs/2026-09-22-service-management-backend-design.md`](../superpowers/specs/2026-09-22-service-management-backend-design.md) |
+| `payment` | rider charges (from service job close), weekly payment run, receipts, overdue, dunning |
+| `user` | user CRUD, role management, RBAC enforcement |
 | `shared` | cross-tenant blacklist (keyed by phone, read across tenants) |
 | `notification` | email and SMS dispatch |
 | `excel` | `.xlsx` bulk import for the 150-bike migration |
 | `common` | exceptions, DTOs, util |
+
+### Cross-module integration
+
+| From → To | Mechanism | Why |
+|-----------|-----------|-----|
+| Service → Vehicle | Sync (same transaction) | Vehicle state must change instantly — operator watches the queue screen |
+| Service → Payment | Async (`@Async` + `ApplicationEvent`) | Rider charge only matters at next payment run (days later). Phase 2: RabbitMQ |
+| Assignment → Service | Facade (`ServiceJobFacade` interface) | Deboard/exchange opens a service job. One owner per module — Abhiram injects the facade, SMK owns the implementation |
 
 ### Data
 
