@@ -1,12 +1,14 @@
 package com.evrental.vehicle;
 
+import com.evrental.common.ConflictException;
+import com.evrental.common.NotFoundException;
 import com.evrental.common.ValidationException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,13 +29,16 @@ public class VehicleImportService {
     private final VehicleImportRepository imports;
     private final VehicleImportRowRepository rows;
     private final VehicleRepository vehicles;
+    private final VehicleService vehicleService;
 
     public VehicleImportService(VehicleImportRepository imports,
                                 VehicleImportRowRepository rows,
-                                VehicleRepository vehicles) {
+                                VehicleRepository vehicles,
+                                VehicleService vehicleService) {
         this.imports = imports;
         this.rows = rows;
         this.vehicles = vehicles;
+        this.vehicleService = vehicleService;
     }
 
     @Transactional
@@ -78,6 +83,42 @@ public class VehicleImportService {
                 stagedRows.stream().map(BulkUploadRowResponse::from).toList());
     }
 
+    /**
+     * Applies a previewed batch. Valid rows are created, errored rows are
+     * skipped -- the preview already told the user which were which, and
+     * refusing the whole file over one bad line would mean editing a
+     * spreadsheet to import 199 good rows.
+     *
+     * <p>Each row goes through VehicleService.create(), not a bulk insert, so
+     * bulk induction and single induction cannot drift: same validation, same
+     * lifecycle row, same derived make.
+     */
+    @Transactional
+    public ImportResultResponse commit(UUID importId, UUID tenantId, UUID actorUserId, String actorName) {
+        VehicleImport batch = imports.findById(importId)
+                .orElseThrow(() -> NotFoundException.of("Import", importId));
+        if (batch.getStatus() != VehicleImportStatus.PENDING) {
+            throw new ConflictException("This import has already been " + batch.getStatus().name().toLowerCase());
+        }
+
+        int imported = 0;
+        for (VehicleImportRow row : rows.findByImportIdOrderByRowNumberAsc(importId)) {
+            if (row.getError() != null) {
+                continue;
+            }
+            if (validateCommitRow(row.getPayload()) != null) {
+                continue;
+            }
+            vehicleService.create(toCreateRequest(row.getPayload()), tenantId, actorUserId, actorName);
+            imported++;
+        }
+
+        batch.setStatus(VehicleImportStatus.COMMITTED);
+        batch.setCommittedOn(Instant.now());
+        imports.save(batch);
+        return new ImportResultResponse(imported);
+    }
+
     private String validateRow(Map<String, String> payload,
                                Map<String, Long> registryCounts,
                                Map<String, Long> chassisCounts) {
@@ -106,6 +147,26 @@ public class VehicleImportService {
         }
         if (chassisCounts.getOrDefault(chassisNumber.toLowerCase(), 0L) > 1) {
             return "chassisNumber is duplicated in the file";
+        }
+        return null;
+    }
+
+    private String validateCommitRow(Map<String, String> payload) {
+        for (String header : REQUIRED_HEADERS) {
+            if (blank(payload.get(header))) {
+                return header + " is required";
+            }
+        }
+        try {
+            LocalDate.parse(payload.get("inductedOn"));
+        } catch (DateTimeParseException ex) {
+            return "inductedOn must be an ISO-8601 date";
+        }
+        if (vehicles.findByRegistryId(payload.get("id")).isPresent()) {
+            return "id already exists";
+        }
+        if (vehicles.findByChassisNumber(payload.get("chassisNumber")).isPresent()) {
+            return "chassisNumber already exists";
         }
         return null;
     }
@@ -193,6 +254,18 @@ public class VehicleImportService {
                 .map(row -> row.getOrDefault(key, "").trim().toLowerCase())
                 .filter(value -> !value.isBlank())
                 .collect(Collectors.groupingBy(value -> value, Collectors.counting()));
+    }
+
+    private static CreateVehicleRequest toCreateRequest(Map<String, String> payload) {
+        return new CreateVehicleRequest(
+                payload.get("id"),
+                payload.get("chassisNumber"),
+                payload.get("model"),
+                payload.get("batteryType"),
+                payload.get("batteryVendor"),
+                payload.get("hub"),
+                payload.get("registrationNumber"),
+                LocalDate.parse(payload.get("inductedOn")));
     }
 
     private static boolean blank(String value) {
