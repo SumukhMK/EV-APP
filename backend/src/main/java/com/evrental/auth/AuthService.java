@@ -176,7 +176,7 @@ public class AuthService {
             refreshTokens.save(row);
 
             String accessToken = jwtService.issueAccessToken(user.getId(), user.getTenantId(), user.getRole());
-            return new AuthResponse(accessToken, newRefreshToken, UserResponse.from(user));
+            return new AuthResponse(accessToken, newRefreshToken, UserResponse.from(user, tenantNameOf(user)));
         });
         if (response == null) {
             throw new UnauthorizedException(BAD_REFRESH_TOKEN);
@@ -218,7 +218,7 @@ public class AuthService {
     public UserResponse me(UUID userId) {
         User user = users.findById(userId)
                 .orElseThrow(() -> new UnauthorizedException("Not signed in"));
-        return UserResponse.from(user);
+        return UserResponse.from(user, tenantNameOf(user));
     }
 
     /**
@@ -233,6 +233,18 @@ public class AuthService {
                 .isPresent();
     }
 
+    /**
+     * The operator's name, for the rail to print beside the signed-in user.
+     * Falls back to empty rather than failing the sign-in: a missing tenant
+     * name is a cosmetic problem, and refusing a valid login over one would
+     * not be.
+     */
+    private String tenantNameOf(User user) {
+        return tenants.findById(user.getTenantId())
+                .map(Tenant::getName)
+                .orElse("");
+    }
+
     private AuthResponse issuePair(User user) {
         String accessToken = jwtService.issueAccessToken(user.getId(), user.getTenantId(), user.getRole());
         String refreshToken = jwtService.generateRefreshToken();
@@ -243,7 +255,7 @@ public class AuthService {
         row.setIssuedAt(Instant.now());
         row.setExpiresAt(Instant.now().plus(jwtService.refreshTokenTtl()));
         refreshTokens.save(row);
-        return new AuthResponse(accessToken, refreshToken, UserResponse.from(user));
+        return new AuthResponse(accessToken, refreshToken, UserResponse.from(user, tenantNameOf(user)));
     }
 
     /**

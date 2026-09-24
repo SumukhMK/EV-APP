@@ -80,13 +80,18 @@ class AuthFlowTest extends PostgresTestBase {
                 .andExpect(jsonPath("$.user.role").value("TENANT_ADMIN"))
                 .andExpect(jsonPath("$.user.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.user.lastActiveAt").isNotEmpty())
+                // The rail prints the operator beside the user, so login must
+                // carry it — otherwise the name is hardcoded on the client and
+                // true for exactly one tenant.
+                .andExpect(jsonPath("$.user.tenantName").value("G1 Mobility"))
                 .andReturn();
 
         // The access token must actually be usable — /me with it returns the user.
         String accessToken = body(result).get("accessToken").asText();
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("meenakshi@g1mobility.in"));
+                .andExpect(jsonPath("$.email").value("meenakshi@g1mobility.in"))
+                .andExpect(jsonPath("$.tenantName").value("G1 Mobility"));
     }
 
     @Test
