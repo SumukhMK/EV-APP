@@ -44,6 +44,10 @@ app:
     # Abhinandan, Dhananjay) with this password — the personas the frontend's
     # persona switch uses, so every role can actually be logged into.
     demo-password: demo-build
+    # Loads the 137-bike demo fleet from db/seed/fleet.csv, generated from the
+    # frontend fixtures (`npm run seed:export`). Local only: a real deployment
+    # leaves this false and imports its own fleet.
+    seed-fleet: true
 
 logging:
   level:

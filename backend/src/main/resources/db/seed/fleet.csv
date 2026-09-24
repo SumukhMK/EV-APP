@@ -1,0 +1,138 @@
+registryId,chassisNumber,model,make,batteryType,batteryVendor,hub,state,registrationNumber,odometerKm,inductedOn
+BLRSS0428,SESEAG03202300490,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,8757,2024-03-04
+FBLSS003B,MD9ESLM1225873232,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,11521,2024-04-05
+BLRSS0431,SESEAG03202300497,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,3583,2024-05-06
+FBLSS0112,MD9ESLM1225873418,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,13414,2024-06-07
+BLRSS0407,SESEAG03202300402,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,UNDER_REPAIR,,15595,2024-07-08
+FBLSS0086,MD9ESLM1225873101,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,12753,2024-08-09
+BLRSS0419,SESEAG03202300455,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,QC_PENDING,,12736,2024-09-10
+FBLSS0129,MD9ESLM1225873560,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,8703,2024-10-11
+BLRSS0436,SESEAG03202300508,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,4137,2024-11-12
+FBLSS0074,MD9ESLM1225872944,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,ACCIDENT,,15030,2024-03-13
+BLRSS0412,SESEAG03202300428,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,9114,2024-04-14
+FBLSS0141,MD9ESLM1225873677,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,9355,2024-05-15
+BLRSS0437,SESEAG03202300600,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,12518,2024-01-13
+FBLSS0142,MD9ESLM1225874000,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,17544,2025-04-26
+BLRSS0438,SESEAG03202300601,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,DEPLOYED,,12008,2025-02-23
+BLRSS0439,SESEAG03202300602,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,20475,2024-05-08
+FBLSS0143,MD9ESLM1225874001,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,5182,2025-04-04
+FBLSS0144,MD9ESLM1225874002,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,16674,2024-02-25
+FBLSS0145,MD9ESLM1225874003,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,HSR Layout,DEPLOYED,,541,2024-05-27
+FBLSS0146,MD9ESLM1225874004,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,8079,2024-06-02
+FBLSS0147,MD9ESLM1225874005,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,4070,2025-09-10
+BLRSS0440,SESEAG03202300603,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,7201,2024-10-15
+BLRSS0441,SESEAG03202300604,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,18700,2024-06-19
+BLRSS0442,SESEAG03202300605,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,14294,2024-05-12
+FBLSS0148,MD9ESLM1225874006,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,10978,2025-02-23
+FBLSS0149,MD9ESLM1225874007,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,9549,2025-03-20
+BLRSS0443,SESEAG03202300606,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,6203,2025-07-14
+FBLSS0150,MD9ESLM1225874008,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,1405,2024-08-10
+BLRSS0444,SESEAG03202300607,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,4008,2024-10-21
+FBLSS0151,MD9ESLM1225874009,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,17316,2025-04-28
+FBLSS0152,MD9ESLM1225874010,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,12829,2024-05-06
+FBLSS0153,MD9ESLM1225874011,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,6686,2024-11-16
+BLRSS0445,SESEAG03202300608,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,DEPLOYED,,9201,2025-08-24
+BLRSS0446,SESEAG03202300609,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,10783,2024-11-06
+BLRSS0447,SESEAG03202300610,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,20613,2024-04-27
+FBLSS0154,MD9ESLM1225874012,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,11795,2024-08-08
+FBLSS0155,MD9ESLM1225874013,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Koramangala,DEPLOYED,,10435,2024-04-13
+BLRSS0448,SESEAG03202300611,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,20071,2025-06-26
+FBLSS0156,MD9ESLM1225874014,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,19921,2024-05-14
+BLRSS0449,SESEAG03202300612,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,833,2025-10-16
+FBLSS0157,MD9ESLM1225874015,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,20454,2025-06-01
+FBLSS0158,MD9ESLM1225874016,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,6469,2024-05-06
+FBLSS0159,MD9ESLM1225874017,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,19867,2025-08-25
+FBLSS0160,MD9ESLM1225874018,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,8711,2025-03-05
+FBLSS0161,MD9ESLM1225874019,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,19151,2025-01-02
+BLRSS0450,SESEAG03202300613,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,20470,2024-08-07
+BLRSS0451,SESEAG03202300614,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,4547,2024-02-14
+FBLSS0162,MD9ESLM1225874020,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,9078,2024-09-21
+BLRSS0452,SESEAG03202300615,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,10344,2025-07-15
+BLRSS0453,SESEAG03202300616,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,1601,2025-05-18
+BLRSS0454,SESEAG03202300617,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,DEPLOYED,,18285,2024-02-22
+BLRSS0455,SESEAG03202300618,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,16898,2024-05-20
+BLRSS0456,SESEAG03202300619,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,5888,2024-05-01
+FBLSS0163,MD9ESLM1225874021,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,10011,2024-07-26
+FBLSS0164,MD9ESLM1225874022,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,8039,2024-11-15
+BLRSS0457,SESEAG03202300620,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,16814,2025-12-01
+BLRSS0458,SESEAG03202300621,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,1456,2024-12-06
+FBLSS0165,MD9ESLM1225874023,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,HSR Layout,DEPLOYED,,14186,2024-11-16
+BLRSS0459,SESEAG03202300622,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,DEPLOYED,,19011,2024-01-03
+FBLSS0166,MD9ESLM1225874024,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,11270,2025-05-22
+FBLSS0167,MD9ESLM1225874025,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,14374,2024-12-01
+BLRSS0460,SESEAG03202300623,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,19219,2025-11-10
+BLRSS0461,SESEAG03202300624,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,12520,2024-12-03
+BLRSS0462,SESEAG03202300625,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,9163,2024-01-19
+BLRSS0463,SESEAG03202300626,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,10571,2024-09-07
+BLRSS0464,SESEAG03202300627,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,14949,2025-07-09
+FBLSS0168,MD9ESLM1225874026,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,6419,2024-05-06
+FBLSS0169,MD9ESLM1225874027,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,21182,2025-03-09
+BLRSS0465,SESEAG03202300628,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,6280,2025-09-27
+FBLSS0170,MD9ESLM1225874028,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,11008,2024-07-12
+FBLSS0171,MD9ESLM1225874029,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,9829,2025-07-14
+BLRSS0466,SESEAG03202300629,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,18668,2025-02-23
+BLRSS0467,SESEAG03202300630,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,4559,2024-11-01
+BLRSS0468,SESEAG03202300631,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,1745,2025-01-26
+FBLSS0172,MD9ESLM1225874030,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,19635,2024-11-12
+FBLSS0173,MD9ESLM1225874031,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,13696,2025-04-15
+FBLSS0174,MD9ESLM1225874032,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,5924,2024-03-27
+FBLSS0175,MD9ESLM1225874033,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,6720,2024-01-19
+BLRSS0469,SESEAG03202300632,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,14570,2024-02-17
+FBLSS0176,MD9ESLM1225874034,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,1061,2025-03-04
+FBLSS0177,MD9ESLM1225874035,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,13885,2025-08-02
+FBLSS0178,MD9ESLM1225874036,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,14031,2025-02-13
+BLRSS0470,SESEAG03202300633,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,16499,2024-03-15
+BLRSS0471,SESEAG03202300634,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,5238,2025-01-19
+FBLSS0179,MD9ESLM1225874037,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,13695,2024-02-27
+BLRSS0472,SESEAG03202300635,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,1977,2024-02-04
+FBLSS0180,MD9ESLM1225874038,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,19808,2025-06-13
+BLRSS0473,SESEAG03202300636,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,4724,2025-02-20
+BLRSS0474,SESEAG03202300637,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,12109,2025-11-16
+BLRSS0475,SESEAG03202300638,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,6335,2024-01-16
+FBLSS0181,MD9ESLM1225874039,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,19498,2025-02-26
+BLRSS0476,SESEAG03202300639,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,19807,2024-12-28
+FBLSS0182,MD9ESLM1225874040,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,DEPLOYED,,7886,2025-01-25
+BLRSS0477,SESEAG03202300640,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,15739,2025-07-14
+FBLSS0183,MD9ESLM1225874041,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,15899,2024-11-22
+FBLSS0184,MD9ESLM1225874042,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Bengaluru,DEPLOYED,,10685,2024-03-16
+BLRSS0478,SESEAG03202300641,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,15040,2024-09-27
+FBLSS0185,MD9ESLM1225874043,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,HSR Layout,DEPLOYED,,9832,2024-10-27
+BLRSS0479,SESEAG03202300642,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,DEPLOYED,,3590,2025-08-20
+FBLSS0186,MD9ESLM1225874044,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,DEPLOYED,,2052,2025-11-17
+FBLSS0187,MD9ESLM1225874045,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,HSR Layout,DEPLOYED,,6224,2024-03-11
+FBLSS0188,MD9ESLM1225874046,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,DEPLOYED,,14267,2025-03-22
+BLRSS0480,SESEAG03202300643,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,READY_TO_DEPLOY,,8078,2025-12-19
+BLRSS0481,SESEAG03202300644,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,14644,2025-12-03
+BLRSS0482,SESEAG03202300645,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Bengaluru,READY_TO_DEPLOY,,17410,2024-05-16
+FBLSS0189,MD9ESLM1225874047,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Bengaluru,READY_TO_DEPLOY,,964,2025-03-21
+BLRSS0483,SESEAG03202300646,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,5092,2024-10-25
+BLRSS0484,SESEAG03202300647,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Bengaluru,READY_TO_DEPLOY,,13139,2024-11-14
+BLRSS0485,SESEAG03202300648,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,4351,2025-05-12
+BLRSS0486,SESEAG03202300649,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,READY_TO_DEPLOY,,6862,2025-01-15
+BLRSS0487,SESEAG03202300650,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Bengaluru,READY_TO_DEPLOY,,13619,2024-08-05
+BLRSS0488,SESEAG03202300651,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,2503,2024-04-13
+BLRSS0489,SESEAG03202300652,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Bengaluru,READY_TO_DEPLOY,,1602,2024-04-07
+FBLSS0190,MD9ESLM1225874048,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,7197,2025-05-01
+BLRSS0490,SESEAG03202300653,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Bengaluru,READY_TO_DEPLOY,,21011,2024-12-05
+BLRSS0491,SESEAG03202300654,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,17855,2025-05-13
+BLRSS0492,SESEAG03202300655,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,READY_TO_DEPLOY,,20270,2024-10-05
+FBLSS0191,MD9ESLM1225874049,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,10836,2025-06-11
+BLRSS0493,SESEAG03202300656,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,READY_TO_DEPLOY,,13092,2024-01-15
+BLRSS0494,SESEAG03202300657,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,READY_TO_DEPLOY,,9697,2025-07-10
+FBLSS0192,MD9ESLM1225874050,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Whitefield,READY_TO_DEPLOY,,5155,2025-07-11
+BLRSS0495,SESEAG03202300658,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,HSR Layout,READY_TO_DEPLOY,,13299,2024-09-04
+BLRSS0496,SESEAG03202300659,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,UNDER_REPAIR,,2609,2024-07-14
+BLRSS0497,SESEAG03202300660,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Bengaluru,UNDER_REPAIR,,7562,2024-07-19
+FBLSS0193,MD9ESLM1225874051,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,UNDER_REPAIR,,17127,2025-10-11
+FBLSS0194,MD9ESLM1225874052,Sprinto-SunM,e-Sprinto,Sun Mobility,Sun Mobility,Koramangala,UNDER_REPAIR,,7728,2025-12-02
+BLRSS0498,SESEAG03202300661,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,UNDER_REPAIR,,13048,2025-11-18
+BLRSS0499,SESEAG03202300662,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Bengaluru,UNDER_REPAIR,,5347,2024-09-11
+FBLSS0195,MD9ESLM1225874053,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Koramangala,UNDER_REPAIR,,9094,2024-01-11
+BLRSS0500,SESEAG03202300663,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Koramangala,UNDER_REPAIR,,17804,2024-05-26
+FBLSS0196,MD9ESLM1225874054,Sprinto-BS,e-Sprinto,Battery Smart,Battery Smart,Bengaluru,QC_PENDING,,17256,2024-03-09
+BLRSS0501,SESEAG03202300664,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,QC_PENDING,,10028,2024-01-04
+BLRSS0502,SESEAG03202300665,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,QC_PENDING,,18616,2024-09-15
+FBLSS0197,MD9ESLM1225874055,Sprinto-SunM Pro,e-Sprinto,Sun Mobility,Sun Mobility,Whitefield,ACCIDENT,,20764,2025-02-22
+FBLSS0198,MD9ESLM1225874056,Sprinto-SunM Plus,e-Sprinto,Sun Mobility,Sun Mobility,HSR Layout,RECOVERY,,9708,2025-09-18
+BLRSS0503,SESEAG03202300666,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Bengaluru,RECOVERY,,9285,2024-02-19
+BLRSS0504,SESEAG03202300667,Eagle-SunM,e-Connects,Sun Mobility,Sun Mobility,Whitefield,RECOVERY,,19383,2025-04-05

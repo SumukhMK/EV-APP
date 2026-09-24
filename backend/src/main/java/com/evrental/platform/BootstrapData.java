@@ -12,6 +12,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -37,6 +38,7 @@ import org.springframework.util.StringUtils;
  * is a cross-tenant write, and RLS would refuse it otherwise.
  */
 @Component
+@Order(10)
 public class BootstrapData implements ApplicationRunner {
 
     /** V001 seeds the platform's own tenant with this fixed id. */
