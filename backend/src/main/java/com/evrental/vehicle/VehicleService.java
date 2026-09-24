@@ -1,9 +1,14 @@
 package com.evrental.vehicle;
 
 import com.evrental.common.ConflictException;
+import com.evrental.common.Facet;
 import com.evrental.common.NotFoundException;
-import java.time.LocalDate;
+import com.evrental.common.PageResponse;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -124,5 +129,53 @@ public class VehicleService implements VehicleTransitions {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    public Vehicle findByRegistryId(String registryId) {
+        return vehicles.findByRegistryId(registryId)
+                .orElseThrow(() -> NotFoundException.of("Vehicle", registryId));
+    }
+
+    public Page<Vehicle> search(VehicleQuery query, Pageable pageable) {
+        return vehicles.search(
+                searchPattern(query.q()),
+                query.state(),
+                filterValue(query.hub()),
+                filterValue(query.make()),
+                filterValue(query.batteryType()),
+                pageable);
+    }
+
+    public List<Facet<String>> facets(VehicleQuery query) {
+        String q = searchPattern(query.q());
+        String hub = filterValue(query.hub());
+        String make = filterValue(query.make());
+        String batteryType = filterValue(query.batteryType());
+
+        List<Object[]> counts = vehicles.countByState(q, hub, make, batteryType);
+        long total = counts.stream().mapToLong(row -> (Long) row[1]).sum();
+
+        List<Facet<String>> facets = counts.stream()
+                .map(row -> new Facet<>(((VehicleState) row[0]).name(), ((VehicleState) row[0]).label(), (Long) row[1]))
+                .sorted(Comparator.comparingLong(Facet<String>::count).reversed())
+                .toList();
+
+        java.util.ArrayList<Facet<String>> response = new java.util.ArrayList<>();
+        response.add(new Facet<>("ALL", "All", total));
+        response.addAll(facets);
+        return response;
+    }
+
+    public FilterOptionsResponse filterOptions() {
+        return new FilterOptionsResponse(vehicles.distinctMakes(), vehicles.distinctBatteryTypes());
+    }
+
+    /** The frontend sends "ALL" for an unset dropdown, and "" for an empty box. */
+    private static String filterValue(String raw) {
+        return raw == null || raw.isBlank() || "ALL".equals(raw) ? null : raw.trim();
+    }
+
+    private static String searchPattern(String raw) {
+        return raw == null || raw.isBlank() ? null : "%" + raw.trim().toLowerCase() + "%";
     }
 }
