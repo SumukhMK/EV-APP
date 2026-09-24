@@ -1,0 +1,68 @@
+# Render blueprint for the API.
+#
+# Netlify hosts the frontend and cannot host this: it runs static assets and
+# Node/Go serverless functions, and this is a JVM service that holds a
+# connection pool. So the stack splits — Netlify for the site, Render for the
+# API, Neon for Postgres. Netlify DB *is* Neon, and it hands out an ordinary
+# postgresql:// URL that any external backend can use, so "the Netlify
+# database" and "the database Render talks to" are the same instance.
+#
+# Nothing here is applied automatically. Render reads this when the repo is
+# connected as a Blueprint; until then it documents exactly what to set.
+
+services:
+  - type: web
+    name: evrental-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: singapore
+    healthCheckPath: /actuator/health
+    envVars:
+      # Neon's POOLED connection string, as JDBC. Two things matter:
+      #   - the pooled endpoint (…-pooler.…), because Neon caps direct
+      #     connections low and a JVM pool will hit that ceiling
+      #   - sslmode=require, which Neon refuses connections without
+      # Tenant isolation is safe under transaction pooling: set_config(...,
+      # true) is SET LOCAL, so it is scoped to the transaction, not the
+      # session. That `true` must never become `false`.
+      - key: DB_URL
+        sync: false # jdbc:postgresql://<host>-pooler.<region>.aws.neon.tech/<db>?sslmode=require
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      # Neon caps connections and scales to zero; a large pool buys nothing
+      # and risks being refused. Expect the first request after an idle period
+      # to be slow while the database wakes.
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_POOL_MIN_IDLE
+        value: "1"
+
+      # The Netlify site origin, exactly — scheme and host, no trailing slash,
+      # no wildcard. Deploy previews live on their own subdomains and are not
+      # covered by this; add them explicitly if they need to reach the API.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false # https://fleetech-os.netlify.app
+
+      # At least 32 bytes, generated per environment. Rotating it invalidates
+      # every issued token, which is the intended behaviour for a leak.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # The first admin, created at boot if missing (BootstrapData). Unset
+      # both once the account exists — leaving a password in the environment
+      # keeps a credential where it does not need to be.
+      - key: APP_BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: APP_BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: APP_BOOTSTRAP_ADMIN_NAME
+        sync: false
+
+      # Demo content. Deliberately absent: a real deployment imports its own
+      # fleet through the bulk upload screen rather than inheriting 137
+      # fixtures. Set APP_BOOTSTRAP_SEED_FLEET=true only for a demo instance.

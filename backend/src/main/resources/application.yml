@@ -14,8 +14,13 @@ spring:
       # One tenant's SET LOCAL must never leak into the next request on a
       # recycled connection. SET LOCAL is transaction-scoped so it cannot, but
       # a modest pool keeps that easy to reason about under load.
-      maximum-pool-size: 10
-      minimum-idle: 2
+      #
+      # Overridable because a serverless Postgres (Neon) caps connections far
+      # below what a dedicated instance allows, and a pool that asks for more
+      # than the ceiling fails at the worst moment rather than at boot. Point
+      # DB_URL at the *pooled* endpoint there and keep this small.
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
 
   jpa:
     hibernate:

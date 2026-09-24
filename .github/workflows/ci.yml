@@ -70,7 +70,15 @@ jobs:
 
       # `npm run build` is `tsc -b && vite build` — the type check and the
       # bundle in one step.
+      #
+      # VITE_API_BASE is what decides whether the shipped bundle talks to the
+      # API or to fixtures (see IS_LIVE in src/lib/api/client.ts). It is a
+      # repository *variable*, not a secret: it is a public URL, and it is
+      # baked into the bundle at build time where anyone can read it. Leave it
+      # unset and the deploy stays the fixtures-only demo it has been.
       - name: Typecheck and build
+        env:
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
         run: npm run build
 
       # H3's budget. Fails the run if initial JS crosses 200KB gzipped.
