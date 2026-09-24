@@ -3,7 +3,7 @@ package com.evrental;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
@@ -28,8 +28,8 @@ public abstract class PostgresTestBase {
     // point where closing it is correct. Ryuk reaps it when the JVM exits;
     // the shutdown hook below makes that close explicit in code.
     @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:16-alpine")
+    static final PostgreSQLContainer POSTGRES =
+            new PostgreSQLContainer("postgres:16-alpine")
                     .withInitScript("db/init/01-app-role.sql");
 
     static {
