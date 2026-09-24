@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -90,6 +91,12 @@ public class VehicleController {
     @GetMapping("/{registryId}")
     public VehicleDetailResponse get(@PathVariable String registryId) {
         return detailOf(vehicleService.findByRegistryId(registryId));
+    }
+
+    @PutMapping("/{registryId}")
+    public VehicleDetailResponse update(@PathVariable String registryId,
+                                        @Valid @RequestBody UpdateVehicleRequest request) {
+        return detailOf(vehicleService.update(registryId, request));
     }
 
     /** A vehicle plus its history. assignments stays empty until S5 owns them. */

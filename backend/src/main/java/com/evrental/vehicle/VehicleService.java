@@ -170,6 +170,32 @@ public class VehicleService implements VehicleTransitions {
         return new FilterOptionsResponse(vehicles.distinctMakes(), vehicles.distinctBatteryTypes());
     }
 
+    /**
+     * A correction to the record, not a re-registration. The registry id, the
+     * chassis number and the induction date are identity: fixed at creation,
+     * absent from the request, and unchanged here. state is absent too --
+     * moving a bike is transitionState(), and nothing else.
+     *
+     * <p>No lifecycle event. Fixing a typo in an RFID tag is not something that
+     * happened to the vehicle.
+     */
+    @Transactional
+    public Vehicle update(String registryId, UpdateVehicleRequest request) {
+        Vehicle vehicle = vehicles.findByRegistryId(registryId)
+                .orElseThrow(() -> NotFoundException.of("Vehicle", registryId));
+
+        vehicle.setMake(request.make().trim());
+        vehicle.setModel(request.model().trim());
+        vehicle.setBatteryType(request.batteryType().trim());
+        vehicle.setBatteryVendor(blankToNull(request.batteryVendor()));
+        vehicle.setHub(request.hub().trim());
+        vehicle.setRegistrationNumber(blankToNull(request.registrationNumber()));
+        vehicle.setMotorNumber(blankToNull(request.motorNumber()));
+        vehicle.setControllerNumber(blankToNull(request.controllerNumber()));
+        vehicle.setRfidTag(blankToNull(request.rfidTag()));
+        return vehicles.save(vehicle);
+    }
+
     /** The frontend sends "ALL" for an unset dropdown, and "" for an empty box. */
     private static String filterValue(String raw) {
         return raw == null || raw.isBlank() || "ALL".equals(raw) ? null : raw.trim();
