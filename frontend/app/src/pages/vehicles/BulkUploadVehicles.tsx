@@ -58,7 +58,7 @@ export function BulkUploadVehicles() {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const validate = useMutation({
-    mutationFn: (file: File) => previewBulkUpload(file.name),
+    mutationFn: (file: File) => previewBulkUpload(file),
     onSuccess: setPreview,
   });
 
