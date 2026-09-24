@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -21,6 +22,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Vehicle registry endpoints.
+ *
+ * <p>Every method carries its own role rule. The gate ships with S1 rather than
+ * waiting for S3 because the machinery already exists -- UserRole, the ROLE_*
+ * authority and @EnableMethodSecurity all landed in S0 -- and retrofitting
+ * annotations across three stages of endpoints is how one gets missed.
+ *
+ * <p>SERVICE_MANAGER can read and transition but not create or edit: S4 is
+ * their stage and a service queue that cannot move the bike it is servicing is
+ * unusable. FLEET_STAFF can only read, until Ashok says what they actually do.
+ */
 @RestController
 @RequestMapping("/api/v1/vehicles")
 public class VehicleController {
@@ -51,6 +64,7 @@ public class VehicleController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN')")
     public VehicleResponse create(@Valid @RequestBody CreateVehicleRequest request,
                                   Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
@@ -59,6 +73,7 @@ public class VehicleController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public PageResponse<VehicleResponse> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
@@ -74,6 +89,7 @@ public class VehicleController {
     }
 
     @GetMapping("/facets")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public List<Facet<String>> facets(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String state,
@@ -84,19 +100,34 @@ public class VehicleController {
     }
 
     @GetMapping("/filter-options")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public FilterOptionsResponse filterOptions() {
         return vehicleService.filterOptions();
     }
 
     @GetMapping("/{registryId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public VehicleDetailResponse get(@PathVariable String registryId) {
         return detailOf(vehicleService.findByRegistryId(registryId));
     }
 
     @PutMapping("/{registryId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN')")
     public VehicleDetailResponse update(@PathVariable String registryId,
                                         @Valid @RequestBody UpdateVehicleRequest request) {
         return detailOf(vehicleService.update(registryId, request));
+    }
+
+    @PostMapping("/{registryId}/transitions")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','SERVICE_MANAGER')")
+    public VehicleResponse transition(@PathVariable String registryId,
+                                      @Valid @RequestBody TransitionRequest request,
+                                      Authentication authentication) {
+        JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
+        Vehicle vehicle = vehicleService.findByRegistryId(registryId);
+        return VehicleResponse.from(vehicleService.transitionState(
+                vehicle.getId(), request.toState(), request.note(),
+                principal.userId(), actorName(principal)));
     }
 
     /** A vehicle plus its history. assignments stays empty until S5 owns them. */

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -37,6 +38,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiErrorResponse> conflict(ConflictException ex) {
         return body(HttpStatus.CONFLICT, ex.getMessage(), ex.field());
+    }
+
+    /**
+     * The unique indexes, when a pre-insert check lost a race with another
+     * request. Rare, and correct -- the index is the real guarantee and the
+     * check is only there to name the field -- but the caller must still get a
+     * 409 rather than the catch-all's 500.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> dataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("Constraint violation surfaced to the caller", ex);
+        return body(HttpStatus.CONFLICT, "That value is already in use", null);
     }
 
     @ExceptionHandler(ValidationException.class)
