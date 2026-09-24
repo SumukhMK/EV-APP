@@ -36,7 +36,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiErrorResponse> conflict(ConflictException ex) {
-        return body(HttpStatus.CONFLICT, ex.getMessage(), null);
+        return body(HttpStatus.CONFLICT, ex.getMessage(), ex.field());
     }
 
     @ExceptionHandler(ValidationException.class)

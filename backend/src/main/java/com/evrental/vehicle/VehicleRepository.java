@@ -25,4 +25,15 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select v from Vehicle v where v.id = :id")
     Optional<Vehicle> findByIdForUpdate(@Param("id") UUID id);
+
+    /**
+     * Written out, not derived. Spring Data renders ...IgnoreCase as
+     * UPPER(col) = UPPER(?), which cannot use idx_vehicles_registry.
+     * RLS scopes this to the caller's tenant, so no tenant_id here.
+     */
+    @Query("select v from Vehicle v where lower(v.registryId) = lower(:registryId)")
+    Optional<Vehicle> findByRegistryId(@Param("registryId") String registryId);
+
+    @Query("select v from Vehicle v where lower(v.chassisNumber) = lower(:chassisNumber)")
+    Optional<Vehicle> findByChassisNumber(@Param("chassisNumber") String chassisNumber);
 }
