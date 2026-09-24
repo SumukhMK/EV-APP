@@ -87,7 +87,7 @@ class AuthFlowTest extends PostgresTestBase {
                 .andReturn();
 
         // The access token must actually be usable — /me with it returns the user.
-        String accessToken = body(result).get("accessToken").asText();
+        String accessToken = body(result).get("accessToken").asString();
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("meenakshi@g1mobility.in"))
@@ -134,7 +134,7 @@ class AuthFlowTest extends PostgresTestBase {
                         .content("""
                                 {"email":"","password":""}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.field").value("email"))
                 .andExpect(jsonPath("$.status").value(422));
 
@@ -143,7 +143,7 @@ class AuthFlowTest extends PostgresTestBase {
                         .content("""
                                 {"email":"meenakshi@g1mobility.in"}
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.field").value("password"));
     }
 
@@ -173,7 +173,7 @@ class AuthFlowTest extends PostgresTestBase {
                                 """.formatted(PASSWORD)))
                 .andExpect(status().isOk())
                 .andReturn());
-        String firstRefresh = login.get("refreshToken").asText();
+        String firstRefresh = login.get("refreshToken").asString();
 
         MvcResult refreshResult = mvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -185,7 +185,7 @@ class AuthFlowTest extends PostgresTestBase {
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.user.email").value("meenakshi@g1mobility.in"))
                 .andReturn();
-        String secondRefresh = body(refreshResult).get("refreshToken").asText();
+        String secondRefresh = body(refreshResult).get("refreshToken").asString();
         assertThat(secondRefresh).isNotEqualTo(firstRefresh);
 
         // The rotated-away token is dead.
@@ -206,7 +206,7 @@ class AuthFlowTest extends PostgresTestBase {
                                 """.formatted(PASSWORD)))
                 .andExpect(status().isOk())
                 .andReturn());
-        String firstRefresh = login.get("refreshToken").asText();
+        String firstRefresh = login.get("refreshToken").asString();
 
         // Rotate once: firstRefresh -> secondRefresh.
         JsonNode second = body(mvc.perform(post("/api/v1/auth/refresh")
@@ -216,7 +216,7 @@ class AuthFlowTest extends PostgresTestBase {
                                 """.formatted(firstRefresh)))
                 .andExpect(status().isOk())
                 .andReturn());
-        String secondRefresh = second.get("refreshToken").asText();
+        String secondRefresh = second.get("refreshToken").asString();
 
         // Rotate again: secondRefresh -> thirdRefresh.
         JsonNode third = body(mvc.perform(post("/api/v1/auth/refresh")
@@ -226,7 +226,7 @@ class AuthFlowTest extends PostgresTestBase {
                                 """.formatted(secondRefresh)))
                 .andExpect(status().isOk())
                 .andReturn());
-        String thirdRefresh = third.get("refreshToken").asText();
+        String thirdRefresh = third.get("refreshToken").asString();
 
         // Replay the already-rotated secondRefresh: refused, and the whole
         // chain — including the live thirdRefresh — is revoked.
@@ -256,7 +256,7 @@ class AuthFlowTest extends PostgresTestBase {
                                 """.formatted(PASSWORD)))
                 .andExpect(status().isOk())
                 .andReturn());
-        String refreshToken = login.get("refreshToken").asText();
+        String refreshToken = login.get("refreshToken").asString();
 
         mvc.perform(post("/api/v1/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -302,7 +302,7 @@ class AuthFlowTest extends PostgresTestBase {
                                 """.formatted(PASSWORD)))
                 .andExpect(status().isOk())
                 .andReturn());
-        String accessToken = login.get("accessToken").asText();
+        String accessToken = login.get("accessToken").asString();
 
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
