@@ -5,7 +5,7 @@ import { riders } from './riders';
 import { riderCharges } from './riderCharges';
 import { operationsSummary, serviceQueues } from './dashboard';
 import { assignVehicle, deboardRider, exchangeVehicle } from '../lib/api/assignments';
-import { decideQc, listInspectableVehicles, listQcQueue } from '../lib/api/vehicles';
+import { decideQc, listInspectableVehicles, listQcQueue } from '../lib/api/inspections';
 import { getServiceJob, listServiceJobs } from '../lib/api/serviceJobs';
 import { withLiveServiceFigures, runsByDay } from './payments';
 import { listRiders } from '../lib/api/riders';
