@@ -1,5 +1,4 @@
 import type { InspectionRequest, QcQueueItem, Vehicle } from '../../types';
-import { riders } from '../../mocks/riders';
 import { vehicles } from '../../mocks/vehicles';
 import { activeJobForVehicle, recordServiceInspection, serviceJobs, updateServiceJobRecord } from '../../mocks/serviceJobs';
 import { delay } from './client';

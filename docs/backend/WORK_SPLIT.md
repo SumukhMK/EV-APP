@@ -33,7 +33,7 @@ start, not after you push.
 | Stage | What it is | Who | Can start once |
 |---|---|---|---|
 | **S0** | Boot the app, login, JWT, tenant isolation, database setup, Docker, CI | SMK (skeleton), **Abhiram** (auth) | **done** |
-| **S1** | Bikes: create, edit, the nine states, CSV upload | **SMK** | S0 |
+| **S1** | Bikes: create, edit, the nine states, CSV upload | **SMK** | **done** |
 | **S2** | Riders: create, edit, KYC, hide most of the Aadhaar number | **Abhiram** | S0 |
 | **S3** | Users and roles: who is allowed to call what | **SMK** | S0 |
 | **S4** | Service jobs: intake, repair queues, QC, cost | **SMK** | S1 + S2 |
@@ -190,8 +190,7 @@ that is the point. It is the floor the modules get built on.
   blocks the other.
 - No mail server. Nothing sends mail until S6.
 
-**SMK, next:** S1 — vehicles: CRUD, the nine states, the lifecycle rules, CSV
-import.
+**SMK, next:** S3 — users and roles: the CRUD surface on top of the S0 gate.
 
 **Abhiram, next:** S2 — riders: CRUD, KYC, masked Aadhaar. Unblocked now that
 S0 is in. Read `frontend/app/src/types/rider.ts` first: that is the shape S2

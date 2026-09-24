@@ -2,10 +2,9 @@
 
 Spring Boot 4.1 · Java 21 · PostgreSQL 16 · Flyway.
 
-This is stage **S0** from [`docs/BUILD.md`](../docs/BUILD.md), complete: the
-skeleton boots, connects, migrates and is tested, and auth (login → JWT →
-refresh rotation → logout → `/me` → TenantFilter) is in, covered by
-`AuthFlowTest` for the happy paths and `AuthHardeningTest` for the edges.
+This is stage **S0** from [`docs/BUILD.md`](../docs/BUILD.md), complete, plus
+stage **S1**: the vehicle registry, the nine-state lifecycle machine, the
+append-only lifecycle log and staged CSV import.
 
 ### One thing worth knowing if you upgrade Spring Boot
 
@@ -88,9 +87,36 @@ code in it is what stops a class landing in the wrong module.
 `src/main/resources/db/migration/V001__baseline.sql` creates `tenants`, `users`
 and `refresh_tokens`, and the row-level security described below.
 
+`src/main/resources/db/migration/V003__vehicles.sql` creates `vehicles` and
+`vehicle_lifecycle_events`; `V004__vehicle_imports.sql` creates the staged
+import tables.
+
 ---
 
 ## The two things worth knowing before you add code
+
+### 0. Vehicle state changes have exactly one writer
+
+`VehicleService.transitionState()` is the only code in the system that writes
+`vehicles.state`. Not the controller, not the import path, not the service
+module that will call it in S4. It takes a `FOR UPDATE` lock on the row,
+validates the edge through `VehicleStateMachine`, updates the state and appends
+the lifecycle row in one transaction.
+
+That does three things:
+
+- the transition table lives in one place (`VehicleStateMachine`);
+- every real move is logged;
+- two people moving one bike at once cannot write two history rows for one real
+  change.
+
+Creating a vehicle is the `null -> INDUCTED` transition; updating a vehicle's
+record is not a transition and writes no lifecycle row.
+
+The nine states are:
+
+`INDUCTED`, `READY_TO_DEPLOY`, `DEPLOYED`, `RETURNED`, `RECOVERY`,
+`UNDER_REPAIR`, `QC_PENDING`, `ACCIDENT`, `RETIRED`.
 
 ### 1. Isolation is the database's job, not yours
 
