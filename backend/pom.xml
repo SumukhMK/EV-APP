@@ -70,8 +70,22 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
-    <!-- Flyway owns the schema. The postgresql artifact is a separate jar
-         from Flyway 10 onward; without it Flyway refuses to run on PG 16. -->
+    <!-- Flyway owns the schema. Three artifacts, all required:
+
+         - spring-boot-flyway carries FlywayAutoConfiguration. Boot 4 split
+           spring-boot-autoconfigure into per-technology modules, so the class
+           that ran Flyway for us on Boot 3 is no longer on the classpath by
+           way of the starter. Without it flyway-core sits there unused,
+           spring.flyway.enabled is inert, and the application starts against
+           an empty database — silently, because nothing reports a migration
+           that was never attempted.
+         - flyway-core is the engine.
+         - flyway-database-postgresql is a separate jar from Flyway 10 onward;
+           without it Flyway refuses to run on PG 16. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-flyway</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>

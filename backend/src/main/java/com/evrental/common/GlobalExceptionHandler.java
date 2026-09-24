@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -80,6 +81,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> unreadableBody(HttpMessageNotReadableException ex) {
         return body(HttpStatus.BAD_REQUEST, "Request body is missing or malformed", null);
+    }
+
+    /**
+     * A denial from {@code @PreAuthorize}. Method security throws this inside
+     * the controller, so it never reaches the {@code accessDeniedHandler} in
+     * SecurityConfig — without this method the catch-all below would turn every
+     * "you may not do that" into a 500 and log a stack trace for it. The two
+     * have to stay in step: same status, same wording.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> accessDenied(AccessDeniedException ex) {
+        return body(HttpStatus.FORBIDDEN, "You do not have access to this", null);
     }
 
     /**

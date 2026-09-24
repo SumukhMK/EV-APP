@@ -15,13 +15,24 @@ version — what each person picks up, in plain words.
 If you need something changed in the other person's file, ask for it. Do not
 reach in and edit it. This is the whole reason the split below exists.
 
+### Where that already slipped, and how it was settled
+
+S0 was SMK's row. Abhiram built the auth half of it anyway, which was good work
+and is now merged — but it means `auth/`, `config/`, `platform/` and `user/`
+were all written by the person who does not own S3, and S3 lives in `user/`.
+
+Settled: **S3 stays with SMK**, and the S0 files pass to SMK with it. Abhiram's
+next file is `rider/` (S2) and nothing else. The lesson is not "Abhiram did the
+wrong thing" — it is that the table above only works if you check it before you
+start, not after you push.
+
 ---
 
 ## Backend
 
 | Stage | What it is | Who | Can start once |
 |---|---|---|---|
-| **S0** | Boot the app, login, JWT, tenant isolation, database setup, Docker, CI | **SMK** | now — *skeleton done, auth next* |
+| **S0** | Boot the app, login, JWT, tenant isolation, database setup, Docker, CI | SMK (skeleton), **Abhiram** (auth) | **done** |
 | **S1** | Bikes: create, edit, the nine states, CSV upload | **SMK** | S0 |
 | **S2** | Riders: create, edit, KYC, hide most of the Aadhaar number | **Abhiram** | S0 |
 | **S3** | Users and roles: who is allowed to call what | **SMK** | S0 |
@@ -91,24 +102,29 @@ knows what the real response looks like.
 
 ## Right now
 
-**Done:** the backend skeleton. It boots, connects to Postgres, runs its
-migration, refuses every request it has no rule for, and proves tenant
-isolation in a test. See [`backend/README.md`](../../backend/README.md).
+**Done:** all of S0. The backend boots, connects to Postgres, runs its
+migrations, signs users in, rotates refresh tokens, refuses every request it has
+no rule for, and proves tenant isolation in a test. 22 tests, all against a real
+Postgres. See [`backend/README.md`](../../backend/README.md).
 
-### What the skeleton actually is
+### What S0 actually is
 
-Everything below exists and works today. There is no business logic in it yet —
+Everything below exists and works today. There is no *fleet* logic in it yet —
 that is the point. It is the floor the modules get built on.
 
 **The project**
 
 - Spring Boot 4.1.1 on Java 21, built with Maven. `./mvnw` is committed, so
   nobody has to install Maven — it fetches its own on first run.
-- One empty package per module from the architecture doc: `auth`, `platform`,
+- One package per module from the architecture doc: `auth`, `platform`,
   `vehicle`, `rider`, `user`, `service`, `assignment`, `payment`, `shared`,
-  `notification`, `excel`. Each holds a short note saying what it owns, which
-  stage builds it and whose stage that is. Empty on purpose — the boundary
-  exists before the code does, so nothing lands in the wrong module by accident.
+  `notification`, `excel`. `auth`, `platform` and `user` are filled in; the rest
+  hold a short note saying what they own, which stage builds them and whose
+  stage that is. Empty on purpose — the boundary exists before the code does, so
+  nothing lands in the wrong module by accident.
+- Flyway's auto-configuration comes from `spring-boot-flyway`, which is a
+  separate dependency on Boot 4. Without it migrations silently do not run.
+  Do not remove it.
 
 **Shared plumbing every module will use**
 
@@ -136,21 +152,33 @@ that is the point. It is the floor the modules get built on.
 
 **Security**
 
-- Closed by default. The health check and the two login URLs are open; every
+- Closed by default. The health check and the three auth URLs are open; every
   other path returns `401 {"message":"Not signed in"}`. A new endpoint added
   before its access rule is written refuses strangers rather than serving them.
-- Passwords will be BCrypt. CORS allows the Vite dev server.
-- The actual login, tokens and tenant filter are the next piece of work.
+- Passwords are BCrypt. CORS allows the Vite dev server.
+- Login, refresh, logout, `/me` and the tenant filter are in. Refresh tokens
+  rotate on use and are locked for update while they do, so one token cannot
+  become two sessions. A revoked token presented again kills its whole chain.
+- A disabled user or a suspended tenant cannot sign in **or refresh**, so a
+  suspension takes effect within one access-token lifetime rather than one
+  refresh-token lifetime.
+- Two known gaps, both deliberate and both written down in `backend/README.md`:
+  signing out does not invalidate the access token already issued (up to 15
+  minutes), and login is not rate limited.
 
 **Tests**
 
-- Five, all green, run against a **real Postgres in Docker** — not an in-memory
-  stand-in, which does not have row-level security and would prove nothing.
-- One checks the app starts and the migration ran. Four hammer tenant isolation:
-  they query the users table with *no tenant filter at all* — the worst query
-  anyone could write — and still must not see the other tenant's rows, must not
-  be able to write into another tenant, and must see nothing when no tenant is
-  set.
+- Twenty-two, all green, run against a **real Postgres in Docker** — not an
+  in-memory stand-in, which does not have row-level security and would prove
+  nothing.
+- One checks the app starts and the migrations ran. Four hammer tenant
+  isolation: they query the users table with *no tenant filter at all* — the
+  worst query anyone could write — and still must not see the other tenant's
+  rows, must not be able to write into another tenant, and must see nothing when
+  no tenant is set.
+- Twelve walk the auth flow through the real filter chain. Five more cover the
+  edges: a suspended tenant, an expired token, a signed token with an unusable
+  claim, and two refreshes of the same token racing each other.
 
 **Running it**
 
@@ -162,13 +190,13 @@ that is the point. It is the floor the modules get built on.
   blocks the other.
 - No mail server. Nothing sends mail until S6.
 
-**SMK, next:** finish S0 — login, refresh, `/me`, the filter that sets the
-tenant on every request, a first admin user to log in as.
+**SMK, next:** S1 — vehicles: CRUD, the nine states, the lifecycle rules, CSV
+import.
 
-**Abhiram, next:** nothing to start until S0 lands. Worth reading in the
-meantime: `frontend/app/src/types/rider.ts` and `assignment.ts` — those are the
-shapes S2 and S5 have to return, and if something in them looks wrong, now is
-the cheap time to say so.
+**Abhiram, next:** S2 — riders: CRUD, KYC, masked Aadhaar. Unblocked now that
+S0 is in. Read `frontend/app/src/types/rider.ts` first: that is the shape S2
+has to return, and if something in it looks wrong, now is the cheap time to say
+so.
 
 ---
 

@@ -2,11 +2,15 @@ package com.evrental.auth;
 
 import com.evrental.common.UnauthorizedException;
 import com.evrental.common.ValidationException;
+import com.evrental.platform.Tenant;
+import com.evrental.platform.TenantRepository;
 import com.evrental.user.User;
 import com.evrental.user.UserRepository;
 import com.evrental.user.UserResponse;
 import com.evrental.user.UserStatus;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,26 +33,52 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>{@code me()} is different: it reads the caller's own row, which RLS makes
  * visible under the caller's tenant, so it runs in the request transaction with
  * no bypass at all.
+ *
+ * <p>One rule holds throughout: <b>nothing throws inside a transaction
+ * callback that has already written something we intend to keep.</b> A refusal
+ * is carried out as a {@code null} return and turned into a 401 after the
+ * transaction has committed. Replay detection revokes a whole token chain and
+ * then refuses; if the refusal were thrown from inside the callback, the
+ * revocation would roll back with it and the stolen token would stay live.
  */
 @Service
 public class AuthService {
 
+    /**
+     * The message every credential failure returns. Saying which half was
+     * wrong — or that the address is unknown, or the account disabled, or the
+     * tenant suspended — hands a stranger a way to enumerate accounts.
+     */
+    private static final String BAD_CREDENTIALS = "Invalid email or password";
+
+    private static final String BAD_REFRESH_TOKEN = "Invalid refresh token";
+
     private final UserRepository users;
+    private final TenantRepository tenants;
     private final RefreshTokenRepository refreshTokens;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate bypassTx;
-    private final TransactionTemplate revokeChainTx;
+
+    /**
+     * A real BCrypt hash of a value nobody knows, verified against whenever the
+     * email is unknown. Without it, an unknown address returns before any
+     * hashing happens and a known one pays ~100ms of BCrypt — the identical
+     * error message then leaks through the clock instead of the body.
+     */
+    private final String timingDecoyHash;
 
     public AuthService(
             UserRepository users,
+            TenantRepository tenants,
             RefreshTokenRepository refreshTokens,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             JdbcTemplate jdbc,
             PlatformTransactionManager txManager) {
         this.users = users;
+        this.tenants = tenants;
         this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -56,10 +86,7 @@ public class AuthService {
         DefaultTransactionDefinition definition = new DefaultTransactionDefinition();
         definition.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.bypassTx = new TransactionTemplate(txManager, definition);
-        // Same isolation, but used for the chain revocation on a replayed
-        // token: that work must commit even though the request itself fails,
-        // and an exception thrown inside bypassTx would roll it back.
-        this.revokeChainTx = new TransactionTemplate(txManager, definition);
+        this.timingDecoyHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
     public AuthResponse login(String email, String password) {
@@ -69,54 +96,71 @@ public class AuthService {
         if (password == null || password.isBlank()) {
             throw new ValidationException("password", "Password is required");
         }
-        return bypassTx.execute(status -> {
+        AuthResponse response = bypassTx.execute(status -> {
             setBypass();
             User user = users.findByEmailIgnoreCase(email.trim())
                     .filter(u -> u.getStatus() == UserStatus.ACTIVE)
-                    .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
-            // One message for both failures: saying which one was wrong hands a
-            // stranger a way to probe for valid addresses.
+                    .filter(this::tenantIsActive)
+                    .orElse(null);
+            if (user == null) {
+                // Burn the same BCrypt cost the happy path would have, so the
+                // response time says nothing about whether the address exists.
+                passwordEncoder.matches(password, timingDecoyHash);
+                return null;
+            }
             if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-                throw new UnauthorizedException("Invalid email or password");
+                return null;
             }
             user.setLastActiveAt(Instant.now());
             users.save(user);
             return issuePair(user);
         });
+        if (response == null) {
+            throw new UnauthorizedException(BAD_CREDENTIALS);
+        }
+        return response;
     }
 
     public AuthResponse refresh(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) {
             throw new ValidationException("refreshToken", "Refresh token is required");
         }
-        return bypassTx.execute(status -> {
+        AuthResponse response = bypassTx.execute(status -> {
             setBypass();
-            RefreshToken row = refreshTokens.findByTokenHash(jwtService.sha256(rawToken))
-                    .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+            // Locked for update: rotation is read-then-write, and two
+            // concurrent refreshes of the same token would otherwise both pass
+            // the revoked check and both rotate. See RefreshTokenRepository.
+            RefreshToken row = refreshTokens.findByTokenHash(jwtService.sha256(rawToken)).orElse(null);
+            if (row == null) {
+                return null;
+            }
 
             if (row.getRevokedAt() != null) {
                 // A revoked token presented again is a stolen token being
                 // replayed. Kill the whole chain — including the live token the
-                // thief is sitting on — then refuse. The revocation commits in
-                // its own transaction first: throwing inside bypassTx would
-                // roll it back along with the failed request. set_config is
-                // transaction-scoped, so the new transaction must set the
-                // bypass again or RLS hides the chain from it.
-                revokeChainTx.executeWithoutResult(ignored -> {
-                    setBypass();
-                    revokeChain(row);
-                });
-                throw new UnauthorizedException("Invalid refresh token");
+                // thief is sitting on — and refuse. The refusal is a null
+                // return rather than a throw precisely so this revocation
+                // commits.
+                revokeChain(row);
+                return null;
             }
             if (row.getExpiresAt().isBefore(Instant.now())) {
                 row.setRevokedAt(Instant.now());
                 refreshTokens.save(row);
-                throw new UnauthorizedException("Invalid refresh token");
+                return null;
             }
 
             User user = users.findById(row.getUserId())
                     .filter(u -> u.getStatus() == UserStatus.ACTIVE)
-                    .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+                    .filter(this::tenantIsActive)
+                    .orElse(null);
+            if (user == null) {
+                // The session outlived the account or the tenant. Revoke the
+                // chain rather than leaving a token that refreshes forever
+                // against a disabled user.
+                revokeChain(row);
+                return null;
+            }
 
             // Rotate: revoke this row, point it at its successor.
             row.setRevokedAt(Instant.now());
@@ -134,9 +178,23 @@ public class AuthService {
             String accessToken = jwtService.issueAccessToken(user.getId(), user.getTenantId(), user.getRole());
             return new AuthResponse(accessToken, newRefreshToken, UserResponse.from(user));
         });
+        if (response == null) {
+            throw new UnauthorizedException(BAD_REFRESH_TOKEN);
+        }
+        return response;
     }
 
-    /** Idempotent: revoking an unknown or already-revoked token is still a 204. */
+    /**
+     * Idempotent: revoking an unknown or already-revoked token is still a 204.
+     *
+     * <p>This ends the refresh chain, not the access token the caller is
+     * holding. That one is a signed JWT with no server-side state behind it, so
+     * it stays valid until it expires — at most {@code app.jwt.access-token-ttl}
+     * (15 minutes). The same window applies to disabling a user or changing a
+     * role: the change takes effect on the next refresh, not instantly. Closing
+     * it needs a token denylist or a per-user token generation, and that is a
+     * deliberate not-yet, not an oversight.
+     */
     public void logout(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) {
             return;
@@ -163,6 +221,18 @@ public class AuthService {
         return UserResponse.from(user);
     }
 
+    /**
+     * A suspended or closed tenant cannot sign in, and cannot refresh an
+     * existing session either — otherwise suspending a tenant would leave every
+     * already-signed-in user working for another seven days.
+     */
+    private boolean tenantIsActive(User user) {
+        return tenants.findById(user.getTenantId())
+                .map(Tenant::getStatus)
+                .filter("ACTIVE"::equals)
+                .isPresent();
+    }
+
     private AuthResponse issuePair(User user) {
         String accessToken = jwtService.issueAccessToken(user.getId(), user.getTenantId(), user.getRole());
         String refreshToken = jwtService.generateRefreshToken();
@@ -176,10 +246,17 @@ public class AuthService {
         return new AuthResponse(accessToken, refreshToken, UserResponse.from(user));
     }
 
-    /** Revokes the reused token and every successor in its chain. */
+    /**
+     * Revokes the given token and every successor in its chain.
+     *
+     * <p>The visited set is not defensive clutter: {@code replaced_by} is a
+     * plain self-reference with nothing in the schema forbidding a cycle, and a
+     * cycle here would be an infinite loop inside a database transaction.
+     */
     private void revokeChain(RefreshToken reused) {
+        Set<UUID> visited = new HashSet<>();
         RefreshToken current = reused;
-        while (current != null) {
+        while (current != null && visited.add(current.getId())) {
             if (current.getRevokedAt() == null) {
                 current.setRevokedAt(Instant.now());
                 refreshTokens.save(current);

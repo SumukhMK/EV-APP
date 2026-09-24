@@ -3,6 +3,7 @@ package com.evrental.auth;
 import com.evrental.user.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -83,10 +84,27 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-        return new JwtPrincipal(
-                UUID.fromString(claims.getSubject()),
-                UUID.fromString(claims.get("tenant_id", String.class)),
-                UserRole.valueOf(claims.get("role", String.class)));
+        // A token can be correctly signed and still not be one we can use: a
+        // claim renamed between releases, or a role that no longer exists,
+        // leaves the signature valid and the payload unusable. Without this,
+        // UUID.fromString(null) and UserRole.valueOf(null) throw NPE — which
+        // the JWT filter does not catch, so a stale token would come back as a
+        // 500 with a stack trace instead of "not signed in".
+        try {
+            return new JwtPrincipal(
+                    UUID.fromString(requireClaim(claims.getSubject(), "sub")),
+                    UUID.fromString(requireClaim(claims.get("tenant_id", String.class), "tenant_id")),
+                    UserRole.valueOf(requireClaim(claims.get("role", String.class), "role")));
+        } catch (IllegalArgumentException e) {
+            throw new MalformedJwtException("Token claims are not usable: " + e.getMessage(), e);
+        }
+    }
+
+    private static String requireClaim(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("missing claim " + name);
+        }
+        return value;
     }
 
     /** A fresh opaque refresh token: 32 random bytes, URL-safe base64. */

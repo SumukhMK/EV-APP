@@ -4,8 +4,18 @@ Spring Boot 4.1 · Java 21 · PostgreSQL 16 · Flyway.
 
 This is stage **S0** from [`docs/BUILD.md`](../docs/BUILD.md), complete: the
 skeleton boots, connects, migrates and is tested, and auth (login → JWT →
-refresh rotation → logout → `/me` → TenantFilter) is in and covered by
-`AuthFlowTest`.
+refresh rotation → logout → `/me` → TenantFilter) is in, covered by
+`AuthFlowTest` for the happy paths and `AuthHardeningTest` for the edges.
+
+### One thing worth knowing if you upgrade Spring Boot
+
+Boot 4 split `spring-boot-autoconfigure` into per-technology modules. Flyway's
+auto-configuration moved with it, so `flyway-core` alone no longer runs
+migrations — `spring.flyway.enabled: true` becomes inert, the application starts
+against an empty database, and nothing in the log mentions a migration, because
+none was attempted. `org.springframework.boot:spring-boot-flyway` is in the POM
+for exactly this reason. If the schema ever vanishes after a version bump, look
+there first.
 
 ---
 
@@ -104,7 +114,20 @@ Two consequences:
   someone drops `FORCE`, someone connects as `postgres` — that test is what
   notices.
 
-### 2. Security is closed by default
+### 2. A business exception must not commit half a write
+
+`TenantFilter` opens the request transaction, and a 404/409/422 answered by
+`GlobalExceptionHandler` never reaches it — the handler writes the response and
+the filter commits normally. That is only safe because the service that threw
+marked the transaction rollback-only, which Spring does when a `RuntimeException`
+escapes an `@Transactional` method.
+
+So: **every service method that writes is `@Transactional`.** A write path that
+is not will commit whatever it managed to do before it threw, and the caller
+gets a tidy 409 for a half-finished row. The auth module sidesteps this by
+running its own `TransactionTemplate`; no other module should need to.
+
+### 3. Security is closed by default
 
 `SecurityConfig` permits the health probe, CORS preflight and the three open
 auth endpoints (`login`, `refresh`, `logout`), and denies everything else.
@@ -112,7 +135,7 @@ There is no permit-all fallback and no default user, so a new endpoint added
 before its access rule returns 401 rather than serving a stranger. That is the
 intended failure direction.
 
-### 3. Auth
+### 4. Auth
 
 Four endpoints under `/api/v1/auth`:
 
@@ -189,4 +212,17 @@ older sketches:
 
 S1 vehicles and S2 riders in parallel (WORK_SPLIT.md: SMK owns S1, Abhiram owns
 S2). The role gate (`@PreAuthorize` on tenant-scoped endpoints) lands with the
-first tenant-scoped module.
+first tenant-scoped module; `GlobalExceptionHandler` already answers its
+denials with 403 rather than letting them fall into the catch-all.
+
+Two things S0 deliberately does not do, so that nobody discovers them the hard
+way in S1:
+
+- **Signing out does not kill the access token.** `logout` ends the refresh
+  chain. The access JWT has no server-side state behind it, so it stays valid
+  until it expires — up to 15 minutes. The same window applies to disabling a
+  user, changing a role and suspending a tenant: all take effect on the next
+  refresh. Closing it needs a denylist or a per-user token generation.
+- **`/auth/login` is not rate limited.** Nothing counts failed attempts, so
+  password guessing is bounded only by BCrypt's cost. It belongs with S3, where
+  the user module owns lockout state.

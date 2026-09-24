@@ -67,6 +67,17 @@ services:
       # A development key for a container on this machine. Deployed
       # environments pass a real one in; export JWT_SECRET to override.
       JWT_SECRET: ${JWT_SECRET:-local-development-signing-key-not-a-secret-32b+}
+      # The first admin. Without these BootstrapData skips itself and the
+      # stack comes up with an empty users table — a demo box nobody can log
+      # into. Overridable, because a real deployment sets its own and then
+      # unsets them once the account exists.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-priya@g1mobility.in}
+      ADMIN_NAME: ${ADMIN_NAME:-Priya Menon}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-demo-build}
+      # Seeds the G1 Mobility tenant and its three personas, so every role in
+      # the frontend's persona switch can actually be signed in as. Set it to
+      # an empty string to bring the stack up with the admin only.
+      DEMO_PASSWORD: ${DEMO_PASSWORD-demo-build}
       # No SPRING_PROFILES_ACTIVE. The point of running it this way is that it
       # is configured from the environment, like a deployed instance — setting
       # `local` here would quietly point it back at localhost:5432.
