@@ -54,7 +54,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ApiErrorResponse> validation(ValidationException ex) {
-        return body(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex.field());
+        return body(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), ex.field());
     }
 
     /**
@@ -70,7 +70,7 @@ public class GlobalExceptionHandler {
                 .orElse(null);
         String field = first == null ? null : first.getField();
         String message = first == null ? "Invalid request" : first.getDefaultMessage();
-        return body(HttpStatus.UNPROCESSABLE_ENTITY, message, field);
+        return body(HttpStatus.UNPROCESSABLE_CONTENT, message, field);
     }
 
     /**
