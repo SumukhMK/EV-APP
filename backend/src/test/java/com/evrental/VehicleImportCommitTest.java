@@ -27,11 +27,14 @@ class VehicleImportCommitTest extends VehicleTestBase {
 
     @BeforeEach
     void stageImport() throws Exception {
+        // Row 3 errors on its own (model is required). A duplicate id would not
+        // work here: that flags both copies, so the file would have two errored
+        // rows, not the one this fixture wants.
         importId = stage("""
                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
                 BLRSS0910,CH-910,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0010,2026-09-01
                 BLRSS0911,CH-911,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0011,2026-09-01
-                BLRSS0911,CH-912,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0012,2026-09-01
+                BLRSS0912,CH-912,,Yuma,Yuma,Koramangala,KA01AA0012,2026-09-01
                 """);
     }
 

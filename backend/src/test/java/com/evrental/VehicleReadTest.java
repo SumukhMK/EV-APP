@@ -86,10 +86,11 @@ class VehicleReadTest extends VehicleTestBase {
 
     @Test
     void theSearchMatchesTheHub() throws Exception {
+        // Every seeded bike is at Koramangala, so the hub search returns all six.
         mvc.perform(get("/api/v1/vehicles?q=koramangala")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(7));
+                .andExpect(jsonPath("$.totalElements").value(6));
     }
 
     @Test
@@ -126,7 +127,7 @@ class VehicleReadTest extends VehicleTestBase {
 
         JsonNode facets = objectMapper.readTree(result.getResponse().getContentAsString());
         assertThat(facets.get(0).get("value").asText()).isEqualTo("ALL");
-        assertThat(facets.get(0).get("count").asInt()).isEqualTo(7);
+        assertThat(facets.get(0).get("count").asInt()).isEqualTo(6);
     }
 
     @Test

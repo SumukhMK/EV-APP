@@ -196,9 +196,17 @@ public class VehicleService implements VehicleTransitions {
         return vehicles.save(vehicle);
     }
 
-    /** The frontend sends "ALL" for an unset dropdown, and "" for an empty box. */
+    /**
+     * The frontend sends "ALL" for an unset dropdown, and "" for an empty box.
+     *
+     * <p>Lowercased here rather than with lower(:param) in the query: these are
+     * nullable binds, and Postgres types an untyped null as bytea, so
+     * lower(:hub) on an unset filter fails with "function lower(bytea) does not
+     * exist". The query still compares against lower(column), so the lower(...)
+     * indexes are still the ones used.
+     */
     private static String filterValue(String raw) {
-        return raw == null || raw.isBlank() || "ALL".equals(raw) ? null : raw.trim();
+        return raw == null || raw.isBlank() || "ALL".equals(raw) ? null : raw.trim().toLowerCase();
     }
 
     private static String searchPattern(String raw) {

@@ -47,14 +47,16 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
      *
      * <p>q is matched against every column the row prints, because that is what
      * a search box appears to promise. The caller passes it already lowercased
-     * and wrapped in % signs.
+     * and wrapped in % signs, and passes hub/make/batteryType already
+     * lowercased too -- lower(:param) on a null bind would ask Postgres for
+     * lower(bytea), which does not exist.
      */
     @Query("""
             select v from Vehicle v
             where (:state is null or v.state = :state)
-              and (:hub is null or lower(v.hub) = lower(:hub))
-              and (:make is null or lower(v.make) = lower(:make))
-              and (:batteryType is null or lower(v.batteryType) = lower(:batteryType))
+              and (:hub is null or lower(v.hub) = :hub)
+              and (:make is null or lower(v.make) = :make)
+              and (:batteryType is null or lower(v.batteryType) = :batteryType)
               and (:q is null
                    or lower(v.registryId) like :q
                    or lower(v.chassisNumber) like :q
@@ -79,9 +81,9 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
      */
     @Query("""
             select v.state, count(v) from Vehicle v
-            where (:hub is null or lower(v.hub) = lower(:hub))
-              and (:make is null or lower(v.make) = lower(:make))
-              and (:batteryType is null or lower(v.batteryType) = lower(:batteryType))
+            where (:hub is null or lower(v.hub) = :hub)
+              and (:make is null or lower(v.make) = :make)
+              and (:batteryType is null or lower(v.batteryType) = :batteryType)
               and (:q is null
                    or lower(v.registryId) like :q
                    or lower(v.chassisNumber) like :q
