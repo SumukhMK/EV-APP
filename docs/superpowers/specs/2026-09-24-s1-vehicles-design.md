@@ -241,9 +241,13 @@ possible in milliseconds without Docker.
 
 ```java
 @Transactional
-VehicleResponse transitionState(UUID vehicleId, VehicleState toState,
-                                String note, UUID actorUserId);
+Vehicle transitionState(UUID vehicleId, VehicleState toState, String note,
+                        UUID actorUserId, String actorName);
 ```
+
+`actorName` is passed in rather than looked up here. The lifecycle row freezes
+the actor's name at write time, and the caller already holds the authenticated
+user — a second query per transition to fetch a name we have would be waste.
 
 1. `SELECT ... FOR UPDATE` on the vehicle row.
 2. If `from == to`, return unchanged. No write, no event.
