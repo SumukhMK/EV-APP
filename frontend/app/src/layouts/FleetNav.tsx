@@ -234,26 +234,33 @@ export function FleetNav({
         ) : (
           <Box sx={railLabel(collapsed)}>
             <Typography variant="overline" sx={{ color: neutral[600] }}>
-              Viewing as
+              {personas.length > 1 ? 'Viewing as' : 'Signed in as'}
             </Typography>
-            <Select
-              value={user.email}
-              onChange={(e) => switchPersona(e.target.value)}
-              variant="standard"
-              disableUnderline
-              fullWidth
-              sx={{
-                mt: 0.5,
-                '& .MuiSelect-select': { p: 0, fontSize: 13, color: base.text },
-                '& .MuiSvgIcon-root': { color: neutral[500] },
-              }}
-            >
-              {personas.map((p) => (
-                <MenuItem key={p.email} value={p.email} sx={{ fontSize: 13 }}>
-                  {p.name} · {USER_ROLE_LABEL[p.roleKey]}
-                </MenuItem>
-              ))}
-            </Select>
+            {personas.length > 1 ? (
+              <Select
+                value={user.email}
+                onChange={(e) => switchPersona(e.target.value)}
+                variant="standard"
+                disableUnderline
+                fullWidth
+                sx={{
+                  mt: 0.5,
+                  '& .MuiSelect-select': { p: 0, fontSize: 13, color: base.text },
+                  '& .MuiSvgIcon-root': { color: neutral[500] },
+                }}
+              >
+                {personas.map((p) => (
+                  <MenuItem key={p.email} value={p.email} sx={{ fontSize: 13 }}>
+                    {p.name} · {USER_ROLE_LABEL[p.roleKey]}
+                  </MenuItem>
+                ))}
+              </Select>
+            ) : (
+              // Live mode. The role comes off a signed token, so there is
+              // nothing to switch — a control that looks like it changes your
+              // role but does not is worse than no control.
+              <Typography sx={{ mt: 0.5, fontSize: 13, color: base.text }}>{user.name}</Typography>
+            )}
             <Typography variant="overline" sx={{ mt: 0.5, display: 'block' }}>
               {USER_ROLE_LABEL[user.roleKey]}
             </Typography>

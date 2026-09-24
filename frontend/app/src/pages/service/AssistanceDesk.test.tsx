@@ -24,7 +24,7 @@ function reset() {
 function show(path = '/service/assistance', role: UserRole = 'SERVICE_MANAGER') {
   const session: SessionValue = {
     user: { name: 'Demo operator', roleKey: role, email: 'demo@example.test' },
-    tenant: 'Demo', personas: [], signedIn: true,
+    tenant: 'Demo', personas: [], signedIn: true, restoring: false,
     signIn: vi.fn(), signOut: vi.fn(), switchPersona: vi.fn(),
   };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });

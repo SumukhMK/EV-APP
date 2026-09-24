@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
@@ -7,26 +8,43 @@ import Typography from '@mui/material/Typography';
 import { useNavigate } from 'react-router-dom';
 import { Mono } from '../components/Mono';
 import { useSession } from '../app/sessionContext';
+import { ApiError, IS_LIVE } from '../lib/api/client';
 import { base, neutral } from '../theme/tokens';
 
 /**
- * There is no authentication here and there must not appear to be one.
+ * One form, two meanings.
  *
- * Any credentials sign in. Real auth is server-side, arrives with the Spring
- * Boot API, and is the only thing that will ever gate tenant data — building
- * a convincing-looking fake now would invite everyone to treat it as done.
- * The note under the button says so out loud, to us and to the client.
+ * Against the live API the credentials are checked server-side and a wrong
+ * password stays on this screen. Without VITE_API_BASE there is no
+ * authentication and there must not appear to be one — any credentials sign
+ * in, and the note under the button says so out loud, to us and to the client.
  */
 export function Login() {
   const navigate = useNavigate();
   const { signIn, user, tenant } = useSession();
-  const [email, setEmail] = useState(user.email);
-  const [password, setPassword] = useState('demo-build');
+  const [email, setEmail] = useState(IS_LIVE ? '' : user.email);
+  const [password, setPassword] = useState(IS_LIVE ? '' : 'demo-build');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    signIn();
-    navigate('/dashboard', { replace: true });
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      await signIn(email, password);
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      // The server says the same thing for an unknown email and a wrong
+      // password, deliberately. Repeating it verbatim keeps that property.
+      setError(
+        err instanceof ApiError && err.status === 401
+          ? 'Email or password is incorrect.'
+          : 'Could not sign in. Please try again.',
+      );
+      setPending(false);
+    }
   };
 
   return (
@@ -47,10 +65,17 @@ export function Login() {
           <Typography variant="h3" sx={{ mt: 1 }}>
             FleeTech <Box component="span" sx={{ color: base.accent }}>OS</Box>
           </Typography>
-          <Typography sx={{ fontSize: 13, color: neutral[400], mt: 1 }}>{tenant} · Bengaluru</Typography>
+          <Typography sx={{ fontSize: 13, color: neutral[400], mt: 1 }}>
+            {tenant || 'FleeTech'} · Bengaluru
+          </Typography>
         </Box>
 
         <Paper sx={{ p: 6, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+          {error && (
+            <Alert severity="error" sx={{ fontSize: 13 }}>
+              {error}
+            </Alert>
+          )}
           <TextField
             label="Email"
             type="email"
@@ -65,13 +90,15 @@ export function Login() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
           />
-          <Button type="submit" fullWidth sx={{ mt: 1 }}>
-            Sign in
+          <Button type="submit" fullWidth disabled={pending} sx={{ mt: 1 }}>
+            {pending ? 'Signing in…' : 'Sign in'}
           </Button>
         </Paper>
 
         <Typography sx={{ fontSize: 12, color: neutral[600], textAlign: 'center' }}>
-          Demo build — no authentication yet. Any credentials sign in.
+          {IS_LIVE
+            ? 'Accounts are created by your administrator.'
+            : 'Demo build — no authentication yet. Any credentials sign in.'}
         </Typography>
       </Box>
     </Box>
