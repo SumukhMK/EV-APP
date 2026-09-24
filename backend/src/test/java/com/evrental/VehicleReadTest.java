@@ -126,7 +126,7 @@ class VehicleReadTest extends VehicleTestBase {
                 .andReturn();
 
         JsonNode facets = objectMapper.readTree(result.getResponse().getContentAsString());
-        assertThat(facets.get(0).get("value").asText()).isEqualTo("ALL");
+        assertThat(facets.get(0).get("value").asString()).isEqualTo("ALL");
         assertThat(facets.get(0).get("count").asInt()).isEqualTo(6);
     }
 
@@ -141,7 +141,7 @@ class VehicleReadTest extends VehicleTestBase {
 
     private long findFacetCount(JsonNode facets, String value) {
         for (JsonNode facet : facets) {
-            if (value.equals(facet.get("value").asText())) {
+            if (value.equals(facet.get("value").asString())) {
                 return facet.get("count").asLong();
             }
         }

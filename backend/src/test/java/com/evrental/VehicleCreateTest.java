@@ -79,7 +79,7 @@ class VehicleCreateTest extends VehicleTestBase {
         mvc.perform(post("/api/v1/vehicles").header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(BODY.replace("\"BLRSS0600\"", "\"\"")))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.field").value("id"));
     }
 }

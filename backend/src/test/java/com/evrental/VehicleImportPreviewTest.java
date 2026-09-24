@@ -92,7 +92,7 @@ class VehicleImportPreviewTest extends VehicleTestBase {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        String importId = objectMapper.readTree(result.getResponse().getContentAsString()).get("importId").asText();
+        String importId = objectMapper.readTree(result.getResponse().getContentAsString()).get("importId").asString();
         assertThat(UUID.fromString(importId)).isNotNull();
     }
 
@@ -101,7 +101,7 @@ class VehicleImportPreviewTest extends VehicleTestBase {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", ""))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test
@@ -109,7 +109,7 @@ class VehicleImportPreviewTest extends VehicleTestBase {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", "id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn\n"))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
     }
 
     @Test

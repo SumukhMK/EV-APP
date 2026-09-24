@@ -101,7 +101,7 @@ class VehicleUpdateTest extends VehicleTestBase {
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(BODY.replace("\"Eagle 2\"", "\"\"")))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.field").value("model"));
     }
 }

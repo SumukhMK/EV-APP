@@ -119,7 +119,7 @@ public abstract class VehicleTestBase extends PostgresTestBase {
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + email + "\",\"password\":\"" + PASSWORD + "\"}"))
                 .andReturn().getResponse().getContentAsString();
-        return new ObjectMapper().readTree(body).get("accessToken").asText();
+        return new ObjectMapper().readTree(body).get("accessToken").asString();
     }
 
     /** Arranges and inspects rows across tenants, which RLS otherwise hides from the test. */

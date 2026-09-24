@@ -139,7 +139,7 @@ class VehicleImportCommitTest extends VehicleTestBase {
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper.readTree(result.getResponse().getContentAsString()).get("importId").asText();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).get("importId").asString();
     }
 
     private static MockMultipartFile file(String name, String content) {

@@ -28,7 +28,8 @@ class FleetSeedTest {
                 .isTrue();
 
         String content = new String(resource.getContentAsByteArray());
-        String[] lines = content.split("\n");
+        // CRLF on a Windows checkout must not leak a \r into the last column.
+        String[] lines = content.split("\r?\n");
         assertThat(DevFleetSeeder.parseCsvLine(lines[0])).containsExactly(EXPECTED_HEADER);
 
         // 137 is the fleet the dashboard tiles are pinned to; a seed that
