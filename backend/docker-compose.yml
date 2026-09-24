@@ -27,7 +27,10 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: evrental
     ports:
-      - '5432:5432'
+      # 5433 on the host, not 5432: a local PostgreSQL service on this machine
+      # already owns 5432, and the app's localhost connection was landing on it
+      # instead of this container ("password authentication failed for evrental").
+      - '5433:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # Same file the test suite runs, so local and CI databases cannot drift.

@@ -1,8 +1,8 @@
 /**
- * Login, token refresh, /me, password reset. Issues the JWT that carries tenant_id and role.
+ * Login, token refresh, logout, /me. Issues the JWT that carries tenant_id and
+ * role, and the opaque refresh token whose SHA-256 hash V001 stores.
  *
- * <p>Stage S0 in docs/BUILD.md — owner: SMK. Empty until that stage starts;
- * this file exists so the boundary is real from day one and nobody puts a
- * class in the wrong module by accident.
+ * <p>Stage S0 in docs/BUILD.md — owner: SMK. Built in S0; password reset is
+ * still to come (it needs the notification module, S6).
  */
 package com.evrental.auth;

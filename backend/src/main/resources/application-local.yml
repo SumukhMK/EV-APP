@@ -8,7 +8,7 @@
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/evrental
+    url: jdbc:postgresql://localhost:5433/evrental
     username: evrental
     password: evrental
 
@@ -33,8 +33,19 @@ app:
     allowed-origins: http://localhost:5173
   jwt:
     secret: local-development-signing-key-not-a-secret-32b+
+  bootstrap:
+    # The platform super admin, created at boot if missing. Password matches
+    # the frontend Login screen's default field value, so wiring the real login
+    # later needs no typing.
+    admin-email: priya@g1mobility.in
+    admin-name: Priya Menon
+    admin-password: demo-build
+    # Seeds the G1 Mobility tenant and its three demo users (Meenakshi,
+    # Abhinandan, Dhananjay) with this password — the personas the frontend's
+    # persona switch uses, so every role can actually be logged into.
+    demo-password: demo-build
 
 logging:
   level:
-    com.evrental: DEBUG
-    org.flywaydb: INFO
+    'com.evrental': DEBUG
+    'org.flywaydb': INFO

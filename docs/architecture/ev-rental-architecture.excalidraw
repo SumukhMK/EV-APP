@@ -1,4 +1,4 @@
-{
+﻿{
   "type": "excalidraw",
   "version": 2,
   "source": "https://excalidraw.com",
@@ -535,8 +535,8 @@
       "strokeColor": "#868e96",
       "backgroundColor": "transparent",
       "fillStyle": "solid",
-      "text": "API   \u00b7   Spring Boot 3.3   \u00b7   Java 21   \u00b7   REST /api   \u00b7   OpenAPI / Swagger",
-      "originalText": "API   \u00b7   Spring Boot 3.3   \u00b7   Java 21   \u00b7   REST /api   \u00b7   OpenAPI / Swagger",
+      "text": "API   \u00b7   Spring Boot 4.1   \u00b7   Java 21   \u00b7   REST /api   \u00b7   OpenAPI / Swagger",
+      "originalText": "API   \u00b7   Spring Boot 4.1   \u00b7   Java 21   \u00b7   REST /api   \u00b7   OpenAPI / Swagger",
       "fontSize": 16,
       "fontFamily": 2,
       "textAlign": "left",

@@ -45,7 +45,7 @@ no screen changes.
 
 Nginx: TLS termination, static asset serving, rate limiting. Nothing clever.
 
-### API — Spring Boot 3.3 / Java 21
+### API — Spring Boot 4.1 / Java 21
 
 Cross-cutting band, applied to every request:
 

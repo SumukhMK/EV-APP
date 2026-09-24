@@ -1,5 +1,6 @@
 package com.evrental.common;
 
+import java.util.Comparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,11 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiErrorResponse> unauthorized(UnauthorizedException ex) {
+        return body(HttpStatus.UNAUTHORIZED, ex.getMessage(), null);
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiErrorResponse> notFound(NotFoundException ex) {
         return body(HttpStatus.NOT_FOUND, ex.getMessage(), null);
@@ -37,10 +43,17 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex.field());
     }
 
-    /** Bean validation on a @RequestBody. The first failing field wins — the form shows one message per input. */
+    /**
+     * Bean validation on a @RequestBody. The first failing field wins — the
+     * form shows one message per input. Violation order is not guaranteed by
+     * the validator, so sort by field name: the response is deterministic and
+     * the same field is reported no matter which JVM or validator version runs.
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> beanValidation(MethodArgumentNotValidException ex) {
-        FieldError first = ex.getBindingResult().getFieldErrors().stream().findFirst().orElse(null);
+        FieldError first = ex.getBindingResult().getFieldErrors().stream()
+                .min(Comparator.comparing(FieldError::getField))
+                .orElse(null);
         String field = first == null ? null : first.getField();
         String message = first == null ? "Invalid request" : first.getDefaultMessage();
         return body(HttpStatus.UNPROCESSABLE_ENTITY, message, field);

@@ -11,7 +11,10 @@ app:
   cors:
     allowed-origins: http://localhost:5173
   jwt:
+    issuer: ev-rental-api
     secret: test-signing-key-used-only-by-the-test-suite
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
 
 logging:
   level:

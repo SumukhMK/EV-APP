@@ -1,5 +1,9 @@
 package com.evrental.common;
 
+// jackson-annotations is the one package that did NOT move in Jackson 3:
+// it stays on com.fasterxml.jackson.annotation so one copy serves both
+// Jackson 2 and Jackson 3 code on the same classpath (see the official
+// MIGRATING_TO_JACKSON_3.md). Only databind classes moved to tools.jackson.
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**

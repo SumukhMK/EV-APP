@@ -1,8 +1,10 @@
 package com.evrental.config;
 
+import com.evrental.auth.JwtService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -15,23 +17,26 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * The chain, in the shape S0-auth will fill in.
+ * The chain, in the shape S0-auth fills in.
  *
  * <p>Deliberately closed: everything except the health probe, the CORS
- * preflight and the (not yet written) auth endpoints is denied. There is no
- * permit-all fallback and no default user, so this skeleton cannot be deployed
- * accidentally open — an endpoint added before its rule is added returns 401
- * rather than serving a stranger.
+ * preflight and the auth endpoints is denied. There is no permit-all fallback
+ * and no default user, so this skeleton cannot be deployed accidentally open —
+ * an endpoint added before its rule is added returns 401 rather than serving a
+ * stranger.
  *
- * <p>Still to come in S0: the JWT filter that reads the {@code tenant_id} and
- * {@code role} claims, and the TenantFilter that issues
- * {@code SET LOCAL app.tenant_id} so Postgres row-level security can do the
- * actual isolation.
+ * <p>Two filters sit in the chain: {@link JwtAuthenticationFilter} turns the
+ * bearer token into an authenticated principal, and {@link TenantFilter} issues
+ * {@code SET LOCAL app.tenant_id} so Postgres row-level security does the
+ * actual isolation. Both are constructed here rather than declared as beans —
+ * a {@code Filter} bean would also be auto-registered as a servlet filter and
+ * run twice.
  */
 @Configuration
 @EnableMethodSecurity
@@ -42,7 +47,13 @@ public class SecurityConfig {
     private List<String> allowedOrigins;
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain filterChain(
+            HttpSecurity http,
+            JwtService jwtService,
+            DataSource dataSource,
+            PlatformTransactionManager txManager) throws Exception {
+        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtService);
+        TenantFilter tenantFilter = new TenantFilter(dataSource, txManager);
         http
                 // No cookies, no sessions: the browser sends a bearer token, so
                 // there is no CSRF vector to protect and nothing to store.
@@ -51,10 +62,18 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
+                // The JWT filter runs before the authorization decision; the
+                // TenantFilter runs after it, so it can read the principal, and
+                // wraps the rest of the request in the tenant transaction.
+                .addFilterBefore(jwtFilter, org.springframework.security.web.access.intercept.AuthorizationFilter.class)
+                .addFilterAfter(tenantFilter, JwtAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers(
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout").permitAll()
                         .anyRequest().authenticated())
                 // Without these, an anonymous caller gets a 403 with an empty
                 // body — which tells the UI "you are signed in but not allowed"

@@ -102,7 +102,7 @@ that is the point. It is the floor the modules get built on.
 
 **The project**
 
-- Spring Boot 3.3.5 on Java 21, built with Maven. `./mvnw` is committed, so
+- Spring Boot 4.1.1 on Java 21, built with Maven. `./mvnw` is committed, so
   nobody has to install Maven — it fetches its own on first run.
 - One empty package per module from the architecture doc: `auth`, `platform`,
   `vehicle`, `rider`, `user`, `service`, `assignment`, `payment`, `shared`,

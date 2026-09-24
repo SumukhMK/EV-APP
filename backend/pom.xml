@@ -4,7 +4,10 @@
   boots, connects to Postgres, runs Flyway, and answers /actuator/health.
   Auth, RLS and tenants land on top of it.
 
-  Java 21 and Spring Boot 3.3 are fixed by docs/architecture/ARCHITECTURE.md.
+  Java 21 is fixed by docs/architecture/ARCHITECTURE.md. Spring Boot tracks
+  the newest supported 4.x line: every 3.x branch left OSS support in June
+  2026, and 4.0.x itself ends OSS support in December 2026, so this module
+  sits on 4.1.x (supported until June 2027).
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -14,7 +17,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.3.5</version>
+    <version>4.1.1</version>
     <relativePath/>
   </parent>
 
@@ -27,12 +30,24 @@
   <properties>
     <java.version>21</java.version>
     <jjwt.version>0.12.6</jjwt.version>
-    <!-- Ahead of the 1.19.8 Boot 3.3 manages. Docker Engine 29 raised its
-         minimum API version to 1.40, and the docker-java that 1.19.8 pulls in
-         asks for an older one — every container start fails with a bare
-         "400 Bad Request" that says nothing about why. -->
-    <testcontainers.version>1.20.6</testcontainers.version>
+    <!-- Boot 4.1 no longer imports the Testcontainers BOM, so the version is
+         pinned here. 2.x's docker-java negotiates the Docker API version
+         itself — the 1.20.6 pin from the Boot 3.3 era (Docker Engine 29
+         raised its minimum API to 1.40) is obsolete. -->
+    <testcontainers.version>2.0.5</testcontainers.version>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>
@@ -105,6 +120,14 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Boot 4 split the MockMvc auto-configuration out of starter-test into
+         its own starter; @AutoConfigureMockMvc lives in
+         org.springframework.boot.webmvc.test.autoconfigure now. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-test</artifactId>
@@ -117,12 +140,12 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>postgresql</artifactId>
+      <artifactId>testcontainers-postgresql</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

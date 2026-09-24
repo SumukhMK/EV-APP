@@ -1,10 +1,11 @@
 # Backend — EV Rental Platform API
 
-Spring Boot 3.3 · Java 21 · PostgreSQL 16 · Flyway.
+Spring Boot 4.1 · Java 21 · PostgreSQL 16 · Flyway.
 
-This is stage **S0** from [`docs/BUILD.md`](../docs/BUILD.md), half built: the
-skeleton boots, connects, migrates and is tested. Auth (login → JWT →
-TenantFilter) is the other half and lands next.
+This is stage **S0** from [`docs/BUILD.md`](../docs/BUILD.md), complete: the
+skeleton boots, connects, migrates and is tested, and auth (login → JWT →
+refresh rotation → logout → `/me` → TenantFilter) is in and covered by
+`AuthFlowTest`.
 
 ---
 
@@ -105,10 +106,46 @@ Two consequences:
 
 ### 2. Security is closed by default
 
-`SecurityConfig` permits the health probe, CORS preflight and the two auth
-endpoints, and denies everything else. There is no permit-all fallback and no
-default user, so a new endpoint added before its access rule returns 401 rather
-than serving a stranger. That is the intended failure direction.
+`SecurityConfig` permits the health probe, CORS preflight and the three open
+auth endpoints (`login`, `refresh`, `logout`), and denies everything else.
+There is no permit-all fallback and no default user, so a new endpoint added
+before its access rule returns 401 rather than serving a stranger. That is the
+intended failure direction.
+
+### 3. Auth
+
+Four endpoints under `/api/v1/auth`:
+
+| Endpoint | Auth | Behaviour |
+|---|---|---|
+| `POST /login` `{email, password}` | open | `200 {accessToken, refreshToken, user}`; wrong credentials → `401 "Invalid email or password"` (one message for both, so a stranger cannot probe for valid addresses); blank field → `422 {field, message}` |
+| `POST /refresh` `{refreshToken}` | open | `200` same shape, token rotated; a revoked token replayed → `401` and the **whole chain** is revoked, including the live successor |
+| `POST /logout` `{refreshToken}` | open | `204`, idempotent — revoking an unknown or already-revoked token is still a success |
+| `GET /me` | bearer | `200` the caller's `User`; no token or a bad one → `401` |
+
+Access tokens are HS256 JWTs with `sub`, `tenant_id`, `role`, `iat`, `exp`,
+`iss` — 15 minutes. Refresh tokens are opaque 32-byte values, stored only as a
+SHA-256 hash, valid 7 days, rotated on every use. `JwtAuthenticationFilter`
+turns a valid bearer token into the request principal; `TenantFilter` then
+opens the request transaction and issues `SET LOCAL app.tenant_id` from the
+token's tenant, so RLS scopes every query in the request. Login/refresh/logout
+run in their own `REQUIRES_NEW` transaction under the `'*'` sentinel, because
+email and token-hash lookups are global, not tenant-scoped.
+
+**Bootstrap.** On boot, `BootstrapData` creates the first admin from
+`ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` (skipped when unset, idempotent
+when set). With `DEMO_PASSWORD` set it also seeds the G1 Mobility tenant and
+its demo users. The `local` profile fills all four in:
+
+| Email | Role | Tenant |
+|---|---|---|
+| `priya@g1mobility.in` | `SUPER_ADMIN` | Platform |
+| `meenakshi@g1mobility.in` | `TENANT_ADMIN` | G1 Mobility |
+| `abhinandan@g1mobility.in` | `SERVICE_MANAGER` | G1 Mobility |
+| `dhananjay@g1mobility.in` | `FLEET_STAFF` | G1 Mobility |
+
+All demo users share the `DEMO_PASSWORD` (`demo-build` locally — the same
+value the frontend's `Login.tsx` pre-fills).
 
 ---
 
@@ -119,9 +156,11 @@ missing variable fails at boot instead of falling back to a development value.
 
 | Variable | Local value | Notes |
 |---|---|---|
-| `DB_URL` / `DB_USER` / `DB_PASSWORD` | in `application-local.yml` | `evrental` role, not `postgres` |
+| `DB_URL` / `DB_USER` / `DB_PASSWORD` | in `application-local.yml` | `evrental` role, not `postgres`; local Postgres publishes on host **5433** (the Windows service `postgresql-x64-18` owns 5432) |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | the Vite dev server |
 | `JWT_SECRET` | dev key in `application-local.yml` | **never** committed for a deployed environment |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | in `application-local.yml` | first admin, created at boot; empty = skip |
+| `DEMO_PASSWORD` | `demo-build` in `application-local.yml` | seeds the G1 Mobility demo tenant and users; empty = skip |
 
 Run with `-Dspring-boot.run.profiles=local` and the whole table is filled in for
 you. Deployed environments supply all of it through the environment.
@@ -148,6 +187,6 @@ older sketches:
 
 ## Next
 
-S0's remaining half: `auth` (login, refresh with rotation, `/me`), the JWT
-filter, `TenantFilter` issuing `SET LOCAL app.tenant_id`, the role gate, and a
-bootstrap admin. Then S1 vehicles and S2 riders in parallel.
+S1 vehicles and S2 riders in parallel (WORK_SPLIT.md: SMK owns S1, Abhiram owns
+S2). The role gate (`@PreAuthorize` on tenant-scoped endpoints) lands with the
+first tenant-scoped module.

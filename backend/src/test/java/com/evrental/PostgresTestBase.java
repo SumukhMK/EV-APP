@@ -23,6 +23,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 public abstract class PostgresTestBase {
 
+    // The container is never closed in a finally block: it is deliberately
+    // suite-wide (one instance for every subclass), so there is no single
+    // point where closing it is correct. Ryuk reaps it when the JVM exits;
+    // the shutdown hook below makes that close explicit in code.
+    @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withInitScript("db/init/01-app-role.sql");
@@ -31,6 +36,7 @@ public abstract class PostgresTestBase {
         // Started by hand rather than with @Container so that one container is
         // shared by every subclass, instead of one per test class.
         POSTGRES.start();
+        Runtime.getRuntime().addShutdownHook(new Thread(POSTGRES::stop));
     }
 
     @DynamicPropertySource
