@@ -40,20 +40,44 @@ describe('Login', () => {
     expect(signIn).toHaveBeenCalledWith('dhananjay@g1mobility.in', 'hunter2');
   });
 
-  it('stays on the form and says so when the credentials are rejected', async () => {
+  it('repeats the backend message verbatim when the credentials are rejected', async () => {
     renderLogin(vi.fn().mockRejectedValue(new ApiError('Invalid email or password', 401)));
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/incorrect/i));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/invalid email or password/i));
     // Rejected, not stuck: the button must be usable for a second attempt.
     expect(screen.getByRole('button', { name: /sign in/i })).toBeEnabled();
+  });
+
+  it('attaches a 422 to the field the server named', async () => {
+    renderLogin(vi.fn().mockRejectedValue(new ApiError('Email is required', 422, 'email')));
+    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByLabelText(/email/i)).toHaveAccessibleDescription(/email is required/i));
+    // A field error is not a banner error.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('says the server broke when it answers 5xx', async () => {
+    renderLogin(vi.fn().mockRejectedValue(new ApiError('Internal Server Error', 500)));
+    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/server hit a problem/i));
   });
 
   it('reports a server that is simply unreachable differently', async () => {
     renderLogin(vi.fn().mockRejectedValue(new Error('Failed to fetch')));
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/could not sign in/i));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/cannot reach the server/i));
+  });
+
+  it('reports a request that hung as a timeout, not a crash', async () => {
+    const abort = new DOMException('The operation was aborted.', 'AbortError');
+    renderLogin(vi.fn().mockRejectedValue(abort));
+    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/took too long/i));
   });
 
   it('does not fire a second sign-in while the first is in flight', async () => {

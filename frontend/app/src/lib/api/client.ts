@@ -91,6 +91,12 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Auth calls that must not try to refresh — refreshing is what they do. */
   anonymous?: boolean;
+  /**
+   * Abort the request after this long. Defaults to 15s, 30s for a file
+   * upload. A request that hangs — a dead server that still accepts
+   * connections — must fail rather than leave a screen stuck on "pending".
+   */
+  timeoutMs?: number;
 }
 
 function buildUrl(path: string, query: RequestOptions['query']): string {
@@ -171,7 +177,9 @@ function refreshSession(): Promise<boolean> {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, file, query, anonymous = false } = options;
+  const { method = 'GET', body, file, query, anonymous = false, timeoutMs } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs ?? (file ? 30_000 : 15_000));
 
   const send = async (): Promise<Response> => {
     const headers: Record<string, string> = {};
@@ -190,27 +198,31 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       payload = JSON.stringify(body);
     }
 
-    return fetch(buildUrl(path, query), { method, headers, body: payload });
+    return fetch(buildUrl(path, query), { method, headers, body: payload, signal: controller.signal });
   };
 
-  let response = await send();
+  try {
+    let response = await send();
 
-  if (response.status === 401 && !anonymous) {
-    const refreshed = await refreshSession();
-    if (refreshed) {
-      response = await send();
-    } else {
-      clearTokens();
-      onExpired?.();
-      throw await toApiError(response);
+    if (response.status === 401 && !anonymous) {
+      const refreshed = await refreshSession();
+      if (refreshed) {
+        response = await send();
+      } else {
+        clearTokens();
+        onExpired?.();
+        throw await toApiError(response);
+      }
     }
-  }
 
-  if (!response.ok) throw await toApiError(response);
+    if (!response.ok) throw await toApiError(response);
 
-  // 204, and any other body-less success.
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
-    return undefined as T;
+    // 204, and any other body-less success.
+    if (response.status === 204 || response.headers.get('content-length') === '0') {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
+  } finally {
+    clearTimeout(timer);
   }
-  return (await response.json()) as T;
 }
