@@ -1,4 +1,5 @@
 import type { SvgIconComponent } from '@mui/icons-material';
+import { matchPath } from 'react-router-dom';
 import type { UserRole } from '../types';
 import SpeedIcon from '@mui/icons-material/SpeedOutlined';
 import TodayIcon from '@mui/icons-material/TodayOutlined';
@@ -117,4 +118,53 @@ export const ALL_NAV_ITEMS = NAV.flatMap((s) => s.items);
 /** The sections a role is allowed to see, in rail order. */
 export function navForRole(role: UserRole): NavSection[] {
   return NAV.filter((section) => section.roles.includes(role));
+}
+
+/**
+ * The screens that are not nav items but still belong to a role.
+ *
+ * A nav item carries its section's roles, so the table below only has to name
+ * what the rail never links to directly: a detail route reached by clicking a
+ * row, and the vehicle screens that sit under an unrestricted section but are
+ * not open to everyone who can see the list. RBAC.md §1 is the specification.
+ */
+const EXTRA_ROUTE_ROLES: Array<[string, UserRole[]]> = [
+  // Reached from the riders list, which the workshop role never sees.
+  ['/riders/:riderId', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
+  // Reached from the payment run; money is admin work.
+  ['/payments/run/:riderId', ['SUPER_ADMIN', 'FLEET_ADMIN']],
+  // Fleet is an unrestricted section — every role reads the list and a bike's
+  // record — but inducting a bike is fleet work (RBAC.md §4 conflict 1) and
+  // correcting the record is not fleet-staff work.
+  ['/vehicles/new', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
+  ['/vehicles/bulk-upload', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
+  ['/vehicles/:vehicleId/edit', ['SUPER_ADMIN', 'FLEET_ADMIN']],
+];
+
+/**
+ * Every route pattern that is not open to all four roles, longest first.
+ *
+ * Built from NAV rather than written out again, so hiding a section in the rail
+ * and closing its URLs are the same edit. A section every role sees contributes
+ * nothing — an absent entry means "open", which keeps this from becoming a
+ * second list to remember a new screen in.
+ */
+const GATED_ROUTES: Array<[string, UserRole[]]> = [
+  ...NAV.filter((section) => section.roles.length < ALL_ROLES.length).flatMap(
+    (section) => section.items.map((item) => [item.path, section.roles] as [string, UserRole[]]),
+  ),
+  ...EXTRA_ROUTE_ROLES,
+].sort((a, b) => b[0].split('/').length - a[0].split('/').length);
+
+/**
+ * Who may open a path, or null when every role may.
+ *
+ * Patterns are matched with the router's own matcher, so `:riderId` here means
+ * what it means in the route table and the two cannot drift on a technicality.
+ */
+export function rolesForPath(pathname: string): UserRole[] | null {
+  for (const [pattern, roles] of GATED_ROUTES) {
+    if (matchPath({ path: pattern, end: true }, pathname)) return roles;
+  }
+  return null;
 }

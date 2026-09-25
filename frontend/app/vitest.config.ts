@@ -17,5 +17,18 @@ export default defineConfig({
     css: false,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     restoreMocks: true,
+    /**
+     * The suite runs against the mocks, on every machine.
+     *
+     * `IS_LIVE` is derived from VITE_API_BASE, and Vite loads `.env.local`
+     * into a test run exactly as it does into a dev server. So a developer who
+     * had pointed their dev server at a local API — the ordinary reason that
+     * file exists — silently ran the whole suite in live mode against a
+     * backend that was not up, and watched the service workbench tests fail on
+     * a fetch while CI, which has no `.env.local`, stayed green. The tests are
+     * about the screens, not about what the machine happens to be pointed at,
+     * so the variable is pinned empty here rather than left to the filesystem.
+     */
+    env: { VITE_API_BASE: '' },
   },
 });
