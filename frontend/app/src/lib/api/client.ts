@@ -13,7 +13,19 @@
 
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from './tokens';
 
-export const API_BASE = import.meta.env.VITE_API_BASE ?? '/api/v1';
+/**
+ * Trimmed, and a trailing slash removed.
+ *
+ * VITE_API_BASE arrives from a GitHub repository variable, whose field is a
+ * textarea — a pasted URL keeps the newline that came with it, and Vite bakes
+ * it into the bundle. Browsers happen to strip CR and LF while parsing a URL,
+ * so the app survives that by luck rather than design; a trailing slash is not
+ * so lucky and gives every request a doubled `//`. Both are cheap to rule out
+ * here, once, rather than in each caller.
+ */
+const rawApiBase = import.meta.env.VITE_API_BASE?.trim().replace(/\/+$/, '');
+
+export const API_BASE = rawApiBase || '/api/v1';
 
 /**
  * Whether this build talks to a real API.
@@ -21,8 +33,11 @@ export const API_BASE = import.meta.env.VITE_API_BASE ?? '/api/v1';
  * Deliberately derived from VITE_API_BASE rather than a second flag: two
  * switches that must agree eventually disagree. If you pointed the app at an
  * API, you meant it. Tests set nothing, so they resolve to the mocks.
+ *
+ * Read from the trimmed value, so a variable holding nothing but whitespace
+ * counts as unset instead of producing a live build aimed at the empty string.
  */
-export const IS_LIVE = Boolean(import.meta.env.VITE_API_BASE);
+export const IS_LIVE = Boolean(rawApiBase);
 
 /** Network-ish latency, so loading and empty states are real, not theoretical. */
 const LATENCY_MS = 220;
