@@ -1,0 +1,8 @@
+# Keep the build context small and the layer cache honest: a stale target/ or a
+# local .m2 copied in would defeat the dependency layer entirely.
+target/
+.git/
+.idea/
+*.iml
+docker-compose.yml
+README.md

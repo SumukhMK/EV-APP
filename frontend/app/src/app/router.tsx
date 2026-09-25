@@ -6,6 +6,7 @@
 import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
+import { RequireSession } from './RequireSession';
 import { RouteError } from '../components/RouteError';
 import { Login } from '../pages/Login';
 
@@ -91,7 +92,11 @@ const DesignTokens = lazy(() => import('../pages/admin/DesignTokens').then((m) =
 export const router = createBrowserRouter([
   { path: '/login', element: <Login />, errorElement: <RouteError /> },
   {
-    element: <AppLayout />,
+    element: (
+      <RequireSession>
+        <AppLayout />
+      </RequireSession>
+    ),
     // One boundary for the whole shell: a screen that throws — or a chunk that
     // 404s after a deploy — loses the content column, not the application.
     errorElement: <RouteError />,

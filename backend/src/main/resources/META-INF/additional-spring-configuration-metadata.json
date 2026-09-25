@@ -1,0 +1,49 @@
+{
+  "properties": [
+    {
+      "name": "app.cors.allowed-origins",
+      "type": "java.lang.String",
+      "description": "Comma-separated origins the API answers CORS preflight for."
+    },
+    {
+      "name": "app.jwt.issuer",
+      "type": "java.lang.String",
+      "description": "Issuer claim in issued JWTs."
+    },
+    {
+      "name": "app.jwt.secret",
+      "type": "java.lang.String",
+      "description": "HMAC-SHA256 signing key for access tokens. Never commit a real one."
+    },
+    {
+      "name": "app.jwt.access-token-ttl",
+      "type": "java.time.Duration",
+      "description": "Access token lifetime."
+    },
+    {
+      "name": "app.jwt.refresh-token-ttl",
+      "type": "java.time.Duration",
+      "description": "Refresh token lifetime."
+    },
+    {
+      "name": "app.bootstrap.admin-email",
+      "type": "java.lang.String",
+      "description": "Email of the first admin, created at boot when set. Empty means skip."
+    },
+    {
+      "name": "app.bootstrap.admin-password",
+      "type": "java.lang.String",
+      "description": "Password of the first admin."
+    },
+    {
+      "name": "app.bootstrap.admin-name",
+      "type": "java.lang.String",
+      "description": "Display name of the first admin."
+    },
+    {
+      "name": "app.bootstrap.demo-password",
+      "type": "java.lang.String",
+      "description": "When set, seeds the demo tenant and its users with this password. Empty means skip."
+    }
+  ]
+}

@@ -45,7 +45,7 @@ no screen changes.
 
 Nginx: TLS termination, static asset serving, rate limiting. Nothing clever.
 
-### API — Spring Boot 3.3 / Java 21
+### API — Spring Boot 4.1 / Java 21
 
 Cross-cutting band, applied to every request:
 
@@ -61,11 +61,24 @@ Module boundaries (`com.evrental.*`):
 |---|---|
 | `auth` | login, refresh, me, password reset |
 | `platform` | super-admin: tenants, plans, inquiries, analytics |
-| `tenantadmin` | vehicles, riders, assignments, payments, service, recovery |
+| `vehicle` | bike CRUD, state machine (9 states), lifecycle events, bulk CSV import |
+| `rider` | rider CRUD, KYC, Aadhaar masking |
+| `assignment` | assign bike to rider, exchange, deboard. Deboard/exchange call `ServiceJobFacade` to open a service job |
+| `service` | service management — 4 tables, 7 REST endpoints, state machine, QC gate, async charge event. See [`docs/backend/SERVICE_MANAGEMENT.md`](../backend/SERVICE_MANAGEMENT.md) |
+| `payment` | rider charges (from service job close), weekly payment run, receipts, overdue, dunning |
+| `user` | user CRUD, role management, RBAC |
 | `shared` | cross-tenant blacklist (keyed by phone, read across tenants) |
 | `notification` | email and SMS dispatch |
 | `excel` | `.xlsx` bulk import for the 150-bike migration |
 | `common` | exceptions, DTOs, util |
+
+### How modules talk to each other
+
+| From → To | How | Why |
+|-----------|-----|-----|
+| Service → Vehicle | Same transaction | Bike state must change instantly |
+| Service → Payment | Background thread (`@Async`) | Charge only matters at next payment run |
+| Assignment → Service | Java interface (`ServiceJobFacade`) | One owner per module — clean boundary |
 
 ### Data
 

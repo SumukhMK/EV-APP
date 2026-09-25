@@ -117,6 +117,11 @@ export interface BulkUploadRow {
 }
 
 export interface BulkUploadPreview {
+  /**
+   * Handle for the batch the server has staged. The commit call sends this
+   * back, so what was previewed is what gets imported.
+   */
+  importId: string;
   fileName: string;
   totalRows: number;
   validRows: number;

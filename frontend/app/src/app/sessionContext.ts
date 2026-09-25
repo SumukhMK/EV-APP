@@ -18,10 +18,15 @@ export interface SessionValue {
   user: DemoUser;
   tenant: string;
   /** The demo personas the rail can switch between, so a walkthrough can show
-   * each role's view without a real login. */
+   * each role's view without a real login. Empty when the API is live: the
+   * role comes from a signed token, and a control that looks like it changes
+   * your role but does not is worse than no control at all. */
   personas: DemoUser[];
   signedIn: boolean;
-  signIn: () => void;
+  /** True while a stored token is being exchanged for its user on first load.
+   * Routing must wait on it, or a reload bounces a signed-in user to /login. */
+  restoring: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
   switchPersona: (email: string) => void;
 }

@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The backend half of the platform. Stage S0 in docs/BUILD.md: this module
+  boots, connects to Postgres, runs Flyway, and answers /actuator/health.
+  Auth, RLS and tenants land on top of it.
+
+  Java 21 is fixed by docs/architecture/ARCHITECTURE.md. Spring Boot tracks
+  the newest supported 4.x line: every 3.x branch left OSS support in June
+  2026, and 4.0.x itself ends OSS support in December 2026, so this module
+  sits on 4.1.x (supported until June 2027).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.1</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.evrental</groupId>
+  <artifactId>ev-rental-api</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <name>ev-rental-api</name>
+  <description>EV rental platform API — multi-tenant fleet management</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <jjwt.version>0.12.6</jjwt.version>
+    <!-- Boot 4.1 no longer imports the Testcontainers BOM, so the version is
+         pinned here. 2.x's docker-java negotiates the Docker API version
+         itself — the 1.20.6 pin from the Boot 3.3 era (Docker Engine 29
+         raised its minimum API to 1.40) is obsolete. -->
+    <testcontainers.version>2.0.5</testcontainers.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!-- Flyway owns the schema. Three artifacts, all required:
+
+         - spring-boot-flyway carries FlywayAutoConfiguration. Boot 4 split
+           spring-boot-autoconfigure into per-technology modules, so the class
+           that ran Flyway for us on Boot 3 is no longer on the classpath by
+           way of the starter. Without it flyway-core sits there unused,
+           spring.flyway.enabled is inert, and the application starts against
+           an empty database — silently, because nothing reports a migration
+           that was never attempted.
+         - flyway-core is the engine.
+         - flyway-database-postgresql is a separate jar from Flyway 10 onward;
+           without it Flyway refuses to run on PG 16. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-flyway</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- JWT: 15 minute access token, 7 day refresh (ARCHITECTURE.md). -->
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+      <version>${jjwt.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-jackson</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Tests run against a real Postgres 16 in Docker, not H2. RLS and the
+         partial unique indexes this schema leans on do not exist in H2, so a
+         test on H2 would prove the wrong thing. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Boot 4 split the MockMvc auto-configuration out of starter-test into
+         its own starter; @AutoConfigureMockMvc lives in
+         org.springframework.boot.webmvc.test.autoconfigure now. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- docker-java still asks for Docker API 1.32 by default, and Docker
+               Engine 29 refuses anything below 1.40. The failure is a bare "400
+               Bad Request" carrying an empty body, and Testcontainers reports it
+               as "Could not find a valid Docker environment" — which points at
+               the wrong thing entirely, since the daemon is running fine.
+
+               It has to be a system property: docker-java does not read the
+               DOCKER_API_VERSION environment variable here. 1.44 is Docker 25
+               (Jan 2024), so every engine in use locally or on the runner
+               supports it. Raise it only if an engine ever demands more. -->
+          <argLine>-Dapi.version=1.44</argLine>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
