@@ -25,7 +25,17 @@ RUN ./mvnw -B -ntp clean package -DskipTests
 # Split the jar into layers by how often they change: dependencies almost
 # never, application classes every build. A redeploy then ships the last layer
 # instead of the whole 60MB jar.
-RUN java -Djarmode=layertools -jar target/*.jar extract --destination extracted
+#
+# `jarmode=layertools` was removed in Spring Boot 4 — it fails with
+# "Unsupported jarmode 'layertools'" — and `jarmode=tools` replaces it.
+# `--launcher` is what keeps the four COPY lines below unchanged: without it
+# the application layer is a thin jar with a Class-Path manifest, which needs
+# a different ENTRYPOINT. With it the layout is the exploded BOOT-INF tree
+# that JarLauncher expects.
+#
+# Nothing in CI catches a break here. CI builds the jar with Maven and never
+# builds this image; only a deploy does.
+RUN java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination extracted
 
 # ---------------------------------------------------------------------------
 # 2 — run

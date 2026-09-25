@@ -65,8 +65,54 @@ Then **unset the bootstrap password** once you have signed in. It is only
 needed to create the account, and an environment variable is a poor place to
 leave a credential.
 
+And, only if this instance should carry the 137-bike demo fleet, **both** of:
+
+| Variable | Value |
+|---|---|
+| `APP_BOOTSTRAP_SEED_FLEET` | `true` |
+| `APP_BOOTSTRAP_DEMO_PASSWORD` | the shared password for the three demo personas |
+
+Both, because the seeder loads into the tenant `g1-mobility`, and that tenant
+is created by `BootstrapData` only when the demo password is set. Set the flag
+on its own and the log reads `Fleet seed: no tenant 'g1-mobility' — nothing to
+seed into`, the boot stays green, and the fleet is quietly empty.
+
+There is no seed *script* to run. Flyway applies the migrations, `BootstrapData`
+creates the accounts and `DevFleetSeeder` loads `db/seed/fleet.csv`, all on
+first boot inside the container. A second boot finds the rows already there and
+does nothing.
+
+One thing CI cannot check: the tests and `docker-compose.yml` both pin
+**Postgres 16**, and a Neon project is 17 or 18. Flyway 12 handles all three
+and the migrations are plain DDL — verified by booting against Neon's 18.6 —
+but a major-version jump is worth one manual boot before trusting a deploy.
+
 Health check: `/actuator/health`. Health is the only actuator endpoint exposed
 — every other one leaks something.
+
+### Who triggers the deploy
+
+**Turn Render's auto-deploy off** (`autoDeploy: false` in the blueprint; the
+"Auto-Deploy" toggle on an existing service). A push to main must not ship the
+API — a green `backend` job must, and those are different things. The
+`deploy-api` job in `.github/workflows/ci.yml` calls the Render API once the
+tests pass and then waits for the build, so a failed deploy turns CI red
+instead of leaving the old version serving traffic quietly.
+
+Render still builds the image itself: it needs the build context, and pushing
+a 200MB image through Actions buys nothing.
+
+Two settings make that job run:
+
+| Where | Name | Value |
+|---|---|---|
+| Repository **secret** | `RENDER_API_KEY` | an API key from Render → Account Settings → API Keys |
+| Repository **variable** | `RENDER_SERVICE_ID` | `srv-…`, the ID in the service's dashboard URL |
+
+The key is a secret because it can create and destroy every service in the
+workspace. The service ID is not — it is in a URL. Until the variable exists
+the job skips itself, so merging the workflow does not turn main red before
+the service does.
 
 Deploy previews live on their own Netlify subdomains and are *not* covered by
 `CORS_ALLOWED_ORIGINS`. Add them explicitly if a preview needs the real API.

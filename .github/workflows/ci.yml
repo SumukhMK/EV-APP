@@ -7,10 +7,12 @@
 #
 #   push to any branch  →  verify (site) ∥ backend (API)
 #   push to main        →  verify → deploy to production
+#                          backend → deploy-api to Render
 #   PR into main        →  verify → deploy to a preview URL, commented on the PR
 #
-# `backend` runs alongside `verify` and gates nothing else: the API is not part
-# of the bundle Netlify serves, so a red backend must not stop a site deploy.
+# `backend` runs alongside `verify` and gates only the API: the API is not part
+# of the bundle Netlify serves, so a red backend must not stop a site deploy,
+# and a red frontend must not stop the API's. The two lanes never cross.
 #
 # A branch with an open PR runs twice (once for the push, once for the PR).
 # That is the price of gating pushes on branches that have no PR yet, which is
@@ -197,3 +199,73 @@ jobs:
           else
             gh api -X POST "repos/${{ github.repository }}/issues/${{ github.event.number }}/comments" -f body="$BODY"
           fi
+
+  # The API's half of the pipe, and deliberately the mirror image of `deploy`:
+  # Actions decides, Render obeys. Auto-deploy is turned OFF on the Render
+  # service, so a push does not ship the API — only a green `backend` job does.
+  # Same reason Netlify does not build the site: one gate, in one place, and
+  # what shipped is always what the tests ran against.
+  #
+  # Render still builds the image itself (it needs the build context, and a
+  # 200MB image is not worth pushing through Actions), so this job triggers and
+  # then *waits*. Without the wait, a failed build would leave CI green and the
+  # old version serving traffic with nobody told.
+  deploy-api:
+    name: Deploy API
+    needs: backend
+    runs-on: ubuntu-latest
+    # Skips itself until RENDER_SERVICE_ID exists, so merging this does not
+    # turn main red before the service has been created.
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      vars.RENDER_SERVICE_ID != ''
+
+    steps:
+      - name: Deploy to Render, and wait for it
+        env:
+          # A secret: this key can create and destroy every service in the
+          # workspace. The service ID next to it is not — it appears in the
+          # dashboard URL — so it is a variable.
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+
+          api() { curl -sS -H "Authorization: Bearer $RENDER_API_KEY" "$@"; }
+
+          # clearCache=do_not_clear keeps the Docker layer cache. The layered
+          # Dockerfile means a code-only change reuses the dependency layers;
+          # clearing would throw that away on every deploy.
+          DEPLOY_ID=$(api -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{"clearCache":"do_not_clear"}' \
+            "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+
+          echo "Deploy $DEPLOY_ID started — https://dashboard.render.com/web/$SERVICE_ID/deploys/$DEPLOY_ID"
+
+          # 30 minutes. A cold Maven build with no cache is the worst case and
+          # runs well under that; anything slower is stuck, not slow.
+          for _ in $(seq 1 180); do
+            STATUS=$(api "https://api.render.com/v1/services/$SERVICE_ID/deploys/$DEPLOY_ID" \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')
+
+            case "$STATUS" in
+              live)
+                echo "Live."
+                exit 0
+                ;;
+              build_failed|update_failed|pre_deploy_failed|canceled|deactivated)
+                echo "::error::Render deploy $STATUS — see the dashboard link above."
+                exit 1
+                ;;
+              *)
+                echo "  $STATUS"
+                sleep 10
+                ;;
+            esac
+          done
+
+          echo "::error::Deploy did not finish in 30 minutes."
+          exit 1
