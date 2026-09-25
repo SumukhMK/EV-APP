@@ -209,14 +209,14 @@ across every endpoint written meanwhile.
 
 | Endpoint | Roles |
 |---|---|
-| list, facets, filter-options, get | `SUPER_ADMIN`, `TENANT_ADMIN`, `FLEET_STAFF`, `SERVICE_MANAGER` |
+| list, facets, filter-options, get | `SUPER_ADMIN`, `FLEET_ADMIN`, `FLEET_STAFF`, `SERVICE_MANAGER` |
 
 `SERVICE_MANAGER` is on the read row because S4 is their stage and a service
 queue that cannot read the vehicle it is servicing is unusable. Read access is
 the loosest of the three rows deliberately: the cost of a wrong read inside one
 tenant is low, and the cost of a fleet manager unable to see the fleet is not.
-| create, update, imports | `SUPER_ADMIN`, `TENANT_ADMIN` |
-| transitions | `SUPER_ADMIN`, `TENANT_ADMIN`, `SERVICE_MANAGER` |
+| create, update, imports | `SUPER_ADMIN`, `FLEET_ADMIN` |
+| transitions | `SUPER_ADMIN`, `FLEET_ADMIN`, `SERVICE_MANAGER` |
 
 The 403 these produce is correct only because of the `AccessDeniedException`
 handler added to `GlobalExceptionHandler` in the S0 hardening pass — without it

@@ -71,7 +71,10 @@ that is a conversation, not an edit.
 
 ## Frontend
 
-Already built and running on mock data. Ownership stays as it is:
+Already built and running on mock data. Ownership stays as it is. Auth (S0)
+is already live-capable: with `VITE_API_BASE` set, login, refresh, logout and
+`/me` hit the API, the rail signs out behind a confirmation dialog, and every
+login failure has its own message:
 
 | Area | Owner |
 |---|---|
@@ -98,14 +101,28 @@ is touched:
 Whoever owns the backend stage owns the swap, because they are the one who
 knows what the real response looks like.
 
+S1's swap is already built — `lib/api/vehicles.ts` re-exports the live or the
+mock implementation from `VITE_API_BASE`. The remaining rows follow the same
+pattern.
+
 ---
 
 ## Right now
 
-**Done:** all of S0. The backend boots, connects to Postgres, runs its
+**Done:** S0 and S1. The backend boots, connects to Postgres, runs its
 migrations, signs users in, rotates refresh tokens, refuses every request it has
-no rule for, and proves tenant isolation in a test. 22 tests, all against a real
-Postgres. See [`backend/README.md`](../../backend/README.md).
+no rule for, and proves tenant isolation in a test. On that floor sits the
+complete vehicle module: create, edit, the nine states, search and facets, and
+CSV bulk upload. 91 tests, all against a real Postgres. See
+[`backend/README.md`](../../backend/README.md).
+
+**RBAC go-live pass (2026-09-25):** the four product conflicts in
+[`RBAC.md`](RBAC.md) are decided and implemented. Backend: vehicle create/import
+gates now include FLEET_STAFF, and transitions run through
+`VehicleTransitionPolicy` (FS fleet moves, SM workshop moves, SA/FA all incl.
+retire; unknown pairs defer to the state machine for 409). Frontend: role
+helpers in `roles.ts` updated, vehicle/service CTAs gated, AssistanceJob copy
+fixed. Backend 111/111 tests, frontend 175/175 + lint + build green.
 
 ### What S0 actually is
 
@@ -118,10 +135,10 @@ that is the point. It is the floor the modules get built on.
   nobody has to install Maven — it fetches its own on first run.
 - One package per module from the architecture doc: `auth`, `platform`,
   `vehicle`, `rider`, `user`, `service`, `assignment`, `payment`, `shared`,
-  `notification`, `excel`. `auth`, `platform` and `user` are filled in; the rest
-  hold a short note saying what they own, which stage builds them and whose
-  stage that is. Empty on purpose — the boundary exists before the code does, so
-  nothing lands in the wrong module by accident.
+  `notification`, `excel`. `auth`, `platform`, `user` and `vehicle` are filled
+  in; the rest hold a short note saying what they own, which stage builds them
+  and whose stage that is. Empty on purpose — the boundary exists before the
+  code does, so nothing lands in the wrong module by accident.
 - Flyway's auto-configuration comes from `spring-boot-flyway`, which is a
   separate dependency on Boot 4. Without it migrations silently do not run.
   Do not remove it.
@@ -168,7 +185,7 @@ that is the point. It is the floor the modules get built on.
 
 **Tests**
 
-- Twenty-two, all green, run against a **real Postgres in Docker** — not an
+- Ninety-one, all green, run against a **real Postgres in Docker** — not an
   in-memory stand-in, which does not have row-level security and would prove
   nothing.
 - One checks the app starts and the migrations ran. Four hammer tenant
@@ -179,6 +196,8 @@ that is the point. It is the floor the modules get built on.
 - Twelve walk the auth flow through the real filter chain. Five more cover the
   edges: a suspended tenant, an expired token, a signed token with an unusable
   claim, and two refreshes of the same token racing each other.
+- The vehicle module adds its own: create, update, read, the nine-state
+  transitions, the CSV import preview and commit, and the seed-file contract.
 
 **Running it**
 
@@ -190,12 +209,37 @@ that is the point. It is the floor the modules get built on.
   blocks the other.
 - No mail server. Nothing sends mail until S6.
 
+### What S1 actually is
+
+The vehicle module, built on the S0 floor.
+
+- `vehicle/` owns the registry: create, edit, read, the nine states and the
+  transitions between them, search and facets, and CSV bulk upload (preview
+  then commit).
+- Every list is paginated through the shared `PageResponse`; every failure
+  leaves through the shared error handler. Nothing in the module builds an
+  error or a page by hand.
+- The nine states are enforced in one place, `VehicleService.transitionState()`.
+  S4 will change a bike's state through that same method — never by writing to
+  the table.
+- The seed fleet (`db/seed/fleet.csv`, 137 bikes) is generated from the
+  frontend fixtures (`npm run seed:export`), so the wired screen and the mock
+  screen show the same fleet.
+- The frontend swap is built: `lib/api/vehicles.ts` re-exports the live or the
+  mock implementation from `VITE_API_BASE`. It is the worked example every
+  later module copies.
+
 **SMK, next:** S3 — users and roles: the CRUD surface on top of the S0 gate.
 
 **Abhiram, next:** S2 — riders: CRUD, KYC, masked Aadhaar. Unblocked now that
 S0 is in. Read `frontend/app/src/types/rider.ts` first: that is the shape S2
 has to return, and if something in it looks wrong, now is the cheap time to say
 so.
+
+**Deployment:** the path exists (`render.yaml`, `netlify.toml`, `DEPLOY.md`)
+but is not live yet — the Render service is created but not running, and
+`VITE_API_BASE` is not set as a GitHub variable. Until both happen the
+deployed site stays the fixtures demo.
 
 ---
 

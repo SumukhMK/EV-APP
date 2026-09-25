@@ -53,7 +53,7 @@ export interface NavSection {
   roles: UserRole[];
 }
 
-const ALL_ROLES: UserRole[] = ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF', 'SERVICE_MANAGER'];
+const ALL_ROLES: UserRole[] = ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF', 'SERVICE_MANAGER'];
 
 export const NAV: NavSection[] = [
   {
@@ -83,7 +83,7 @@ export const NAV: NavSection[] = [
   {
     heading: 'Riders',
     // The workshop role (service manager) works bikes, not riders.
-    roles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF'],
+    roles: ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF'],
     items: [
       { label: 'Riders', path: '/riders', icon: PeopleIcon, owner: 'abhiram', artboard: 7 },
       { label: 'Onboard rider', path: '/riders/onboard', icon: PersonAddIcon, owner: 'abhiram', artboard: 9 },
@@ -95,7 +95,7 @@ export const NAV: NavSection[] = [
   {
     heading: 'Money',
     // Money is an admin responsibility; staff and workshop never touch it.
-    roles: ['SUPER_ADMIN', 'TENANT_ADMIN'],
+    roles: ['SUPER_ADMIN', 'FLEET_ADMIN'],
     items: [
       { label: 'Weekly payment run', path: '/payments/run', icon: ReceiptIcon, owner: 'smk', artboard: 15 },
       { label: 'Overdue riders', path: '/payments/overdue', icon: WarningIcon, owner: 'smk', artboard: 17 },
@@ -104,7 +104,7 @@ export const NAV: NavSection[] = [
   },
   {
     heading: 'Admin',
-    roles: ['SUPER_ADMIN', 'TENANT_ADMIN'],
+    roles: ['SUPER_ADMIN', 'FLEET_ADMIN'],
     items: [
       { label: 'Users & roles', path: '/users', icon: AdminIcon, owner: 'smk', artboard: 18 },
       { label: 'Audit log', path: '/audit', icon: HistoryIcon, owner: 'smk', artboard: 19 },

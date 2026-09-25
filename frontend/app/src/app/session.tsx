@@ -23,7 +23,7 @@ import { SessionContext, type DemoUser, type SessionValue } from './sessionConte
  * Mock mode only — see SessionValue.personas.
  */
 const PERSONAS: DemoUser[] = [
-  { name: 'Meenakshi Iyer', roleKey: 'TENANT_ADMIN', email: 'meenakshi@g1mobility.in' },
+  { name: 'Meenakshi Iyer', roleKey: 'FLEET_ADMIN', email: 'meenakshi@g1mobility.in' },
   { name: 'Priya Menon', roleKey: 'SUPER_ADMIN', email: 'priya@g1mobility.in' },
   { name: 'Abhinandan', roleKey: 'SERVICE_MANAGER', email: 'abhinandan@g1mobility.in' },
   { name: 'Dhananjay', roleKey: 'FLEET_STAFF', email: 'dhananjay@g1mobility.in' },

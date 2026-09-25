@@ -58,8 +58,8 @@ class AuthFlowTest extends PostgresTestBase {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         jdbc.update("INSERT INTO tenants (id, name, slug) VALUES (?, 'G1 Mobility', 'g1')", TENANT_A);
         jdbc.update("INSERT INTO tenants (id, name, slug) VALUES (?, 'Rival Fleet', 'rival')", TENANT_B);
-        insertUser(TENANT_A, "meenakshi@g1mobility.in", "Meenakshi Iyer", "TENANT_ADMIN", "ACTIVE");
-        insertUser(TENANT_B, "someone@rivalfleet.in", "Someone Else", "TENANT_ADMIN", "ACTIVE");
+        insertUser(TENANT_A, "meenakshi@g1mobility.in", "Meenakshi Iyer", "FLEET_ADMIN", "ACTIVE");
+        insertUser(TENANT_B, "someone@rivalfleet.in", "Someone Else", "FLEET_ADMIN", "ACTIVE");
         insertUser(TENANT_A, "disabled@g1mobility.in", "Disabled User", "FLEET_STAFF", "DISABLED");
     }
 
@@ -77,7 +77,7 @@ class AuthFlowTest extends PostgresTestBase {
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.user.email").value("meenakshi@g1mobility.in"))
                 .andExpect(jsonPath("$.user.name").value("Meenakshi Iyer"))
-                .andExpect(jsonPath("$.user.role").value("TENANT_ADMIN"))
+                .andExpect(jsonPath("$.user.role").value("FLEET_ADMIN"))
                 .andExpect(jsonPath("$.user.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.user.lastActiveAt").isNotEmpty())
                 // The rail prints the operator beside the user, so login must

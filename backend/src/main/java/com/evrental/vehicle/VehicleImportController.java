@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/vehicles/imports")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
 public class VehicleImportController {
 
     private final VehicleImportService vehicleImportService;

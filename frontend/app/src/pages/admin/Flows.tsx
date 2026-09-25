@@ -21,7 +21,7 @@ import type { UserRole } from '../../types';
 
 const nodeTypes = { flow: FlowNode };
 const edgeTypes = { flow: FlowEdge };
-const ALL_ROLES: UserRole[] = ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF', 'SERVICE_MANAGER'];
+const ALL_ROLES: UserRole[] = ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF', 'SERVICE_MANAGER'];
 
 function isFlowMode(v: string | null): v is FlowMode {
   return FLOW_MODES.some((m) => m.id === v);

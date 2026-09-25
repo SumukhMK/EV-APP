@@ -18,7 +18,7 @@ A web platform to run electric-bike rental fleets. Three levels of users:
 
 - **Super Admin** — the platform owner. Sees all tenants, bikes, riders. Manages
   tenants, their subscription plans, platform alerts, and the shared blacklist.
-- **Tenant Admin** — a fleet company (like Ashok). Runs their own fleet: bikes,
+- **Fleet Admin** — a fleet company (like Ashok). Runs their own fleet: bikes,
   riders, rent, service, dashboards. Cannot see other tenants.
 - **Rider** — rents a bike, pays weekly rent, raises service tickets. (Later phase.)
 
@@ -176,7 +176,7 @@ in his two page sets.** Neither edits the other's files.
   rider, late fee on overdue
 - Manual payment recording, overdue list, receipts
 - Weekly SMS reminder
-- Simple blacklist (reason text, tenant admin decides)
+- Simple blacklist (reason text, fleet admin decides)
 - Fleet-owner inquiry / onboarding form inside the app
 - Migrate existing 150 bikes and riders
 

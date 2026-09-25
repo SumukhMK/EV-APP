@@ -34,6 +34,7 @@ public abstract class VehicleTestBase extends PostgresTestBase {
     protected static final String PASSWORD = "test-password-123";
     protected static final String ADMIN_EMAIL = "vehicle-admin@g1mobility.in";
     protected static final String STAFF_EMAIL = "vehicle-staff@g1mobility.in";
+    protected static final String SERVICE_MANAGER_EMAIL = "vehicle-service@g1mobility.in";
 
     @Autowired
     protected MockMvc mvc;
@@ -67,11 +68,14 @@ public abstract class VehicleTestBase extends PostgresTestBase {
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Rival Co', 'rival-co', 'ACTIVE')", OTHER_TENANT);
             jdbc.update("INSERT INTO users (tenant_id, name, email, password_hash, role, status) "
-                    + "VALUES (?, 'Meenakshi Iyer', ?, ?, 'TENANT_ADMIN', 'ACTIVE')",
+                    + "VALUES (?, 'Meenakshi Iyer', ?, ?, 'FLEET_ADMIN', 'ACTIVE')",
                     TENANT, ADMIN_EMAIL, passwordEncoder.encode(PASSWORD));
             jdbc.update("INSERT INTO users (tenant_id, name, email, password_hash, role, status) "
                     + "VALUES (?, 'Dhananjay', ?, ?, 'FLEET_STAFF', 'ACTIVE')",
                     TENANT, STAFF_EMAIL, passwordEncoder.encode(PASSWORD));
+            jdbc.update("INSERT INTO users (tenant_id, name, email, password_hash, role, status) "
+                    + "VALUES (?, 'Abhinandan', ?, ?, 'SERVICE_MANAGER', 'ACTIVE')",
+                    TENANT, SERVICE_MANAGER_EMAIL, passwordEncoder.encode(PASSWORD));
             return null;
         });
         adminUserId = superAdmin(jdbc ->

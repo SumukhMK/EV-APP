@@ -7,7 +7,7 @@ import { SessionContext, type SessionValue } from '../app/sessionContext';
 
 function renderNav(signOut: SessionValue['signOut'], collapsed = false) {
   const session: SessionValue = {
-    user: { name: 'Meenakshi Iyer', roleKey: 'TENANT_ADMIN', email: 'meenakshi@g1mobility.in' },
+    user: { name: 'Meenakshi Iyer', roleKey: 'FLEET_ADMIN', email: 'meenakshi@g1mobility.in' },
     tenant: 'G1 Mobility Rentals',
     personas: [],
     signedIn: true,

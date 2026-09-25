@@ -8,7 +8,7 @@ import { ApiError } from '../lib/api/client';
 
 function renderLogin(signIn: SessionValue['signIn']) {
   const session: SessionValue = {
-    user: { name: 'Meenakshi Iyer', roleKey: 'TENANT_ADMIN', email: 'meenakshi@g1mobility.in' },
+    user: { name: 'Meenakshi Iyer', roleKey: 'FLEET_ADMIN', email: 'meenakshi@g1mobility.in' },
     tenant: 'G1 Mobility Rentals',
     personas: [],
     signedIn: false,

@@ -43,8 +43,8 @@ class TenantIsolationTest extends PostgresTestBase {
         jdbc.update("INSERT INTO tenants (id, name, slug) VALUES (?, 'G1 Mobility', 'g1')", TENANT_A);
         jdbc.update("INSERT INTO tenants (id, name, slug) VALUES (?, 'Rival Fleet', 'rival')", TENANT_B);
 
-        insertUserAs(TENANT_A, "meenakshi@g1mobility.in", "Meenakshi Iyer", "TENANT_ADMIN");
-        insertUserAs(TENANT_B, "someone@rivalfleet.in", "Someone Else", "TENANT_ADMIN");
+        insertUserAs(TENANT_A, "meenakshi@g1mobility.in", "Meenakshi Iyer", "FLEET_ADMIN");
+        insertUserAs(TENANT_B, "someone@rivalfleet.in", "Someone Else", "FLEET_ADMIN");
     }
 
     @Test
@@ -100,7 +100,7 @@ class TenantIsolationTest extends PostgresTestBase {
             conn.setAutoCommit(false);
             setTenant(conn, actingAs);
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO users (tenant_id, name, email, role, status) VALUES (?, 'Smuggled', ?, 'TENANT_ADMIN', 'INVITED')")) {
+                    "INSERT INTO users (tenant_id, name, email, role, status) VALUES (?, 'Smuggled', ?, 'FLEET_ADMIN', 'INVITED')")) {
                 ps.setObject(1, claimedTenant);
                 ps.setString(2, email);
                 ps.executeUpdate();
