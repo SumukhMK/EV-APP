@@ -36,7 +36,7 @@ start, not after you push.
 | **S1** | Bikes: create, edit, the nine states, CSV upload | **SMK** | **done** |
 | **S2** | Riders: create, edit, KYC, hide most of the Aadhaar number | **Abhiram** | S0 |
 | **S3** | Users and roles: who is allowed to call what | **SMK** | S0 |
-| **S4** | Service jobs: intake, repair queues, QC, cost | **SMK** | S1 + S2 |
+| **S4** | Service jobs: intake, repair queues, QC, cost | **SMK** | **done** |
 | **S5** | Assign a bike to a rider, exchange it, take it back | **Abhiram** | S4 |
 | **S6** | Money: charges, weekly payment run, receipts, overdue | **SMK** | S4 |
 
@@ -115,6 +115,26 @@ no rule for, and proves tenant isolation in a test. On that floor sits the
 complete vehicle module: create, edit, the nine states, search and facets, and
 CSV bulk upload. 91 tests, all against a real Postgres. See
 [`backend/README.md`](../../backend/README.md).
+
+**S4 landed (2026-09-25):** the service module is built — `V006`, four
+tables under RLS, the nine queues wired to `VehicleService.transitionState()`,
+the QC gate, cost lines, close-with-liability and the async
+`ServiceJobClosedEvent` the money module will listen for. `ServiceJobFacade.openJob()`
+— the one handshake with Abhiram's S5 — is live and tested through the
+interface. Backend 185/185 tests against a real Postgres, up from 111.
+
+**S4's frontend swap is NOT done, and it is not a one-line change.**
+`lib/api/serviceJobs.ts` cannot simply re-export a live twin, because the mock
+`updateServiceJobRecord()` is doing three jobs the backend splits up: it
+updates, it closes-and-charges when `queue === 'READY_TO_DEPLOY'`, and it
+enforces rules that exist nowhere on the server — a note is required, a
+technician and a work summary are required before QC or release, a claim
+reference is required for WARRANTY/INSURANCE/PARTS_WAITING, a liability is
+required once the total is non-zero, and the rider must exist before anything
+is charged to them. Flipping the switch today would quietly drop all of that.
+Either those rules move to the backend or `AssistanceJob.tsx` splits its one
+save into update/close/QC calls. That is a decision, not a chore, so it is
+written down rather than guessed at.
 
 **RBAC go-live pass (2026-09-25):** the four product conflicts in
 [`RBAC.md`](RBAC.md) are decided and implemented. Backend: vehicle create/import
@@ -229,7 +249,9 @@ The vehicle module, built on the S0 floor.
   mock implementation from `VITE_API_BASE`. It is the worked example every
   later module copies.
 
-**SMK, next:** S3 — users and roles: the CRUD surface on top of the S0 gate.
+**SMK, next:** S6 — money, which S4 now unblocks. The one thing standing
+between the service screens and the real API is not a backend gap: see
+"Turning the mocks off" above and the note under S4 below.
 
 **Abhiram, next:** S2 — riders: CRUD, KYC, masked Aadhaar. Unblocked now that
 S0 is in. Read `frontend/app/src/types/rider.ts` first: that is the shape S2
