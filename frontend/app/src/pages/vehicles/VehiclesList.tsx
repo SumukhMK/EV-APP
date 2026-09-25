@@ -19,6 +19,8 @@ import { Mono } from '../../components/Mono';
 import { TableFooter } from '../../components/TableFooter';
 import { listVehicles, vehicleFacets, vehicleFilterOptions, deriveMake } from '../../lib/api/vehicles';
 import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE } from '../../lib/labels';
+import { canAddVehicle } from '../../lib/roles';
+import { useSession } from '../../app/sessionContext';
 import { VEHICLE_STATES, type BatteryType, type Vehicle, type VehicleState } from '../../types';
 import { accent, neutral } from '../../theme/tokens';
 import { useDebounced } from '../../hooks/useDebounced';
@@ -33,6 +35,7 @@ function parseState(raw: string | null): VehicleState | 'ALL' {
 export function VehiclesList() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { user } = useSession();
   // The table sheds columns in two steps rather than scrolling sideways.
   // What survives to the narrowest view is what a dispatcher actually scans
   // for — which bike, what state, who has it. The reference numbers (chassis,
@@ -200,12 +203,16 @@ export function VehiclesList() {
         icon={TwoWheelerIcon}
         actions={
           <>
-            <Button color="inherit" component={Link} to="/vehicles/bulk-upload">
-              Bulk upload
-            </Button>
-            <Button component={Link} to="/vehicles/new">
-              Add vehicle
-            </Button>
+            {canAddVehicle(user.roleKey) && (
+              <Button color="inherit" component={Link} to="/vehicles/bulk-upload">
+                Bulk upload
+              </Button>
+            )}
+            {canAddVehicle(user.roleKey) && (
+              <Button component={Link} to="/vehicles/new">
+                Add vehicle
+              </Button>
+            )}
           </>
         }
       />

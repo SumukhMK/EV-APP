@@ -10,6 +10,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,9 +31,12 @@ import org.springframework.web.bind.annotation.RestController;
  * authority and @EnableMethodSecurity all landed in S0 -- and retrofitting
  * annotations across three stages of endpoints is how one gets missed.
  *
- * <p>SERVICE_MANAGER can read and transition but not create or edit: S4 is
- * their stage and a service queue that cannot move the bike it is servicing is
- * unusable. FLEET_STAFF can only read, until Ashok says what they actually do.
+ * <p>SERVICE_MANAGER can read and run workshop transitions (QC pass/fail,
+ * repair routing) but not create or edit: S4 is their stage and a service
+ * queue that cannot move the bike it is servicing is unusable. FLEET_STAFF
+ * can read, create, import and run fleet transitions (induct, assign, return,
+ * recovery) but not edit the record or retire a bike. Which transition a role
+ * may run is decided by VehicleTransitionPolicy, not by the coarse gate here.
  */
 @RestController
 @RequestMapping("/api/v1/vehicles")
@@ -41,13 +45,16 @@ public class VehicleController {
     private final VehicleService vehicleService;
     private final UserRepository users;
     private final VehicleLifecycleEventRepository lifecycleEvents;
+    private final VehicleTransitionPolicy transitionPolicy;
 
     public VehicleController(VehicleService vehicleService,
                              UserRepository users,
-                             VehicleLifecycleEventRepository lifecycleEvents) {
+                             VehicleLifecycleEventRepository lifecycleEvents,
+                             VehicleTransitionPolicy transitionPolicy) {
         this.vehicleService = vehicleService;
         this.users = users;
         this.lifecycleEvents = lifecycleEvents;
+        this.transitionPolicy = transitionPolicy;
     }
 
     /**
@@ -64,7 +71,7 @@ public class VehicleController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
     public VehicleResponse create(@Valid @RequestBody CreateVehicleRequest request,
                                   Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
@@ -73,7 +80,7 @@ public class VehicleController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public PageResponse<VehicleResponse> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
@@ -89,7 +96,7 @@ public class VehicleController {
     }
 
     @GetMapping("/facets")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public List<Facet<String>> facets(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String state,
@@ -100,31 +107,35 @@ public class VehicleController {
     }
 
     @GetMapping("/filter-options")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public FilterOptionsResponse filterOptions() {
         return vehicleService.filterOptions();
     }
 
     @GetMapping("/{registryId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public VehicleDetailResponse get(@PathVariable String registryId) {
         return detailOf(vehicleService.findByRegistryId(registryId));
     }
 
     @PutMapping("/{registryId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
     public VehicleDetailResponse update(@PathVariable String registryId,
                                         @Valid @RequestBody UpdateVehicleRequest request) {
         return detailOf(vehicleService.update(registryId, request));
     }
 
     @PostMapping("/{registryId}/transitions")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','TENANT_ADMIN','SERVICE_MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
     public VehicleResponse transition(@PathVariable String registryId,
                                       @Valid @RequestBody TransitionRequest request,
                                       Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
         Vehicle vehicle = vehicleService.findByRegistryId(registryId);
+        if (!transitionPolicy.canTransition(principal.role(), vehicle.getState(), request.toState())) {
+            throw new AccessDeniedException(
+                    "This role cannot move a vehicle from " + vehicle.getState() + " to " + request.toState());
+        }
         return VehicleResponse.from(vehicleService.transitionState(
                 vehicle.getId(), request.toState(), request.note(),
                 principal.userId(), actorName(principal)));

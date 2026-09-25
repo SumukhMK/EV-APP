@@ -115,7 +115,7 @@ c_api = container(80, 580, 1980, 390)
 label(104, 596, "API   ·   Spring Boot 4.1   ·   Java 21   ·   REST /api   ·   OpenAPI / Swagger", size=16, color=MUTED)
 box(140, 636, 1860, 96,
     "Spring Security + JWT  (15 min access · 7 day refresh)      ·      TenantFilter  →  SET LOCAL app.tenant_id\n"
-    "Role gate:  SUPER_ADMIN   ·   TENANT_ADMIN   ·   TENANT_STAFF", APP)
+    "Role gate:  SUPER_ADMIN   ·   FLEET_ADMIN   ·   FLEET_STAFF   ·   SERVICE_MANAGER", APP)
 
 mods = [
     "auth\nlogin · refresh\npassword reset",

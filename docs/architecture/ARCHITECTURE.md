@@ -53,7 +53,7 @@ Cross-cutting band, applied to every request:
   refresh, revocation recorded in `refresh_tokens.revoked_at`. BCrypt for passwords.
 - **TenantFilter.** Reads the `tenant_id` claim and issues
   `SET LOCAL app.tenant_id = '<uuid>'` at the start of the transaction.
-- **Role gate.** `SUPER_ADMIN` / `TENANT_ADMIN` / `TENANT_STAFF`.
+- **Role gate.** `SUPER_ADMIN` / `FLEET_ADMIN` / `FLEET_STAFF` / `SERVICE_MANAGER`.
 
 Module boundaries (`com.evrental.*`):
 

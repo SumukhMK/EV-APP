@@ -73,51 +73,51 @@
 
 ---
 
-## 2. Tenant Admin
+## 2. Fleet Admin
 
-> A tenant admin has the same operational scope as a super admin within their
-> fleet. The stories below are identical; the difference is data scope — a tenant
+> A fleet admin has the same operational scope as a super admin within their
+> fleet. The stories below are identical; the difference is data scope — a fleet
 > admin sees only their tenant's bikes and riders.
 
 ### Operations
 
 | # | Story | Screen |
 |---|-------|--------|
-| TA-1 | As a tenant admin, I want to see today's vehicle movements and hub utilisation so that I can monitor my fleet's daily activity. | `/operations/today` |
-| TA-2 | As a tenant admin, I want to toggle between day, week, and month views so that I can compare activity across different periods. | `/operations/today` (PeriodToggle) |
+| FA-1 | As a fleet admin, I want to see today's vehicle movements and hub utilisation so that I can monitor my fleet's daily activity. | `/operations/today` |
+| FA-2 | As a fleet admin, I want to toggle between day, week, and month views so that I can compare activity across different periods. | `/operations/today` (PeriodToggle) |
 
 ### Fleet
 
 | # | Story | Screen |
 |---|-------|--------|
-| TA-3 | As a tenant admin, I want to see a dashboard of fleet stat tiles and deployment trends so that I can track my fleet's health. | `/dashboard` |
-| TA-4 | As a tenant admin, I want to search, filter, and paginate the vehicle registry so that I can manage my fleet's bikes. | `/vehicles` |
-| TA-5 | As a tenant admin, I want to view a vehicle's full detail — specs, rider, timeline, history — so that I can make informed decisions about it. | `/vehicles/:id` |
-| TA-6 | As a tenant admin, I want to add a new vehicle or bulk-upload a batch so that new inventory enters the system. | `/vehicles/new`, `/vehicles/bulk-upload` |
-| TA-7 | As a tenant admin, I want to record inspections, pass/fail QC, and view service queues so that I can keep the workshop moving. | `/inspections`, `/qc`, `/service` |
+| FA-3 | As a fleet admin, I want to see a dashboard of fleet stat tiles and deployment trends so that I can track my fleet's health. | `/dashboard` |
+| FA-4 | As a fleet admin, I want to search, filter, and paginate the vehicle registry so that I can manage my fleet's bikes. | `/vehicles` |
+| FA-5 | As a fleet admin, I want to view a vehicle's full detail — specs, rider, timeline, history — so that I can make informed decisions about it. | `/vehicles/:id` |
+| FA-6 | As a fleet admin, I want to add a new vehicle or bulk-upload a batch so that new inventory enters the system. | `/vehicles/new`, `/vehicles/bulk-upload` |
+| FA-7 | As a fleet admin, I want to record inspections, pass/fail QC, and view service queues so that I can keep the workshop moving. | `/inspections`, `/qc`, `/service` |
 
 ### Riders
 
 | # | Story | Screen |
 |---|-------|--------|
-| TA-8 | As a tenant admin, I want to view and search the rider register so that I can find and manage riders. | `/riders` |
-| TA-9 | As a tenant admin, I want to onboard, assign, exchange, and deboard riders so that the rider lifecycle is managed end to end. | `/riders/onboard`, `/assignments/assign`, `/assignments/exchange`, `/assignments/deboard` |
-| TA-10 | As a tenant admin, I want to view a rider's full profile (identity, contact, commercial, vehicle, payments, history) so that I can resolve any query about that rider. | `/riders/:id` |
+| FA-8 | As a fleet admin, I want to view and search the rider register so that I can find and manage riders. | `/riders` |
+| FA-9 | As a fleet admin, I want to onboard, assign, exchange, and deboard riders so that the rider lifecycle is managed end to end. | `/riders/onboard`, `/assignments/assign`, `/assignments/exchange`, `/assignments/deboard` |
+| FA-10 | As a fleet admin, I want to view a rider's full profile (identity, contact, commercial, vehicle, payments, history) so that I can resolve any query about that rider. | `/riders/:id` |
 
 ### Money
 
 | # | Story | Screen |
 |---|-------|--------|
-| TA-11 | As a tenant admin, I want to run the weekly payment run and record incoming payments so that the fleet's revenue is tracked. | `/payments/run`, `/payments/run/:riderId` |
-| TA-12 | As a tenant admin, I want to see overdue riders grouped by dunning stage and send reminders so that collections are managed proactively. | `/payments/overdue` |
-| TA-13 | As a tenant admin, I want to view the recovery queue so that bikes needing repossession are not lost. | `/recovery` |
+| FA-11 | As a fleet admin, I want to run the weekly payment run and record incoming payments so that the fleet's revenue is tracked. | `/payments/run`, `/payments/run/:riderId` |
+| FA-12 | As a fleet admin, I want to see overdue riders grouped by dunning stage and send reminders so that collections are managed proactively. | `/payments/overdue` |
+| FA-13 | As a fleet admin, I want to view the recovery queue so that bikes needing repossession are not lost. | `/recovery` |
 
 ### Admin
 
 | # | Story | Screen |
 |---|-------|--------|
-| TA-14 | As a tenant admin, I want to manage user accounts (edit name, role, status) so that my team has the right access. | `/users` |
-| TA-15 | As a tenant admin, I want to view the audit log so that I have an accountable record of all operations. | `/audit` |
+| FA-14 | As a fleet admin, I want to manage user accounts (edit name, role, status) so that my team has the right access. | `/users` |
+| FA-15 | As a fleet admin, I want to view the audit log so that I have an accountable record of all operations. | `/audit` |
 
 ---
 

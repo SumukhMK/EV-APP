@@ -81,7 +81,7 @@ class AuthHardeningTest extends PostgresTestBase {
                     TENANT);
             jdbc.update(
                     "INSERT INTO users (tenant_id, name, email, password_hash, role, status) "
-                            + "VALUES (?, 'Hardening User', ?, ?, 'TENANT_ADMIN', 'ACTIVE')",
+                            + "VALUES (?, 'Hardening User', ?, ?, 'FLEET_ADMIN', 'ACTIVE')",
                     TENANT, EMAIL, passwordEncoder.encode(PASSWORD));
         });
         userId = asSuperAdminQuery(jdbc ->
@@ -184,7 +184,7 @@ class AuthHardeningTest extends PostgresTestBase {
         String tokenMissingTenant = Jwts.builder()
                 .issuer("ev-rental-api")
                 .subject(userId.toString())
-                .claim("role", "TENANT_ADMIN")
+                .claim("role", "FLEET_ADMIN")
                 .issuedAt(new Date())
                 .expiration(Date.from(Instant.now().plus(15, ChronoUnit.MINUTES)))
                 .signWith(Keys.hmacShaKeyFor(TEST_SECRET.getBytes(StandardCharsets.UTF_8)))

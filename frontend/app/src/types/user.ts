@@ -7,7 +7,7 @@ import type { Iso8601 } from './common';
  * names. Roles are enforced server-side once the API exists; the screen only
  * shows who holds which, it does not grant anything by drawing it.
  */
-export const USER_ROLES = ['SUPER_ADMIN', 'TENANT_ADMIN', 'FLEET_STAFF', 'SERVICE_MANAGER'] as const;
+export const USER_ROLES = ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF', 'SERVICE_MANAGER'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export type UserStatus = 'ACTIVE' | 'INVITED' | 'DISABLED';

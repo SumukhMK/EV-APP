@@ -190,14 +190,14 @@ export const EXCHANGE_REASON_LABEL: Record<ExchangeReason, string> = {
 
 export const USER_ROLE_LABEL: Record<UserRole, string> = {
   SUPER_ADMIN: 'Super admin',
-  TENANT_ADMIN: 'Tenant admin',
+  FLEET_ADMIN: 'Fleet admin',
   FLEET_STAFF: 'Fleet staff',
   SERVICE_MANAGER: 'Service manager',
 };
 
 export const USER_ROLE_TONE: Record<UserRole, StatusTone> = {
   SUPER_ADMIN: 'accent',
-  TENANT_ADMIN: 'good',
+  FLEET_ADMIN: 'good',
   FLEET_STAFF: 'neutral',
   SERVICE_MANAGER: 'caution',
 };
@@ -209,7 +209,7 @@ export const USER_ROLE_TONE: Record<UserRole, StatusTone> = {
  */
 export const USER_ROLE_SCOPE: Record<UserRole, string> = {
   SUPER_ADMIN: 'The platform owner. Every tenant, every bike, plans and the shared blacklist.',
-  TENANT_ADMIN: 'Runs one fleet end to end — bikes, riders, rent, service, dashboards.',
+  FLEET_ADMIN: 'Runs one fleet end to end — bikes, riders, rent, service, dashboards.',
   FLEET_STAFF: 'Day-to-day bike work: adding bikes, checking them, recording returns.',
   SERVICE_MANAGER: 'The workshop: repairs, QC checks and what a repair costs.',
 };

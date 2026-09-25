@@ -189,7 +189,7 @@ its demo users. The `local` profile fills all four in:
 | Email | Role | Tenant |
 |---|---|---|
 | `priya@g1mobility.in` | `SUPER_ADMIN` | Platform |
-| `meenakshi@g1mobility.in` | `TENANT_ADMIN` | G1 Mobility |
+| `meenakshi@g1mobility.in` | `FLEET_ADMIN` | G1 Mobility |
 | `abhinandan@g1mobility.in` | `SERVICE_MANAGER` | G1 Mobility |
 | `dhananjay@g1mobility.in` | `FLEET_STAFF` | G1 Mobility |
 
@@ -228,7 +228,7 @@ older sketches:
   `status`, and an optional `field` so a failure can attach to one form input.
 - Money is `long` paise everywhere inside the system. Rupees exist at the API
   boundary and nowhere else.
-- User roles are the four in `types/user.ts` — `SUPER_ADMIN`, `TENANT_ADMIN`,
+- User roles are the four in `types/user.ts` — `SUPER_ADMIN`, `FLEET_ADMIN`,
   `FLEET_STAFF`, `SERVICE_MANAGER`. `ARCHITECTURE.md` still names an older
   three-role set; the types file is newer and the screens are built on it.
 

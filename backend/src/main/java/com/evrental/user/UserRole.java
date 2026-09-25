@@ -7,7 +7,7 @@ package com.evrental.user;
  */
 public enum UserRole {
     SUPER_ADMIN,
-    TENANT_ADMIN,
+    FLEET_ADMIN,
     FLEET_STAFF,
     SERVICE_MANAGER
 }

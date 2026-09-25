@@ -102,27 +102,43 @@ describe('service workbench stories', () => {
     expect(screen.queryByRole('link', { name: minor.id })).not.toBeInTheDocument();
   });
 
-  it('lets fleet staff receive and work jobs but reserves final release for service/admin roles', async () => {
+  it('lets fleet staff receive, work and release jobs — liability is fleet work', async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`, 'FLEET_STAFF');
     await fillWork(user);
     expect(screen.getByRole('link', { name: 'Give another bike' })).toHaveAttribute('href', `/assignments/exchange?riderId=${job.riderId}`);
-    expect(screen.getByText(/You can write down what you found/)).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: 'Who pays?' })).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Who pays?' })).toBeInTheDocument();
+    expect(screen.queryByText(/You can write down what you found/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Save my notes' }));
     expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(job.workSummary).toContain('road tested');
-    expect(job.liability).toBeNull();
+    expect(job.liability).toBe('RIDER');
     expect(job.status).toBe('IN_PROGRESS');
     expect(riderCharges).toHaveLength(0);
+  });
+
+  it('lets the service manager work jobs but not decide who pays or release', async () => {
+    const job = seed();
+    const user = userEvent.setup();
+    show(`/service/assistance/${job.id}`, 'SERVICE_MANAGER');
+    await fillWork(user);
+    expect(screen.getByText(/You can write down what you found/)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Who pays?' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /Work is done/ }));
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Send for Quality Check' }));
+    await screen.findByRole('radio', { name: /QC passed/ });
+    await user.click(screen.getByRole('button', { name: 'Check all' }));
+    await user.click(screen.getByRole('checkbox', { name: /Repair verified/ }));
+    expect(screen.getByRole('radio', { name: /QC passed — move to Ready to Deploy/ })).toBeDisabled();
   });
 
   it('persists progress, moves to QC, and releases from the same record with one charge', { timeout: 15_000 }, async () => {
     const job = seed();
     const user = userEvent.setup();
-    show(`/service/assistance/${job.id}`);
+    show(`/service/assistance/${job.id}`, 'FLEET_ADMIN');
     await fillWork(user);
     await user.click(screen.getByRole('button', { name: 'Add a cost line' }));
     await user.type(screen.getByRole('textbox', { name: 'Item 1' }), 'Mirror');
@@ -285,7 +301,7 @@ describe('service workbench stories', () => {
     await fillWork(user);
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Save my notes' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save job');
+    expect(await screen.findByText('Could not save job')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'What did you find, and what did you do?' })).toHaveValue('Mirror repaired and road tested');
     expect(job.workSummary).toBe('');
   });

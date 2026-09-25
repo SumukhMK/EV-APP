@@ -117,7 +117,7 @@ public class BootstrapData implements ApplicationRunner {
             log.info("Bootstrap: created demo tenant {}", saved.getSlug());
             return saved;
         });
-        ensureDemoUser(g1.getId(), "Meenakshi Iyer", "meenakshi@g1mobility.in", UserRole.TENANT_ADMIN);
+        ensureDemoUser(g1.getId(), "Meenakshi Iyer", "meenakshi@g1mobility.in", UserRole.FLEET_ADMIN);
         ensureDemoUser(g1.getId(), "Abhinandan", "abhinandan@g1mobility.in", UserRole.SERVICE_MANAGER);
         ensureDemoUser(g1.getId(), "Dhananjay", "dhananjay@g1mobility.in", UserRole.FLEET_STAFF);
     }

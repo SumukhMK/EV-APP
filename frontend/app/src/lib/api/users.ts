@@ -1,12 +1,20 @@
-import type { Page, UpdateUserRequest, User } from '../../types';
-import { updateUserInPlace, users } from '../../mocks/users';
-import { delay, paginate } from './client';
+import { IS_LIVE } from './client';
+import * as live from './users.live';
+import * as mock from './users.mock';
 
-export async function listUsers(page = 0, size = 12): Promise<Page<User>> {
-  return delay(paginate(users, page, size));
-}
+/**
+ * Which users module the screens get.
+ *
+ * S3 shipped a real API; the other modules have not. Rather than a half-wired
+ * build where some imports point at mocks and some do not, every module keeps
+ * one import path and the choice is made here, once, from VITE_API_BASE.
+ *
+ * The two implementations share a signature by construction — the compiler
+ * checks it below, so a live function that drifts from its mock twin fails the
+ * build rather than a screen.
+ */
 
-/** Save an edit to an account. Simulated write; see the mock. */
-export async function updateUser(req: UpdateUserRequest): Promise<User> {
-  return delay(updateUserInPlace(req));
-}
+const impl: typeof mock = IS_LIVE ? { ...mock, ...live } : mock;
+
+export const listUsers = impl.listUsers;
+export const updateUser = impl.updateUser;

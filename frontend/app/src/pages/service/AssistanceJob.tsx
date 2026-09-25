@@ -230,7 +230,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const targetState = releasing ? releaseState(vehicle.data?.currentRiderId ?? null) : QUEUE_STATE[queue];
   const releaseHint = canRelease
     ? 'The bike becomes Ready to Deploy. Any repair cost is finalised and the receipt is generated.'
-    : 'Only a service manager or admin can do this.';
+    : 'Only fleet and admin roles can do this.';
   const options: IntentOption[] = inQC ? [
     { id: 'RELEASE', label: 'QC passed — move to Ready to Deploy', hint: allQcPassed ? releaseHint : 'Complete all checks first.', cta: 'Pass QC and release', disabled: !canRelease || !allQcPassed },
     { id: 'QC_FAIL', label: `QC failed — send back for repair`, hint: 'The bike goes back to the repair queue.', cta: `Send back to ${SERVICE_QUEUE_LABEL[failQueue]}` },
@@ -250,7 +250,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const save = useMutation({
     mutationFn: () => {
       if (!editable || !category || confirmation !== signature || !valid || (!inQC && !hasServiceNote(note))) throw new Error('Fill in the details and tick the confirm box.');
-      if (releasing && !canRelease) throw new Error('Only a service manager or admin can release the bike.');
+      if (releasing && !canRelease) throw new Error('Only fleet and admin roles can release the bike.');
       if (releasing && inQC && !allQcPassed) throw new Error('Complete all QC checks before releasing.');
       const effectiveNote = note.trim() || (inQC ? 'QC completed' : '');
       return updateServiceJob({
@@ -276,7 +276,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
     : inQC && releasing && !allQcPassed ? 'Complete all QC checks.'
     : requiresReference(queue) && !reference.trim() ? 'Add the parts or claim details.'
     : !inQC && !hasServiceNote(note) ? 'Write a note.'
-    : releasing && !canRelease ? 'Only a service manager or admin can release.'
+    : releasing && !canRelease ? 'Only fleet and admin roles can release.'
     : confirmation !== signature ? 'Tick the confirm box.'
     : '';
   const ready = Boolean(category) && valid && Number.isSafeInteger(total) && (inQC || hasServiceNote(note)) && confirmation === signature &&
@@ -451,7 +451,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
                 <TextField select label="Who pays?" value={liability} onChange={(e) => { const next = e.target.value; if (next === 'RIDER' || next === 'DEPOSIT' || next === 'COMPANY') setLiability(next); }}>
                   {(['RIDER', 'DEPOSIT', 'COMPANY'] as const).map((value) => <MenuItem key={value} value={value} disabled={!job.riderId && value !== 'COMPANY'}>{LIABILITY_LABEL[value]}</MenuItem>)}
                 </TextField>
-              ) : <Alert severity="info">You can write down what you found and move the bike between lists. A service manager or admin decides who pays and sends the bike back out.</Alert>}
+              ) : <Alert severity="info">You can write down what you found and move the bike between lists. Fleet and admin roles decide who pays and send the bike back out.</Alert>}
               <Typography variant="body2" color="text.secondary">{job.riderId ? 'The rider is charged only when the bike finally goes back out, not when you save or send it for QC.' : 'No rider on this bike, so the company covers the cost.'}</Typography>
               <TextField label={inQC ? 'Notes (optional)' : intent === 'STAY' ? 'What did you do just now?' : 'Why are you making this change?'} required={!inQC} multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} helperText={inQC ? 'Anything extra you noticed. Leave blank if nothing.' : 'A line or two.'} />
               {!valid && <Alert severity="warning">Every line needs a short description and an amount of ₹0 or more, up to two decimals.</Alert>}

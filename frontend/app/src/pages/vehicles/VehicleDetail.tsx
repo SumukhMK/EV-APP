@@ -14,7 +14,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { getVehicle } from '../../lib/api/vehicles';
 import { getVehicleServiceHistory } from '../../lib/api/inspections';
 import { getRider } from '../../lib/api/riders';
-import { canEditVehicle } from '../../lib/roles';
+import { canEditVehicle, canManageAssignments } from '../../lib/roles';
 import { useSession } from '../../app/sessionContext';
 import {
   VEHICLE_STATE_LABEL,
@@ -96,7 +96,7 @@ export function VehicleDetail() {
                 Edit
               </Button>
             )}
-            {v.currentRiderId && <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${v.currentRiderId}`}>
+            {v.currentRiderId && canManageAssignments(user.roleKey) && <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${v.currentRiderId}`}>
               Exchange
             </Button>}
             <Button color="inherit" component={Link} to={activeService ? `/service/assistance/${activeService.id}` : `/service/inspection?vehicle=${v.id}`}>

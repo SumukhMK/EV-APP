@@ -113,14 +113,15 @@ class VehicleImportPreviewTest extends VehicleTestBase {
     }
 
     @Test
-    void fleetStaffCannotUpload() throws Exception {
+    void fleetStaffCanUpload() throws Exception {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", """
                                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
                                 BLRSS0907,CH-907,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0007,2026-09-01
                                 """))
                         .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.validRows").value(1));
     }
 
     private static MockMultipartFile csv(String name, String content) {
