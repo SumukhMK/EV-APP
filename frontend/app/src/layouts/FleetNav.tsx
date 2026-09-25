@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
@@ -6,7 +7,9 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeftOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRightOutlined';
-import { NavLink } from 'react-router-dom';
+import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { navForRole } from '../app/nav';
 import { USER_ROLE_LABEL } from '../lib/labels';
 import { base, layout, mix, neutral, radius } from '../theme/tokens';
@@ -48,8 +51,18 @@ export function FleetNav({
   /** Omitted in the mobile drawer, where the rail is never collapsed. */
   onToggleCollapse?: () => void;
 } = {}) {
-  const { user, tenant, personas, switchPersona } = useSession();
+  const { user, tenant, personas, switchPersona, signOut } = useSession();
+  const navigate = useNavigate();
   const sections = navForRole(user.roleKey);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+
+  // The rail button only opens the gate; the session ends on the dialog's
+  // confirm, so a stray click on the rail cannot sign anyone out.
+  const confirmSignOut = () => {
+    setSignOutOpen(false);
+    signOut();
+    navigate('/login');
+  };
 
   return (
     <Box
@@ -203,34 +216,54 @@ export function FleetNav({
           borderTop: `1px solid ${neutral[900]}`,
           px: collapsed ? 0 : 2.5,
           display: collapsed ? 'flex' : 'block',
+          flexDirection: collapsed ? 'column' : undefined,
+          alignItems: collapsed ? 'center' : undefined,
+          gap: collapsed ? 1.5 : undefined,
           justifyContent: 'center',
         }}
       >
         {collapsed ? (
-          // The select cannot live in 64px, so the collapsed rail offers the
-          // person instead of the control: it says who you are, and opens the
-          // rail so the switch itself is reachable.
-          <Tooltip
-            title={`${user.name} · ${USER_ROLE_LABEL[user.roleKey]} — open to switch`}
-            placement="right"
-          >
-            <IconButton
-              size="small"
-              onClick={onToggleCollapse}
-              aria-label={`Viewing as ${user.name}. Expand navigation to switch persona.`}
-              sx={{
-                width: 30,
-                height: 30,
-                fontSize: 11,
-                fontWeight: 600,
-                color: base.accent,
-                background: mix(base.accent, 12),
-                '&:hover': { background: mix(base.accent, 20) },
-              }}
+          <>
+            {/* The select cannot live in 64px, so the collapsed rail offers the
+                person instead of the control: it says who you are, and opens the
+                rail so the switch itself is reachable. */}
+            <Tooltip
+              title={`${user.name} · ${USER_ROLE_LABEL[user.roleKey]} — open to switch`}
+              placement="right"
             >
-              {initials(user.name)}
-            </IconButton>
-          </Tooltip>
+              <IconButton
+                size="small"
+                onClick={onToggleCollapse}
+                aria-label={`Viewing as ${user.name}. Expand navigation to switch persona.`}
+                sx={{
+                  width: 30,
+                  height: 30,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: base.accent,
+                  background: mix(base.accent, 12),
+                  '&:hover': { background: mix(base.accent, 20) },
+                }}
+              >
+                {initials(user.name)}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Sign out" placement="right">
+              <IconButton
+                size="small"
+                onClick={() => setSignOutOpen(true)}
+                aria-label="Sign out"
+                sx={{
+                  width: 30,
+                  height: 30,
+                  color: neutral[400],
+                  '&:hover': { color: base.text, background: neutral[900] },
+                }}
+              >
+                <LogoutOutlinedIcon sx={{ fontSize: 17 }} />
+              </IconButton>
+            </Tooltip>
+          </>
         ) : (
           <Box sx={railLabel(collapsed)}>
             <Typography variant="overline" sx={{ color: neutral[600] }}>
@@ -264,9 +297,41 @@ export function FleetNav({
             <Typography variant="overline" sx={{ mt: 0.5, display: 'block' }}>
               {USER_ROLE_LABEL[user.roleKey]}
             </Typography>
+            <Box
+              component="button"
+              type="button"
+              onClick={() => setSignOutOpen(true)}
+              aria-label="Sign out"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                mt: 2.5,
+                p: 0,
+                border: 0,
+                background: 'none',
+                cursor: 'pointer',
+                fontSize: 13,
+                color: neutral[400],
+                transition: 'color 120ms',
+                '&:hover': { color: base.text },
+                '& svg': { fontSize: 16, flex: '0 0 auto' },
+              }}
+            >
+              <LogoutOutlinedIcon />
+              <Box component="span">Sign out</Box>
+            </Box>
           </Box>
         )}
       </Box>
+      <ConfirmDialog
+        open={signOutOpen}
+        title="Sign out?"
+        message="Your session will end and you'll be returned to the login screen."
+        confirmLabel="Yes, sign out"
+        onConfirm={confirmSignOut}
+        onCancel={() => setSignOutOpen(false)}
+      />
     </Box>
   );
 }
