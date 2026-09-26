@@ -33,7 +33,8 @@ class QcInspectionTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Panel replaced"}
+                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Panel replaced",
+                                  "technician":"Raju","note":"Ready for checking"}
                                  """))
                 .andExpect(status().isOk());
     }
@@ -134,7 +135,8 @@ class QcInspectionTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"New tyres"}
+                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"New tyres",
+                                  "technician":"Raju","note":"Reworked, back for checking"}
                                  """))
                 .andExpect(status().isOk());
         submitQc(ALL_CHECKS_PASS, "Suresh").andExpect(status().isCreated());

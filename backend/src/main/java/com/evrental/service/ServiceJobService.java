@@ -183,9 +183,21 @@ public class ServiceJobService implements ServiceJobFacade {
     // Working
     // -----------------------------------------------------------------------
 
+    /**
+     * Queues that mean the bike is waiting on somebody outside the workshop.
+     * Each needs the claim or order number, or nobody can chase it.
+     */
+    private static final Set<ServiceQueue> NEEDS_REFERENCE =
+            EnumSet.of(ServiceQueue.WARRANTY, ServiceQueue.INSURANCE, ServiceQueue.PARTS_WAITING);
+
+    /** Leaving the bench — for checking or for the road — needs a name and a record of the work. */
+    private static final Set<ServiceQueue> LEAVING_THE_BENCH =
+            EnumSet.of(ServiceQueue.QC_PENDING, ServiceQueue.READY_TO_DEPLOY);
+
     @Transactional
     public ServiceJob update(UUID jobId, UpdateServiceJobRequest request, UUID actorUserId, String actorName) {
         ServiceJob job = openJobForWrite(jobId);
+        checkSaveRules(job, request);
 
         ServiceQueue previousQueue = job.getQueue();
         job.setQueue(request.queue());
@@ -218,15 +230,75 @@ public class ServiceJobService implements ServiceJobFacade {
                     "Moved to " + job.getQueue().label(), actorUserId, actorName).getState();
         }
 
-        log(job, state, actorName, updateNote(request, previousQueue, job.getQueue()));
+        log(job, state, actorName, updateNote(request));
         return job;
     }
 
-    private String updateNote(UpdateServiceJobRequest request, ServiceQueue from, ServiceQueue to) {
-        if (request.note() != null && !request.note().isBlank()) {
-            return request.note().trim();
+    /**
+     * The rules that used to live only in the browser.
+     *
+     * <p>Every one of these came from `mocks/serviceJobs.ts`, where the screens
+     * have relied on them since the prototype — and where the API could not see
+     * them. Their messages are the mock's own wording, so a screen that already
+     * prints one keeps printing the same sentence.
+     */
+    private void checkSaveRules(ServiceJob job, UpdateServiceJobRequest request) {
+        if (!hasServiceNote(request.note())) {
+            throw new ValidationException("note",
+                    "Write what you found, or why you are making this change");
         }
-        return from == to ? "Job updated" : "Moved from " + from.label() + " to " + to.label();
+        // The queue the job is heading to, which is what the rules are about --
+        // a bike already sitting in Parts Waiting is not the question.
+        ServiceQueue target = request.queue();
+        if (NEEDS_REFERENCE.contains(target) && isBlank(effective(request.reference(), job.getReference()))) {
+            throw new ValidationException("reference",
+                    "Add the claim number, or say which parts you are waiting for");
+        }
+        if (LEAVING_THE_BENCH.contains(target)) {
+            if (isBlank(effective(request.technician(), job.getTechnician()))) {
+                throw new ValidationException("technician",
+                        "Say who did the work before QC or before the bike goes back out");
+            }
+            if (isBlank(effective(request.workSummary(), job.getWorkSummary()))) {
+                throw new ValidationException("workSummary",
+                        "Write what you did, or say that no repair was needed, "
+                                + "before QC or before the bike goes back out");
+            }
+        }
+    }
+
+    /**
+     * A note that says something.
+     *
+     * <p>Mirrors hasServiceNote() in lib/serviceWorkflow.ts, including the odd
+     * bit: a leading "QC passed:" or "QC failed:" is stripped before deciding,
+     * because the prefix is the screen's doing and says nothing about what the
+     * person actually found.
+     */
+    private static boolean hasServiceNote(String note) {
+        return note != null && !note.replaceFirst("(?i)^QC (passed|failed):\\s*", "").isBlank();
+    }
+
+    /** What the field will hold after this save: what was sent, or what is already there. */
+    private static String effective(String incoming, String existing) {
+        return incoming != null ? incoming : existing;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    /**
+     * The operator's own words, always.
+     *
+     * <p>There used to be a generated fallback here — "Moved from Minor repair
+     * to Waiting for parts" — for saves that arrived without a note. Since
+     * checkSaveRules() started requiring one, that branch could never run, and
+     * a fallback that cannot fire is worse than none: it reads as a guarantee
+     * the code no longer makes. The queue change is on the event row anyway.
+     */
+    private String updateNote(UpdateServiceJobRequest request) {
+        return request.note().trim();
     }
 
     /** Replaces every cost line and returns the new total. */
@@ -343,6 +415,13 @@ public class ServiceJobService implements ServiceJobFacade {
                 .orElseThrow(() -> NotFoundException.of("Service job", jobId));
         if (job.isClosed()) {
             throw new ConflictException("This job is already closed");
+        }
+        // Billing a rider who is not on the bike bills nobody: the charge would
+        // be raised against a null id and quietly vanish. From the mock, where
+        // the screens have relied on this since the prototype.
+        if (request.liability().raisesCharge() && job.getRiderId() == null) {
+            throw new ValidationException("liability",
+                    "No rider is on this bike, so the company has to cover the cost.");
         }
 
         if (request.items() != null) {
