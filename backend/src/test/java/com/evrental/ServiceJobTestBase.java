@@ -61,6 +61,8 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
         superAdmin(jdbc -> {
             // Children first: every one of these references service_jobs, and
             // service_jobs references vehicles and tenants.
+            // rider_charges references service_jobs, so it goes first of all.
+            jdbc.update("DELETE FROM rider_charges WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM qc_inspections WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM service_job_items WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM service_job_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
