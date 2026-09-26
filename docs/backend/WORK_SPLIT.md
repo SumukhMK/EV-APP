@@ -38,7 +38,7 @@ start, not after you push.
 | **S3** | Users and roles: who is allowed to call what | **SMK** | S0 |
 | **S4** | Service jobs: intake, repair queues, QC, cost | **SMK** | **done** |
 | **S5** | Assign a bike to a rider, exchange it, take it back | **Abhiram** | S4 |
-| **S6** | Money: charges, weekly payment run, receipts, overdue | **SMK** | S4 |
+| **S6** | Money: charges, weekly payment run, receipts, overdue | **SMK** | **half done** — ledger built, run/overdue/receipts need S2 |
 
 ### What runs at the same time
 
@@ -270,8 +270,27 @@ The vehicle module, built on the S0 floor.
   mock implementation from `VITE_API_BASE`. It is the worked example every
   later module copies.
 
-**SMK, next:** S6 — money. It is what S4 unblocks, and it is also the gate on
-the service screens ever talking to the real API: see the S4 swap note above.
+**S6, first half (2026-09-26):** the charge ledger is built. `V007` adds
+`rider_charges`; a service job that closes against a rider raises one through
+an async listener on `ServiceJobClosedEvent`, guarded against double-billing by
+a unique index on the job id. Read and settle endpoints are Money-gated
+(SA/FA). 211/211 backend tests.
+
+**S6's second half is blocked on S2, and this is now the critical path.** The
+weekly payment run, the overdue list and receipts each need four things that
+only exist on a rider: the name and phone to chase, the weekly rent
+(`planAmount`), the billing day (Monday or Wednesday — it decides who is in
+this week's run at all) and the deposit balance (`depositHeld`, which a
+DEPOSIT charge draws down). Today a charge is a correct row against a rider id
+with nobody behind it.
+
+`rider_charges.rider_id` therefore carries no foreign key, and there is
+deliberately no `period_start` column — which billing period a charge first
+appears against depends on the rider's billing day, so storing a guess now
+would be a number the run later has to disagree with.
+
+**SMK, next:** nothing in S6 moves until S2 does. Abhiram's riders module is
+the gate on the money screens *and* on the service frontend swap.
 
 **Abhiram, next:** S2 — riders: CRUD, KYC, masked Aadhaar. Unblocked now that
 S0 is in. Read `frontend/app/src/types/rider.ts` first: that is the shape S2
