@@ -58,8 +58,16 @@ Set, beyond the database ones above:
 | Variable | Value |
 |---|---|
 | `JWT_SECRET` | 32+ random bytes, generated per environment |
+| `AADHAAR_ENCRYPTION_KEY` | 32 random bytes, base64, generated per environment — the AES-256 key Aadhaar numbers are encrypted with at rest |
 | `CORS_ALLOWED_ORIGINS` | the Netlify origin, exactly — `https://<site>.netlify.app`, no trailing slash, no wildcard |
 | `APP_BOOTSTRAP_ADMIN_EMAIL` / `_PASSWORD` | the first admin, created at boot if missing |
+
+`AADHAAR_ENCRYPTION_KEY` has no default, like `JWT_SECRET`: a deployment that
+forgets it fails at boot rather than storing Aadhaar numbers under a key
+everyone has. The register encrypts each number with AES-256-GCM and a fresh
+random IV (`AadhaarCipher`), the database holds only ciphertext, and the API
+never returns the number — not even masked. The key lives only in the
+environment; no user, role, or API can read it.
 
 Then **unset the bootstrap password** once you have signed in. It is only
 needed to create the account, and an environment variable is a poor place to
