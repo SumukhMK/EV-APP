@@ -1,5 +1,6 @@
 package com.evrental.platform;
 
+import com.evrental.common.AadhaarCipher;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -54,6 +55,7 @@ public class DevFleetSeeder implements ApplicationRunner {
     private final TenantRepository tenants;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
+    private final AadhaarCipher aadhaarCipher;
     private final boolean enabled;
     private final String tenantSlug;
 
@@ -61,11 +63,13 @@ public class DevFleetSeeder implements ApplicationRunner {
             TenantRepository tenants,
             JdbcTemplate jdbc,
             PlatformTransactionManager txManager,
+            AadhaarCipher aadhaarCipher,
             @Value("${app.bootstrap.seed-fleet:false}") boolean enabled,
             @Value("${app.bootstrap.seed-fleet-tenant:g1-mobility}") String tenantSlug) {
         this.tenants = tenants;
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(txManager);
+        this.aadhaarCipher = aadhaarCipher;
         this.enabled = enabled;
         this.tenantSlug = tenantSlug;
     }
@@ -98,6 +102,8 @@ public class DevFleetSeeder implements ApplicationRunner {
                 insert(tenantId, row);
             }
             log.info("Fleet seed: loaded {} vehicles into '{}'", rows.size(), tenantSlug);
+
+            seedRiders(tenantId);
         });
     }
 
@@ -203,5 +209,77 @@ public class DevFleetSeeder implements ApplicationRunner {
         return value == null || value.isBlank()
                 ? new org.springframework.jdbc.core.SqlParameterValue(Types.INTEGER, null)
                 : Integer.valueOf(value);
+    }
+
+    // -----------------------------------------------------------------------
+    // Riders (S2)
+    // -----------------------------------------------------------------------
+
+    /**
+     * The ten designed riders from mocks/riders.ts — same names, phones,
+     * plans, billing days, platforms, payment days and deposits, so the wired
+     * register and the mock register agree on the rows a screen is drawn
+     * against. vehicleId and paymentStatus are deliberately not seeded:
+     * assignment is S5 and payment status is derived by S6, so the register
+     * answers PENDING with no bike until then.
+     *
+     * <p>Payment modes are not in the mock's designed rows (they are picked
+     * randomly there); a fixed spread is seeded instead, weighted the way the
+     * counter sees them — UPI the norm, cash common, a transfer the exception.
+     *
+     * <p>Aadhaar numbers are not in the mock either (the mock's Rider type has
+     * no such field); each rider gets a deterministic fake 12-digit number
+     * (phone + "01"), stored encrypted like every other Aadhaar.
+     */
+    private static final List<RiderSeed> RIDER_SEED = List.of(
+            new RiderSeed("Dulan Hajong", "8453679575", 1750, 3000, "MONDAY", "Zomato", "MONDAY", "UPI", "845367957501"),
+            new RiderSeed("Raju Debnath", "9862340117", 1999, 3000, "WEDNESDAY", "Zepto", "WEDNESDAY", "UPI", "986234011701"),
+            new RiderSeed("Ashwin Kamath", "9945128830", 1900, 3000, "MONDAY", "Swiggy", "TUESDAY", "UPI", "994512883001"),
+            new RiderSeed("Nabam Tada", "8974551206", 2099, 5000, "WEDNESDAY", "Blinkit", "THURSDAY", "CASH", "897455120601"),
+            new RiderSeed("Imran Shaikh", "7760043915", 1700, 3000, "MONDAY", "Swiggy Instamart", "FRIDAY", "UPI", "776004391501"),
+            new RiderSeed("Lalit Chhetri", "8014772390", 1600, 2000, "WEDNESDAY", "Porter", "SATURDAY", "CASH", "801477239001"),
+            new RiderSeed("Sohail Ahmed", "9008216744", 1950, 3000, "MONDAY", "Flipkart Minutes", "SUNDAY", "UPI", "900821674401"),
+            new RiderSeed("Prakash Bhandari", "9611308452", 1750, 3000, "WEDNESDAY", "Dunzo", "MONDAY", "UPI", "961130845201"),
+            new RiderSeed("Yash Karkera", "9535667021", 1999, 3000, "MONDAY", "Zomato", "WEDNESDAY", "BANK_TRANSFER", "953566702101"),
+            new RiderSeed("Girish Poojary", "8899140563", 1700, 2000, "WEDNESDAY", "EatSure", "FRIDAY", "CASH", "889914056301"));
+
+    private record RiderSeed(String name, String phone, long planRupees, long depositRupees,
+                             String billingDay, String platform, String paymentDay, String paymentMode,
+                             String aadhaar) {
+    }
+
+    /**
+     * Idempotent by the same crude test as the fleet: if the tenant already
+     * has any rider, it does nothing. Runs inside the same transaction and
+     * under the same super-admin sentinel as the vehicle seed.
+     */
+    private void seedRiders(UUID tenantId) {
+        Integer existing = jdbc.queryForObject(
+                "SELECT count(*) FROM riders WHERE tenant_id = ?", Integer.class, tenantId);
+        if (existing != null && existing > 0) {
+            log.info("Fleet seed: tenant '{}' already has {} riders — skipping", tenantSlug, existing);
+            return;
+        }
+        for (RiderSeed r : RIDER_SEED) {
+            insertRider(tenantId, r);
+        }
+        log.info("Fleet seed: loaded {} riders into '{}'", RIDER_SEED.size(), tenantSlug);
+    }
+
+    private void insertRider(UUID tenantId, RiderSeed r) {
+        jdbc.update("""
+                INSERT INTO riders (
+                    id, tenant_id, name, phone, status, kyc_status,
+                    plan_amount_paise, deposit_held_paise, billing_day, payment_day,
+                    payment_mode, platform, onboarded_on,
+                    aadhaar_verified, primary_verified, whatsapp_verified, alternate1_verified,
+                    aadhaar_encrypted)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                UUID.randomUUID(), tenantId, r.name(), r.phone(), "ACTIVE", "VERIFIED",
+                r.planRupees() * 100, r.depositRupees() * 100, r.billingDay(), r.paymentDay(),
+                r.paymentMode(), r.platform(), LocalDate.parse("2026-04-08"),
+                true, true, true, true,
+                aadhaarCipher.encrypt(r.aadhaar()));
     }
 }
