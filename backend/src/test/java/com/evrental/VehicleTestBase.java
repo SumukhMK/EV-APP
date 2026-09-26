@@ -66,7 +66,7 @@ public abstract class VehicleTestBase extends PostgresTestBase {
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Vehicle Co', 'vehicle-co', 'ACTIVE')", TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
-                    + "VALUES (?, 'Rival Co', 'rival-co', 'ACTIVE')", OTHER_TENANT);
+                    + "VALUES (?, 'Rival Vehicles Co', 'rival-vehicles-co', 'ACTIVE')", OTHER_TENANT);
             jdbc.update("INSERT INTO users (tenant_id, name, email, password_hash, role, status) "
                     + "VALUES (?, 'Meenakshi Iyer', ?, ?, 'FLEET_ADMIN', 'ACTIVE')",
                     TENANT, ADMIN_EMAIL, passwordEncoder.encode(PASSWORD));

@@ -32,7 +32,7 @@ class ServiceJobCloseTest extends ServiceJobTestBase {
     private String token;
     private UUID jobId;
     /** Somebody has to be on the bike, or a RIDER close has nobody to bill. */
-    private final UUID riderId = UUID.randomUUID();
+    private final UUID riderId = RIDER_ID;
 
     @BeforeEach
     void openPriceAndPass() throws Exception {

@@ -41,7 +41,7 @@ class RiderChargeTest extends ServiceJobTestBase {
 
     private String token;
     private UUID jobId;
-    private final UUID riderId = UUID.randomUUID();
+    private final UUID riderId = RIDER_ID;
 
     @BeforeEach
     void openPriceAndPass() throws Exception {

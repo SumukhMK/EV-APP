@@ -1,5 +1,6 @@
 package com.evrental;
 
+import com.evrental.common.AadhaarCipher;
 import com.evrental.vehicle.VehicleState;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -8,8 +9,11 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,12 +33,21 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc
 public abstract class ServiceJobTestBase extends PostgresTestBase {
 
+    private static final Logger log = LoggerFactory.getLogger(ServiceJobTestBase.class);
+
     protected static final UUID TENANT = UUID.fromString("e0000000-0000-0000-0000-00000000000e");
     protected static final UUID OTHER_TENANT = UUID.fromString("f0000000-0000-0000-0000-00000000000f");
     protected static final String PASSWORD = "test-password-123";
     protected static final String ADMIN_EMAIL = "service-admin@g1mobility.in";
     protected static final String STAFF_EMAIL = "service-staff@g1mobility.in";
     protected static final String MANAGER_EMAIL = "service-manager@g1mobility.in";
+
+    /**
+     * The rider the S4/S6 tests put on a bike. V008 made service_jobs.rider_id
+     * a real foreign key, so a job that names a rider must name one that
+     * exists — a random UUID would now fail the insert.
+     */
+    protected static final UUID RIDER_ID = UUID.fromString("e0000000-0000-0000-0000-000000000001");
 
     /** The nine checks, all clear. Tests that want a failure flip one. */
     protected static final String ALL_CHECKS_PASS = """
@@ -53,11 +66,28 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
     @Autowired
     protected PlatformTransactionManager txManager;
 
+    @Autowired
+    protected AadhaarCipher aadhaarCipher;
+
     protected UUID adminUserId;
     protected UUID vehicleId;
 
     @BeforeEach
     void seedTenantUsersAndBike() {
+        try {
+            seedTenantUsersAndBikeOnce();
+        } catch (DataIntegrityViolationException lateCharge) {
+            // A charge raised by a previous test's close landed between the
+            // rider_charges sweep and the service_jobs delete, failing the FK.
+            // The violation aborted that transaction — nothing more can run on
+            // it — so the whole seed runs again on a fresh one.
+            log.warn("Service-job cleanup: a late async charge failed the service_jobs "
+                    + "delete; re-seeding on a fresh transaction");
+            seedTenantUsersAndBikeOnce();
+        }
+    }
+
+    private void seedTenantUsersAndBikeOnce() {
         superAdmin(jdbc -> {
             // Children first: every one of these references service_jobs, and
             // service_jobs references vehicles and tenants.
@@ -66,7 +96,13 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
             jdbc.update("DELETE FROM qc_inspections WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM service_job_items WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM service_job_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // The charge listener is @Async: a charge raised by a previous
+            // test's close can land between the sweep above and this delete,
+            // which would fail the FK. The violation aborts this transaction,
+            // so the caller retries the whole seed on a fresh one.
             jdbc.update("DELETE FROM service_jobs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // service_jobs now references riders (V008), so riders go after jobs.
+            jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_lifecycle_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicles WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM refresh_tokens WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
@@ -85,6 +121,12 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
             jdbc.update("INSERT INTO users (tenant_id, name, email, password_hash, role, status) "
                     + "VALUES (?, 'Abhinandan', ?, ?, 'SERVICE_MANAGER', 'ACTIVE')",
                     TENANT, MANAGER_EMAIL, passwordEncoder.encode(PASSWORD));
+            jdbc.update("INSERT INTO riders (id, tenant_id, name, phone, status, kyc_status, "
+                    + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, payment_mode, "
+                    + "platform, onboarded_on, aadhaar_encrypted) "
+                    + "VALUES (?, ?, 'Test Rider', '9000000001', 'ACTIVE', 'PENDING', "
+                    + "175000, 300000, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, ?)",
+                    RIDER_ID, TENANT, aadhaarCipher.encrypt("999988887777"));
             return null;
         });
         adminUserId = superAdmin(jdbc ->
