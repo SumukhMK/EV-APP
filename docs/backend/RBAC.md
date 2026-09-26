@@ -34,7 +34,7 @@ Role abbreviations: **SA** Super Admin · **FA** Fleet Admin · **FS** Fleet Sta
 
 `✓*` = FS adds bikes (decided — conflict #1, §4).
 
-Go-live rule: the frontend hides both sections **and** CTAs per role; the backend remains the final gate (routes are not hard-gated today).
+Go-live rule: the frontend hides sections, **gates routes** and hides CTAs per role; the backend remains the final gate. Route gating lives in `rolesForPath` (`app/nav.ts`) and is applied by `RequireRole` (`app/RequireRole.tsx`) — the rail and the router read the same table, so a hidden section is also a shut URL.
 
 ## 2. Field visibility & CTAs per screen
 
@@ -130,8 +130,10 @@ Four sources disagreed; all ruled per the recommendations below and implemented.
 
 ## 5. Go-live gaps this spec exposes
 
-- Frontend routes are not hard-gated (any URL reachable) — hide sections + CTAs per role (done for CTAs; route guards still open).
+- ~~Frontend routes are not hard-gated (any URL reachable)~~ — **closed**: `RequireRole` gates every restricted route from the same table the rail reads. Before this, a fleet hand who typed `/payments/overdue` got the full overdue book (rider names, phone numbers, amounts), and `/users` and `/audit` opened just as widely.
 - Invite-user flow not built (S3 cut it).
 - Render backend not deployed (404, `x-render-routing: no-server`) — needs dashboard action.
+
+Fixed since: frontend route guards (`RequireRole`) close the go-live gap above.
 
 Fixed as part of this work: `roles.ts canCloseServiceJob` now matches the approved service design (conflict #2); backend transitions gate now includes FS fleet moves + SM workshop moves via `VehicleTransitionPolicy` (conflict #3); vehicle create/import gates include FLEET_STAFF (conflict #1).

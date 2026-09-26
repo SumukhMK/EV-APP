@@ -9,6 +9,7 @@ import { Outlet } from 'react-router-dom';
 import { FleetNav } from './FleetNav';
 import { ModeToggle } from '../components/ModeToggle';
 import { RouteFallback } from '../components/RouteFallback';
+import { RequireRole } from '../app/RequireRole';
 import { base, layout, neutral } from '../theme/tokens';
 import { railCollapse, riseIn } from '../theme/motion';
 
@@ -139,10 +140,15 @@ export function AppLayout() {
               shell: every screen is a lazily-imported chunk, and a boundary
               any higher would unmount the rail and the mode toggle each time
               one loaded — a full-page flash instead of a column swap. */}
+          {/* The role gate sits outside Suspense on purpose: a screen this role
+              may not open never downloads its chunk, and never gets the chance
+              to fetch the data it would have shown. */}
           <Box key={location.pathname} sx={riseIn()}>
-            <Suspense fallback={<RouteFallback />}>
-              <Outlet />
-            </Suspense>
+            <RequireRole>
+              <Suspense fallback={<RouteFallback />}>
+                <Outlet />
+              </Suspense>
+            </RequireRole>
           </Box>
         </Box>
       </Box>

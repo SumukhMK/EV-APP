@@ -1,6 +1,27 @@
 # Service Management — Backend Design
 
-**Date:** 2026-09-22 · **Owner:** SMK · **Status:** Approved
+**Date:** 2026-09-22 · **Owner:** SMK · **Status:** Built (backend), 2026-09-25
+
+> **What shipped differs from this document in five places.** The document was
+> written before the vehicle module landed; where the two disagreed, the code
+> that already existed won. Each is marked **[built]** inline below.
+>
+> 1. **Migration is `V006__service_management.sql`, not V003.** V003 went to
+>    vehicles, V004 to imports, V005 to the FLEET_ADMIN rename.
+> 2. **`service_jobs.vehicle_id` is `UUID REFERENCES vehicles(id)`, not
+>    `VARCHAR(20)`.** A registry id is unique only per tenant, so it is not a
+>    key; `transitionState()` takes a UUID anyway; and a VARCHAR link has no
+>    referential integrity. The wire still carries `BLRSS0428`.
+> 3. **RLS uses `SELECT enable_tenant_rls(...)`, not the inline `CREATE POLICY`
+>    below.** The helper adds `FORCE`, without which the table's owner — the
+>    application user — ignores its own policy.
+> 4. **The ninth QC check is `roadtest`, not `road_test`,** because that is the
+>    id the screen sends (`QC_CHECKS` in `pages/service/AssistanceJob.tsx`).
+> 5. **Closing a job does not force the bike to Ready to Deploy.** QC is what
+>    releases a bike, and the state machine allows no shortcut from
+>    UNDER_REPAIR. Closing settles the money; if the bike has already passed QC
+>    it is already released, and if it has not, it stays where it is. Forcing
+>    the move would be paperwork declaring a bike roadworthy that nobody checked.
 
 ---
 
