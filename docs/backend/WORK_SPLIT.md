@@ -123,18 +123,39 @@ the QC gate, cost lines, close-with-liability and the async
 — the one handshake with Abhiram's S5 — is live and tested through the
 interface. Backend 185/185 tests against a real Postgres, up from 111.
 
-**S4's frontend swap is NOT done, and it is not a one-line change.**
-`lib/api/serviceJobs.ts` cannot simply re-export a live twin, because the mock
-`updateServiceJobRecord()` is doing three jobs the backend splits up: it
-updates, it closes-and-charges when `queue === 'READY_TO_DEPLOY'`, and it
-enforces rules that exist nowhere on the server — a note is required, a
-technician and a work summary are required before QC or release, a claim
-reference is required for WARRANTY/INSURANCE/PARTS_WAITING, a liability is
-required once the total is non-zero, and the rider must exist before anything
-is charged to them. Flipping the switch today would quietly drop all of that.
-Either those rules move to the backend or `AssistanceJob.tsx` splits its one
-save into update/close/QC calls. That is a decision, not a chore, so it is
-written down rather than guessed at.
+**S4's frontend swap is blocked on S2, S5 and S6 — not on S4.** (Corrected
+2026-09-26; the first version of this note said it was a validation problem,
+which understated it.)
+
+Read `updateServiceJobRecord()` in `mocks/serviceJobs.ts` to the end. Its
+release path — the Help desk's main action, "Pass QC and release" — does five
+things:
+
+1. closes the job — the backend does this;
+2. moves the bike — the backend does this;
+3. `addRiderCharge(...)` — **needs S6 (money), not built**;
+4. `rider.depositHeld -= total` — **needs S2 (riders), not built**;
+5. clears `vehicle.currentRiderId` — **needs S5 (assignments), not built**.
+
+Swapping the module to live today would silently stop charging riders, stop
+drawing down deposits, and leave bikes showing a rider who has already handed
+them back. `ServiceJobClosedEvent` is the seam for (3) and it fires correctly —
+nothing listens yet.
+
+There is a second, smaller obstacle: the nine QC checks never reach the API.
+`qcChecks` in `AssistanceJob.tsx` is component state that gates the button and
+gets flattened into prose in `workSummary`; the payload carries no checks map.
+So `POST /jobs/{id}/qc` cannot be fed by the screen as it stands, and the swap
+needs `UpdateServiceJobRequest` to carry `qcChecks` plus a one-line change to
+the screen.
+
+**So the order is S6 first, then the swap.** A half-live module — reads live,
+release on fixtures — is exactly the half-wired build `vehicles.ts` says this
+codebase does not do.
+
+What *was* portable has been done: the rules that only existed in the mock now
+live on the API (see below), because `ServiceJobFacade` is what Abhiram's S5
+deboard calls, and it was enforcing none of them.
 
 **RBAC go-live pass (2026-09-25):** the four product conflicts in
 [`RBAC.md`](RBAC.md) are decided and implemented. Backend: vehicle create/import
@@ -249,9 +270,8 @@ The vehicle module, built on the S0 floor.
   mock implementation from `VITE_API_BASE`. It is the worked example every
   later module copies.
 
-**SMK, next:** S6 — money, which S4 now unblocks. The one thing standing
-between the service screens and the real API is not a backend gap: see
-"Turning the mocks off" above and the note under S4 below.
+**SMK, next:** S6 — money. It is what S4 unblocks, and it is also the gate on
+the service screens ever talking to the real API: see the S4 swap note above.
 
 **Abhiram, next:** S2 — riders: CRUD, KYC, masked Aadhaar. Unblocked now that
 S0 is in. Read `frontend/app/src/types/rider.ts` first: that is the shape S2
@@ -275,3 +295,26 @@ deployed site stays the fixtures demo.
 - Before you push: `./mvnw verify` on the backend, `npm run build` and
   `npm run lint` on the frontend.
 - Say it before you pull. Both sides are live; a surprise rebase costs an hour.
+
+---
+
+## Service rules moved from the mock to the API (2026-09-26)
+
+`mocks/serviceJobs.ts` enforced rules the API did not, which meant the screens
+had them and `ServiceJobFacade` — the method Abhiram's S5 deboard code calls —
+did not. Moved to `ServiceJobService`, keeping the mock's own wording so a
+screen that already prints a message keeps printing the same sentence:
+
+| Rule | Field | When |
+|---|---|---|
+| "Write what you found, or why you are making this change" | `note` | every save |
+| "Add the claim number, or say which parts you are waiting for" | `reference` | WARRANTY, INSURANCE, PARTS_WAITING |
+| "Say who did the work before QC or before the bike goes back out" | `technician` | moving to QC_PENDING or READY_TO_DEPLOY |
+| "Write what you did, or say that no repair was needed, …" | `workSummary` | moving to QC_PENDING or READY_TO_DEPLOY |
+| "No rider is on this bike, so the company has to cover the cost." | `liability` | closing as RIDER or DEPOSIT |
+
+All 422s with the field attached, which the forms already read.
+
+Not moved, because the backend has nothing to check them against: the deposit
+ceiling (`total > rider.depositHeld`) and the "rider record must exist" guard
+both need S2.

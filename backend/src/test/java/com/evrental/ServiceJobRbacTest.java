@@ -48,7 +48,8 @@ class ServiceJobRbacTest extends ServiceJobTestBase {
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                         {"queue":"MINOR_REPAIR","damageCategory":"MINOR","workSummary":"On the bench"}
+                         {"queue":"MINOR_REPAIR","damageCategory":"MINOR","workSummary":"On the bench",
+                          "note":"Progress saved"}
                          """));
     }
 
@@ -82,7 +83,8 @@ class ServiceJobRbacTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Done"}
+                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Done",
+                                  "technician":"Abhinandan","note":"Ready for checking"}
                                  """))
                 .andExpect(status().isOk());
 

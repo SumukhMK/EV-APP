@@ -31,16 +31,19 @@ class ServiceJobCloseTest extends ServiceJobTestBase {
 
     private String token;
     private UUID jobId;
+    /** Somebody has to be on the bike, or a RIDER close has nobody to bill. */
+    private final UUID riderId = UUID.randomUUID();
 
     @BeforeEach
     void openPriceAndPass() throws Exception {
         token = tokenFor(ADMIN_EMAIL);
-        jobId = openJob(token, "BLRSS0428", "MINOR");
+        jobId = openJob(token, "BLRSS0428", "MINOR", riderId);
         mvc.perform(put("/api/v1/service/jobs/" + jobId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                  {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Panel replaced",
+                                  "technician":"Raju","note":"Ready for checking",
                                   "items":[{"label":"Left panel","costPaise":85000,"kind":"PART"}]}
                                  """))
                 .andExpect(status().isOk());
@@ -148,7 +151,7 @@ class ServiceJobCloseTest extends ServiceJobTestBase {
         // A second bike, taken in and never QC'd: closing settles the money but
         // must not declare an unchecked bike roadworthy.
         UUID other = insertVehicle(TENANT, "BLRSS0432", "CHASSIS0432", VehicleState.DEPLOYED);
-        UUID openJobId = openJob(token, "BLRSS0432", "MAJOR");
+        UUID openJobId = openJob(token, "BLRSS0432", "MAJOR", riderId);
 
         mvc.perform(post("/api/v1/service/jobs/" + openJobId + "/close")
                         .header("Authorization", "Bearer " + token)

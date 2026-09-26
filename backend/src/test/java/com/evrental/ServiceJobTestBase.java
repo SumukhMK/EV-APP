@@ -124,16 +124,27 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
         return new ObjectMapper().readTree(body).get("accessToken").asString();
     }
 
-    /** Opens a job through the API and returns its id. */
+    /** Opens a job with no rider on the bike — a walk-in or a yard find. */
     protected UUID openJob(String token, String registryId, String damage) throws Exception {
+        return openJob(token, registryId, damage, null);
+    }
+
+    /**
+     * Opens a job, optionally with the rider who handed the bike back.
+     *
+     * <p>The rider matters at closing time: billing RIDER or DEPOSIT when
+     * nobody is on the bike bills nobody, and the service refuses it.
+     */
+    protected UUID openJob(String token, String registryId, String damage, UUID riderId) throws Exception {
         String body = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .post("/api/v1/service/jobs")
                         .header("Authorization", "Bearer " + token)
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                         .content("""
                                  {"vehicleId":"%s","source":"DEBOARD","damageCategory":"%s",
-                                  "damageNotes":"Scratched left panel"}
-                                 """.formatted(registryId, damage)))
+                                  "damageNotes":"Scratched left panel"%s}
+                                 """.formatted(registryId, damage,
+                                        riderId == null ? "" : ",\"riderId\":\"" + riderId + "\"")))
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(new ObjectMapper().readTree(body).get("id").asString());
     }

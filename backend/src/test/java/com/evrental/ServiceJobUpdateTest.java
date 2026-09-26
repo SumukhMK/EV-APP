@@ -56,11 +56,11 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
     @Test
     void replacesCostLinesWholesaleRatherThanAppending() throws Exception {
         update("""
-               {"queue":"MINOR_REPAIR","damageCategory":"MINOR",
+               {"queue":"MINOR_REPAIR","damageCategory":"MINOR","note":"Panel priced",
                 "items":[{"label":"Left panel","costPaise":85000,"kind":"PART"}]}
                """);
         update("""
-               {"queue":"MINOR_REPAIR","damageCategory":"MINOR",
+               {"queue":"MINOR_REPAIR","damageCategory":"MINOR","note":"Repriced — mirror only",
                 "items":[{"label":"Mirror","costPaise":20000,"kind":"PART"}]}
                """);
 
@@ -73,7 +73,7 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
     @Test
     void leavesTheCostingAloneWhenASaveCarriesNoItems() throws Exception {
         update("""
-               {"queue":"MINOR_REPAIR","damageCategory":"MINOR",
+               {"queue":"MINOR_REPAIR","damageCategory":"MINOR","note":"Panel priced",
                 "items":[{"label":"Left panel","costPaise":85000,"kind":"PART"}]}
                """);
         // A note-only save must not wipe the costing somebody else just entered.
@@ -92,7 +92,8 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Repaired"}
+                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Repaired",
+                                  "technician":"Raju","note":"Ready for checking"}
                                  """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.queue").value("QC_PENDING"));
@@ -103,7 +104,8 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
     @Test
     void stayingInTheSameQueueWritesNoStateChange() throws Exception {
         update("""
-               {"queue":"MINOR_REPAIR","damageCategory":"MINOR","workSummary":"Still on the bench"}
+               {"queue":"MINOR_REPAIR","damageCategory":"MINOR","workSummary":"Still on the bench",
+                "note":"No change yet"}
                """);
         assertThat(stateOf(vehicleId)).isEqualTo(VehicleState.UNDER_REPAIR);
     }
@@ -116,7 +118,8 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"READY_TO_DEPLOY","damageCategory":"MINOR"}
+                                 {"queue":"READY_TO_DEPLOY","damageCategory":"MINOR",
+                                  "workSummary":"Repaired","technician":"Raju","note":"Trying to release"}
                                  """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message")
@@ -139,7 +142,7 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"MINOR_REPAIR","damageCategory":"MINOR"}
+                                 {"queue":"MINOR_REPAIR","damageCategory":"MINOR","note":"Reopening?"}
                                  """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("This job is closed and cannot be changed"));
@@ -151,7 +154,7 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"MINOR_REPAIR","damageCategory":"MINOR",
+                                 {"queue":"MINOR_REPAIR","damageCategory":"MINOR","note":"Refund line",
                                   "items":[{"label":"Refund","costPaise":-500,"kind":"OTHER"}]}
                                  """))
                 .andExpect(status().isUnprocessableContent());
@@ -163,7 +166,7 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"MINOR_REPAIR","damageCategory":"MINOR",
+                                 {"queue":"MINOR_REPAIR","damageCategory":"MINOR","note":"Blank label",
                                   "items":[{"label":"   ","costPaise":500}]}
                                  """))
                 .andExpect(status().isUnprocessableContent());
@@ -172,7 +175,7 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
     @Test
     void defaultsAnUnlabelledKindToOther() throws Exception {
         update("""
-               {"queue":"MINOR_REPAIR","damageCategory":"MINOR",
+               {"queue":"MINOR_REPAIR","damageCategory":"MINOR","note":"Consumables",
                 "items":[{"label":"Shop rag","costPaise":1000}]}
                """);
 
@@ -183,13 +186,17 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
     @Test
     void logsEveryMoveAgainstTheJob() throws Exception {
         update("""
-               {"queue":"PARTS_WAITING","damageCategory":"MINOR","reference":"PO-4471"}
+               {"queue":"PARTS_WAITING","damageCategory":"MINOR","reference":"PO-4471",
+                "note":"Waiting on a panel"}
                """);
 
         mvc.perform(get("/api/v1/service/jobs/" + jobId).header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.activity.length()").value(2))
-                .andExpect(jsonPath("$.activity[1].note")
-                        .value("Moved from Minor repair to Waiting for parts"))
+                // The operator's own words are what the log keeps, not a
+                // generated summary of the move — the queue change is already
+                // on the event row.
+                .andExpect(jsonPath("$.activity[1].note").value("Waiting on a panel"))
+                .andExpect(jsonPath("$.activity[1].queue").value("PARTS_WAITING"))
                 .andExpect(jsonPath("$.reference").value("PO-4471"));
     }
 
@@ -199,7 +206,7 @@ class ServiceJobUpdateTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"queue":"MINOR_REPAIR","damageCategory":"MINOR"}
+                                 {"queue":"MINOR_REPAIR","damageCategory":"MINOR","note":"Anything"}
                                  """))
                 .andExpect(status().isNotFound());
     }
