@@ -42,7 +42,7 @@ class ServiceJobFacadeTest extends ServiceJobTestBase {
 
     @Test
     void carriesTheRiderThroughSoTheChargeCanFindThem() {
-        UUID riderId = UUID.randomUUID();
+        UUID riderId = RIDER_ID;
 
         ServiceJob job = asTenant(() -> facade.openJob(
                 TENANT, "BLRSS0428", riderId, ServiceJobSource.DEBOARD,
