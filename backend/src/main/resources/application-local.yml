@@ -33,6 +33,10 @@ app:
     allowed-origins: http://localhost:5173
   jwt:
     secret: local-development-signing-key-not-a-secret-32b+
+  # The Aadhaar encryption key. A development value like the signing key
+  # above — deployed environments supply AADHAAR_ENCRYPTION_KEY and never load
+  # this profile.
+  aadhaar-encryption-key: AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=
   bootstrap:
     # The platform super admin, created at boot if missing. Password matches
     # the frontend Login screen's default field value, so wiring the real login

@@ -15,6 +15,10 @@ app:
     secret: test-signing-key-used-only-by-the-test-suite
     access-token-ttl: 15m
     refresh-token-ttl: 7d
+  # Throwaway AES-256 key for the test suite (32 bytes, base64). The tests
+  # never assert on its value — only that ciphertext round-trips, differs from
+  # the plaintext, and differs between two encryptions of the same number.
+  aadhaar-encryption-key: AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=
 
 logging:
   level:

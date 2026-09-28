@@ -59,6 +59,20 @@ services:
       - key: JWT_SECRET
         generateValue: true
 
+      # The AES-256 key Aadhaar numbers are encrypted with at rest
+      # (AadhaarCipher). Like JWT_SECRET it has no default, so an environment
+      # that forgets it fails at boot rather than storing Aadhaar numbers
+      # under a key that is in the repository.
+      #
+      # `sync: false`, not `generateValue: true`: Render's generator emits a
+      # URL-safe string, not base64 of exactly 32 bytes, and AadhaarCipher
+      # refuses anything else at construction. Generate it once with
+      #     openssl rand -base64 32
+      # and paste it in. Rotating it makes every stored Aadhaar undecryptable
+      # — there is no re-encryption path yet, so treat it as permanent.
+      - key: AADHAAR_ENCRYPTION_KEY
+        sync: false
+
       # The first admin, created at boot if missing (BootstrapData). Unset
       # both once the account exists — leaving a password in the environment
       # keeps a credential where it does not need to be.
