@@ -2,16 +2,17 @@ package com.evrental.payment;
 
 import com.evrental.service.ServiceLiability;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
  * One charge, as the ledger reads it.
  *
- * <p>Close to RiderCharge in frontend/app/src/types/payment.ts, with one
- * field deliberately absent: `periodStart`. Which billing period a charge
- * first appears against depends on the rider's billing day, and riders are
- * S2. `chargedOn` is what actually happened; the period is derived from it
- * when the run is built.
+ * <p>Mirrors RiderCharge in frontend/app/src/types/payment.ts, including
+ * {@code periodStart} — the billing period the charge first appears against.
+ * V007 had no such column and this record had no such field, because the
+ * period depends on the rider's billing day and riders were S2. Both arrived
+ * with V009.
  */
 public record RiderChargeResponse(
         UUID id,
@@ -21,6 +22,7 @@ public record RiderChargeResponse(
         long amountPaise,
         ServiceLiability liability,
         RiderChargeStatus status,
+        LocalDate periodStart,
         Instant chargedOn,
         Instant settledOn) {
 
@@ -28,6 +30,6 @@ public record RiderChargeResponse(
         return new RiderChargeResponse(
                 charge.getId(), charge.getRiderId(), charge.getServiceJobId(), charge.getVehicleId(),
                 charge.getAmountPaise(), charge.getLiability(), charge.getStatus(),
-                charge.getChargedOn(), charge.getSettledOn());
+                charge.getPeriodStart(), charge.getChargedOn(), charge.getSettledOn());
     }
 }

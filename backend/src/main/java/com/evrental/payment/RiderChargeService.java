@@ -1,5 +1,7 @@
 package com.evrental.payment;
 
+import com.evrental.rider.Rider;
+import com.evrental.rider.RiderRepository;
 import com.evrental.service.ServiceJobClosedEvent;
 import java.time.Instant;
 import java.util.List;
@@ -26,10 +28,15 @@ public class RiderChargeService {
     private static final Logger log = LoggerFactory.getLogger(RiderChargeService.class);
 
     private final RiderChargeRepository charges;
+    private final RiderRepository riders;
+    private final BillingClock clock;
     private final JdbcTemplate jdbc;
 
-    public RiderChargeService(RiderChargeRepository charges, JdbcTemplate jdbc) {
+    public RiderChargeService(RiderChargeRepository charges, RiderRepository riders,
+                              BillingClock clock, JdbcTemplate jdbc) {
         this.charges = charges;
+        this.riders = riders;
+        this.clock = clock;
         this.jdbc = jdbc;
     }
 
@@ -83,6 +90,10 @@ public class RiderChargeService {
         charge.setVehicleId(event.vehicleId());
         charge.setAmountPaise(event.totalCostPaise());
         charge.setLiability(event.liability());
+        charge.setPeriodStart(periodStartFor(event.riderId()));
+        if (charge.getPeriodStart() == null) {
+            return null;
+        }
 
         try {
             RiderCharge saved = charges.saveAndFlush(charge);
@@ -103,6 +114,30 @@ public class RiderChargeService {
             log.info("Job {} was charged by another delivery; nothing raised", event.jobId());
             return null;
         }
+    }
+
+    /**
+     * Which billing period a charge raised today first appears against.
+     *
+     * <p>Stamped here, once, rather than derived on every read: the rider's
+     * billing day can change, and re-deriving would re-bucket their whole
+     * charge history the day it does — silently changing what a settled week
+     * had contained.
+     *
+     * @return null when the rider is not on the register, which means the
+     *         charge cannot be placed in a week and must not be raised
+     */
+    private java.time.LocalDate periodStartFor(UUID riderId) {
+        Rider rider = riders.findById(riderId).orElse(null);
+        if (rider == null) {
+            // V008's fk_rider_charges_rider is NOT VALID, so the database would
+            // accept this row; the insert must be refused here instead. A
+            // charge nobody can be billed for is a number that turns up in a
+            // run total with no rider attached to it.
+            log.warn("Rider {} is not on the register; no charge raised", riderId);
+            return null;
+        }
+        return BillingPeriod.startOnOrBefore(rider.getBillingDay(), clock.today());
     }
 
     /**
@@ -136,7 +171,7 @@ public class RiderChargeService {
      * <p>DEPOSIT charges are counted here even though they never appear on a
      * weekly run: the money is owed either way, it just comes out of what is
      * already held rather than being billed. The run is where the two are
-     * told apart, and the run is S2's to unblock.
+     * told apart — see RiderChargeRepository.sumOpenInPeriod.
      */
     @Transactional(readOnly = true)
     public long outstandingPaiseFor(UUID riderId) {

@@ -55,17 +55,27 @@ shell of S5 can be built while S4 is still in progress.
 
 ### Where the two of you actually meet
 
-Three places, and only three:
+Four places, and only four:
 
 | What | Built by | Used by | How it works |
 |---|---|---|---|
 | `ServiceJobFacade.openJob()` | SMK | Abhiram | Abhiram's deboard code calls this one method. He never opens the service module. |
 | `ServiceJobClosedEvent` | SMK | SMK | A closed job tells the money module to charge the rider, in the background. |
 | `VehicleService.transitionState()` | SMK | SMK | Service changes the bike's state through this, never by writing to the table. |
+| `AssignmentQuery` (S6 → S5) | declared by SMK in `payment/` | implemented by Abhiram in `assignment/` | The payment run asks "which bike was this rider on during this week, and for how many days?" S5 answers. |
 
 So the only real handshake between the two of you is **one Java method**:
 `openJob()`. SMK writes it, Abhiram calls it. If its shape needs to change,
 that is a conversation, not an edit.
+
+`AssignmentQuery` is the one place the direction runs the other way. With
+`openJob()`, SMK publishes a method and Abhiram calls it. With
+`AssignmentQuery`, SMK declares an interface he needs and Abhiram supplies the
+implementation. Until he does, `NoAssignmentsYet` answers `Optional.empty()`
+for every rider — the run bills the full week and leaves `vehicleId` null,
+which is exactly the pre-S5 behaviour. When the real one lands it must be
+annotated `@Primary` so it wins the injection point; nothing in `payment/`
+needs to change on that day.
 
 ---
 
