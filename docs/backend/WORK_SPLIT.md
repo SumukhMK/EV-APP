@@ -37,7 +37,7 @@ start, not after you push.
 | **S2** | Riders: onboard, list, read, KYC flags, Aadhaar encrypted at rest | **Abhiram** | **done** |
 | **S3** | Users and roles: who is allowed to call what | **SMK** | S0 |
 | **S4** | Service jobs: intake, repair queues, QC, cost | **SMK** | **done** |
-| **S5** | Assign a bike to a rider, exchange it, take it back | **Abhiram** | S4 |
+| **S5** | Assign a bike to a rider, exchange it, take it back | **Abhiram** | **done** |
 | **S6** | Money: charges, weekly payment run, receipts, overdue | **SMK** | **half done** — ledger built; run/overdue/receipts unblocked (S2 landed) |
 
 ### What runs at the same time
@@ -124,11 +124,11 @@ the QC gate, cost lines, close-with-liability and the async
 — the one handshake with Abhiram's S5 — is live and tested through the
 interface. Backend 185/185 tests against a real Postgres, up from 111.
 
-**S4's frontend swap is blocked on S5 and S6 — not on S4.** S2 landed
-2026-09-26, which clears the deposit-drawdown item (4) below; the charge (3)
-and the bike handback (5) still wait on S6 and S5. (Corrected 2026-09-26; the
-first version of this note said it was a validation problem, which
-understated it.)
+**S4's frontend swap is blocked on S6 — not on S4.** S2 landed
+2026-09-26, which clears the deposit-drawdown item (4) below; S5 landed
+2026-09-28, which clears the bike handback (5); the charge (3) still waits on
+S6. (Corrected 2026-09-26; the first version of this note said it was a
+validation problem, which understated it.)
 
 Read `updateServiceJobRecord()` in `mocks/serviceJobs.ts` to the end. Its
 release path — the Help desk's main action, "Pass QC and release" — does five
@@ -138,7 +138,7 @@ things:
 2. moves the bike — the backend does this;
 3. `addRiderCharge(...)` — **needs S6 (money), not built**;
 4. `rider.depositHeld -= total` — **S2 landed 2026-09-26 — the register stores depositHeld**;
-5. clears `vehicle.currentRiderId` — **needs S5 (assignments), not built**.
+5. clears `vehicle.currentRiderId` — **S5 landed 2026-09-28 — the assignment row is the source of truth**.
 
 Swapping the module to live today would silently stop charging riders, stop
 drawing down deposits, and leave bikes showing a rider who has already handed
@@ -303,13 +303,24 @@ which billing period a charge first appears against depends on the rider's
 billing day, so storing a guess now would be a number the run later has to
 disagree with.
 
+**S5 landed (2026-09-28):** the assignment module is built — `V009` adds the
+`assignments` table under RLS, with the period invariant as a CHECK, "one
+rider, one bike" as partial unique indexes, and the settlement figures as
+facts on the closing row; assign, exchange and deboard are live, gated
+SA/FA/FS; the rider and vehicle reads now answer `currentVehicleId` /
+`currentRiderId`, and the vehicle detail carries the assignment history; the
+ten designed assignments are seeded. The deboard path calls
+`ServiceJobFacade.openJob()` — the one handshake with SMK's service module —
+so a returned bike goes where its damage category routes it. Backend 290/290
+tests against a real Postgres, up from 250.
+
 **SMK, next:** S6's second half — the weekly payment run, the overdue list and
 receipts. S2 landed 2026-09-26, so the gate is open.
 
-**Abhiram, next:** S5 — assignments: assign, exchange, deboard, settlement.
-S2 landed 2026-09-26. The deboard path calls `ServiceJobFacade.openJob()` —
-the one handshake with SMK's service module — and the S5 shell can be built
-now.
+**Abhiram, next:** S5 is done (2026-09-28). The remaining piece is the
+frontend swap of `lib/api/assignments.ts` to live, which waits on S6's second
+half — the settlement screen needs the FA approval and the ledger rows S6
+owns.
 
 **Deployment:** the path exists (`render.yaml`, `netlify.toml`, `DEPLOY.md`)
 but is not live yet — the Render service is created but not running, and
