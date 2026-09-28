@@ -114,12 +114,12 @@ public class PaymentPeriod {
      * The one place status is decided, so the run, the receipt and the overdue
      * list cannot disagree about a row.
      *
-     * <p>OVERDUE is tested before PARTIAL, which is the reverse of the order
-     * the design document lists. A week that has closed while still short is
-     * overdue whether nothing came in or only half did, and the overdue screen
-     * is the one place that has to say so — ordering PARTIAL first would hide
-     * every part-paying rider from the chasing list, which is exactly the
-     * rider who needs chasing.
+     * <p>OVERDUE is tested before PARTIAL. A week that has closed while still
+     * short is overdue whether nothing came in or only half did, and the
+     * overdue screen is the one place that has to say so — ordering PARTIAL
+     * first would hide every part-paying rider from the chasing list, which is
+     * exactly the rider who needs chasing. The design document originally
+     * listed the reverse order and has been corrected to match this.
      *
      * <p>Overpayment reads PAID rather than being refused: the contract
      * documents {@code balance} as "positive means still owed", which already

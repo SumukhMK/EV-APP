@@ -307,14 +307,19 @@ run that silently omits people is how someone stops being billed by accident.
 
 ### `status`
 
-Computed, never frozen:
+Computed, never frozen, and the order of the tests matters:
 
 ```
 amountPaid >= totalDue            → PAID
+today > periodEnd                 → OVERDUE
 amountPaid >  0                   → PARTIAL
-today > periodEnd && still short  → OVERDUE
 otherwise                         → PENDING
 ```
+
+`OVERDUE` is tested before `PARTIAL` on purpose. A week that closed with half
+the money in is still a week somebody has to chase, so it has to reach the
+overdue list. Test `PARTIAL` first and a rider who paid ₹500 of ₹1,999 three
+weeks ago never appears on it again.
 
 ---
 
@@ -485,11 +490,11 @@ moved for a reason worth keeping on the record.
    `AT TIME ZONE 'Asia/Kolkata'` and `BillingClock` is the only thing in
    `payment/` allowed to ask what day it is.
 
-3. **`OVERDUE` is tested before `PARTIAL`, not after.** This document lists the
-   statuses in the other order. A week that closed with half the money in is a
-   week somebody has to chase, so it has to reach the overdue list; if
-   `PARTIAL` won, it never would. The design's own test list agrees — "closed
-   and still short reads OVERDUE".
+3. **`OVERDUE` is tested before `PARTIAL`, not after.** The `status` section
+   above has been corrected to match the code. It originally listed the
+   statuses the other way round, which would have kept a part-paid closed week
+   off the chasing list forever. The design's own test list already disagreed
+   with its own ordering — "closed and still short reads OVERDUE".
 
 4. **`NoAssignmentsYet` is displaced by `@Primary`, not
    `@ConditionalOnMissingBean`.** That annotation is only dependable inside
