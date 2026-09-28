@@ -34,11 +34,11 @@ start, not after you push.
 |---|---|---|---|
 | **S0** | Boot the app, login, JWT, tenant isolation, database setup, Docker, CI | SMK (skeleton), **Abhiram** (auth) | **done** |
 | **S1** | Bikes: create, edit, the nine states, CSV upload | **SMK** | **done** |
-| **S2** | Riders: create, edit, KYC, hide most of the Aadhaar number | **Abhiram** | S0 |
+| **S2** | Riders: onboard, list, read, KYC flags, Aadhaar encrypted at rest | **Abhiram** | **done** |
 | **S3** | Users and roles: who is allowed to call what | **SMK** | S0 |
 | **S4** | Service jobs: intake, repair queues, QC, cost | **SMK** | **done** |
 | **S5** | Assign a bike to a rider, exchange it, take it back | **Abhiram** | S4 |
-| **S6** | Money: charges, weekly payment run, receipts, overdue | **SMK** | **half done** — ledger built, run/overdue/receipts need S2 |
+| **S6** | Money: charges, weekly payment run, receipts, overdue | **SMK** | **half done** — ledger built; run/overdue/receipts unblocked (S2 landed) |
 
 ### What runs at the same time
 
@@ -103,13 +103,14 @@ knows what the real response looks like.
 
 S1's swap is already built — `lib/api/vehicles.ts` re-exports the live or the
 mock implementation from `VITE_API_BASE`. The remaining rows follow the same
-pattern.
+pattern. S2's backend is done (2026-09-26) but its swap still waits on S5 and
+S6 — the same three-stage gate as S4's.
 
 ---
 
 ## Right now
 
-**Done:** S0 and S1. The backend boots, connects to Postgres, runs its
+**Done:** S0, S1 and S2. The backend boots, connects to Postgres, runs its
 migrations, signs users in, rotates refresh tokens, refuses every request it has
 no rule for, and proves tenant isolation in a test. On that floor sits the
 complete vehicle module: create, edit, the nine states, search and facets, and
@@ -123,9 +124,11 @@ the QC gate, cost lines, close-with-liability and the async
 — the one handshake with Abhiram's S5 — is live and tested through the
 interface. Backend 185/185 tests against a real Postgres, up from 111.
 
-**S4's frontend swap is blocked on S2, S5 and S6 — not on S4.** (Corrected
-2026-09-26; the first version of this note said it was a validation problem,
-which understated it.)
+**S4's frontend swap is blocked on S5 and S6 — not on S4.** S2 landed
+2026-09-26, which clears the deposit-drawdown item (4) below; the charge (3)
+and the bike handback (5) still wait on S6 and S5. (Corrected 2026-09-26; the
+first version of this note said it was a validation problem, which
+understated it.)
 
 Read `updateServiceJobRecord()` in `mocks/serviceJobs.ts` to the end. Its
 release path — the Help desk's main action, "Pass QC and release" — does five
@@ -134,7 +137,7 @@ things:
 1. closes the job — the backend does this;
 2. moves the bike — the backend does this;
 3. `addRiderCharge(...)` — **needs S6 (money), not built**;
-4. `rider.depositHeld -= total` — **needs S2 (riders), not built**;
+4. `rider.depositHeld -= total` — **S2 landed 2026-09-26 — the register stores depositHeld**;
 5. clears `vehicle.currentRiderId` — **needs S5 (assignments), not built**.
 
 Swapping the module to live today would silently stop charging riders, stop
@@ -176,10 +179,11 @@ that is the point. It is the floor the modules get built on.
   nobody has to install Maven — it fetches its own on first run.
 - One package per module from the architecture doc: `auth`, `platform`,
   `vehicle`, `rider`, `user`, `service`, `assignment`, `payment`, `shared`,
-  `notification`, `excel`. `auth`, `platform`, `user` and `vehicle` are filled
-  in; the rest hold a short note saying what they own, which stage builds them
-  and whose stage that is. Empty on purpose — the boundary exists before the
-  code does, so nothing lands in the wrong module by accident.
+  `notification`, `excel`. `auth`, `platform`, `user`, `vehicle`, `rider` and
+  the first half of `payment` are filled in; the rest hold a short note saying
+  what they own, which stage builds them and whose stage that is. Empty on
+  purpose — the boundary exists before the code does, so nothing lands in the
+  wrong module by accident.
 - Flyway's auto-configuration comes from `spring-boot-flyway`, which is a
   separate dependency on Boot 4. Without it migrations silently do not run.
   Do not remove it.
@@ -274,28 +278,38 @@ The vehicle module, built on the S0 floor.
 `rider_charges`; a service job that closes against a rider raises one through
 an async listener on `ServiceJobClosedEvent`, guarded against double-billing by
 a unique index on the job id. Read and settle endpoints are Money-gated
-(SA/FA). 211/211 backend tests.
+(SA/FA). 211/211 backend tests; 250/250 once S2 landed the same day.
 
-**S6's second half is blocked on S2, and this is now the critical path.** The
-weekly payment run, the overdue list and receipts each need four things that
-only exist on a rider: the name and phone to chase, the weekly rent
-(`planAmount`), the billing day (Monday or Wednesday — it decides who is in
-this week's run at all) and the deposit balance (`depositHeld`, which a
-DEPOSIT charge draws down). Today a charge is a correct row against a rider id
-with nobody behind it.
+**S2 landed (2026-09-26):** the rider register is built — `V008` adds the
+`riders` table under RLS and the two FKs V006/V007 left off; onboard, list,
+read, facets, assignable and the payment-history seam are live, gated
+SA/FA/FS; the ten designed riders are seeded. The Aadhaar is stored encrypted
+at rest (`AadhaarCipher`, AES-256-GCM, key from `AADHAAR_ENCRYPTION_KEY`) and
+never returned by the API. Backend 250/250 tests against a real Postgres, up
+from 211.
 
-`rider_charges.rider_id` therefore carries no foreign key, and there is
-deliberately no `period_start` column — which billing period a charge first
-appears against depends on the rider's billing day, so storing a guess now
-would be a number the run later has to disagree with.
+**S6's second half was blocked on S2; S2 landed 2026-09-26, so it is
+unblocked and is the critical path.** The weekly payment run, the overdue list
+and receipts each need four things that only exist on a rider: the name and
+phone to chase, the weekly rent (`planAmount`), the billing day (Monday or
+Wednesday — it decides who is in this week's run at all) and the deposit
+balance (`depositHeld`, which a DEPOSIT charge draws down). All four are on
+the register now; the run, the overdue list and the receipts are just not
+built yet.
 
-**SMK, next:** nothing in S6 moves until S2 does. Abhiram's riders module is
-the gate on the money screens *and* on the service frontend swap.
+`rider_charges.rider_id` now carries the foreign key V008 added — a charge
+names a real rider. There is still deliberately no `period_start` column:
+which billing period a charge first appears against depends on the rider's
+billing day, so storing a guess now would be a number the run later has to
+disagree with.
 
-**Abhiram, next:** S2 — riders: CRUD, KYC, masked Aadhaar. Unblocked now that
-S0 is in. Read `frontend/app/src/types/rider.ts` first: that is the shape S2
-has to return, and if something in it looks wrong, now is the cheap time to say
-so.
+**SMK, next:** S6's second half — the weekly payment run, the overdue list and
+receipts. S2 landed 2026-09-26, so the gate is open.
+
+**Abhiram, next:** S5 — assignments: assign, exchange, deboard, settlement.
+S2 landed 2026-09-26. The deboard path calls `ServiceJobFacade.openJob()` —
+the one handshake with SMK's service module — and the S5 shell can be built
+now.
 
 **Deployment:** the path exists (`render.yaml`, `netlify.toml`, `DEPLOY.md`)
 but is not live yet — the Render service is created but not running, and
@@ -310,7 +324,9 @@ deployed site stays the fixtures demo.
 - Money is paise (whole numbers) inside the system. Rupees only at the edge.
 - Money rows and audit rows are never edited. A correction is a new row.
 - A tenant's data is filtered by the database, not by your code.
-- Never store a full Aadhaar number.
+- Never store a full Aadhaar number in the clear — encrypt at rest
+  (`AadhaarCipher`, key from `AADHAAR_ENCRYPTION_KEY`), never return it on the
+  wire.
 - Before you push: `./mvnw verify` on the backend, `npm run build` and
   `npm run lint` on the frontend.
 - Say it before you pull. Both sides are live; a surprise rebase costs an hour.
@@ -334,6 +350,7 @@ screen that already prints a message keeps printing the same sentence:
 
 All 422s with the field attached, which the forms already read.
 
-Not moved, because the backend has nothing to check them against: the deposit
-ceiling (`total > rider.depositHeld`) and the "rider record must exist" guard
-both need S2.
+Not moved yet: the deposit ceiling (`total > rider.depositHeld`). S2 landed
+2026-09-26 — the register stores `depositHeld`, and the FK V008 added
+(`fk_service_jobs_rider`) enforces the "rider record must exist" guard at the
+database — but the ceiling check itself is still mock-only.

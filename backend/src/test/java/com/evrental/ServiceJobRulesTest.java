@@ -176,7 +176,7 @@ class ServiceJobRulesTest extends ServiceJobTestBase {
 
     @Test
     void aRiderOnTheBikeCanBeCharged() throws Exception {
-        UUID riderId = UUID.randomUUID();
+        UUID riderId = RIDER_ID;
         insertVehicle(TENANT, "BLRSS0601", "CHASSIS0601", com.evrental.vehicle.VehicleState.DEPLOYED);
         String body = mvc.perform(post("/api/v1/service/jobs")
                         .header("Authorization", "Bearer " + token)

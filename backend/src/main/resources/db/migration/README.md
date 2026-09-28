@@ -1,6 +1,7 @@
 # Writing a migration here
 
-Two rules, and the second one has already cost us a broken database.
+Three rules, and the second and third have each already cost us a broken
+database.
 
 ## 1. Add row-level security with the helper
 
@@ -67,6 +68,58 @@ docker compose down -v && docker compose up -d
 A deployment with real users in that state needs the rename applied by hand,
 in one transaction with the bypass set, and V005 marked applied in
 `flyway_schema_history`. Ask before doing that to anything that matters.
+
+## 3. `ADD CONSTRAINT` is validated under RLS too — and it fails *silently*
+
+Rule 2 is about `UPDATE` and `DELETE` touching zero rows. This is the nastier
+sibling, because there is no error at all.
+
+`ALTER TABLE ... ADD CONSTRAINT` validates by scanning the table, and that
+scan is subject to RLS like any other read. With no tenant set, the migration
+role sees **zero rows**, finds nothing to object to, and Postgres records the
+constraint as *validated*:
+
+```sql
+-- On a database that already has service_jobs rows:
+ALTER TABLE service_jobs
+  ADD CONSTRAINT fk_service_jobs_rider FOREIGN KEY (rider_id) REFERENCES riders (id);
+-- ALTER TABLE.  No error.  convalidated = true.  And it is not true.
+```
+
+You now have a constraint the database believes it is enforcing while the data
+breaks it. Joins quietly drop the orphans, and the damage surfaces much later
+at the worst moment: **`pg_dump`/restore aborts**, because a restore
+revalidates as superuser with RLS bypassed and finally sees the rows.
+
+Note that rule 2's sentinel does *not* save you here. `set_config('app.tenant_id', '*', true)`
+works for a bypass the policy itself understands, but it is easy to reach for
+it, see `ALTER TABLE`, and assume the scan was real.
+
+**What to do instead.** Pick one, deliberately:
+
+- **`NOT VALID`** — if pre-existing rows may legitimately violate it. The
+  constraint is honestly recorded as unvalidated, `pg_dump` round-trips it,
+  and *every new insert and update is still fully enforced*. Reconcile the
+  history later, then `VALIDATE CONSTRAINT` as a superuser. This is what
+  **V008** does for the two rider FKs, and the comment there explains why.
+- **Validate for real** — drop RLS around the `ALTER` so the scan sees
+  everything and fails loudly on bad rows:
+
+  ```sql
+  ALTER TABLE t DISABLE ROW LEVEL SECURITY;
+  ALTER TABLE t ADD CONSTRAINT ...;
+  ALTER TABLE t ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE t FORCE ROW LEVEL SECURITY;   -- FORCE is not restored by ENABLE
+  ```
+
+  Use this when the constraint must hold over existing data and you would
+  rather the deploy stop than proceed on a false guarantee.
+
+Either way, never let `ALTER TABLE` report success and walk away. Check:
+
+```sql
+SELECT conname, convalidated FROM pg_constraint WHERE conname = 'your_constraint';
+```
 
 ## Numbering
 
