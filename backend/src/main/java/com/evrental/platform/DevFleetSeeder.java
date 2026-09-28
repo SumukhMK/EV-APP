@@ -90,21 +90,33 @@ public class DevFleetSeeder implements ApplicationRunner {
                 return;
             }
 
-            Integer existing = jdbc.queryForObject(
-                    "SELECT count(*) FROM vehicles WHERE tenant_id = ?", Integer.class, tenantId);
-            if (existing != null && existing > 0) {
-                log.info("Fleet seed: tenant '{}' already has {} vehicles — skipping", tenantSlug, existing);
-                return;
-            }
-
-            List<String[]> rows = readSeed();
-            for (String[] row : rows) {
-                insert(tenantId, row);
-            }
-            log.info("Fleet seed: loaded {} vehicles into '{}'", rows.size(), tenantSlug);
-
+            seedVehicles(tenantId);
+            // Outside the vehicle guard, and deliberately so: every developer
+            // who ran the app before S2 already has the 137 bikes, so a rider
+            // seed behind that early return would never fire for exactly the
+            // people who need it. seedRiders() carries its own idempotency.
             seedRiders(tenantId);
         });
+    }
+
+    /**
+     * Idempotent by a crude test: if the tenant already has any vehicle, it
+     * does nothing. Returning from here no longer skips the rider seed — that
+     * is why this is its own method rather than an early return in run().
+     */
+    private void seedVehicles(UUID tenantId) {
+        Integer existing = jdbc.queryForObject(
+                "SELECT count(*) FROM vehicles WHERE tenant_id = ?", Integer.class, tenantId);
+        if (existing != null && existing > 0) {
+            log.info("Fleet seed: tenant '{}' already has {} vehicles — skipping", tenantSlug, existing);
+            return;
+        }
+
+        List<String[]> rows = readSeed();
+        for (String[] row : rows) {
+            insert(tenantId, row);
+        }
+        log.info("Fleet seed: loaded {} vehicles into '{}'", rows.size(), tenantSlug);
     }
 
     private void insert(UUID tenantId, String[] r) {

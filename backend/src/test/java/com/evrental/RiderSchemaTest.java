@@ -172,6 +172,42 @@ class RiderSchemaTest extends PostgresTestBase {
         })).hasMessageContaining("fk_service_jobs_rider");
     }
 
+    /**
+     * The rider FKs must be recorded as NOT VALID, and that is not a
+     * shortcoming — it is the only honest state available to V008.
+     *
+     * <p>service_jobs and rider_charges both carry FORCE ROW LEVEL SECURITY,
+     * and Flyway connects as `evrental` with no app.tenant_id set. A plain
+     * ADD CONSTRAINT therefore validates against the RLS-filtered view, which
+     * for that role is zero rows: it finds nothing to object to and marks the
+     * constraint validated. On a database that already holds pre-S2 jobs or
+     * charges, that is Postgres asserting a guarantee the data breaks — joins
+     * to riders silently drop the orphans, and the next pg_dump/restore aborts
+     * when a superuser finally revalidates with RLS bypassed.
+     *
+     * <p>So this test pins the flag. If someone drops the NOT VALID from V008
+     * to make the schema look tidier, this goes red instead of the database
+     * quietly starting to lie. Enforcement of new rows is unaffected and is
+     * covered by aServiceJobMustNameARiderThatExists above.
+     */
+    @Test
+    void theRiderForeignKeysAreRecordedAsNotValidated() {
+        assertThat(constraintValidated("fk_service_jobs_rider")).isFalse();
+        assertThat(constraintValidated("fk_rider_charges_rider")).isFalse();
+    }
+
+    private boolean constraintValidated(String name) {
+        return onConnection("*", conn -> {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT convalidated FROM pg_constraint WHERE conname = ?")) {
+                ps.setString(1, name);
+                var rs = ps.executeQuery();
+                rs.next();
+                return rs.getBoolean(1);
+            }
+        });
+    }
+
     private void seedTenants() {
         onConnection("*", conn -> {
             try (PreparedStatement ps = conn.prepareStatement(

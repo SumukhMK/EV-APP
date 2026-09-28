@@ -79,8 +79,38 @@ SELECT enable_tenant_rls('riders');
 -- the day S2 lands." That day is now: a job or a charge that names a rider
 -- names a real one. No ON DELETE clause — riders are never deleted, and a
 -- job or charge pointing at a removed rider is a mistake worth failing on.
+--
+-- NOT VALID, and that word is load-bearing. Both tables carry FORCE ROW LEVEL
+-- SECURITY, and Flyway connects as `evrental` with no app.tenant_id set — so
+-- a plain ADD CONSTRAINT does not scan the table it appears to scan. The
+-- validation pass sees the RLS-filtered view, which is *zero rows*, finds
+-- nothing to object to, and records the constraint as validated. On any
+-- database that already has rows (every environment where V006/V007 shipped
+-- and a job or charge was written with a rider_id) that is a constraint
+-- Postgres believes is validated while the data violates it: joins to riders
+-- silently drop the orphans, and the next pg_dump/restore aborts, because a
+-- restore revalidates as superuser with RLS bypassed and finally sees them.
+--
+-- NOT VALID is honest about exactly this. It is recorded as unvalidated, so
+-- nothing claims a guarantee it does not have, and pg_dump round-trips it.
+-- Enforcement for every new insert and update is unaffected — those are
+-- checked in full from this migration onward, which is the property S2
+-- actually needs.
+--
+-- The pre-S2 orphans are left where they are on purpose. service_jobs.rider_id
+-- is nullable, but rider_charges.rider_id is NOT NULL, so reconciling them
+-- means deleting rows from the money ledger — a decision for whoever owns
+-- those books, not something a migration should do unattended.
+--
+-- Once an environment's orphans are reconciled, promote the constraints:
+--   ALTER TABLE service_jobs  VALIDATE CONSTRAINT fk_service_jobs_rider;
+--   ALTER TABLE rider_charges VALIDATE CONSTRAINT fk_rider_charges_rider;
+-- Run that as a superuser (or a BYPASSRLS role), or it will "succeed" against
+-- the same empty view and re-introduce the lie this comment exists to prevent.
 ALTER TABLE service_jobs
-  ADD CONSTRAINT fk_service_jobs_rider FOREIGN KEY (rider_id) REFERENCES riders (id);
+  ADD CONSTRAINT fk_service_jobs_rider FOREIGN KEY (rider_id) REFERENCES riders (id)
+  NOT VALID;
 
 ALTER TABLE rider_charges
-  ADD CONSTRAINT fk_rider_charges_rider FOREIGN KEY (rider_id) REFERENCES riders (id);
+  ADD CONSTRAINT fk_rider_charges_rider FOREIGN KEY (rider_id) REFERENCES riders (id)
+  NOT VALID;
