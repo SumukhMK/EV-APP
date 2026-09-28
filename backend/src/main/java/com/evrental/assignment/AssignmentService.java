@@ -1,0 +1,305 @@
+package com.evrental.assignment;
+
+import com.evrental.common.ConflictException;
+import com.evrental.common.NotFoundException;
+import com.evrental.common.ValidationException;
+import com.evrental.rider.Rider;
+import com.evrental.rider.RiderService;
+import com.evrental.rider.RiderStatus;
+import com.evrental.service.DamageCategory;
+import com.evrental.service.ServiceJobFacade;
+import com.evrental.service.ServiceJobSource;
+import com.evrental.vehicle.Vehicle;
+import com.evrental.vehicle.VehicleRepository;
+import com.evrental.vehicle.VehicleState;
+import com.evrental.vehicle.VehicleTransitions;
+import java.time.LocalDate;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * The three recorded assignment events: assign, exchange, deboard.
+ *
+ * <p>Every bike move goes through {@link VehicleTransitions#transitionState},
+ * so the lifecycle log stays complete; every return routes the bike through
+ * the S4 facade ({@link ServiceJobFacade#openJob}), so a damaged bike cannot
+ * skip the workshop; and the rider's status door is
+ * {@link RiderService#markDeboarded}. The assignment row is written here and
+ * read everywhere else through {@link AssignmentQuery}.
+ *
+ * <p>Each method is one transaction: the assignment rows, the job, the bike
+ * moves and the deboard commit together, or none of them do — a rider
+ * deboarded while the bike stayed out with them is the spreadsheet's failure
+ * this module exists to make unreachable.
+ *
+ * <p>The rules and their wording come from the mock
+ * (frontend/app/src/lib/api/assignments.ts), where the screens have relied on
+ * them since the prototype. The one deliberate divergence, recorded in the S5
+ * plan: the bike goes where the damage category routes it (openJob), and the
+ * operator's nextVehicleState is recorded as a fact on the closing row — an
+ * override of the condition's default is documented, not silently obeyed.
+ */
+@Service
+public class AssignmentService {
+
+    /** The four destinations a return may choose. Mirrors RETURN_DESTINATIONS in lib/serviceWorkflow.ts. */
+    private static final Set<VehicleState> RETURN_DESTINATIONS =
+            EnumSet.of(VehicleState.QC_PENDING, VehicleState.UNDER_REPAIR, VehicleState.ACCIDENT);
+
+    private final AssignmentRepository assignments;
+    private final RiderService riders;
+    private final VehicleRepository vehicles;
+    private final VehicleTransitions vehicleTransitions;
+    private final ServiceJobFacade serviceJobs;
+
+    public AssignmentService(AssignmentRepository assignments,
+                             RiderService riders,
+                             VehicleRepository vehicles,
+                             VehicleTransitions vehicleTransitions,
+                             ServiceJobFacade serviceJobs) {
+        this.assignments = assignments;
+        this.riders = riders;
+        this.vehicles = vehicles;
+        this.vehicleTransitions = vehicleTransitions;
+        this.serviceJobs = serviceJobs;
+    }
+
+    /**
+     * A bike goes out to a rider. The rider must be on the register and
+     * holding nothing; the bike must be in the yard with nobody on it. The
+     * partial unique indexes back both checks under a race — the first writer
+     * wins and the second gets a 409 from the index, not from a
+     * read-then-write race.
+     */
+    @Transactional
+    public Rider assign(AssignVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName) {
+        Rider rider = riders.findById(request.riderId());
+        requireActive(rider);
+
+        assignments.findOpenByRiderId(rider.getId()).ifPresent(open -> {
+            throw new ConflictException(rider.getName() + " already holds " + registryIdOf(open.getVehicleId())
+                    + ". Use Exchange vehicle instead.", "riderId");
+        });
+
+        Vehicle vehicle = vehicles.findByRegistryId(request.vehicleId().trim())
+                .orElseThrow(() -> NotFoundException.of("Vehicle", request.vehicleId()));
+        if (vehicle.getState() != VehicleState.READY_TO_DEPLOY
+                || assignments.findOpenByVehicleId(vehicle.getId()).isPresent()) {
+            throw new ConflictException(vehicle.getRegistryId() + " is not Ready to Deploy", "vehicleId");
+        }
+
+        Assignment assignment = new Assignment();
+        assignment.setTenantId(tenantId);
+        assignment.setRiderId(rider.getId());
+        assignment.setVehicleId(vehicle.getId());
+        assignment.setStartedOn(request.startedOn());
+        assignment.setNote(blankToNull(request.note()));
+        saveOrConflict(assignment);
+
+        vehicleTransitions.transitionState(
+                vehicle.getId(), VehicleState.DEPLOYED, "Assigned to " + rider.getName(),
+                actorUserId, actorName);
+        return rider;
+    }
+
+    /**
+     * Two events, never an overwrite: the old assignment closes with a
+     * condition and a new one opens. The bike coming back takes the same route
+     * a deboarded bike does — openJob — so a swap cannot quietly put a damaged
+     * bike back in the yard.
+     */
+    @Transactional
+    public Rider exchange(ExchangeVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName) {
+        Rider rider = riders.findById(request.riderId());
+        requireActive(rider);
+
+        Assignment open = assignments.findOpenByRiderId(rider.getId())
+                .orElseThrow(() -> new ConflictException(
+                        rider.getName() + " is not holding " + request.fromVehicleId(), "fromVehicleId"));
+        Vehicle from = vehicles.findById(open.getVehicleId())
+                .orElseThrow(() -> NotFoundException.of("Vehicle", open.getVehicleId()));
+        if (!from.getRegistryId().equals(request.fromVehicleId().trim())) {
+            throw new ConflictException(
+                    rider.getName() + " is not holding " + request.fromVehicleId(), "fromVehicleId");
+        }
+        if (request.toVehicleId().trim().equals(request.fromVehicleId().trim())) {
+            throw new ConflictException("Pick a different bike to exchange onto", "toVehicleId");
+        }
+        Vehicle to = vehicles.findByRegistryId(request.toVehicleId().trim())
+                .orElseThrow(() -> NotFoundException.of("Vehicle", request.toVehicleId()));
+        if (to.getState() != VehicleState.READY_TO_DEPLOY
+                || assignments.findOpenByVehicleId(to.getId()).isPresent()) {
+            throw new ConflictException(to.getRegistryId() + " is not Ready to Deploy", "toVehicleId");
+        }
+
+        String damageNotes = damageNotes(request.returnCondition(), request.damageItems());
+        validateReturn(request.returnCondition(), request.nextVehicleState(), request.note(), request.damageItems());
+
+        // Closed before the new row is inserted, and flushed, so the partial
+        // unique index never sees two open rows for one rider: Hibernate would
+        // otherwise order the insert before the update within the flush.
+        close(open, request.occurredOn(), request.reason().name(), request.returnCondition(),
+                request.nextVehicleState(), damageNotes, null, null, actorName);
+
+        Assignment next = new Assignment();
+        next.setTenantId(tenantId);
+        next.setRiderId(rider.getId());
+        next.setVehicleId(to.getId());
+        next.setStartedOn(request.occurredOn());
+        saveOrConflict(next);
+
+        serviceJobs.openJob(tenantId, from.getRegistryId(), rider.getId(), ServiceJobSource.EXCHANGE,
+                request.returnCondition(), jobNote(request.reason().name(), damageNotes, request.note()), actorName);
+        vehicleTransitions.transitionState(
+                to.getId(), VehicleState.DEPLOYED, "Assigned to " + rider.getName(), actorUserId, actorName);
+        return rider;
+    }
+
+    /**
+     * The gate: nothing else closes an assignment. The rider comes off the
+     * active register, because a rider with no bike and no plan running is not
+     * active — they are re-activated by the next onboarding. The settlement
+     * figures are recorded as facts on the closing row; S6's second half turns
+     * them into ledger rows under FA approval.
+     */
+    @Transactional
+    public Rider deboard(DeboardRiderRequest request, UUID tenantId, UUID actorUserId, String actorName) {
+        Rider rider = riders.findById(request.riderId());
+
+        Assignment open = assignments.findOpenByRiderId(rider.getId())
+                .orElseThrow(() -> new ConflictException(
+                        rider.getName() + " is not holding " + request.vehicleId(), "vehicleId"));
+        Vehicle vehicle = vehicles.findById(open.getVehicleId())
+                .orElseThrow(() -> NotFoundException.of("Vehicle", open.getVehicleId()));
+        if (!vehicle.getRegistryId().equals(request.vehicleId().trim())) {
+            throw new ConflictException(
+                    rider.getName() + " is not holding " + request.vehicleId(), "vehicleId");
+        }
+
+        String damageNotes = damageNotes(request.returnCondition(), request.damageItems());
+        validateReturn(request.returnCondition(), request.nextVehicleState(), request.note(), request.damageItems());
+
+        close(open, request.returnedOn(), request.reason().name(), request.returnCondition(),
+                request.nextVehicleState(), damageNotes,
+                request.outstandingRent(), request.depositRefund(), actorName);
+
+        serviceJobs.openJob(tenantId, vehicle.getRegistryId(), rider.getId(), ServiceJobSource.DEBOARD,
+                request.returnCondition(), jobNote(request.reason().name(), damageNotes, request.note()), actorName);
+        riders.markDeboarded(rider.getId());
+        return rider;
+    }
+
+    // -----------------------------------------------------------------------
+    // The return rules, in the mock's own words
+    // -----------------------------------------------------------------------
+
+    /**
+     * The rules that used to live only in the browser (lib/schemas/assignment.ts
+     * and the mock's returnNote). Their messages are the mock's wording, so a
+     * screen that already prints one keeps printing the same sentence. The mock
+     * answered 400; the S4 precedent (ServiceJobService.checkSaveRules) answers
+     * 422, and the UI handles both the same way.
+     */
+    private void validateReturn(DamageCategory condition, VehicleState nextState,
+                                String note, List<DamageItem> damageItems) {
+        if (!RETURN_DESTINATIONS.contains(nextState)) {
+            throw new ValidationException("nextVehicleState", "Choose a return destination");
+        }
+        if (condition == DamageCategory.NONE && damageItems != null && !damageItems.isEmpty()) {
+            throw new ValidationException("damageItems",
+                    "Clear the damaged-part rows or choose a damage severity");
+        }
+        if (condition != DamageCategory.NONE
+                && (damageItems == null || damageItems.isEmpty()
+                    || damageItems.stream().anyMatch(i -> i.part() == null || i.part().isBlank()))) {
+            throw new ValidationException("damageItems",
+                    "Record the damaged parts before returning this bike");
+        }
+        if (nextState != defaultDestination(condition) && (note == null || note.isBlank())) {
+            throw new ValidationException("note", "Explain the destination override");
+        }
+    }
+
+    /** Where a condition routes a bike by default. Mirrors CONDITION_DEFAULT_STATE in lib/labels.ts. */
+    private static VehicleState defaultDestination(DamageCategory condition) {
+        return switch (condition) {
+            case NONE -> VehicleState.QC_PENDING;
+            case MINOR, MAJOR -> VehicleState.UNDER_REPAIR;
+            case ACCIDENT -> VehicleState.ACCIDENT;
+        };
+    }
+
+    /** The part-level detail, joined the way the mock's returnNote joins it. */
+    private String damageNotes(DamageCategory condition, List<DamageItem> damageItems) {
+        if (condition == DamageCategory.NONE) {
+            return "No damage reported";
+        }
+        return damageItems.stream()
+                .map(i -> i.part().trim() + ": "
+                        + (i.note() == null || i.note().isBlank() ? "Damage reported" : i.note().trim()))
+                .collect(Collectors.joining("; "));
+    }
+
+    /** The job's damageNotes, exactly as the mock builds it: reason, damage, operator note. */
+    private String jobNote(String reason, String damageNotes, String note) {
+        return java.util.stream.Stream.of(reason, damageNotes, blankToNull(note))
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("\n"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Shared
+    // -----------------------------------------------------------------------
+
+    private void requireActive(Rider rider) {
+        if (rider.getStatus() != RiderStatus.ACTIVE) {
+            throw new ConflictException(rider.getName() + " is " + rider.getStatus().label().toLowerCase()
+                    + " and cannot hold a bike", "riderId");
+        }
+    }
+
+    /** Closes the row with the return facts. Flushed, not merely saved — see exchange(). */
+    private void close(Assignment open, LocalDate endedOn, String reason, DamageCategory condition,
+                       VehicleState nextState, String damageNotes, Long outstandingRent, Long depositRefund,
+                       String actorName) {
+        open.setEndedOn(endedOn);
+        open.setReason(reason);
+        open.setReturnCondition(condition);
+        open.setNextVehicleState(nextState);
+        open.setDamageNotes(damageNotes);
+        open.setOutstandingRentPaise(outstandingRent);
+        open.setDepositRefundPaise(depositRefund);
+        open.setClosedBy(actorName);
+        assignments.saveAndFlush(open);
+    }
+
+    /**
+     * The partial unique indexes are the only thing standing between two
+     * simultaneous assigns and two open assignments for one rider or one bike.
+     * Reading first and writing second would be a race however carefully it
+     * were written, so the write is attempted and the violation translated —
+     * the same pattern as ServiceJobService.saveOrConflict.
+     */
+    private Assignment saveOrConflict(Assignment assignment) {
+        try {
+            return assignments.saveAndFlush(assignment);
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("That rider or bike already has an open assignment");
+        }
+    }
+
+    private String registryIdOf(UUID vehicleId) {
+        return vehicles.findById(vehicleId).map(Vehicle::getRegistryId).orElse(null);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+}
