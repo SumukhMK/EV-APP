@@ -1,9 +1,14 @@
 package com.evrental.vehicle;
 
+import com.evrental.assignment.AssignmentHistoryRow;
 import java.time.LocalDate;
 import java.util.List;
 
-/** A vehicle plus its lifecycle history; assignments stay empty until S5. */
+/**
+ * A vehicle plus its lifecycle history and its assignment history. The
+ * assignments list is answered from the open and closed assignment rows (S5),
+ * newest first.
+ */
 public record VehicleDetailResponse(
         String id,
         String chassisNumber,
@@ -24,9 +29,10 @@ public record VehicleDetailResponse(
         String iotNumber,
         LocalDate purchaseDate,
         List<VehicleLifecycleEventResponse> lifecycle,
-        List<Object> assignments) {
+        List<AssignmentHistoryRow> assignments) {
 
-    public static VehicleDetailResponse from(Vehicle vehicle, List<VehicleLifecycleEvent> lifecycleEvents) {
+    public static VehicleDetailResponse from(Vehicle vehicle, List<VehicleLifecycleEvent> lifecycleEvents,
+                                             List<AssignmentHistoryRow> assignments) {
         return new VehicleDetailResponse(
                 vehicle.getRegistryId(),
                 vehicle.getChassisNumber(),
@@ -47,6 +53,6 @@ public record VehicleDetailResponse(
                 vehicle.getIotNumber(),
                 vehicle.getPurchaseDate(),
                 lifecycleEvents.stream().map(VehicleLifecycleEventResponse::from).toList(),
-                List.of());
+                assignments);
     }
 }

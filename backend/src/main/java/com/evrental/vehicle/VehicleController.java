@@ -1,5 +1,7 @@
 package com.evrental.vehicle;
 
+import com.evrental.assignment.AssignmentQuery;
+import com.evrental.assignment.CurrentRider;
 import com.evrental.auth.JwtPrincipal;
 import com.evrental.common.Facet;
 import com.evrental.common.PageResponse;
@@ -7,7 +9,10 @@ import com.evrental.common.UnauthorizedException;
 import com.evrental.user.UserRepository;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
@@ -46,15 +51,18 @@ public class VehicleController {
     private final UserRepository users;
     private final VehicleLifecycleEventRepository lifecycleEvents;
     private final VehicleTransitionPolicy transitionPolicy;
+    private final AssignmentQuery assignmentQuery;
 
     public VehicleController(VehicleService vehicleService,
                              UserRepository users,
                              VehicleLifecycleEventRepository lifecycleEvents,
-                             VehicleTransitionPolicy transitionPolicy) {
+                             VehicleTransitionPolicy transitionPolicy,
+                             AssignmentQuery assignmentQuery) {
         this.vehicleService = vehicleService;
         this.users = users;
         this.lifecycleEvents = lifecycleEvents;
         this.transitionPolicy = transitionPolicy;
+        this.assignmentQuery = assignmentQuery;
     }
 
     /**
@@ -90,9 +98,12 @@ public class VehicleController {
             @RequestParam(required = false) String make,
             @RequestParam(required = false) String batteryType) {
         VehicleQuery query = new VehicleQuery(q, parseState(state), hub, make, batteryType);
-        return PageResponse.from(
-                vehicleService.search(query, PageRequest.of(page, Math.min(size, 100), Sort.by("registryId"))),
-                VehicleResponse::from);
+        Page<Vehicle> vehicles = vehicleService.search(
+                query, PageRequest.of(page, Math.min(size, 100), Sort.by("registryId")));
+        // One batch read for the whole page, not a query per row.
+        Map<UUID, CurrentRider> riders = assignmentQuery.currentRidersOf(
+                vehicles.getContent().stream().map(Vehicle::getId).toList());
+        return PageResponse.from(vehicles, v -> VehicleResponse.from(v, riders.get(v.getId())));
     }
 
     @GetMapping("/facets")
@@ -141,11 +152,12 @@ public class VehicleController {
                 principal.userId(), actorName(principal)));
     }
 
-    /** A vehicle plus its history. assignments stays empty until S5 owns them. */
+    /** A vehicle plus its history: the lifecycle log and the assignment history (S5). */
     private VehicleDetailResponse detailOf(Vehicle vehicle) {
         return VehicleDetailResponse.from(
                 vehicle,
-                lifecycleEvents.findByVehicleIdOrderByOccurredOnAsc(vehicle.getId()));
+                lifecycleEvents.findByVehicleIdOrderByOccurredOnAsc(vehicle.getId()),
+                assignmentQuery.historyFor(vehicle.getId()));
     }
 
     private static VehicleState parseState(String state) {

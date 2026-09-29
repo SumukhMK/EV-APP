@@ -66,10 +66,10 @@ class RiderReadTest extends RiderTestBase {
     }
 
     @Test
-    void aVehicleStateFilterMatchesNothingUntilS5() throws Exception {
-        // No rider holds a bike until S5 owns assignments, so any concrete
-        // state matches nothing — an empty page, not an error and not a
-        // silently ignored filter.
+    void aVehicleStateFilterMatchesNoRiderOnThisFixture() throws Exception {
+        // The filter is live (S5 owns assignments), but no rider in this
+        // fixture holds a bike, so any concrete state matches nothing — an
+        // empty page, not an error and not a silently ignored filter.
         mvc.perform(get("/api/v1/riders").param("vehicleState", "DEPLOYED")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -132,7 +132,9 @@ class RiderReadTest extends RiderTestBase {
     }
 
     @Test
-    void assignedIsEmptyUntilS5() throws Exception {
+    void assignedIsEmptyOnThisFixture() throws Exception {
+        // No rider in this fixture holds a bike, so the assigned list is
+        // empty; the endpoint itself is live.
         mvc.perform(get("/api/v1/riders/assigned")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())

@@ -35,10 +35,10 @@ start, not after you push.
 | **S0** | Boot the app, login, JWT, tenant isolation, database setup, Docker, CI | SMK (skeleton), **Abhiram** (auth) | **done** |
 | **S1** | Bikes: create, edit, the nine states, CSV upload | **SMK** | **done** |
 | **S2** | Riders: onboard, list, read, KYC flags, Aadhaar encrypted at rest | **Abhiram** | **done** |
-| **S3** | Users and roles: who is allowed to call what | **SMK** | S0 |
+| **S3** | Users and roles: who is allowed to call what | **SMK** | **done** |
 | **S4** | Service jobs: intake, repair queues, QC, cost | **SMK** | **done** |
-| **S5** | Assign a bike to a rider, exchange it, take it back | **Abhiram** | S4 |
-| **S6** | Money: charges, weekly payment run, receipts, overdue | **SMK** | **half done** — ledger built; run/overdue/receipts unblocked (S2 landed) |
+| **S5** | Assign a bike to a rider, exchange it, take it back | **Abhiram** | **done** |
+| **S6** | Money: charges, weekly payment run, receipts, overdue | **SMK** | **half done** — ledger built; run/overdue/receipts + the settlement approval (S5's recorded facts → ledger rows) are the critical path |
 
 ### What runs at the same time
 
@@ -89,33 +89,36 @@ login failure has its own message:
 When a backend stage is finished, **one frontend file changes** and no screen
 is touched:
 
-| Backend done | File to swap | Who swaps it |
-|---|---|---|
-| S1 | `lib/api/vehicles.ts` | SMK |
-| S2 | `lib/api/riders.ts` | Abhiram |
-| S3 | `lib/api/users.ts` | SMK |
-| S4 | `lib/api/serviceJobs.ts` | SMK |
-| S5 | `lib/api/assignments.ts` | Abhiram |
-| S6 | `lib/api/payments.ts` | SMK |
+| Backend done | File to swap | Who swaps it | Status |
+|---|---|---|---|
+| S1 | `lib/api/vehicles.ts` | SMK | ✅ built — re-exports live or mock from `VITE_API_BASE` |
+| S2 | `lib/api/riders.ts` | Abhiram | blocked on S6 (`paymentStatus`) |
+| S3 | `lib/api/users.ts` | SMK | S3 done — can go live |
+| S4 | `lib/api/serviceJobs.ts` | SMK | blocked on S6 (the charge) + the `qcChecks` gap below |
+| S5 | `lib/api/assignments.ts` | Abhiram | blocked on S6's second half (settlement needs FA approval + ledger rows) |
+| S6 | `lib/api/payments.ts` | SMK | blocked on S6's second half |
 
 Whoever owns the backend stage owns the swap, because they are the one who
 knows what the real response looks like.
 
 S1's swap is already built — `lib/api/vehicles.ts` re-exports the live or the
 mock implementation from `VITE_API_BASE`. The remaining rows follow the same
-pattern. S2's backend is done (2026-09-26) but its swap still waits on S5 and
-S6 — the same three-stage gate as S4's.
+pattern. S2's backend is done (2026-09-26) and S5's landed (2026-09-28), but
+the riders swap still waits on S6 — the same gate as S4's and S5's.
 
 ---
 
 ## Right now
 
-**Done:** S0, S1 and S2. The backend boots, connects to Postgres, runs its
+**Done:** S0 through S5. The backend boots, connects to Postgres, runs its
 migrations, signs users in, rotates refresh tokens, refuses every request it has
-no rule for, and proves tenant isolation in a test. On that floor sits the
-complete vehicle module: create, edit, the nine states, search and facets, and
-CSV bulk upload. 91 tests, all against a real Postgres. See
-[`backend/README.md`](../../backend/README.md).
+no rule for, and proves tenant isolation in a test. On that floor sit the
+complete vehicle module (create, edit, the nine states, search and facets, CSV
+bulk upload), the rider register (onboard, KYC flags, Aadhaar encrypted at
+rest), users and roles, the service module (intake, repair queues, QC, cost)
+and the assignment module (assign, exchange, deboard, settlement facts). S6's
+first half — the charge ledger — is built too. 290 tests, all against a real
+Postgres. See [`backend/README.md`](../../backend/README.md).
 
 **S4 landed (2026-09-25):** the service module is built — `V006`, four
 tables under RLS, the nine queues wired to `VehicleService.transitionState()`,
@@ -124,11 +127,11 @@ the QC gate, cost lines, close-with-liability and the async
 — the one handshake with Abhiram's S5 — is live and tested through the
 interface. Backend 185/185 tests against a real Postgres, up from 111.
 
-**S4's frontend swap is blocked on S5 and S6 — not on S4.** S2 landed
-2026-09-26, which clears the deposit-drawdown item (4) below; the charge (3)
-and the bike handback (5) still wait on S6 and S5. (Corrected 2026-09-26; the
-first version of this note said it was a validation problem, which
-understated it.)
+**S4's frontend swap is blocked on S6 — not on S4.** S2 landed
+2026-09-26, which clears the deposit-drawdown item (4) below; S5 landed
+2026-09-28, which clears the bike handback (5); the charge (3) still waits on
+S6. (Corrected 2026-09-26; the first version of this note said it was a
+validation problem, which understated it.)
 
 Read `updateServiceJobRecord()` in `mocks/serviceJobs.ts` to the end. Its
 release path — the Help desk's main action, "Pass QC and release" — does five
@@ -138,7 +141,7 @@ things:
 2. moves the bike — the backend does this;
 3. `addRiderCharge(...)` — **needs S6 (money), not built**;
 4. `rider.depositHeld -= total` — **S2 landed 2026-09-26 — the register stores depositHeld**;
-5. clears `vehicle.currentRiderId` — **needs S5 (assignments), not built**.
+5. clears `vehicle.currentRiderId` — **S5 landed 2026-09-28 — the assignment row is the source of truth**.
 
 Swapping the module to live today would silently stop charging riders, stop
 drawing down deposits, and leave bikes showing a rider who has already handed
@@ -179,11 +182,11 @@ that is the point. It is the floor the modules get built on.
   nobody has to install Maven — it fetches its own on first run.
 - One package per module from the architecture doc: `auth`, `platform`,
   `vehicle`, `rider`, `user`, `service`, `assignment`, `payment`, `shared`,
-  `notification`, `excel`. `auth`, `platform`, `user`, `vehicle`, `rider` and
-  the first half of `payment` are filled in; the rest hold a short note saying
-  what they own, which stage builds them and whose stage that is. Empty on
-  purpose — the boundary exists before the code does, so nothing lands in the
-  wrong module by accident.
+  `notification`, `excel`. `auth`, `platform`, `user`, `vehicle`, `rider`,
+  `service`, `assignment` and the first half of `payment` are filled in; the
+  rest hold a short note saying what they own, which stage builds them and
+  whose stage that is. Empty on purpose — the boundary exists before the code
+  does, so nothing lands in the wrong module by accident.
 - Flyway's auto-configuration comes from `spring-boot-flyway`, which is a
   separate dependency on Boot 4. Without it migrations silently do not run.
   Do not remove it.
@@ -230,9 +233,9 @@ that is the point. It is the floor the modules get built on.
 
 **Tests**
 
-- Ninety-one, all green, run against a **real Postgres in Docker** — not an
-  in-memory stand-in, which does not have row-level security and would prove
-  nothing.
+- Two hundred and ninety, all green, run against a **real Postgres in Docker**
+  — not an in-memory stand-in, which does not have row-level security and would
+  prove nothing.
 - One checks the app starts and the migrations ran. Four hammer tenant
   isolation: they query the users table with *no tenant filter at all* — the
   worst query anyone could write — and still must not see the other tenant's
@@ -288,14 +291,17 @@ at rest (`AadhaarCipher`, AES-256-GCM, key from `AADHAAR_ENCRYPTION_KEY`) and
 never returned by the API. Backend 250/250 tests against a real Postgres, up
 from 211.
 
-**S6's second half was blocked on S2; S2 landed 2026-09-26, so it is
-unblocked and is the critical path.** The weekly payment run, the overdue list
-and receipts each need four things that only exist on a rider: the name and
-phone to chase, the weekly rent (`planAmount`), the billing day (Monday or
-Wednesday — it decides who is in this week's run at all) and the deposit
-balance (`depositHeld`, which a DEPOSIT charge draws down). All four are on
-the register now; the run, the overdue list and the receipts are just not
-built yet.
+**S6's second half is the critical path.** It was blocked on S2; S2 landed
+2026-09-26, and S5 landed 2026-09-28, so the gate is fully open. The weekly
+payment run, the overdue list and receipts each need four things that only
+exist on a rider: the name and phone to chase, the weekly rent (`planAmount`),
+the billing day (Monday or Wednesday — it decides who is in this week's run at
+all) and the deposit balance (`depositHeld`, which a DEPOSIT charge draws
+down). All four are on the register now; the run, the overdue list and the
+receipts are just not built yet. S5's landing adds one more item to this half:
+the **settlement approval** — an FA approves a deboard's recorded settlement
+facts (`outstandingRent`, `depositRefund`), and the approval writes the ledger
+rows. Until then the facts sit on the assignment row, deliberately unspent.
 
 `rider_charges.rider_id` now carries the foreign key V008 added — a charge
 names a real rider. There is still deliberately no `period_start` column:
@@ -303,13 +309,25 @@ which billing period a charge first appears against depends on the rider's
 billing day, so storing a guess now would be a number the run later has to
 disagree with.
 
-**SMK, next:** S6's second half — the weekly payment run, the overdue list and
-receipts. S2 landed 2026-09-26, so the gate is open.
+**S5 landed (2026-09-28):** the assignment module is built — `V009` adds the
+`assignments` table under RLS, with the period invariant as a CHECK, "one
+rider, one bike" as partial unique indexes, and the settlement figures as
+facts on the closing row; assign, exchange and deboard are live, gated
+SA/FA/FS; the rider and vehicle reads now answer `currentVehicleId` /
+`currentRiderId`, and the vehicle detail carries the assignment history; the
+ten designed assignments are seeded. The deboard path calls
+`ServiceJobFacade.openJob()` — the one handshake with SMK's service module —
+so a returned bike goes where its damage category routes it. Backend 290/290
+tests against a real Postgres, up from 250.
 
-**Abhiram, next:** S5 — assignments: assign, exchange, deboard, settlement.
-S2 landed 2026-09-26. The deboard path calls `ServiceJobFacade.openJob()` —
-the one handshake with SMK's service module — and the S5 shell can be built
-now.
+**SMK, next:** S6's second half — the weekly payment run, the overdue list,
+receipts, and the settlement approval that turns S5's recorded facts into
+ledger rows. S2 and S5 both landed, so the gate is open.
+
+**Abhiram, next:** S5 is done (2026-09-28). The remaining piece is the
+frontend swap of `lib/api/assignments.ts` to live, which waits on S6's second
+half — the settlement screen needs the FA approval and the ledger rows S6
+owns.
 
 **Deployment:** the path exists (`render.yaml`, `netlify.toml`, `DEPLOY.md`)
 but is not live yet — the Render service is created but not running, and

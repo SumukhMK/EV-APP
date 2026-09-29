@@ -62,7 +62,7 @@ public class RiderController {
         RiderQuery query = new RiderQuery(q, parseStatus(status), platform, parseVehicleState(vehicleState));
         return PageResponse.from(
                 riderService.search(query, PageRequest.of(page, Math.min(size, 100), Sort.by("id"))),
-                RiderResponse::from);
+                riderService::toResponse);
     }
 
     @GetMapping("/facets")
@@ -78,20 +78,20 @@ public class RiderController {
     @GetMapping("/assignable")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
     public List<RiderResponse> assignable() {
-        return riderService.assignable().stream().map(RiderResponse::from).toList();
+        return riderService.assignable().stream().map(riderService::toResponse).toList();
     }
 
-    /** Riders actually holding a bike. Empty until S5 owns assignments. */
+    /** Riders actually holding a bike. */
     @GetMapping("/assigned")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
     public List<RiderResponse> assigned() {
-        return riderService.assigned().stream().map(RiderResponse::from).toList();
+        return riderService.assigned().stream().map(riderService::toResponse).toList();
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
     public RiderResponse get(@PathVariable UUID id) {
-        return RiderResponse.from(riderService.findById(id));
+        return riderService.toResponse(riderService.findById(id));
     }
 
     private static RiderStatus parseStatus(String status) {

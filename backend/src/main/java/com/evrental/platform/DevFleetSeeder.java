@@ -96,6 +96,7 @@ public class DevFleetSeeder implements ApplicationRunner {
             // seed behind that early return would never fire for exactly the
             // people who need it. seedRiders() carries its own idempotency.
             seedRiders(tenantId);
+            seedAssignments(tenantId);
         });
     }
 
@@ -293,5 +294,72 @@ public class DevFleetSeeder implements ApplicationRunner {
                 r.paymentMode(), r.platform(), LocalDate.parse("2026-04-08"),
                 true, true, true, true,
                 aadhaarCipher.encrypt(r.aadhaar()));
+    }
+
+    // -----------------------------------------------------------------------
+    // Assignments (S5)
+    // -----------------------------------------------------------------------
+
+    /**
+     * The ten designed riders hold their bikes, so the wired register and the
+     * mock register agree on who has which bike. Seven of the designed bikes
+     * are in the fleet and DEPLOYED; the other three (BLRSS0396, BLRSS0403,
+     * FBLSS0097) are not in the fleet, and are adopted from the deployed pool
+     * the way the mock adopts them — the same rule, so the two fixtures cannot
+     * drift.
+     *
+     * <p>Idempotent by the same crude test as the fleet and the riders: if the
+     * tenant already has any assignment, it does nothing.
+     */
+    private static final List<AssignmentSeed> ASSIGNMENT_SEED = List.of(
+            new AssignmentSeed("8453679575", "BLRSS0428"),
+            new AssignmentSeed("9862340117", "FBLSS003B"),
+            new AssignmentSeed("9945128830", "FBLSS0112"),
+            new AssignmentSeed("8974551206", "FBLSS0086"),
+            new AssignmentSeed("7760043915", "FBLSS0129"),
+            new AssignmentSeed("8014772390", "BLRSS0412"),
+            new AssignmentSeed("9008216744", "FBLSS0141"),
+            new AssignmentSeed("9611308452", null),
+            new AssignmentSeed("9535667021", null),
+            new AssignmentSeed("8899140563", null));
+
+    private record AssignmentSeed(String phone, String vehicleId) {
+    }
+
+    private void seedAssignments(UUID tenantId) {
+        Integer existing = jdbc.queryForObject(
+                "SELECT count(*) FROM assignments WHERE tenant_id = ?", Integer.class, tenantId);
+        if (existing != null && existing > 0) {
+            log.info("Fleet seed: tenant '{}' already has {} assignments — skipping", tenantSlug, existing);
+            return;
+        }
+
+        List<String> spares = jdbc.query(
+                """
+                SELECT registry_id FROM vehicles
+                WHERE tenant_id = ? AND state = 'DEPLOYED'
+                  AND registry_id NOT IN
+                      ('BLRSS0428','FBLSS003B','FBLSS0112','FBLSS0086',
+                       'FBLSS0129','BLRSS0412','FBLSS0141')
+                ORDER BY registry_id
+                """,
+                (rs, rowNum) -> rs.getString(1), tenantId);
+        java.util.Iterator<String> spare = spares.iterator();
+
+        int seeded = 0;
+        for (AssignmentSeed a : ASSIGNMENT_SEED) {
+            String registryId = a.vehicleId() != null ? a.vehicleId() : spare.next();
+            UUID riderId = jdbc.queryForObject(
+                    "SELECT id FROM riders WHERE tenant_id = ? AND phone = ?", UUID.class, tenantId, a.phone());
+            UUID vehicleId = jdbc.queryForObject(
+                    "SELECT id FROM vehicles WHERE tenant_id = ? AND registry_id = ?", UUID.class, tenantId, registryId);
+            jdbc.update("""
+                    INSERT INTO assignments (tenant_id, rider_id, vehicle_id, started_on)
+                    VALUES (?,?,?,?)
+                    """,
+                    tenantId, riderId, vehicleId, LocalDate.parse("2026-04-08"));
+            seeded++;
+        }
+        log.info("Fleet seed: loaded {} assignments into '{}'", seeded, tenantSlug);
     }
 }

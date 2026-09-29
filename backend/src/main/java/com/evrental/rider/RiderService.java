@@ -1,5 +1,6 @@
 package com.evrental.rider;
 
+import com.evrental.assignment.AssignmentQuery;
 import com.evrental.common.AadhaarCipher;
 import com.evrental.common.ConflictException;
 import com.evrental.common.Facet;
@@ -7,6 +8,7 @@ import com.evrental.common.NotFoundException;
 import com.evrental.common.PageResponse;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,16 +22,25 @@ import org.springframework.transaction.annotation.Transactional;
  * with KYC pending and no bike; nothing changes any of those yet — assignment
  * (S5) and any future verify/suspend/deboard step will be their own doors,
  * the way VehicleService.transitionState() is the only door to a bike's state.
+ * S5's deboard is one of those doors: {@link #markDeboarded} is the only code
+ * that writes DEBOARDED.
+ *
+ * <p>A rider's bike is not stored here. currentVehicleId is a property of the
+ * open assignment, which S5 owns; this service reads it through
+ * {@link AssignmentQuery}, the one interface the rider module imports from the
+ * assignment module.
  */
 @Service
 public class RiderService {
 
     private final RiderRepository riders;
     private final AadhaarCipher aadhaarCipher;
+    private final AssignmentQuery assignmentQuery;
 
-    public RiderService(RiderRepository riders, AadhaarCipher aadhaarCipher) {
+    public RiderService(RiderRepository riders, AadhaarCipher aadhaarCipher, AssignmentQuery assignmentQuery) {
         this.riders = riders;
         this.aadhaarCipher = aadhaarCipher;
+        this.assignmentQuery = assignmentQuery;
     }
 
     /**
@@ -79,20 +90,24 @@ public class RiderService {
     }
 
     /**
-     * The list. vehicleState is accepted for contract parity but matches
-     * nothing until S5 owns assignments: no rider holds a bike, so a rider
-     * whose vehicle is in a given state does not exist. An empty page is the
-     * honest answer — the mock's filter would also match nothing if no rider
-     * had a bike.
+     * The list. vehicleState filters to riders whose current bike is in the
+     * given state — the register screen's filter, answered from the open
+     * assignments (S5). The filter stays in SQL so pagination counts the
+     * filtered set; an empty set short-circuits to an empty page rather than
+     * emitting an `in ()` clause.
      */
     public Page<Rider> search(RiderQuery query, Pageable pageable) {
-        if (query.vehicleState() != null) {
+        Set<UUID> riderIds = query.vehicleState() == null
+                ? null
+                : assignmentQuery.riderIdsWhoseVehicleIsIn(query.vehicleState());
+        if (riderIds != null && riderIds.isEmpty()) {
             return Page.empty(pageable);
         }
         return riders.search(
                 searchPattern(query.q()),
                 query.status(),
                 filterValue(query.platform()),
+                riderIds,
                 pageable);
     }
 
@@ -102,13 +117,16 @@ public class RiderService {
      * the chips would fight the user — the same rule as vehicle facets.
      */
     public List<Facet<String>> facets(RiderQuery query) {
-        if (query.vehicleState() != null) {
+        Set<UUID> riderIds = query.vehicleState() == null
+                ? null
+                : assignmentQuery.riderIdsWhoseVehicleIsIn(query.vehicleState());
+        if (riderIds != null && riderIds.isEmpty()) {
             return List.of(new Facet<>("ALL", "All", 0));
         }
         String q = searchPattern(query.q());
         String platform = filterValue(query.platform());
 
-        List<Object[]> counts = riders.countByStatus(q, platform);
+        List<Object[]> counts = riders.countByStatus(q, platform, riderIds);
         long total = counts.stream().mapToLong(row -> (Long) row[1]).sum();
 
         List<Facet<String>> facets = counts.stream()
@@ -136,18 +154,45 @@ public class RiderService {
      * whether a bike may go out to a rider whose documents are still pending
      * is a rule nobody has stated, and guessing "no" would strand every rider
      * the onboarding screen creates. The screen shows the status instead.
+     * Holding a bike is the one hard exclusion: one rider, one bike.
      */
     public List<Rider> assignable() {
-        return riders.findByStatus(RiderStatus.ACTIVE);
+        Set<UUID> holders = assignmentQuery.riderIdsHoldingBikes();
+        return riders.findByStatus(RiderStatus.ACTIVE).stream()
+                .filter(r -> !holders.contains(r.getId()))
+                .toList();
     }
 
     /**
-     * Riders actually holding a bike. Empty until S5 owns assignments — the
-     * register does not store currentVehicleId, so this cannot be answered
-     * from here, and answering it from the assignment table is S5's job.
+     * Riders actually holding a bike — the register's assigned list, answered
+     * from the open assignments (S5).
      */
     public List<Rider> assigned() {
-        return List.of();
+        Set<UUID> holders = assignmentQuery.riderIdsHoldingBikes();
+        return riders.findByStatus(RiderStatus.ACTIVE).stream()
+                .filter(r -> holders.contains(r.getId()))
+                .toList();
+    }
+
+    /**
+     * The wire shape, with currentVehicleId answered from the open assignment.
+     * The one mapping the controllers use, so a rider never goes out with a
+     * stale or missing bike.
+     */
+    public RiderResponse toResponse(Rider rider) {
+        return RiderResponse.from(rider, assignmentQuery.currentVehicleIdOf(rider.getId()));
+    }
+
+    /**
+     * The deboard door: the only code that writes DEBOARDED. Called by the
+     * assignment module inside the deboard transaction, so the rider's status,
+     * the closed assignment and the service job commit together.
+     */
+    @Transactional
+    public Rider markDeboarded(UUID id) {
+        Rider rider = findById(id);
+        rider.setStatus(RiderStatus.DEBOARDED);
+        return riders.save(rider);
     }
 
     /**
