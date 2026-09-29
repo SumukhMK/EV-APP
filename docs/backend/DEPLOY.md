@@ -100,10 +100,17 @@ Health check: `/actuator/health`. Health is the only actuator endpoint exposed
 
 **On the Free compute plan, Render spins the service down after 15 minutes
 with no inbound traffic** and pays a ~1 minute cold start on the next request.
-`.github/workflows/keep-alive.yml` pings `/actuator/health` every 10 minutes to
-keep it warm — delete that workflow if `evrental-api` ever moves to a paid
-plan, since those do not spin down and the pings would just spend nothing for
-no reason.
+`.github/workflows/keep-alive.yml` can ping `/actuator/health` every 10
+minutes to keep it warm — **off by default**, gated on the
+`KEEP_ALIVE_ENABLED` repository variable, so it does not quietly spend the
+750 free-instance-hours/month budget while nobody is looking at a demo. Turn
+it on (`KEEP_ALIVE_ENABLED = true`, Settings → Secrets and variables →
+Actions → Variables) right before telling a client the environment is up for
+testing, and back off (`= false`) once they are done. It is best-effort, not
+a guarantee — GitHub can delay a scheduled run during high load on Actions,
+occasionally past the 15-minute window, in which case the very next request
+still pays the cold start. Delete the workflow entirely if `evrental-api`
+ever moves to a paid plan; those do not spin down.
 
 ### Who triggers the deploy
 
