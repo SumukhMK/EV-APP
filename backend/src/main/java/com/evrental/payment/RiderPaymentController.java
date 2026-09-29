@@ -1,6 +1,5 @@
 package com.evrental.payment;
 
-import com.evrental.rider.RiderService;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,28 +11,30 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * A rider's payment history (screen 08's payment panel).
  *
- * <p>Gated SA/FA/FS, not SA/FA like the charge ledger: this panel lives on the
- * rider profile, which is a Riders-section page (RBAC.md), and FS-12 says
- * fleet staff see a rider's payment history. The ledger itself stays SA/FA —
- * that is the books; this is the profile.
+ * <p>Gated SA/FA/FS, not SA/FA like the rest of the money module: this panel
+ * lives on the rider profile, which is a Riders-section page (RBAC.md), and
+ * FS-12 says fleet staff see a rider's payment history. The books themselves —
+ * the run, the overdue list, the charge ledger — stay SA/FA.
  *
- * <p>Returns an empty list until S6's second half computes real periods. The
- * rider is looked up so an unknown id is a 404, matching the mock.
+ * <p>It returned an empty list until S6's second half existed. It now returns
+ * the rider's real payment_periods rows. An unknown rider is still a 404,
+ * matching the mock; a rider with no billed week yet is an empty list, which
+ * is the honest answer while generation is a side effect of opening the run
+ * screen.
  */
 @RestController
 @RequestMapping("/api/v1/payments/riders/{riderId}/periods")
 @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
 public class RiderPaymentController {
 
-    private final RiderService riders;
+    private final PaymentRunService runs;
 
-    public RiderPaymentController(RiderService riders) {
-        this.riders = riders;
+    public RiderPaymentController(PaymentRunService runs) {
+        this.runs = runs;
     }
 
     @GetMapping
     public List<RiderPaymentRow> periods(@PathVariable UUID riderId) {
-        riders.findById(riderId); // 404 for an unknown rider, like the mock
-        return List.of();
+        return runs.historyFor(riderId);
     }
 }

@@ -107,4 +107,10 @@ export interface UpdateServiceJobRequest {
   note: string;
   actor: string;
   inspection?: InspectionRequest;
+  /**
+   * The nine safety checks (screen's QC_CHECKS, matching QcChecks.REQUIRED on
+   * the API), sent only while the job is in QC_PENDING. Absent otherwise —
+   * a job outside QC has nothing to submit against `/service/jobs/{id}/qc`.
+   */
+  qcChecks?: Record<string, boolean>;
 }

@@ -55,17 +55,27 @@ shell of S5 can be built while S4 is still in progress.
 
 ### Where the two of you actually meet
 
-Three places, and only three:
+Four places, and only four:
 
 | What | Built by | Used by | How it works |
 |---|---|---|---|
 | `ServiceJobFacade.openJob()` | SMK | Abhiram | Abhiram's deboard code calls this one method. He never opens the service module. |
 | `ServiceJobClosedEvent` | SMK | SMK | A closed job tells the money module to charge the rider, in the background. |
 | `VehicleService.transitionState()` | SMK | SMK | Service changes the bike's state through this, never by writing to the table. |
+| `AssignmentQuery` (S6 → S5) | declared by SMK in `payment/` | implemented by Abhiram in `assignment/` | The payment run asks "which bike was this rider on during this week, and for how many days?" S5 answers. |
 
 So the only real handshake between the two of you is **one Java method**:
 `openJob()`. SMK writes it, Abhiram calls it. If its shape needs to change,
 that is a conversation, not an edit.
+
+`AssignmentQuery` is the one place the direction runs the other way. With
+`openJob()`, SMK publishes a method and Abhiram calls it. With
+`AssignmentQuery`, SMK declares an interface he needs and Abhiram supplies the
+implementation. Until he does, `NoAssignmentsYet` answers `Optional.empty()`
+for every rider — the run bills the full week and leaves `vehicleId` null,
+which is exactly the pre-S5 behaviour. When the real one lands it must be
+annotated `@Primary` so it wins the injection point; nothing in `payment/`
+needs to change on that day.
 
 ---
 
@@ -124,11 +134,12 @@ the QC gate, cost lines, close-with-liability and the async
 — the one handshake with Abhiram's S5 — is live and tested through the
 interface. Backend 185/185 tests against a real Postgres, up from 111.
 
-**S4's frontend swap is blocked on S5 and S6 — not on S4.** S2 landed
-2026-09-26, which clears the deposit-drawdown item (4) below; the charge (3)
-and the bike handback (5) still wait on S6 and S5. (Corrected 2026-09-26; the
-first version of this note said it was a validation problem, which
-understated it.)
+**S4's frontend swap is blocked on S5, not S6 anymore.** S2 landed
+2026-09-26, which clears the deposit-drawdown item (4) below; S6 landed
+2026-09-29 and `payments.ts` is swapped, which clears the charge item (3) at
+the data level — `serviceJobs.live.ts` still needs writing to call it. Only
+the bike handback (5) still waits on S5. (Corrected 2026-09-26; the first
+version of this note said it was a validation problem, which understated it.)
 
 Read `updateServiceJobRecord()` in `mocks/serviceJobs.ts` to the end. Its
 release path — the Help desk's main action, "Pass QC and release" — does five
@@ -136,7 +147,7 @@ things:
 
 1. closes the job — the backend does this;
 2. moves the bike — the backend does this;
-3. `addRiderCharge(...)` — **needs S6 (money), not built**;
+3. `addRiderCharge(...)` — **S6 landed 2026-09-29 — `payments.ts` is live; `serviceJobs.live.ts` still has to call it**;
 4. `rider.depositHeld -= total` — **S2 landed 2026-09-26 — the register stores depositHeld**;
 5. clears `vehicle.currentRiderId` — **needs S5 (assignments), not built**.
 
@@ -145,12 +156,9 @@ drawing down deposits, and leave bikes showing a rider who has already handed
 them back. `ServiceJobClosedEvent` is the seam for (3) and it fires correctly —
 nothing listens yet.
 
-There is a second, smaller obstacle: the nine QC checks never reach the API.
-`qcChecks` in `AssistanceJob.tsx` is component state that gates the button and
-gets flattened into prose in `workSummary`; the payload carries no checks map.
-So `POST /jobs/{id}/qc` cannot be fed by the screen as it stands, and the swap
-needs `UpdateServiceJobRequest` to carry `qcChecks` plus a one-line change to
-the screen.
+The nine QC checks now reach the API from the screen: `UpdateServiceJobRequest`
+carries an optional `qcChecks` map, sent while the job is in QC_PENDING,
+matching `QcChecks.REQUIRED` field for field (2026-09-29).
 
 **So the order is S6 first, then the swap.** A half-live module — reads live,
 release on fixtures — is exactly the half-wired build `vehicles.ts` says this
@@ -303,8 +311,24 @@ which billing period a charge first appears against depends on the rider's
 billing day, so storing a guess now would be a number the run later has to
 disagree with.
 
-**SMK, next:** S6's second half — the weekly payment run, the overdue list and
-receipts. S2 landed 2026-09-26, so the gate is open.
+**S6 landed complete (2026-09-29):** the weekly payment run, the overdue list
+and receipts joined the charge ledger. `lib/api/payments.ts` is swapped —
+split into `payments.mock.ts` and `payments.live.ts` behind `VITE_API_BASE`,
+the same shape `vehicles.ts` already uses — so `getCurrentPaymentRun`,
+`listOverdueRiders`, `getPaymentReceipt` and `recordPayment` hit the real API
+in a live build with no screen change. Money's row in the swap table is done.
+
+Also done: the QC checklist can now reach the API. `UpdateServiceJobRequest`
+carries an optional `qcChecks` map, and `AssistanceJob.tsx` sends it while the
+job is in QC_PENDING — matching `QcChecks.REQUIRED` on the API field for
+field. That was the smaller of the two obstacles blocking S4's swap; the
+larger one — `serviceJobs.ts` still has no live/mock split, and the charge
+(3) and bike-handback (5) items in `updateServiceJobRecord()`'s release path
+still need `serviceJobs.live.ts` and S5 respectively — is unbuilt.
+
+**SMK, next:** the S4 frontend swap — split `lib/api/serviceJobs.ts` into
+`serviceJobs.mock.ts` / `serviceJobs.live.ts`, wire the release path to the
+real charge and QC endpoints. Still gated on S5 for the bike-handback item.
 
 **Abhiram, next:** S5 — assignments: assign, exchange, deboard, settlement.
 S2 landed 2026-09-26. The deboard path calls `ServiceJobFacade.openJob()` —

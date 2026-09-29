@@ -1,29 +1,23 @@
-import type {
-  BillingDay,
-  OverdueRider,
-  PaymentPeriodRow,
-  PaymentReceipt,
-  PaymentRun,
-  RecordPaymentRequest,
-} from '../../types';
-import { overdueRiders, paymentReceiptFor, recordPaymentInRun, runsByDay, withLiveServiceFigures } from '../../mocks/payments';
-import { delay } from './client';
+import { IS_LIVE } from './client';
+import * as live from './payments.live';
+import * as mock from './payments.mock';
 
-/** The run for one billing cycle. Both cycles are real; the screen picks one. */
-export async function getCurrentPaymentRun(billingDay: BillingDay = 'MONDAY'): Promise<PaymentRun> {
-  return delay(withLiveServiceFigures(runsByDay[billingDay]));
-}
+/**
+ * Which payments module the screens get.
+ *
+ * S6's second half shipped a real API; this is the swap vehicles.ts already
+ * does for S1. The choice is made here, once, from VITE_API_BASE, so no
+ * screen — PaymentRun, OverdueRiders, PaymentReceipt, RecordPaymentDialog —
+ * knows which implementation it got.
+ *
+ * The two implementations share a signature by construction — the compiler
+ * checks it below, so a live function that drifts from its mock twin fails
+ * the build rather than a screen.
+ */
 
-export async function listOverdueRiders(): Promise<OverdueRider[]> {
-  return delay(overdueRiders);
-}
+const impl: typeof mock = IS_LIVE ? { ...mock, ...live } : mock;
 
-/** One rider's receipt for the current period. null if they have no line in it. */
-export async function getPaymentReceipt(riderId: string): Promise<PaymentReceipt | null> {
-  return delay(paymentReceiptFor(riderId));
-}
-
-/** Record a collection against the current run. Simulated write; see the mock. */
-export async function recordPayment(req: RecordPaymentRequest): Promise<PaymentPeriodRow> {
-  return delay(recordPaymentInRun(req.riderId, req.amount, req.method));
-}
+export const getCurrentPaymentRun = impl.getCurrentPaymentRun;
+export const listOverdueRiders = impl.listOverdueRiders;
+export const getPaymentReceipt = impl.getPaymentReceipt;
+export const recordPayment = impl.recordPayment;

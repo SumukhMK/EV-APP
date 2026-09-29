@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -20,9 +21,9 @@ import org.hibernate.annotations.CreationTimestamp;
  * sets its status and stamps the date, and a correction is a new row rather
  * than a changed one. There is no setter for the amount for that reason.
  *
- * <p>riderId is a bare UUID with no foreign key. Riders are S2 and not built;
- * this is the same compromise ServiceJob.riderId already makes, and it lets
- * the ledger be correct today and joined to a real rider later.
+ * <p>riderId carries a foreign key as of V008, added NOT VALID because charges
+ * written before S2 landed name riders that never existed on the register.
+ * Every charge raised from V008 onward is checked in full.
  */
 @Entity
 @Table(name = "rider_charges")
@@ -59,6 +60,22 @@ public class RiderCharge {
     @CreationTimestamp
     @Column(name = "charged_on", nullable = false, updatable = false)
     private Instant chargedOn;
+
+    /**
+     * The billing period this charge first appears against.
+     *
+     * <p>Stamped once, at charge time, from the rider's billing day — a fact
+     * recorded rather than re-derived. Deriving it from {@code chargedOn} on
+     * every read would re-bucket a rider's whole charge history the day they
+     * move between the Monday and Wednesday cycles, and a settled week would
+     * silently change what it had contained.
+     *
+     * <p>It is the single field that separates the two money columns on a run
+     * row: {@code serviceCharges} are charges landing in this period,
+     * {@code arrears} are OPEN charges from before it.
+     */
+    @Column(name = "period_start", nullable = false, updatable = false)
+    private LocalDate periodStart;
 
     @Column(name = "settled_on")
     private Instant settledOn;
@@ -131,6 +148,14 @@ public class RiderCharge {
 
     public Instant getChargedOn() {
         return chargedOn;
+    }
+
+    public LocalDate getPeriodStart() {
+        return periodStart;
+    }
+
+    public void setPeriodStart(LocalDate periodStart) {
+        this.periodStart = periodStart;
     }
 
     public Instant getSettledOn() {

@@ -1,6 +1,7 @@
 package com.evrental.payment;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * One period on a single rider's ledger (screen 08's payment history panel),
@@ -11,16 +12,16 @@ import java.time.LocalDate;
  * argued about; a rider's own history only has to answer "was this week
  * settled, and how".
  *
- * <p>status and method are String until S6's second half computes real
- * periods — nothing in S2 produces a value, so there is no enum to type them
- * with yet. method is null while nothing has been collected against the
- * period.
+ * <p>status and method were String while nothing produced a value to type
+ * them with. S6's second half does, so both carry their enums now.
+ * {@code method} is the most recent collection's, and null while nothing has
+ * been collected against the period.
  */
 public record RiderPaymentRow(
-        String id,
+        UUID id,
         LocalDate periodStart,
         LocalDate periodEnd,
         long totalDue,
         long amountPaid,
-        String status,
-        String method) {}
+        PaymentStatus status,
+        PaymentMethod method) {}
