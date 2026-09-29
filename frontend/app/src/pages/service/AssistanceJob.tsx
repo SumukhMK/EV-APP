@@ -258,6 +258,8 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
         technician: effectiveTechnician.trim() || null, liability: canRelease ? liability : job.liability, reference: reference.trim() || null, note: effectiveNote,
         actor: user.name,
         inspection: { vehicleId: job.vehicleId, category, notes: effectiveFindings || note, items: priced, technician: effectiveTechnician.trim() || null, estimatedCostPaise: total, nextState: targetState },
+        // Only in QC does the screen have anything to feed /service/jobs/{id}/qc.
+        qcChecks: inQC ? qcChecks : undefined,
       });
     },
     onSuccess: (updated) => {
