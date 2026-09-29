@@ -424,6 +424,16 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
                 {inspection.items.map((item, n) => <Typography key={n} variant="body2">{item.label}: {rupeesWithSymbol(item.costPaise)}</Typography>)}
               </Box>
             ))}
+            {job.qcInspections?.map((inspection, i) => (
+              <Box key={`qc-${i}`} sx={{ pt: 3 }}>
+                <Typography variant="body2">QC {i + 1} · {inspection.passed ? 'Passed' : 'Failed'} · {inspection.inspector}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {Object.entries(inspection.checks).filter(([, ok]) => !ok).map(([id]) => id).join(', ') || 'All checks passed'}
+                </Typography>
+                {inspection.notes && <Typography variant="body2" color="text.secondary">{inspection.notes}</Typography>}
+                <Typography variant="caption" color="text.secondary">{formatDateTime(inspection.inspectedOn)}</Typography>
+              </Box>
+            ))}
           </Panel>
         </Box>
         <Panel label={editable ? 'What happens next' : 'How it ended'}>

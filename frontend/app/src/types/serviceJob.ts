@@ -45,6 +45,21 @@ export interface ServiceInspection extends InspectionRequest {
   actor: string;
 }
 
+/**
+ * One real QC attempt (`/service/jobs/{id}/qc`), field-for-field against
+ * QcInspectionResponse. Distinct from `ServiceInspection` above — that one is
+ * the older, mock-only "routine inspection" concept with no backend
+ * equivalent; this is the nine-check safety gate (`QC_CHECKS` on
+ * AssistanceJob.tsx, `QcChecks.REQUIRED` on the API) that actually exists live.
+ */
+export interface QcInspection {
+  inspectedOn: Iso8601;
+  inspector: string;
+  checks: Record<string, boolean>;
+  passed: boolean;
+  notes: string | null;
+}
+
 export interface ServiceJob {
   id: string;
   vehicleId: string;
@@ -57,6 +72,11 @@ export interface ServiceJob {
   workSummary: string;
   activity: ServiceJobEvent[];
   inspections: ServiceInspection[];
+  /**
+   * Real QC history (`/service/jobs/{id}/qc`). Optional and mock-empty: the
+   * mock has no equivalent flow, so this only ever fills in once live.
+   */
+  qcInspections?: QcInspection[];
   /** Free text from the tag step — what the operator saw, part by part. */
   damageNotes: string | null;
   items: ServiceJobItem[];

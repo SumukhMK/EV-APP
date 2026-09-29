@@ -105,19 +105,22 @@ is touched:
 | Backend done | File to swap | Who swaps it | Status |
 |---|---|---|---|
 | S1 | `lib/api/vehicles.ts` | SMK | ✅ built — re-exports live or mock from `VITE_API_BASE` |
-| S2 | `lib/api/riders.ts` | Abhiram | S2 + S6 done — unblocked |
-| S3 | `lib/api/users.ts` | SMK | S3 done — can go live |
-| S4 | `lib/api/serviceJobs.ts` | SMK | blocked on writing `serviceJobs.live.ts` (charge + QC endpoints) |
-| S5 | `lib/api/assignments.ts` | Abhiram | S5 + S6 done — unblocked |
+| S2 | `lib/api/riders.ts` | Abhiram | ✅ built — split into `riders.mock.ts` / `riders.live.ts` |
+| S3 | `lib/api/users.ts` | SMK | ✅ built — can go live |
+| S4 | `lib/api/serviceJobs.ts` | SMK | ✅ built — split into `serviceJobs.mock.ts` / `serviceJobs.live.ts` |
+| S5 | `lib/api/assignments.ts` | Abhiram | ✅ built — split into `assignments.mock.ts` / `assignments.live.ts` |
 | S6 | `lib/api/payments.ts` | SMK | ✅ built — split into `payments.mock.ts` / `payments.live.ts` |
 
 Whoever owns the backend stage owns the swap, because they are the one who
 knows what the real response looks like.
 
-S1's swap is already built — `lib/api/vehicles.ts` re-exports the live or the
-mock implementation from `VITE_API_BASE`. The remaining rows follow the same
-pattern. S6's swap landed with the stage (2026-09-29); S2's and S5's are
-unblocked now that S6 is done.
+All six modules are swapped (2026-09-30). `lib/api/inspections.ts` — split
+out of `vehicles.ts` at S4 but not its own row above, since it was never
+listed as one — is also live for the two functions a real screen calls
+(`getVehicleServiceHistory`, `listInspectableVehicles`); its other three
+exports (`recordInspection`, `listQcQueue`, `decideQc`) have no backend
+endpoint and stay on the mock permanently, same as `lib/api/audit.ts`, which
+has no backend at all.
 
 ---
 
@@ -140,37 +143,26 @@ the QC gate, cost lines, close-with-liability and the async
 — the one handshake with Abhiram's S5 — is live and tested through the
 interface. Backend 185/185 tests against a real Postgres, up from 111.
 
-**S4's frontend swap is blocked on writing `serviceJobs.live.ts` — nothing
-else.** S2 landed 2026-09-26, which clears the deposit-drawdown item (4) below;
-S5 landed 2026-09-28, which clears the bike handback (5); S6 landed 2026-09-29
-and `payments.ts` is swapped, which clears the charge item (3) at the data
-level. What remains is the split itself: `serviceJobs.ts` still has no
-live/mock split, and the release path has to call the real charge and QC
-endpoints. (Corrected 2026-09-26; the first version of this note said it was a
-validation problem, which understated it.)
-
-Read `updateServiceJobRecord()` in `mocks/serviceJobs.ts` to the end. Its
-release path — the Help desk's main action, "Pass QC and release" — does five
-things:
+**S4's frontend swap landed (2026-09-30).** `serviceJobs.ts` is now split into
+`serviceJobs.mock.ts` / `serviceJobs.live.ts`. The release path's five things:
 
 1. closes the job — the backend does this;
 2. moves the bike — the backend does this;
-3. `addRiderCharge(...)` — **S6 landed 2026-09-29 — `payments.ts` is live; `serviceJobs.live.ts` still has to call it**;
-4. `rider.depositHeld -= total` — **S2 landed 2026-09-26 — the register stores depositHeld**;
-5. clears `vehicle.currentRiderId` — **S5 landed 2026-09-28 — the assignment row is the source of truth**.
+3. `addRiderCharge(...)` — done: `close()` raises `ServiceJobClosedEvent`, which the money module turns into a charge;
+4. `rider.depositHeld -= total` — done: the register stores `depositHeld` and draws it down on that event;
+5. clears `vehicle.currentRiderId` — done: the assignment row is the source of truth.
 
-Swapping the module to live today would silently stop charging riders, stop
-drawing down deposits, and leave bikes showing a rider who has already handed
-them back. `ServiceJobClosedEvent` is the seam for (3) and it fires correctly —
-nothing listens yet.
+`serviceJobs.live.ts`'s `updateServiceJob` does the one bit of real
+orchestration: the mock's `updateServiceJobRecord` is one function that can
+save, submit QC and close together, but the API is three RBAC-gated
+endpoints (`PUT /jobs/{id}`, `POST /jobs/{id}/qc`, `POST /jobs/{id}/close}`).
+`updateServiceJob` reads the same request `AssistanceJob.tsx` already sends
+(`qcChecks` present and the target queue not QC_PENDING) and sequences the
+real calls itself, so the screen needed no change.
 
 The nine QC checks now reach the API from the screen: `UpdateServiceJobRequest`
 carries an optional `qcChecks` map, sent while the job is in QC_PENDING,
 matching `QcChecks.REQUIRED` field for field (2026-09-29).
-
-**So the order is S6 first, then the swap.** A half-live module — reads live,
-release on fixtures — is exactly the half-wired build `vehicles.ts` says this
-codebase does not do.
 
 What *was* portable has been done: the rules that only existed in the mock now
 live on the API (see below), because `ServiceJobFacade` is what Abhiram's S5
@@ -342,19 +334,18 @@ in a live build with no screen change. Money's row in the swap table is done.
 Also done: the QC checklist can now reach the API. `UpdateServiceJobRequest`
 carries an optional `qcChecks` map, and `AssistanceJob.tsx` sends it while the
 job is in QC_PENDING — matching `QcChecks.REQUIRED` on the API field for
-field. That was the smaller of the two obstacles blocking S4's swap; the
-larger one — `serviceJobs.ts` still has no live/mock split — is unbuilt.
+field.
 
-**SMK, next:** the S4 frontend swap — split `lib/api/serviceJobs.ts` into
-`serviceJobs.mock.ts` / `serviceJobs.live.ts`, wire the release path to the
-real charge and QC endpoints. S2, S5 and S6 have all landed, so nothing gates
-it.
+**All six modules' frontend swaps are done (2026-09-30):** `serviceJobs.ts`,
+`riders.ts`, `assignments.ts` and `inspections.ts` (partial — see the swap
+table above) joined `vehicles.ts`, `users.ts` and `payments.ts`. Every
+`lib/api/*.ts` file now re-exports live or mock from `VITE_API_BASE`, except
+`lib/api/audit.ts`, which has no backend endpoint at all and stays mock-only.
 
-**Abhiram, next:** S5 is done (2026-09-28) and S6 landed complete
-(2026-09-29), so the settlement screen has its FA approval and ledger rows —
-the `lib/api/assignments.ts` swap to live is unblocked. Also open: implement
-`com.evrental.payment.AssignmentQuery` in `assignment/` (annotated `@Primary`)
-so the payment run can name the bike a rider held.
+**Still open, Abhiram's:** implement `com.evrental.payment.AssignmentQuery`
+in `assignment/` (annotated `@Primary`) so the payment run can name the bike a
+rider held and bill only the days they held it — `NoAssignmentsYet` still
+answers empty, so every run row bills a full week against no bike.
 
 **Deployment:** the path exists (`render.yaml`, `netlify.toml`, `DEPLOY.md`)
 but is not live yet — the Render service is created but not running, and
