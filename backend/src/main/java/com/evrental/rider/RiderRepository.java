@@ -2,6 +2,7 @@ package com.evrental.rider;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +41,7 @@ public interface RiderRepository extends JpaRepository<Rider, UUID> {
             select r from Rider r
             where (:status is null or r.status = :status)
               and (:platform is null or lower(r.platform) = :platform)
+              and (:riderIds is null or r.id in :riderIds)
               and (:q is null
                    or lower(r.name) like :q
                    or lower(r.phone) like :q
@@ -48,6 +50,7 @@ public interface RiderRepository extends JpaRepository<Rider, UUID> {
     Page<Rider> search(@Param("q") String q,
                        @Param("status") RiderStatus status,
                        @Param("platform") String platform,
+                       @Param("riderIds") Set<UUID> riderIds,
                        Pageable pageable);
 
     /**
@@ -59,6 +62,7 @@ public interface RiderRepository extends JpaRepository<Rider, UUID> {
     @Query("""
             select r.status, count(r) from Rider r
             where (:platform is null or lower(r.platform) = :platform)
+              and (:riderIds is null or r.id in :riderIds)
               and (:q is null
                    or lower(r.name) like :q
                    or lower(r.phone) like :q
@@ -66,7 +70,8 @@ public interface RiderRepository extends JpaRepository<Rider, UUID> {
             group by r.status
             """)
     List<Object[]> countByStatus(@Param("q") String q,
-                                 @Param("platform") String platform);
+                                 @Param("platform") String platform,
+                                 @Param("riderIds") Set<UUID> riderIds);
 
     /**
      * Riders a bike can be assigned to. Deliberately not filtered on KYC —

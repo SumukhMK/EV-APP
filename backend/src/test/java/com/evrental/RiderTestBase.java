@@ -77,6 +77,15 @@ public abstract class RiderTestBase extends PostgresTestBase {
             // Riders reference tenants; users reference tenants; refresh_tokens
             // reference users. The platform tenant row itself is V001's, shared
             // by the whole suite — never deleted, only its users.
+            // payment_periods references riders and payment_collections
+            // references payment_periods: a super-admin payment run
+            // (PaymentRunRbacTest) bills every active rider across tenants,
+            // including this fixture's platform rider, so the children must go
+            // first — the same rule PaymentRunTestBase's cleanup follows.
+            jdbc.update("DELETE FROM payment_collections WHERE tenant_id IN (?, ?, ?)",
+                    TENANT, OTHER_TENANT, PLATFORM_TENANT);
+            jdbc.update("DELETE FROM payment_periods WHERE tenant_id IN (?, ?, ?)",
+                    TENANT, OTHER_TENANT, PLATFORM_TENANT);
             jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?, ?)",
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
             jdbc.update("DELETE FROM refresh_tokens WHERE tenant_id IN (?, ?, ?)",
