@@ -34,18 +34,45 @@ class AssignmentSchemaTest extends PostgresTestBase {
      * The tests share the two tenants, so each starts from an empty
      * assignments table for them — a count in one test must never see the
      * rows another test left behind.
+     *
+     * <p>Riders and vehicles are cleared too: TENANT_A/TENANT_B are shared,
+     * fixed UUIDs, and another test class (PaymentRunTestBase) happens to
+     * seed the same tenant IDs with its own riders. Without this, a leftover
+     * rider from another test class can collide with the phone number this
+     * class inserts and fail with a duplicate key error unrelated to what
+     * the test is actually checking.
      */
     @BeforeEach
     void clearAssignments() {
         onConnection("*", conn -> {
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "DELETE FROM assignments WHERE tenant_id IN (?, ?)")) {
-                ps.setObject(1, TENANT_A);
-                ps.setObject(2, TENANT_B);
-                ps.executeUpdate();
-            }
+            // FK-safe order: anything that can reference a rider or vehicle
+            // goes first, riders/vehicles last. PaymentRunTestBase seeds the
+            // same tenant IDs, so this has to clear its tables too, or a
+            // leftover row there can block (or collide with) what this class
+            // inserts.
+            deleteWhereTenantIn(conn, "payment_collections");
+            deleteWhereTenantIn(conn, "payment_periods");
+            deleteWhereTenantIn(conn, "receipt_counters");
+            deleteWhereTenantIn(conn, "rider_charges");
+            deleteWhereTenantIn(conn, "qc_inspections");
+            deleteWhereTenantIn(conn, "service_job_items");
+            deleteWhereTenantIn(conn, "service_job_events");
+            deleteWhereTenantIn(conn, "service_jobs");
+            deleteWhereTenantIn(conn, "assignments");
+            deleteWhereTenantIn(conn, "riders");
+            deleteWhereTenantIn(conn, "vehicle_lifecycle_events");
+            deleteWhereTenantIn(conn, "vehicles");
             return null;
         });
+    }
+
+    private void deleteWhereTenantIn(Connection conn, String table) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "DELETE FROM " + table + " WHERE tenant_id IN (?, ?)")) {
+            ps.setObject(1, TENANT_A);
+            ps.setObject(2, TENANT_B);
+            ps.executeUpdate();
+        }
     }
 
     @Test
