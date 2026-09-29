@@ -3,17 +3,34 @@ name: Keep Render API alive
 # Render spins down a Free web service after 15 minutes with no inbound
 # traffic, and the next request pays a ~1 minute cold start while it wakes
 # back up. Pinging the health endpoint every 10 minutes — comfortably inside
-# that 15-minute window, with slack for GitHub's own scheduling jitter — keeps
-# it warm.
+# that 15-minute window — keeps it warm.
 #
-# This does spend Free-instance hours: a service kept warm 24/7 uses close to
-# the full 750 Free-instance-hours/month a workspace gets. If evrental-api is
-# ever moved to a paid compute plan, this workflow becomes unnecessary — those
-# plans do not spin down — and can be deleted.
+# Off by default. The schedule trigger below always fires every 10 minutes —
+# GitHub gives no way to make the trigger itself conditional — but the job
+# checks the `KEEP_ALIVE_ENABLED` repository *variable* first and skips the
+# ping unless it is exactly "true". That means turning this on or off before
+# and after a client demo is a Settings change, not a code change:
 #
-# GitHub disables a repo's scheduled workflows automatically after 60 days
-# with no commits; a `workflow_dispatch` trigger is included so it can be
-# turned back on by hand without waiting for the next push.
+#   Repo → Settings → Secrets and variables → Actions → Variables
+#   → KEEP_ALIVE_ENABLED = true   (turn on before the demo)
+#   → KEEP_ALIVE_ENABLED = false  (turn back off after, so it stops
+#     spending the 750 Free-instance-hours/month budget on an idle demo)
+#
+# Accuracy: this is best-effort, not exact. GitHub documents that scheduled
+# workflows can be delayed during periods of high load on Actions — the start
+# of every hour is a known hotspot — and in rare cases a run is dropped
+# entirely rather than delayed. A delay past 15 minutes since the last real
+# request means Render spins down anyway and the following request (the
+# client's, or this workflow's next run) pays the ~1 minute cold start. It
+# lowers the odds of a demo hitting a cold start; it does not guarantee one
+# never happens.
+#
+# If evrental-api ever moves to a paid compute plan, delete this workflow —
+# those plans do not spin down, so pinging it buys nothing.
+#
+# GitHub also disables a repo's scheduled workflows automatically after 60
+# days with no commits; `workflow_dispatch` lets it be re-armed by hand
+# without waiting for the next push.
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -22,6 +39,7 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    if: vars.KEEP_ALIVE_ENABLED == 'true'
     steps:
       - name: Ping /actuator/health
         run: |
