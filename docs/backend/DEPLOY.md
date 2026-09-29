@@ -98,6 +98,13 @@ but a major-version jump is worth one manual boot before trusting a deploy.
 Health check: `/actuator/health`. Health is the only actuator endpoint exposed
 — every other one leaks something.
 
+**On the Free compute plan, Render spins the service down after 15 minutes
+with no inbound traffic** and pays a ~1 minute cold start on the next request.
+`.github/workflows/keep-alive.yml` pings `/actuator/health` every 10 minutes to
+keep it warm — delete that workflow if `evrental-api` ever moves to a paid
+plan, since those do not spin down and the pings would just spend nothing for
+no reason.
+
 ### Who triggers the deploy
 
 **Turn Render's auto-deploy off** (`autoDeploy: false` in the blueprint; the

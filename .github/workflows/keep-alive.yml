@@ -1,0 +1,29 @@
+name: Keep Render API alive
+
+# Render spins down a Free web service after 15 minutes with no inbound
+# traffic, and the next request pays a ~1 minute cold start while it wakes
+# back up. Pinging the health endpoint every 10 minutes — comfortably inside
+# that 15-minute window, with slack for GitHub's own scheduling jitter — keeps
+# it warm.
+#
+# This does spend Free-instance hours: a service kept warm 24/7 uses close to
+# the full 750 Free-instance-hours/month a workspace gets. If evrental-api is
+# ever moved to a paid compute plan, this workflow becomes unnecessary — those
+# plans do not spin down — and can be deleted.
+#
+# GitHub disables a repo's scheduled workflows automatically after 60 days
+# with no commits; a `workflow_dispatch` trigger is included so it can be
+# turned back on by hand without waiting for the next push.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /actuator/health
+        run: |
+          curl --fail --silent --show-error --max-time 20 \
+            https://evrental-api.onrender.com/actuator/health
