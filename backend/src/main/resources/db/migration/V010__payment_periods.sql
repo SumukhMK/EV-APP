@@ -23,7 +23,12 @@
 -- landing IN the period, arrears are OPEN charges from BEFORE it. V007 has
 -- only charged_on, and deriving the period from it on every read would
 -- re-bucket a rider's whole history the day they move between cycles.
-ALTER TABLE rider_charges ADD COLUMN period_start DATE;
+-- IF NOT EXISTS: an earlier deploy attempt reached this statement (a fast,
+-- non-blocking add of a nullable column) before failing later in this same
+-- script, on the same connection that later got cut off before Postgres'
+-- ordinary transactional rollback could undo it. Re-running the migration
+-- must not error on a column it already added.
+ALTER TABLE rider_charges ADD COLUMN IF NOT EXISTS period_start DATE;
 
 -- README rule 2. rider_charges and riders both carry FORCE ROW LEVEL SECURITY
 -- and Flyway sets no tenant, so without this sentinel the UPDATE below reports
