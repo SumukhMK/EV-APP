@@ -1,16 +1,5 @@
--- V010: the weekly payment run, collections and receipts (S6, second half).
+-- V009: the weekly payment run, collections and receipts (S6, second half).
 -- Design: docs/superpowers/specs/2026-09-28-s6-payment-run-design.md
---
--- Every statement in this file is written to be re-run against a database
--- that already has its result, and the reason is production's history.
--- This script was merged and deployed as V009 (PR #11, 2026-09-29 13:55Z).
--- Three hours later the backend-dev merge brought in V009__assignments.sql
--- and renumbered this file to V010, so Render's database holds everything
--- below under the number 9 while Flyway, after FlywayConfig's repair(),
--- believes 9 was the assignments script. V010 therefore has to walk over
--- a schema that is already complete without erroring; V011 does the
--- mirror-image job for the assignments table that was never created there.
--- On an empty database (CI, a fresh local compose) none of the guards fire.
 --
 -- V007 built the charge ledger: money *owed*. This builds money *billed* —
 -- the weekly period a rider is charged for, what came in against it, and the
@@ -34,29 +23,7 @@
 -- landing IN the period, arrears are OPEN charges from BEFORE it. V007 has
 -- only charged_on, and deriving the period from it on every read would
 -- re-bucket a rider's whole history the day they move between cycles.
-
--- The RLS helper from V001 ends in CREATE POLICY, which has no IF NOT EXISTS
--- and fails on a table that already carries the policy -- which, on Render,
--- all three tables below do. Redefined once here so that this file, V011,
--- and any later migration that has to be re-runnable can call it safely.
--- Same body as V001 otherwise: ENABLE, FORCE (README rule 1), one policy.
-CREATE OR REPLACE FUNCTION enable_tenant_rls(target regclass) RETURNS void
-  LANGUAGE plpgsql AS $$
-BEGIN
-  EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', target);
-  EXECUTE format('ALTER TABLE %s FORCE ROW LEVEL SECURITY', target);
-  IF NOT EXISTS (
-      SELECT 1 FROM pg_policy WHERE polrelid = target AND polname = 'tenant_isolation') THEN
-    EXECUTE format($p$
-      CREATE POLICY tenant_isolation ON %s
-        USING (tenant_bypass() OR tenant_id = current_tenant_id())
-        WITH CHECK (tenant_bypass() OR tenant_id = current_tenant_id())
-    $p$, target);
-  END IF;
-END;
-$$;
-
-ALTER TABLE rider_charges ADD COLUMN IF NOT EXISTS period_start DATE;
+ALTER TABLE rider_charges ADD COLUMN period_start DATE;
 
 -- README rule 2. rider_charges and riders both carry FORCE ROW LEVEL SECURITY
 -- and Flyway sets no tenant, so without this sentinel the UPDATE below reports
@@ -65,9 +32,7 @@ ALTER TABLE rider_charges ADD COLUMN IF NOT EXISTS period_start DATE;
 SELECT set_config('app.tenant_id', '*', true);
 
 -- Snap each existing charge back to the most recent occurrence of its rider's
--- billing day, on or before the day it was charged. Only rows that have no
--- period yet: on a database where this already ran, a charge's period is a
--- fact that a later rider cycle change must not quietly rewrite.
+-- billing day, on or before the day it was charged.
 --
 -- AT TIME ZONE 'Asia/Kolkata' is load-bearing: charged_on is TIMESTAMPTZ and
 -- Flyway's session runs in UTC, so a charge raised at 01:00 IST would
@@ -79,8 +44,7 @@ UPDATE rider_charges rc
        - ((EXTRACT(ISODOW FROM rc.charged_on AT TIME ZONE 'Asia/Kolkata')::int
            - CASE r.billing_day WHEN 'MONDAY' THEN 1 ELSE 3 END + 7) % 7)
   FROM riders r
- WHERE r.id = rc.rider_id
-   AND rc.period_start IS NULL;
+ WHERE r.id = rc.rider_id;
 
 -- The orphans V008 deliberately left behind.
 --
@@ -102,13 +66,13 @@ UPDATE rider_charges
 ALTER TABLE rider_charges ALTER COLUMN period_start SET NOT NULL;
 
 -- The run splits the ledger on (rider, status, liability, period).
-CREATE INDEX IF NOT EXISTS idx_rc_period ON rider_charges (tenant_id, rider_id, status, period_start);
+CREATE INDEX idx_rc_period ON rider_charges (tenant_id, rider_id, status, period_start);
 
 -- ---------------------------------------------------------------------------
 -- payment_periods -- the frozen calculation
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS payment_periods (
+CREATE TABLE payment_periods (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id             UUID NOT NULL REFERENCES tenants (id),
   rider_id              UUID NOT NULL REFERENCES riders (id),
@@ -160,13 +124,13 @@ CREATE TABLE IF NOT EXISTS payment_periods (
 -- the run screen in the same second both try to generate the same week. The
 -- insert is ON CONFLICT DO NOTHING against this index, so the second one is a
 -- no-op rather than a duplicate bill.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pp_rider_period ON payment_periods (tenant_id, rider_id, period_start);
+CREATE UNIQUE INDEX idx_pp_rider_period ON payment_periods (tenant_id, rider_id, period_start);
 -- The run screen: every rider in one cycle, for one week.
-CREATE INDEX IF NOT EXISTS idx_pp_run ON payment_periods (tenant_id, period_start, billing_day);
+CREATE INDEX idx_pp_run ON payment_periods (tenant_id, period_start, billing_day);
 -- The overdue list.
-CREATE INDEX IF NOT EXISTS idx_pp_status ON payment_periods (tenant_id, status, period_end);
+CREATE INDEX idx_pp_status ON payment_periods (tenant_id, status, period_end);
 -- The rider profile's payment history panel, newest period first.
-CREATE INDEX IF NOT EXISTS idx_pp_rider ON payment_periods (tenant_id, rider_id, period_start DESC);
+CREATE INDEX idx_pp_rider ON payment_periods (tenant_id, rider_id, period_start DESC);
 
 SELECT enable_tenant_rls('payment_periods');
 
@@ -178,7 +142,7 @@ SELECT enable_tenant_rls('payment_periods');
 -- week is a real case -- riders pay cash in pieces, which is why PARTIAL is in
 -- the status enum -- and a mistyped amount is corrected by a reversing entry,
 -- not by editing money in place (WORK_SPLIT.md's standing rule).
-CREATE TABLE IF NOT EXISTS payment_collections (
+CREATE TABLE payment_collections (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id            UUID NOT NULL REFERENCES tenants (id),
   period_id            UUID NOT NULL REFERENCES payment_periods (id),
@@ -192,7 +156,7 @@ CREATE TABLE IF NOT EXISTS payment_collections (
   CONSTRAINT chk_pc_method CHECK (method IN ('UPI','CASH','BANK_TRANSFER'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_pc_period ON payment_collections (tenant_id, period_id, collected_on);
+CREATE INDEX idx_pc_period ON payment_collections (tenant_id, period_id, collected_on);
 
 SELECT enable_tenant_rls('payment_collections');
 
@@ -205,7 +169,7 @@ SELECT enable_tenant_rls('payment_collections');
 -- not used: a sequence keeps its value when a transaction rolls back, so a
 -- failed collection burns a receipt number, and a receipt book with gaps in it
 -- is a question nobody wants to answer during an audit.
-CREATE TABLE IF NOT EXISTS receipt_counters (
+CREATE TABLE receipt_counters (
   tenant_id UUID NOT NULL REFERENCES tenants (id),
   year      INT  NOT NULL,
   next_no   BIGINT NOT NULL DEFAULT 1,
