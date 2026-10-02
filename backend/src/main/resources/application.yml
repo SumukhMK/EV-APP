@@ -6,6 +6,18 @@ spring:
   application:
     name: ev-rental-api
 
+  servlet:
+    multipart:
+      # The bulk upload. Boot's defaults are 1MB per file and 10MB per
+      # request, which a mid-size fleet export in .xlsx can cross — and the
+      # failure arrives as a raw 413 from the container, before any handler,
+      # so the screen shows no message at all. 10MB is far above a realistic
+      # fleet (137 bikes is ~16KB as CSV, a few hundred KB as a workbook) and
+      # still small enough that the whole file is safe to hold in memory,
+      # which is what the parser does.
+      max-file-size: 10MB
+      max-request-size: 12MB
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}

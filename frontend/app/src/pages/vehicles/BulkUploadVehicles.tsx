@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import UploadIcon from '@mui/icons-material/UploadFileOutlined';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 import { invalidateVehicles } from '../../lib/invalidate';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
@@ -14,33 +15,43 @@ import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
 import { FlowStrip } from '../../components/FlowStrip';
 import { UploadBox } from '../../components/UploadBox';
-import { commitBulkUpload, previewBulkUpload } from '../../lib/api/vehicles';
+import { commitBulkUpload, downloadImportTemplate, previewBulkUpload } from '../../lib/api/vehicles';
 import type { BulkUploadPreview } from '../../types';
 import { neutral, status as tones } from '../../theme/tokens';
 
 /** The stages the import walks, drawn under the header so the operator knows
- * how many more times it will ask before it commits. */
+ * how many more times it will ask before it commits.
+ *
+ * "Map columns" used to sit second and never existed on either side — the
+ * parser has always matched headers exactly. A step the product cannot
+ * perform is worse than one it does not advertise, so it is gone and the
+ * template below is the answer instead. */
 const IMPORT_STAGES = [
   'Upload',
-  'Map columns',
   'Validate',
   'Duplicate check',
   'Preview',
   'Confirm import',
 ] as const;
 
-/** What a row must carry. Told before the upload so mapping is the exception,
- * not the job. */
+/**
+ * The columns the API parses, spelled exactly as the header row must spell
+ * them. This list was previously a different set of nine field names that the
+ * importer has never accepted — it promised IoT, controller and motor numbers
+ * it cannot store, and omitted the two it requires.
+ *
+ * Six are required. batteryVendor and registrationNumber may be blank, but
+ * the columns must be present.
+ */
 const EXPECTED_COLUMNS = [
-  'Vehicle ID',
-  'Chassis number',
-  'IoT number',
-  'Controller number',
-  'Motor number',
-  'Battery type',
-  'Vehicle make',
-  'Model',
-  'Purchase date',
+  'id',
+  'chassisNumber',
+  'model',
+  'batteryType',
+  'batteryVendor',
+  'hub',
+  'registrationNumber',
+  'inductedOn',
 ] as const;
 
 /**
@@ -71,9 +82,28 @@ export function BulkUploadVehicles() {
     },
   });
 
+  /**
+   * Hands the workbook to the browser. The endpoint needs the bearer token,
+   * so the bytes are fetched and turned into an object URL rather than linked
+   * to directly.
+   */
+  const template = useMutation({
+    mutationFn: downloadImportTemplate,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = blob.type.includes('csv') ? 'fleet-template.csv' : 'fleet-template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    },
+  });
+
   // Before a file: at Upload. Once a preview is loaded: at Preview. While the
   // clean rows are being written: at Confirm import.
-  const activeStage = commit.isPending ? 5 : preview ? 4 : 0;
+  const activeStage = commit.isPending ? 4 : preview ? 3 : 0;
 
   return (
     <>
@@ -82,15 +112,31 @@ export function BulkUploadVehicles() {
         title="Bulk upload vehicles"
         icon={UploadIcon}
         actions={
-          <Button color="inherit" onClick={() => navigate('/vehicles')}>
-            {done !== null ? 'Go back to all vehicles' : 'Cancel'}
-          </Button>
+          <>
+            <Button
+              color="inherit"
+              startIcon={<DownloadIcon />}
+              disabled={template.isPending}
+              onClick={() => template.mutate()}
+            >
+              {template.isPending ? 'Preparing…' : 'Download template'}
+            </Button>
+            <Button color="inherit" onClick={() => navigate('/vehicles')}>
+              {done !== null ? 'Go back to all vehicles' : 'Cancel'}
+            </Button>
+          </>
         }
       />
 
       <Box sx={{ mt: 5 }}>
         <FlowStrip stages={IMPORT_STAGES} activeIndex={activeStage} />
       </Box>
+
+      {template.isError && (
+        <Alert severity="error" variant="outlined" sx={{ mt: 5 }}>
+          Could not download the template. Try again.
+        </Alert>
+      )}
 
       {done !== null && (
         <Alert severity="success" variant="outlined" sx={{ mt: 5 }}>
@@ -102,7 +148,7 @@ export function BulkUploadVehicles() {
 
       <Panel
         label="File"
-        subtitle="A .xlsx or .csv export of the registry. One bike per row."
+        subtitle="An .xlsx or .csv export of the registry. One bike per row, header row first."
         sx={{ mt: 5 }}
       >
         <UploadBox
@@ -115,7 +161,7 @@ export function BulkUploadVehicles() {
             validate.mutate(file);
           }}
           expectedColumns={EXPECTED_COLUMNS}
-          columnNote="Column names need not match exactly — you can map differing headers after upload."
+          columnNote="Header names must match exactly. Download the template above to start from the right columns."
         />
       </Panel>
 

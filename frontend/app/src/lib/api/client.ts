@@ -176,6 +176,27 @@ function refreshSession(): Promise<boolean> {
   return refreshInFlight;
 }
 
+/**
+ * A file download, as a Blob rather than parsed JSON.
+ *
+ * A plain `<a href>` cannot carry the Authorization header, and these
+ * endpoints are signed-in only, so the fetch happens here and the caller
+ * hands the Blob to the browser. Deliberately not routed through `request`:
+ * that function parses every response as JSON, which would corrupt a
+ * workbook.
+ */
+export async function downloadFile(path: string): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  const token = getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(buildUrl(path, undefined), { method: 'GET', headers });
+  if (!response.ok) {
+    throw new ApiError('Could not download the file', response.status);
+  }
+  return response.blob();
+}
+
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, file, query, anonymous = false, timeoutMs } = options;
   const controller = new AbortController();

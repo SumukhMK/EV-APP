@@ -24,6 +24,7 @@ export const vehicleFilterOptions = impl.vehicleFilterOptions;
 export const getVehicle = impl.getVehicle;
 export const createVehicle = impl.createVehicle;
 export const updateVehicle = impl.updateVehicle;
+export const downloadImportTemplate = impl.downloadImportTemplate;
 export const previewBulkUpload = impl.previewBulkUpload;
 export const commitBulkUpload = impl.commitBulkUpload;
 

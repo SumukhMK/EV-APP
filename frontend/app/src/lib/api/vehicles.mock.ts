@@ -150,6 +150,19 @@ export async function updateVehicle(body: UpdateVehicleRequest): Promise<Vehicle
   return delay(await getVehicle(v.id), 380);
 }
 
+/**
+ * The same template the API generates, as CSV so the mock build needs no
+ * workbook writer. The column list is the contract either way.
+ */
+export async function downloadImportTemplate(): Promise<Blob> {
+  const header = 'id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn';
+  const examples = [
+    'BLRSS0001,CH-0001,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01',
+    'BLRSS0002,CH-0002,Eagle 2,Lithium,Exide,Indiranagar,KA01AA0002,2026-09-15',
+  ];
+  return delay(new Blob([[header, ...examples].join('\n')], { type: 'text/csv' }), 200);
+}
+
 /** Dry run. The real endpoint validates server-side and returns the same shape. */
 export async function previewBulkUpload(file: File): Promise<BulkUploadPreview> {
   const rows = bulkUploadRows;
