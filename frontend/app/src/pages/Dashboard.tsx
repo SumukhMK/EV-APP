@@ -30,6 +30,12 @@ const now = new Intl.DateTimeFormat('en-IN', {
   year: 'numeric',
 });
 
+/** "2026-08" to "Aug 2026", for the chart's own axis range. */
+function monthLabel(iso: string): string {
+  const month = MONTH_LABEL[Number(iso.slice(5, 7)) - 1];
+  return `${month} ${iso.slice(0, 4)}`;
+}
+
 export function Dashboard() {
   const summary = useQuery({ queryKey: ['dashboard', 'summary'], queryFn: getFleetSummary });
   const deployments = useQuery({ queryKey: ['dashboard', 'deployments'], queryFn: getMonthlyDeployments });
@@ -41,6 +47,18 @@ export function Dashboard() {
   }));
   const mean = bars.length ? bars.reduce((t, b) => t + b.value, 0) / bars.length : 0;
   const peak = bars.reduce((m, b) => Math.max(m, b.value), 0);
+
+  /**
+   * Derived from the series rather than written out. The subtitle used to read
+   * "Aug 2025 — Aug 2026 · 13 months" as a literal string, which was true of
+   * the fixture array it sat above and would have gone quietly stale the day
+   * the chart started reading real months.
+   */
+  const months = deployments.data ?? [];
+  const range =
+    months.length > 0
+      ? `${monthLabel(months[0].month)} — ${monthLabel(months[months.length - 1].month)} · ${months.length} months`
+      : undefined;
 
   return (
     <>
@@ -118,7 +136,7 @@ export function Dashboard() {
 
       <Panel
         label="Deployments per month"
-        subtitle="Aug 2025 — Aug 2026 · 13 months"
+        subtitle={range}
         sx={{ mt: 5 }}
         action={
           <Mono sx={{ fontSize: 12, color: neutral[500] }}>
