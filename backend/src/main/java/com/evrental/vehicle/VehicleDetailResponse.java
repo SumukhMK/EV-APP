@@ -1,6 +1,7 @@
 package com.evrental.vehicle;
 
 import com.evrental.assignment.AssignmentHistoryRow;
+import com.evrental.assignment.CurrentRider;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -31,8 +32,21 @@ public record VehicleDetailResponse(
         List<VehicleLifecycleEventResponse> lifecycle,
         List<AssignmentHistoryRow> assignments) {
 
+    /**
+     * @param currentRider the rider on the bike now, or null if nobody is.
+     *                     Passed in rather than read here for the same reason
+     *                     the list path passes it: the rider is a property of
+     *                     the open assignment row, which {@code assignment/}
+     *                     owns, and a response record does not query.
+     *                     <p>This used to be a literal {@code null, null}, so
+     *                     the fleet list named the rider and the detail page
+     *                     one click later said the bike had nobody on it. The
+     *                     mock derived both from one fixture, so the
+     *                     disagreement only existed in a live build.
+     */
     public static VehicleDetailResponse from(Vehicle vehicle, List<VehicleLifecycleEvent> lifecycleEvents,
-                                             List<AssignmentHistoryRow> assignments) {
+                                             List<AssignmentHistoryRow> assignments,
+                                             CurrentRider currentRider) {
         return new VehicleDetailResponse(
                 vehicle.getRegistryId(),
                 vehicle.getChassisNumber(),
@@ -41,8 +55,8 @@ public record VehicleDetailResponse(
                 vehicle.getBatteryVendor(),
                 vehicle.getHub(),
                 vehicle.getState(),
-                null,
-                null,
+                currentRider == null ? null : currentRider.id(),
+                currentRider == null ? null : currentRider.name(),
                 vehicle.getInductedOn(),
                 vehicle.getRegistrationNumber(),
                 vehicle.getOdometerKm(),

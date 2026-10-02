@@ -157,7 +157,8 @@ public class VehicleController {
         return VehicleDetailResponse.from(
                 vehicle,
                 lifecycleEvents.findByVehicleIdOrderByOccurredOnAsc(vehicle.getId()),
-                assignmentQuery.historyFor(vehicle.getId()));
+                assignmentQuery.historyFor(vehicle.getId()),
+                assignmentQuery.currentRiderOf(vehicle.getId()));
     }
 
     private static VehicleState parseState(String state) {
