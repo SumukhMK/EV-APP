@@ -35,6 +35,7 @@
          itself — the 1.20.6 pin from the Boot 3.3 era (Docker Engine 29
          raised its minimum API to 1.40) is obsolete. -->
     <testcontainers.version>2.0.5</testcontainers.version>
+    <poi.version>5.4.1</poi.version>
   </properties>
 
   <dependencyManagement>
@@ -93,6 +94,22 @@
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+    <!-- Excel for the bulk upload. The operations team works in Excel, so
+         the upload screen has always advertised .xlsx — the parser only ever
+         read CSV, and an .xlsx (a ZIP of XML) was read as UTF-8 text and
+         rejected with a message about a missing column. poi-ooxml reads the
+         real thing: the shared-strings table, inline strings and the numeric
+         date serials Excel writes instead of the text a user typed.
+
+         poi-ooxml-lite rather than the full ooxml-schemas: it carries only
+         the generated schema classes POI actually calls, which is ~8MB
+         instead of ~60MB in the image. Nothing here touches the parts it
+         leaves out. -->
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>
+      <version>${poi.version}</version>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>

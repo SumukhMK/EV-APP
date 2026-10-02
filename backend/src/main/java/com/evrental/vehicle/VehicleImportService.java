@@ -3,10 +3,12 @@ package com.evrental.vehicle;
 import com.evrental.common.ConflictException;
 import com.evrental.common.NotFoundException;
 import com.evrental.common.ValidationException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -14,6 +16,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,7 +32,8 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class VehicleImportService {
 
-    private static final List<String> HEADERS = List.of(
+    /** Package-private so {@link VehicleImportTemplate} builds from the same list. */
+    static final List<String> HEADERS = List.of(
             "id", "chassisNumber", "model", "batteryType", "batteryVendor", "hub", "registrationNumber", "inductedOn");
     private static final List<String> REQUIRED_HEADERS = List.of(
             "id", "chassisNumber", "model", "batteryType", "hub", "inductedOn");
@@ -172,17 +184,30 @@ public class VehicleImportService {
     }
 
     private List<Map<String, String>> parse(MultipartFile file) {
-        String raw;
+        byte[] bytes;
         try {
-            raw = new String(file.getBytes(), StandardCharsets.UTF_8);
+            bytes = file.getBytes();
         } catch (IOException e) {
             throw new ValidationException("file", "Could not read the upload");
         }
-        if (raw.isBlank()) {
+        if (bytes.length == 0) {
             throw new ValidationException("file", "The file is empty");
         }
 
-        List<List<String>> records = parseCsv(raw);
+        // The content decides, not the extension. A browser sends whatever
+        // the operating system has mapped, a user renames a file to .csv to
+        // "fix" a failed upload, and an .xlsx always begins with the ZIP
+        // signature. Sniffing the bytes gets all three right.
+        List<List<String>> records;
+        if (looksLikeXlsx(bytes)) {
+            records = parseXlsx(bytes);
+        } else {
+            String raw = new String(bytes, StandardCharsets.UTF_8);
+            if (raw.isBlank()) {
+                throw new ValidationException("file", "The file is empty");
+            }
+            records = parseCsv(raw);
+        }
         if (records.isEmpty()) {
             throw new ValidationException("file", "The file is empty");
         }
@@ -207,6 +232,92 @@ public class VehicleImportService {
             rows.add(payload);
         }
         return rows;
+    }
+
+    /** The ZIP local-file-header signature every .xlsx starts with. */
+    private static boolean looksLikeXlsx(byte[] bytes) {
+        return bytes.length >= 4
+                && bytes[0] == 0x50 && bytes[1] == 0x4B
+                && (bytes[2] == 0x03 || bytes[2] == 0x05 || bytes[2] == 0x07);
+    }
+
+    /**
+     * The first sheet of a workbook, as the same rows {@link #parseCsv} would
+     * have produced — so every rule downstream is blind to the file format.
+     *
+     * <p>Only the first sheet is read. A fleet export is one sheet, and
+     * silently importing a second one (often a lookup list or a pivot) would
+     * create bikes nobody asked for.
+     */
+    private static List<List<String>> parseXlsx(byte[] bytes) {
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            if (workbook.getNumberOfSheets() == 0) {
+                throw new ValidationException("file", "The workbook has no sheets");
+            }
+            Sheet sheet = workbook.getSheetAt(0);
+            DataFormatter formatter = new DataFormatter();
+            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+
+            List<List<String>> records = new ArrayList<>();
+            int lastRow = sheet.getLastRowNum();
+            for (int r = sheet.getFirstRowNum(); r <= lastRow; r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) {
+                    // A row the user cleared. Excel keeps it in the used
+                    // range; it is not a row of the import.
+                    continue;
+                }
+                List<String> values = new ArrayList<>();
+                for (int c = 0; c < row.getLastCellNum(); c++) {
+                    values.add(readCell(row.getCell(c), formatter, evaluator));
+                }
+                if (values.stream().allMatch(String::isEmpty)) {
+                    continue;
+                }
+                records.add(values);
+            }
+            return records;
+        } catch (ValidationException e) {
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            // POI throws a family of unchecked exceptions for a file that is
+            // not a workbook, is password protected, or is the older .xls
+            // binary. The operator gets one sentence they can act on rather
+            // than a parser class name.
+            throw new ValidationException("file",
+                    "Could not read that file as an Excel workbook. Save it as .xlsx or .csv and try again.");
+        }
+    }
+
+    /**
+     * One cell as the text a person would have typed.
+     *
+     * <p>Two cases make this more than {@code toString()}. A date cell holds
+     * a serial number, so a date picked from Excel's own picker arrives as
+     * 46266 and must go back out as 2026-09-01 for the ISO parse downstream.
+     * And a registry id Excel decided was numeric would otherwise render as
+     * 1.23457E+11, so a whole number is written without the exponent or the
+     * trailing .0 the default format adds.
+     */
+    private static String readCell(Cell cell, DataFormatter formatter, FormulaEvaluator evaluator) {
+        if (cell == null) {
+            return "";
+        }
+        CellType type = cell.getCellType() == CellType.FORMULA
+                ? cell.getCachedFormulaResultType()
+                : cell.getCellType();
+
+        if (type == CellType.NUMERIC) {
+            if (DateUtil.isCellDateFormatted(cell)) {
+                LocalDate date = cell.getLocalDateTimeCellValue().toLocalDate();
+                return date.format(DateTimeFormatter.ISO_LOCAL_DATE);
+            }
+            double value = cell.getNumericCellValue();
+            if (value == Math.rint(value) && !Double.isInfinite(value) && Math.abs(value) < 1e15) {
+                return String.valueOf((long) value);
+            }
+        }
+        return formatter.formatCellValue(cell, evaluator).trim();
     }
 
     private static List<List<String>> parseCsv(String raw) {
