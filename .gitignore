@@ -15,3 +15,6 @@ gpt.txt
 
 # Palette previews are the artefact; their renders are regenerable and heavy.
 docs/design/*.png
+
+# Local Netlify folder
+.netlify

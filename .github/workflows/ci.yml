@@ -37,7 +37,14 @@ concurrency:
 env:
   # Not a secret — it is the public identifier that appears in every deploy
   # URL. Only the auth token is sensitive, and that is in repo secrets.
-  NETLIFY_SITE_ID: 91e44952-df77-4c81-9bad-68e69406d75c
+  #
+  # A repository *variable* rather than a literal, because this changes when
+  # the site moves and a site move should not be a code change. It moved once
+  # already, when the first account's build credits ran out, and the literal
+  # that used to sit here had to be edited in a commit — along with a site
+  # name hardcoded forty lines below, which was missed until the preview
+  # links pointed at a domain nobody owned any more.
+  NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
 
 jobs:
   verify:
@@ -155,6 +162,16 @@ jobs:
           name: dist
           path: dist
 
+      # An unset variable would hand the CLI --site="" and let it pick whatever
+      # site the runner happens to be linked to. Better to stop here and say so.
+      - name: Check the site is configured
+        run: |
+          if [ -z "${NETLIFY_SITE_ID:-}" ]; then
+            echo "::error::NETLIFY_SITE_ID is not set. Add it under Settings → Secrets and variables → Actions → Variables."
+            exit 1
+          fi
+          echo "Deploying to site $NETLIFY_SITE_ID"
+
       - name: Deploy to production
         if: github.ref == 'refs/heads/main'
         env:
@@ -166,21 +183,39 @@ jobs:
             --prod \
             --message="${{ github.sha }} — ${{ github.event.head_commit.message || 'manual run' }}"
 
-      # A preview lands on its own subdomain, pr-<number>--fleetech-os.netlify.app,
-      # so a reviewer can open the change rather than imagine it. The alias is
-      # stable across pushes, so the link in the PR comment never goes stale.
+      # A preview lands on its own subdomain, so a reviewer can open the change
+      # rather than imagine it. The alias is stable across pushes, so the link
+      # in the PR comment never goes stale.
+      #
+      # The URL is read back from the deploy rather than assembled from the
+      # site name. It used to be a hardcoded string, which meant the site name
+      # lived in two places and the second one was missed when the site moved
+      # accounts — every preview comment then linked to a domain the project
+      # no longer owned.
       - name: Deploy a preview
         id: preview
         if: github.event_name == 'pull_request'
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
+          set -euo pipefail
           npx --yes netlify-cli@27 deploy \
             --dir=dist \
             --site="$NETLIFY_SITE_ID" \
             --alias="pr-${{ github.event.number }}" \
-            --message="PR #${{ github.event.number }} — ${{ github.event.pull_request.title }}"
-          echo "url=https://pr-${{ github.event.number }}--fleetech-os.netlify.app" >> "$GITHUB_OUTPUT"
+            --message="PR #${{ github.event.number }} — ${{ github.event.pull_request.title }}" \
+            --json > deploy.json
+
+          # deploy_url is the alias URL for an aliased deploy. Falling back to
+          # `url` keeps this working if that ever stops being true, rather than
+          # posting an empty link.
+          URL=$(python3 -c 'import json; d=json.load(open("deploy.json")); print(d.get("deploy_url") or d.get("url") or "")')
+          if [ -z "$URL" ]; then
+            echo "::error::The deploy returned no URL — see deploy.json above."
+            cat deploy.json
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       # Edited in place rather than appended, so a PR with twelve pushes has one
       # comment carrying the current link, not twelve carrying the same one.
