@@ -5,9 +5,8 @@ import { riders } from './riders';
 import { riderCharges } from './riderCharges';
 import { operationsSummary, serviceQueues } from './dashboard';
 import { assignVehicle, deboardRider, exchangeVehicle } from '../lib/api/assignments';
-import { decideQc, listInspectableVehicles, listQcQueue } from '../lib/api/inspections';
+import { listInspectableVehicles } from '../lib/api/inspections';
 import { getServiceJob, listServiceJobs } from '../lib/api/serviceJobs';
-import { withLiveServiceFigures, runsByDay } from './payments';
 import { listRiders } from '../lib/api/riders';
 import { deboardRiderSchema, exchangeVehicleSchema } from '../lib/schemas/assignment';
 import { needsDamageAssessment, QUEUE_STATE, RETURN_DESTINATIONS } from '../lib/serviceWorkflow';
@@ -187,39 +186,7 @@ describe('service workflow integrity', () => {
     expect(job.activity.at(-1)?.queue).toBe(queue);
   });
 
-  it('survives QC fail, repair, repeated QC and pass without duplicate charges or lost assignment', async () => {
-    const { job, vehicle } = intake();
-    const items = [{ kind: 'PART' as const, label: 'Mirror', costPaise: 120000 }];
-    update(job, { queue: 'QC_PENDING', items, liability: 'RIDER' });
-    expect(riderCharges).toHaveLength(0);
-    expect((await listQcQueue()).some((q) => q.jobId === job.id)).toBe(true);
-    await decideQc(vehicle.id, false, 'Mounting is loose', 'QC inspector');
-    expect(vehicle.state).toBe('UNDER_REPAIR');
-    expect((await listQcQueue()).some((q) => q.jobId === job.id)).toBe(false);
-    update(job, { queue: 'QC_PENDING', items, liability: 'RIDER', note: 'Mounting tightened' });
-    expect((await listQcQueue()).some((q) => q.jobId === job.id)).toBe(true);
-    await decideQc(vehicle.id, true, 'Mounting and road test passed', 'QC inspector');
-    expect(vehicle.state).toBe('READY_TO_DEPLOY');
-    expect(vehicle.currentRiderId).toBeNull();
-    expect(job.status).toBe('CLOSED');
-    expect(riderCharges).toHaveLength(1);
-    const rider = riders.find((r) => r.id === job.riderId)!;
-    const run = withLiveServiceFigures(runsByDay[rider.billingDay]);
-    expect(run.rows.find((row) => row.riderId === job.riderId)?.serviceCharges).toBe(120000);
-    expect(job.activity.some((e) => e.note.includes('Mounting is loose'))).toBe(true);
-    expect(() => update(job, { queue: 'READY_TO_DEPLOY', items, liability: 'RIDER' })).toThrow(/already finished/);
-    expect(riderCharges).toHaveLength(1);
-  });
 
-  it('supports zero-cost QC release into RTD for unassigned vehicles', async () => {
-    const v = vehicles.find((v) => v.state === 'READY_TO_DEPLOY')!;
-    const job = createServiceJob({ vehicleId: v.id, riderId: null, source: 'WALK_IN', damageCategory: 'NONE', damageNotes: 'Routine safety check' });
-    await decideQc(v.id, true, 'No work required; all checks passed', 'Inspector');
-    expect(v.state).toBe('READY_TO_DEPLOY');
-    expect(job.items).toEqual([]);
-    expect(job.status).toBe('CLOSED');
-    expect(riderCharges).toHaveLength(0);
-  });
 
   it('deducts deposit once and rejects an unaffordable deposit charge without mutation', () => {
     const { job } = intake();

@@ -86,12 +86,20 @@ public abstract class RiderTestBase extends PostgresTestBase {
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
             jdbc.update("DELETE FROM payment_periods WHERE tenant_id IN (?, ?, ?)",
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
+            // The change log holds a foreign key to the rider it describes.
+            jdbc.update("DELETE FROM rider_plan_changes WHERE tenant_id IN (?, ?, ?)",
+                    TENANT, OTHER_TENANT, PLATFORM_TENANT);
             jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?, ?)",
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
             jdbc.update("DELETE FROM refresh_tokens WHERE tenant_id IN (?, ?, ?)",
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
+            // Same for the role log and the user it describes.
+            jdbc.update("DELETE FROM user_role_changes");
             jdbc.update("DELETE FROM users WHERE tenant_id IN (?, ?, ?)",
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
+            // Reference data holds a foreign key to the tenant, so it goes first.
+            jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Riders Co', 'riders-co', 'ACTIVE')", TENANT);

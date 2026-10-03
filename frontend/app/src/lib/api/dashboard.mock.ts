@@ -4,7 +4,6 @@ import type {
   MonthlyDeployments,
   OperationsPeriodSummary,
   RecoveryCounts,
-  ServiceQueueCounts,
 } from '../../types';
 import {
   fleetSummary,
@@ -12,7 +11,6 @@ import {
   monthlyDeployments,
   operationsSummary,
   recoveryCounts,
-  serviceQueues,
 } from '../../mocks/dashboard';
 import { delay } from './client';
 
@@ -36,10 +34,6 @@ export async function getOperationsSummary(
   return delay(operationsSummary(startIso, endIso));
 }
 
-/** The workshop queue counts (screen 22). */
-export async function getServiceQueues(): Promise<ServiceQueueCounts> {
-  return delay(serviceQueues());
-}
 
 /** The recovery board counts (screen 23). */
 export async function getRecoveryCounts(): Promise<RecoveryCounts> {

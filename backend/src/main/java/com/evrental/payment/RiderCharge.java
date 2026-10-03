@@ -39,10 +39,18 @@ public class RiderCharge {
     @Column(name = "rider_id", nullable = false)
     private UUID riderId;
 
-    @Column(name = "service_job_id", nullable = false)
+    /**
+     * The job this charge came from, or null for a settlement.
+     *
+     * <p>Nullable since V014: a deboard's outstanding rent is a charge with no
+     * repair behind it. The unique index on this column still stops a job
+     * being billed twice, because Postgres allows many NULLs in a unique
+     * index.
+     */
+    @Column(name = "service_job_id")
     private UUID serviceJobId;
 
-    @Column(name = "vehicle_id", nullable = false)
+    @Column(name = "vehicle_id")
     private UUID vehicleId;
 
     @Column(name = "amount_paise", nullable = false)

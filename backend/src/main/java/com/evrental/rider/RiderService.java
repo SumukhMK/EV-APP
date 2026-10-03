@@ -39,13 +39,16 @@ public class RiderService {
     private final AadhaarCipher aadhaarCipher;
     private final AssignmentQuery assignmentQuery;
     private final RiderPaymentStatusQuery paymentStatus;
+    private final com.evrental.audit.ChangeLog changeLog;
 
     public RiderService(RiderRepository riders, AadhaarCipher aadhaarCipher, AssignmentQuery assignmentQuery,
-                        RiderPaymentStatusQuery paymentStatus) {
+                        RiderPaymentStatusQuery paymentStatus,
+                        com.evrental.audit.ChangeLog changeLog) {
         this.riders = riders;
         this.aadhaarCipher = aadhaarCipher;
         this.assignmentQuery = assignmentQuery;
         this.paymentStatus = paymentStatus;
+        this.changeLog = changeLog;
     }
 
     /**
@@ -238,6 +241,34 @@ public class RiderService {
     public Rider markDeboarded(UUID id) {
         Rider rider = findById(id);
         rider.setStatus(RiderStatus.DEBOARDED);
+        return riders.save(rider);
+    }
+
+    /**
+     * Changes a rider's weekly plan.
+     *
+     * <p>The register had no way to do this at all — the plan was written once
+     * at onboarding and the controller's own comment said "no update
+     * endpoint". A rider renegotiating their rent meant deboarding and
+     * re-onboarding them, which loses their history and their deposit.
+     *
+     * <p>Deliberately narrow: this changes one number, logs it, and touches
+     * nothing else. A general rider-update endpoint would let a name, a phone
+     * and a billing day move in one unlogged call.
+     *
+     * <p>The change does not reach a frozen period. V010 freezes the plan onto
+     * each week's row at generation, so a rider's bill for a week already
+     * generated stays as it was — which is the entire point of that design.
+     */
+    @Transactional
+    public Rider changePlan(UUID id, long newPlanPaise, String actorName) {
+        if (newPlanPaise < 0) {
+            throw new ValidationException("planAmount", "A weekly plan cannot be negative");
+        }
+        Rider rider = findById(id);
+        changeLog.planChanged(rider.getTenantId(), rider.getId(),
+                rider.getPlanAmountPaise(), newPlanPaise, actorName);
+        rider.setPlanAmountPaise(newPlanPaise);
         return riders.save(rider);
     }
 

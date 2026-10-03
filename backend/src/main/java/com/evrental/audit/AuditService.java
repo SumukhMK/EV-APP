@@ -137,6 +137,32 @@ public class AuditService {
 
               UNION ALL
 
+              -- A rider's weekly plan changing: it moves money every week after.
+              SELECT 'plan:' || c.id,
+                     c.occurred_on,
+                     c.actor_name,
+                     'Plan changed',
+                     'Rider · ' || r.name,
+                     round(c.from_paise / 100.0, 2)::text,
+                     round(c.to_paise / 100.0, 2)::text
+                FROM rider_plan_changes c
+                JOIN riders r ON r.id = c.rider_id
+
+              UNION ALL
+
+              -- A user's role changing: it hands somebody new abilities.
+              SELECT 'role:' || c.id,
+                     c.occurred_on,
+                     c.actor_name,
+                     'Role changed',
+                     'User · ' || u.email,
+                     c.from_role,
+                     c.to_role
+                FROM user_role_changes c
+                JOIN users u ON u.id = c.user_id
+
+              UNION ALL
+
               -- A rider joining the register.
               SELECT 'onboard:' || r.id,
                      r.onboarded_on::timestamptz,

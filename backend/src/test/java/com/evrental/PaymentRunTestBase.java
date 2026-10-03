@@ -97,13 +97,20 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
             // Before riders and vehicles: an assignment row holds a foreign
             // key to both, so deleting them first fails on the constraint.
             jdbc.update("DELETE FROM assignments WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // The change log holds a foreign key to the rider it describes.
+            jdbc.update("DELETE FROM rider_plan_changes WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_lifecycle_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicles WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM refresh_tokens WHERE tenant_id IN (?, ?, ?)",
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
+            // Same for the role log and the user it describes.
+            jdbc.update("DELETE FROM user_role_changes");
             jdbc.update("DELETE FROM users WHERE email IN (?, ?, ?, ?, ?)",
                     ADMIN_EMAIL, STAFF_EMAIL, MANAGER_EMAIL, OTHER_ADMIN_EMAIL, SUPER_ADMIN_EMAIL);
+            // Reference data holds a foreign key to the tenant, so it goes first.
+            jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
 
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "

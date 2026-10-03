@@ -12,7 +12,7 @@ import { Login } from '../pages/Login';
 
 /**
  * Every artboard in the signed-off wireframe has a route. The ones that are
- * not built render a Placeholder naming the artboard and its owner, so a demo
+ * Every screen in the product is built; the Placeholder that used to stand
  * can walk the whole rail without hitting a dead link — and so it stays
  * obvious what is left.
  *

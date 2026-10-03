@@ -61,7 +61,12 @@ public abstract class VehicleTestBase extends PostgresTestBase {
             jdbc.update("DELETE FROM vehicle_import_rows WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_imports WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM refresh_tokens WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // Same for the role log and the user it describes.
+            jdbc.update("DELETE FROM user_role_changes");
             jdbc.update("DELETE FROM users WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // Reference data holds a foreign key to the tenant, so it goes first.
+            jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Vehicle Co', 'vehicle-co', 'ACTIVE')", TENANT);

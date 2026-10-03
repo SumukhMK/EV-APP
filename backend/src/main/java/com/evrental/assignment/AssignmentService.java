@@ -58,17 +58,20 @@ public class AssignmentService {
     private final VehicleRepository vehicles;
     private final VehicleTransitions vehicleTransitions;
     private final ServiceJobFacade serviceJobs;
+    private final com.evrental.payment.SettlementLedger settlements;
 
     public AssignmentService(AssignmentRepository assignments,
                              RiderService riders,
                              VehicleRepository vehicles,
                              VehicleTransitions vehicleTransitions,
-                             ServiceJobFacade serviceJobs) {
+                             ServiceJobFacade serviceJobs,
+                             com.evrental.payment.SettlementLedger settlements) {
         this.assignments = assignments;
         this.riders = riders;
         this.vehicles = vehicles;
         this.vehicleTransitions = vehicleTransitions;
         this.serviceJobs = serviceJobs;
+        this.settlements = settlements;
     }
 
     /**
@@ -301,5 +304,73 @@ public class AssignmentService {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    // -----------------------------------------------------------------------
+    // Settlement approval
+    // -----------------------------------------------------------------------
+
+    /** Closed assignments whose settlement nobody has acted on yet. */
+    @Transactional(readOnly = true)
+    public List<SettlementResponse> pendingSettlements() {
+        return assignments.findBySettlementApprovedOnIsNullAndEndedOnIsNotNullOrderByEndedOnDesc().stream()
+                .filter(a -> hasMoney(a))
+                .map(this::toSettlement)
+                .toList();
+    }
+
+    /**
+     * Turns a deboard's recorded figures into ledger entries.
+     *
+     * <p>S5 writes outstanding rent and the deposit refund onto the closing
+     * row and deliberately stops: whether they are real is a Fleet Admin's
+     * decision. This is where that decision is recorded, and it is the only
+     * thing that moves the money.
+     *
+     * <p>Approving twice is refused rather than ignored. A second approval
+     * would raise a second charge for the same rent, and "it looked like
+     * nothing happened so I clicked again" is how that occurs.
+     */
+    @Transactional
+    public SettlementResponse approveSettlement(UUID assignmentId, String actorName) {
+        Assignment row = assignments.findById(assignmentId)
+                .orElseThrow(() -> NotFoundException.of("Assignment", assignmentId));
+        if (row.getEndedOn() == null) {
+            throw new ConflictException("This assignment is still open; there is nothing to settle");
+        }
+        if (row.getSettlementApprovedOn() != null) {
+            throw new ConflictException("This settlement was already approved by " + row.getSettlementApprovedBy());
+        }
+
+        UUID chargeId = settlements.settle(
+                row.getTenantId(),
+                row.getRiderId(),
+                row.getOutstandingRentPaise() == null ? 0 : row.getOutstandingRentPaise(),
+                row.getDepositRefundPaise() == null ? 0 : row.getDepositRefundPaise());
+
+        row.setSettlementApprovedBy(actorName);
+        row.setSettlementApprovedOn(java.time.Instant.now());
+        row.setSettlementChargeId(chargeId);
+        assignments.save(row);
+        return toSettlement(row);
+    }
+
+    private static boolean hasMoney(Assignment a) {
+        long rent = a.getOutstandingRentPaise() == null ? 0 : a.getOutstandingRentPaise();
+        long refund = a.getDepositRefundPaise() == null ? 0 : a.getDepositRefundPaise();
+        return rent > 0 || refund > 0;
+    }
+
+    private SettlementResponse toSettlement(Assignment a) {
+        return new SettlementResponse(
+                a.getId().toString(),
+                a.getRiderId(),
+                riders.findById(a.getRiderId()).getName(),
+                vehicles.findById(a.getVehicleId()).map(com.evrental.vehicle.Vehicle::getRegistryId).orElse(null),
+                a.getEndedOn(),
+                a.getOutstandingRentPaise() == null ? 0 : a.getOutstandingRentPaise(),
+                a.getDepositRefundPaise() == null ? 0 : a.getDepositRefundPaise(),
+                a.getSettlementApprovedBy(),
+                a.getSettlementApprovedOn());
     }
 }

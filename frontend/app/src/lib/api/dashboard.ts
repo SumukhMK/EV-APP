@@ -23,10 +23,3 @@ export const getMonthlyDeployments = impl.getMonthlyDeployments;
 export const getOperationsSummary = impl.getOperationsSummary;
 export const getRecoveryCounts = impl.getRecoveryCounts;
 
-/**
- * Mock-only, permanently for now: there is no `/dashboard/service-queues`
- * endpoint and no screen imports this. `GET /service/queues/counts` is the
- * backend's equivalent and returns a different shape; wiring the two together
- * is work for whoever builds the screen that needs it.
- */
-export const getServiceQueues = impl.getServiceQueues;

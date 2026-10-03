@@ -199,4 +199,39 @@ public class Assignment {
     public Instant getCreatedOn() {
         return createdOn;
     }
+
+    /** Who approved the settlement, and when. Null until a Fleet Admin does. */
+    @Column(name = "settlement_approved_by")
+    private String settlementApprovedBy;
+
+    @Column(name = "settlement_approved_on")
+    private java.time.Instant settlementApprovedOn;
+
+    /** The ledger row the approval raised, so approving twice is impossible. */
+    @Column(name = "settlement_charge_id")
+    private UUID settlementChargeId;
+
+    public String getSettlementApprovedBy() {
+        return settlementApprovedBy;
+    }
+
+    public void setSettlementApprovedBy(String settlementApprovedBy) {
+        this.settlementApprovedBy = settlementApprovedBy;
+    }
+
+    public java.time.Instant getSettlementApprovedOn() {
+        return settlementApprovedOn;
+    }
+
+    public void setSettlementApprovedOn(java.time.Instant settlementApprovedOn) {
+        this.settlementApprovedOn = settlementApprovedOn;
+    }
+
+    public UUID getSettlementChargeId() {
+        return settlementChargeId;
+    }
+
+    public void setSettlementChargeId(UUID settlementChargeId) {
+        this.settlementChargeId = settlementChargeId;
+    }
 }
