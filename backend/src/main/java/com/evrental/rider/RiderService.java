@@ -196,6 +196,41 @@ public class RiderService {
     }
 
     /**
+     * The way back onto the active register.
+     *
+     * <p>Without it {@link #markDeboarded} is a one-way door: {@link
+     * #assignable()} filters on ACTIVE, nothing else writes that status, and
+     * the route the deboard's own comment names — "re-activated by the next
+     * onboarding" — cannot happen, because {@link #onboard} rejects a second
+     * rider on the same phone number. A deboarded rider was therefore
+     * permanently unassignable, and the assign screen said "every active rider
+     * already has a bike", which was true and no help at all.
+     *
+     * <p>Reactivating a rider who never left is a no-op rather than an error:
+     * the caller's intent is "this rider should be on the register", and they
+     * already are.
+     *
+     * <p>BLACKLISTED is refused. That status is a decision about a person, not
+     * a step in the bike's journey, and undoing it through the assign flow
+     * would make it meaningless.
+     */
+    @Transactional
+    public Rider reactivate(UUID id) {
+        Rider rider = findById(id);
+        if (rider.getStatus() == RiderStatus.BLACKLISTED) {
+            throw new ConflictException(
+                    rider.getName() + " is blacklisted and cannot be put back on the register", "status");
+        }
+        rider.setStatus(RiderStatus.ACTIVE);
+        return riders.save(rider);
+    }
+
+    /** A rider with the bikes they have held, for the profile screen. */
+    public RiderDetailResponse toDetailResponse(Rider rider) {
+        return RiderDetailResponse.from(toResponse(rider), assignmentQuery.historyForRider(rider.getId()));
+    }
+
+    /**
      * The frontend sends "ALL" for an unset dropdown, and "" for an empty box.
      * Lowercased here rather than with lower(:param) in the query: these are
      * nullable binds, and Postgres types an untyped null as bytea, so

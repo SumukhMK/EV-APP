@@ -84,6 +84,36 @@ public class AssignmentQueryService implements AssignmentQuery {
         }).toList();
     }
 
+    /**
+     * The rider's side of the same table.
+     *
+     * <p>The registry ids are read in one batch rather than per row: a rider
+     * with a long history would otherwise be one query per bike on a screen
+     * that is already doing two.
+     */
+    @Override
+    public List<RiderAssignmentRow> historyForRider(UUID riderId) {
+        List<Assignment> history = assignments.findByRiderIdOrderByStartedOnDesc(riderId);
+        if (history.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, String> registryById = new java.util.LinkedHashMap<>();
+        vehicles.findAllById(history.stream().map(Assignment::getVehicleId).distinct().toList())
+                .forEach(v -> registryById.put(v.getId(), v.getRegistryId()));
+
+        return history.stream().map(a -> new RiderAssignmentRow(
+                registryById.get(a.getVehicleId()),
+                a.getStartedOn(),
+                a.getEndedOn(),
+                (int) ChronoUnit.DAYS.between(
+                        a.getStartedOn(), a.getEndedOn() == null ? LocalDate.now() : a.getEndedOn()),
+                a.getReason(),
+                // The enum's name, not the enum: this record is a wire shape
+                // and the frontend already has its own labels for these.
+                a.getReturnCondition() == null ? null : a.getReturnCondition().name(),
+                a.getClosedBy())).toList();
+    }
+
     @Override
     public String currentVehicleIdOf(UUID riderId) {
         return assignments.findOpenByRiderId(riderId)

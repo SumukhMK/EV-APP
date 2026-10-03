@@ -163,3 +163,25 @@ export interface OnboardRiderRequest {
    */
   vehicleId: string | null;
 }
+
+/**
+ * One bike a rider has held. The mirror of `AssignmentHistoryRow`, which
+ * answers the same question from the bike's side.
+ *
+ * `endedOn` is null while the assignment is open, which is what makes the
+ * current bike the first row of its own history rather than a special case.
+ */
+export interface RiderAssignmentRow {
+  vehicleId: string;
+  startedOn: Iso8601;
+  endedOn: Iso8601 | null;
+  days: number;
+  reason: string | null;
+  returnCondition: string | null;
+  closedBy: string | null;
+}
+
+/** A rider plus the bikes they have held (`GET /riders/{id}`). */
+export interface RiderDetail extends Rider {
+  assignments: RiderAssignmentRow[];
+}

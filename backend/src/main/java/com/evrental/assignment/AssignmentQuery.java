@@ -28,6 +28,13 @@ public interface AssignmentQuery {
     /** The bike's assignment history, newest first. */
     List<AssignmentHistoryRow> historyFor(UUID vehicleId);
 
+    /**
+     * The rider's assignment history, newest first — the same rows from the
+     * other end. Without it a closed assignment is readable from the bike and
+     * invisible from the person who handed it back.
+     */
+    List<RiderAssignmentRow> historyForRider(UUID riderId);
+
     /** The registry id of the bike this rider holds, or null. */
     String currentVehicleIdOf(UUID riderId);
 

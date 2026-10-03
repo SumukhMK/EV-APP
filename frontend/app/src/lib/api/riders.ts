@@ -13,6 +13,7 @@ export type { RiderQuery } from './riders.mock';
 export const listRiders = impl.listRiders;
 export const riderFacets = impl.riderFacets;
 export const getRider = impl.getRider;
+export const reactivateRider = impl.reactivateRider;
 export const listAssignableRiders = impl.listAssignableRiders;
 export const listAssignedRiders = impl.listAssignedRiders;
 export const listRiderPayments = impl.listRiderPayments;

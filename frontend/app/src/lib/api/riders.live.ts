@@ -5,6 +5,7 @@ import type {
   Rider,
   RiderPaymentRow,
   RiderStatus,
+  RiderDetail,
 } from '../../types';
 import { request } from './client';
 import type { RiderQuery } from './riders.mock';
@@ -32,8 +33,13 @@ export function riderFacets(query: Omit<RiderQuery, 'status'> = {}): Promise<Fac
   return request<Facet<RiderStatus>[]>('/riders/facets', { query: filters(query) });
 }
 
-export function getRider(id: string): Promise<Rider> {
-  return request<Rider>(`/riders/${encodeURIComponent(id)}`);
+/** Puts a deboarded rider back on the active register. */
+export function reactivateRider(id: string): Promise<Rider> {
+  return request<Rider>(`/riders/${encodeURIComponent(id)}/reactivate`, { method: 'POST' });
+}
+
+export function getRider(id: string): Promise<RiderDetail> {
+  return request<RiderDetail>(`/riders/${encodeURIComponent(id)}`);
 }
 
 export function listAssignableRiders(): Promise<Rider[]> {
