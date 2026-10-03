@@ -3,6 +3,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from '../../app/sessionContext';
 import { Link, useParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
@@ -11,7 +12,7 @@ import { DefinitionList } from '../../components/DefinitionList';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
-import { getRider, listRiderPayments, reactivateRider } from '../../lib/api/riders';
+import { decideKyc, getRider, listRiderPayments, reactivateRider } from '../../lib/api/riders';
 import { getVehicle } from '../../lib/api/vehicles';
 import {
   KYC_STATUS_LABEL,
@@ -49,6 +50,7 @@ const RETURN_REASON_LABEL: Record<string, string> = {
 
 export function RiderDetail() {
   const queryClient = useQueryClient();
+  const { user } = useSession();
   const { riderId = '' } = useParams();
 
   /**
@@ -65,6 +67,23 @@ export function RiderDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['riders'] }),
   });
 
+
+  /**
+   * The KYC decision.
+   *
+   * kycStatus was written once at onboarding and nothing could ever change
+   * it, so every rider's chip read "KYC pending" for ever — which looks like
+   * a queue somebody is working through rather than a dead end.
+   */
+  // SA/FA only, matching the endpoint. Judging someone's documents is not a
+  // counter task, and the rest of the register being open to staff does not
+  // make this so.
+  const canDecideKyc = user.roleKey === 'SUPER_ADMIN' || user.roleKey === 'FLEET_ADMIN';
+
+  const kyc = useMutation({
+    mutationFn: (decision: 'VERIFIED' | 'REJECTED') => decideKyc(riderId, decision),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['riders'] }),
+  });
 
   const rider = useQuery({
     queryKey: ['rider', riderId],
@@ -172,7 +191,27 @@ export function RiderDetail() {
               {
                 label: 'KYC',
                 value: (
-                  <StateChip label={KYC_STATUS_LABEL[r.kycStatus]} tone={KYC_STATUS_TONE[r.kycStatus]} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                    <StateChip label={KYC_STATUS_LABEL[r.kycStatus]} tone={KYC_STATUS_TONE[r.kycStatus]} />
+                    {/* The decision, where the status is read. Documents are
+                        judged while looking at the rider, not on a queue
+                        screen somewhere else. */}
+                    {canDecideKyc && r.kycStatus !== 'VERIFIED' && (
+                      <Button size="small" disabled={kyc.isPending} onClick={() => kyc.mutate('VERIFIED')}>
+                        Verify
+                      </Button>
+                    )}
+                    {canDecideKyc && r.kycStatus !== 'REJECTED' && (
+                      <Button
+                        size="small"
+                        color="inherit"
+                        disabled={kyc.isPending}
+                        onClick={() => kyc.mutate('REJECTED')}
+                      >
+                        Reject
+                      </Button>
+                    )}
+                  </Box>
                 ),
               },
               {
@@ -254,6 +293,44 @@ export function RiderDetail() {
           )}
         </Panel>
       </Box>
+
+      <Panel
+        label="Identity and address"
+        subtitle="Collected during onboarding. A dash means a rider onboarded before the register kept this."
+        sx={{ mt: 5 }}
+      >
+        <DefinitionList
+          columns={2}
+          items={[
+            { label: 'Permanent address', value: r.permanentAddress || '—' },
+            { label: 'Local address', value: r.localAddress || '—' },
+            { label: 'City', value: r.city || '—' },
+            { label: 'State', value: r.state || '—' },
+            { label: 'PIN', value: r.pinCode ? <Mono sx={{ fontSize: 13 }}>{r.pinCode}</Mono> : '—' },
+            {
+              label: 'Coordinates',
+              value: r.locationCoordinates ? <Mono sx={{ fontSize: 13 }}>{r.locationCoordinates}</Mono> : '—',
+            },
+            { label: 'WhatsApp', value: r.whatsappNumber ? <Mono sx={{ fontSize: 13 }}>{r.whatsappNumber}</Mono> : '—' },
+            {
+              label: 'Alternate number',
+              value: r.alternateNumber1 ? <Mono sx={{ fontSize: 13 }}>{r.alternateNumber1}</Mono> : '—',
+            },
+            { label: 'PAN', value: r.panNumber ? <Mono sx={{ fontSize: 13 }}>{r.panNumber}</Mono> : '—' },
+            {
+              label: 'Driving licence',
+              value: r.drivingLicence ? <Mono sx={{ fontSize: 13 }}>{r.drivingLicence}</Mono> : '—',
+            },
+            { label: 'Platform rider id', value: r.platformRiderId || '—' },
+            {
+              label: 'Deposit paid',
+              // Against the plan beside it: the two differ while a rider pays
+              // a deposit in instalments, and that difference is money owed.
+              value: r.depositPaid == null ? '—' : <Mono sx={{ fontSize: 13 }}>{rupees(r.depositPaid)}</Mono>,
+            },
+          ]}
+        />
+      </Panel>
 
       <Panel
         label="Bike history"

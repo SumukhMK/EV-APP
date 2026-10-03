@@ -33,6 +33,11 @@ export function riderFacets(query: Omit<RiderQuery, 'status'> = {}): Promise<Fac
   return request<Facet<RiderStatus>[]>('/riders/facets', { query: filters(query) });
 }
 
+/** Records the KYC decision. SA/FA only on the API. */
+export function decideKyc(id: string, decision: 'VERIFIED' | 'REJECTED'): Promise<Rider> {
+  return request<Rider>(`/riders/${encodeURIComponent(id)}/kyc`, { method: 'POST', body: { decision } });
+}
+
 /** Puts a deboarded rider back on the active register. */
 export function reactivateRider(id: string): Promise<Rider> {
   return request<Rider>(`/riders/${encodeURIComponent(id)}/reactivate`, { method: 'POST' });

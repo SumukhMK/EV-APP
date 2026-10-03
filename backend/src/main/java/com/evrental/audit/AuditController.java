@@ -1,6 +1,6 @@
 package com.evrental.audit;
 
-import java.util.List;
+import com.evrental.common.PageResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,7 +30,9 @@ public class AuditController {
     }
 
     @GetMapping
-    public List<AuditEventResponse> recent(@RequestParam(defaultValue = "50") int size) {
-        return audit.recent(size);
+    public PageResponse<AuditEventResponse> recent(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        return audit.recent(page, size);
     }
 }

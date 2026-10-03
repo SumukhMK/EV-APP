@@ -1,5 +1,6 @@
 package com.evrental.audit;
 
+import com.evrental.common.PageResponse;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -26,17 +27,33 @@ public class AuditService {
         this.jdbc = jdbc;
     }
 
+    /**
+     * Paginated like every other list in the product.
+     *
+     * <p>The count is its own statement over the same union. That is a second
+     * pass over the sources, and it is the honest price of a total: without it
+     * the screen cannot say how many pages there are, and a trail that only
+     * shows its first page while implying there is no more is the sort of
+     * quiet omission an audit log exists to avoid.
+     */
     @Transactional(readOnly = true)
-    public List<AuditEventResponse> recent(int size) {
+    public PageResponse<AuditEventResponse> recent(int page, int size) {
         int limit = Math.min(Math.max(size, 1), MAX_SIZE);
-        return jdbc.query(SQL, (rs, i) -> new AuditEventResponse(
+        int offset = Math.max(page, 0) * limit;
+
+        List<AuditEventResponse> rows = jdbc.query(SQL, (rs, i) -> new AuditEventResponse(
                 rs.getString("id"),
                 rs.getTimestamp("occurred_at").toInstant(),
                 rs.getString("actor"),
                 rs.getString("action"),
                 rs.getString("entity"),
                 rs.getString("before_value"),
-                rs.getString("after_value")), limit);
+                rs.getString("after_value")), limit, offset);
+
+        Long total = jdbc.queryForObject("SELECT count(*) FROM (" + TRAIL + ") counted", Long.class);
+        long totalElements = total == null ? 0 : total;
+        int totalPages = (int) Math.max(1, Math.ceil(totalElements / (double) limit));
+        return new PageResponse<>(rows, Math.max(page, 0), limit, totalElements, totalPages);
     }
 
     /**
@@ -47,8 +64,8 @@ public class AuditService {
      * An assignment records the day a bike went out, not the minute, and
      * pretending otherwise would put a false precision on the screen.
      */
-    private static final String SQL = """
-            SELECT * FROM (
+    /** The union itself, reused by the count. */
+    private static final String TRAIL = """
               -- A bike moving between states: the workshop, the yard, the road.
               SELECT 'lifecycle:' || e.id              AS id,
                      e.occurred_on                     AS occurred_at,
@@ -129,8 +146,8 @@ public class AuditService {
                      NULL,
                      r.name
                 FROM riders r
-            ) trail
-            ORDER BY occurred_at DESC
-            LIMIT ?
             """;
+
+    private static final String SQL =
+            "SELECT * FROM (" + TRAIL + ") trail ORDER BY occurred_at DESC LIMIT ? OFFSET ?";
 }

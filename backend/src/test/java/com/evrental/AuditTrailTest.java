@@ -34,8 +34,8 @@ class AuditTrailTest extends AssignmentTestBase {
         mvc.perform(get("/api/v1/audit")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.action == 'Assignment opened')].after").value(VEHICLE_READY))
-                .andExpect(jsonPath("$[?(@.action == 'Assignment opened')].entity")
+                .andExpect(jsonPath("$.content[?(@.action == 'Assignment opened')].after").value(VEHICLE_READY))
+                .andExpect(jsonPath("$.content[?(@.action == 'Assignment opened')].entity")
                         .value("Rider · Anil Shetty"));
     }
 
@@ -53,8 +53,8 @@ class AuditTrailTest extends AssignmentTestBase {
         mvc.perform(get("/api/v1/audit")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.action == 'State changed')].before").value("READY_TO_DEPLOY"))
-                .andExpect(jsonPath("$[?(@.action == 'State changed')].after").value("DEPLOYED"));
+                .andExpect(jsonPath("$.content[?(@.action == 'State changed')].before").value("READY_TO_DEPLOY"))
+                .andExpect(jsonPath("$.content[?(@.action == 'State changed')].after").value("DEPLOYED"));
     }
 
     @Test
@@ -72,7 +72,7 @@ class AuditTrailTest extends AssignmentTestBase {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        java.util.List<String> times = com.jayway.jsonpath.JsonPath.read(body, "$[*].occurredAt");
+        java.util.List<String> times = com.jayway.jsonpath.JsonPath.read(body, "$.content[*].occurredAt");
         java.util.List<String> sorted = new java.util.ArrayList<>(times);
         sorted.sort(java.util.Comparator.reverseOrder());
         org.assertj.core.api.Assertions.assertThat(times).isEqualTo(sorted);

@@ -156,8 +156,19 @@ export function OverdueRiders() {
                 header: 'Days overdue',
                 align: 'right',
                 width: 120,
+                /**
+                 * Dimmed inside the operator's buffer, plain once past it.
+                 *
+                 * The buffer is the first question asked about a late rider —
+                 * "is this one we chase yet?" — and it was not on the screen
+                 * at all. It is decided on the API, so the two cycles and the
+                 * run cannot disagree about where the line is.
+                 */
                 render: (o) => (
-                  <Mono sx={{ color: o.daysOverdue >= 21 ? undefined : neutral[300] }}>
+                  <Mono
+                    title={o.pastGrace ? 'Past the collection buffer' : 'Still inside the buffer'}
+                    sx={{ color: o.pastGrace ? undefined : neutral[400] }}
+                  >
                     {o.daysOverdue}
                   </Mono>
                 ),
