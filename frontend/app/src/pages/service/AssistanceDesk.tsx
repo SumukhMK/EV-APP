@@ -14,6 +14,7 @@ import { useSession } from '../../app/sessionContext';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { Mono } from '../../components/Mono';
+import { EntityId } from '../../components/EntityId';
 import { SimpleTable } from '../../components/SimpleTable';
 import { StateChip } from '../../components/StateChip';
 import { listServiceJobs } from '../../lib/api/serviceJobs';
@@ -134,10 +135,25 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
             rows={rows}
             getRowKey={(j) => j.id}
             columns={[
-              { key: 'job', header: 'Job / bike', width: 160, render: (j) => (
-                <Box>
-                  <Button component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} color="inherit" sx={{ px: 0 }}><Mono>{j.id}</Mono></Button>
-                  <Mono sx={{ display: 'block', color: 'text.secondary', fontSize: 12 }}>{j.vehicleId}</Mono>
+              /**
+               * The bike leads, because that is what an operator calls the
+               * job by. The job's own id stays the link — it is the row's
+               * unique handle, and two jobs on the same bike are a normal
+               * thing — but it is rendered short, since a live job id is a
+               * uuid that printed in full overflowed this column.
+               */
+              { key: 'job', header: 'Bike / job', width: 160, render: (j) => (
+                <Box sx={{ minWidth: 0 }}>
+                  <Mono sx={{ display: 'block' }}>{j.vehicleId}</Mono>
+                  <Button
+                    component={Link}
+                    to={`/service/assistance/${j.id}`}
+                    state={{ returnTo }}
+                    color="inherit"
+                    sx={{ px: 0, minWidth: 0, fontSize: 12, color: 'text.secondary' }}
+                  >
+                    <EntityId id={j.id} sx={{ fontSize: 12 }} />
+                  </Button>
                 </Box>
               ) },
               { key: 'source', header: 'Source', width: 130, render: (j) => SOURCE_LABEL[j.source] },

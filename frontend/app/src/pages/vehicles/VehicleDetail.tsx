@@ -9,6 +9,7 @@ import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
 import { DefinitionList } from '../../components/DefinitionList';
 import { Mono } from '../../components/Mono';
+import { EntityId } from '../../components/EntityId';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
 import { getVehicle } from '../../lib/api/vehicles';
@@ -259,7 +260,7 @@ export function VehicleDetail() {
             getRowKey={(a) => `${a.riderId}-${a.startedOn}`}
             columns={[
               { key: 'rider', header: 'Rider', width: 170, render: (a) => a.riderName },
-              { key: 'riderId', header: 'Rider id', width: 110, render: (a) => <Mono>{a.riderId}</Mono> },
+              { key: 'riderId', header: 'Rider id', width: 110, render: (a) => <EntityId id={a.riderId} /> },
               {
                 key: 'plan',
                 header: 'Plan',

@@ -349,7 +349,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
                   <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{job.workSummary}</Typography>
                   {job.items.length > 0 && (
                     <Box sx={{ mt: 1.5 }}>
-                      {job.items.map((item, i) => (
+                      {(job.items ?? []).map((item, i) => (
                         <Typography key={i} variant="body2" color="text.secondary">{item.label} — {rupeesWithSymbol(item.costPaise)}</Typography>
                       ))}
                       <Typography variant="body2" sx={{ fontWeight: 600, mt: 1 }}>Total: {rupeesWithSymbol(job.totalCostPaise)}</Typography>
@@ -403,7 +403,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
               ) : (
                 <Box sx={{ display: 'grid', gap: 3 }}>
                   <Typography sx={{ whiteSpace: 'pre-wrap' }}>{job.workSummary || 'Nothing written down yet.'}</Typography>
-                  {job.items.map((item, i) => <Box key={i} sx={{ display: 'flex', gap: 3, justifyContent: 'space-between' }}><Typography>{item.kind ?? 'Part'} · {item.label}</Typography><Typography>{rupeesWithSymbol(item.costPaise)}</Typography></Box>)}
+                  {(job.items ?? []).map((item, i) => <Box key={i} sx={{ display: 'flex', gap: 3, justifyContent: 'space-between' }}><Typography>{item.kind ?? 'Part'} · {item.label}</Typography><Typography>{rupeesWithSymbol(item.costPaise)}</Typography></Box>)}
                   <Typography color="text.secondary">Done by: {job.technician || 'Not noted'}</Typography>
                 </Box>
               )}
@@ -421,7 +421,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
               <Box key={i} sx={{ pt: 3 }}>
                 <Typography variant="body2">Check {i + 1} · {CATEGORY_LABEL[inspection.category]} · {inspection.technician || inspection.actor}</Typography>
                 <Typography variant="body2" color="text.secondary">{inspection.notes}</Typography>
-                {inspection.items.map((item, n) => <Typography key={n} variant="body2">{item.label}: {rupeesWithSymbol(item.costPaise)}</Typography>)}
+                {(inspection.items ?? []).map((item, n) => <Typography key={n} variant="body2">{item.label}: {rupeesWithSymbol(item.costPaise)}</Typography>)}
               </Box>
             ))}
             {job.qcInspections?.map((inspection, i) => (
