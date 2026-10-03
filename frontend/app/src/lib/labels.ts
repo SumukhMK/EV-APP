@@ -281,18 +281,3 @@ export const CONDITION_DEFAULT_STATE: Record<ReturnCondition, VehicleState> = {
   MAJOR: 'UNDER_REPAIR',
   ACCIDENT: 'ACCIDENT',
 };
-
-
-/**
- * Why a bike came back, whichever end it came from.
- *
- * The assignment row's `reason` column holds both enums — an exchange reason
- * and a deboard reason share it, because they answer the same question at
- * different moments. A rider's bike history lists both, so it needs one map
- * that covers either, and a plain lookup rather than an exhaustive Record:
- * the value arrives as a string from the API, not as a narrowed union.
- */
-export const RETURN_REASON_LABEL: Record<string, string> = {
-  ...EXCHANGE_REASON_LABEL,
-  ...DEBOARD_REASON_LABEL,
-};

@@ -23,10 +23,29 @@ import {
   RIDER_STATUS_TONE,
   VEHICLE_STATE_LABEL,
   VEHICLE_STATE_TONE,
-  RETURN_REASON_LABEL,
+  EXCHANGE_REASON_LABEL,
+  DEBOARD_REASON_LABEL,
 } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
+
+/**
+ * Why a bike came back, whichever end it came from.
+ *
+ * The assignment row's `reason` column holds both enums — an exchange reason
+ * and a deboard reason share it, because they answer the same question at
+ * different moments. This panel lists both, so it needs one lookup that
+ * covers either.
+ *
+ * Deliberately here rather than in `lib/labels.ts`: that module is in the
+ * initial bundle, which sits within a hair of its 200KB budget, and this map
+ * is read by exactly one lazily-loaded screen. A constant used by one route
+ * belongs in that route's chunk.
+ */
+const RETURN_REASON_LABEL: Record<string, string> = {
+  ...EXCHANGE_REASON_LABEL,
+  ...DEBOARD_REASON_LABEL,
+};
 
 export function RiderDetail() {
   const queryClient = useQueryClient();
