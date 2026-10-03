@@ -5,6 +5,7 @@ import com.evrental.common.AadhaarCipher;
 import com.evrental.common.ConflictException;
 import com.evrental.common.Facet;
 import com.evrental.common.NotFoundException;
+import com.evrental.common.ValidationException;
 import com.evrental.common.PageResponse;
 import java.util.Comparator;
 import java.util.List;
@@ -237,6 +238,30 @@ public class RiderService {
     public Rider markDeboarded(UUID id) {
         Rider rider = findById(id);
         rider.setStatus(RiderStatus.DEBOARDED);
+        return riders.save(rider);
+    }
+
+    /**
+     * Records the KYC decision.
+     *
+     * <p>{@code kycStatus} was written once, at onboarding, as PENDING, and
+     * nothing in the codebase could ever change it. Three screens render the
+     * chip, so every rider in the register read "KYC pending" for ever — a
+     * verification state that could not be reached is worse than no chip,
+     * because it looks like a queue somebody is working through.
+     *
+     * <p>Rejecting is not deleting. A rejected rider stays on the register
+     * with the decision recorded against them; taking them off is a deboard,
+     * which is a different act with different consequences for the bike.
+     */
+    @Transactional
+    public Rider decideKyc(UUID id, KycStatus decision) {
+        if (decision == KycStatus.PENDING) {
+            throw new ValidationException("kycStatus",
+                    "Pending is where a rider starts, not a decision you can record");
+        }
+        Rider rider = findById(id);
+        rider.setKycStatus(decision);
         return riders.save(rider);
     }
 

@@ -99,6 +99,19 @@ public class RiderController {
     }
 
     /**
+     * Records the KYC decision for a rider.
+     *
+     * <p>SUPER_ADMIN and FLEET_ADMIN only. Deciding whether someone's
+     * identity documents are acceptable is not a counter task, and the rest
+     * of the register being open to FLEET_STAFF does not make this so.
+     */
+    @PostMapping("/{id}/kyc")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
+    public RiderResponse decideKyc(@PathVariable UUID id, @RequestBody KycDecisionRequest request) {
+        return riderService.toResponse(riderService.decideKyc(id, request.decision()));
+    }
+
+    /**
      * Puts a deboarded rider back on the active register.
      *
      * <p>Not a general status-update endpoint, deliberately: it writes exactly
