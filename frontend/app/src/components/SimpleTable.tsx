@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import { neutral } from '../theme/tokens';
 
 export interface Column<R> {
@@ -45,6 +45,7 @@ export function SimpleTable<R>({
   getRowKey,
   rowSx,
   scrollable,
+  onRowClick,
 }: {
   columns: Column<R>[];
   rows: R[];
@@ -53,6 +54,18 @@ export function SimpleTable<R>({
   rowSx?: (row: R) => object | undefined;
   /** Keep declared widths and scroll sideways on narrow screens. */
   scrollable?: boolean;
+  /**
+   * The whole row is the target, not just a button inside it.
+   *
+   * Several screens already set `cursor: pointer` in `rowSx` and then had
+   * nothing to click — the row looked actionable and was not. A row with a
+   * handler also becomes keyboard reachable, because an operator tabbing
+   * through a payment run should not have to reach for the mouse.
+   *
+   * A control inside a cell that does its own thing must still call
+   * `stopPropagation`, exactly as the Collect button does.
+   */
+  onRowClick?: (row: R) => void;
 }) {
   // Percentages, so the columns divide the table rather than overflow it.
   const weights = columns.map((c) => (typeof c.width === 'number' ? c.width : DEFAULT_WEIGHT));
@@ -113,7 +126,24 @@ export function SimpleTable<R>({
         </Box>
         <Box component="tbody">
           {rows.map((row, i) => (
-            <Box component="tr" key={getRowKey(row, i)} sx={rowSx?.(row)}>
+            <Box
+              component="tr"
+              key={getRowKey(row, i)}
+              sx={rowSx?.(row)}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              role={onRowClick ? 'button' : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (e: KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onRowClick(row);
+                      }
+                    }
+                  : undefined
+              }
+            >
               {columns.map((c, j) => (
                 <Box
                   component="td"

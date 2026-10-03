@@ -15,6 +15,7 @@ import { SearchField } from '../../components/SearchField';
 import { DataTable } from '../../components/DataTable';
 import { StateChip } from '../../components/StateChip';
 import { Mono } from '../../components/Mono';
+import { EntityId } from '../../components/EntityId';
 import { TableFooter } from '../../components/TableFooter';
 import { listRiders, riderFacets } from '../../lib/api/riders';
 import {
@@ -149,7 +150,7 @@ export function RidersList() {
         headerName: 'Rider id',
         flex: 0.7,
         minWidth: 76,
-        renderCell: ({ row }) => <Mono sx={{ color: accent[300] }}>{row.id}</Mono>,
+        renderCell: ({ row }) => <EntityId id={row.id} sx={{ color: accent[300] }} />,
       },
       { field: 'name', headerName: 'Name', flex: 1.5, minWidth: 110 },
       {

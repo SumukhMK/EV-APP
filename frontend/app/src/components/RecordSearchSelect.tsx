@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { Mono } from './Mono';
+import { EntityId } from './EntityId';
 
 export interface SearchableRecord {
   /** What the form actually submits. */
@@ -58,7 +59,7 @@ export function RecordSearchSelect({
         renderOption={(props, o) => (
           <Box component="li" {...props} key={o.id}>
             <Box sx={{ display: 'flex', width: '100%', gap: 3, alignItems: 'baseline' }}>
-              <Mono sx={{ fontSize: 12 }}>{o.id}</Mono>
+              <EntityId id={o.id} sx={{ fontSize: 12 }} />
               <Typography sx={{ fontSize: 13, flex: 1 }}>{o.primary}</Typography>
               {o.secondary && (
                 <Typography sx={{ fontSize: 12, color: 'grey.500' }}>{o.secondary}</Typography>

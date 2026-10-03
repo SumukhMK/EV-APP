@@ -27,7 +27,7 @@ import { RecordPaymentDialog, type CollectTarget } from './RecordPaymentDialog';
 import { getCurrentPaymentRun } from '../../lib/api/payments';
 import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
-import { accent, neutral, status as tones } from '../../theme/tokens';
+import { neutral, status as tones } from '../../theme/tokens';
 import { useSession } from '../../app/sessionContext';
 import { canCollectPayments } from '../../lib/roles';
 import type { BillingDay, PaymentPeriodRow } from '../../types';
@@ -197,22 +197,42 @@ export function PaymentRun() {
             rows={rows}
             getRowKey={(r) => r.riderId}
             rowSx={() => ({ cursor: 'pointer', '&:hover td': { background: neutral[900] } })}
+            /**
+             * The row did nothing on click while already showing a pointer
+             * cursor — the Collect button was the only target, and on a row
+             * that is mostly numbers it is a small one. Clicking anywhere now
+             * does the thing the row is for: collect if there is something to
+             * collect, otherwise open the receipt.
+             */
+            onRowClick={(r) =>
+              owing(r) && canCollect ? openCollect(r) : navigate(`/payments/run/${r.riderId}`)
+            }
             columns={[
               {
                 key: 'rider',
                 header: 'Rider',
                 width: 190,
-                // One line: the name, then the id beside it. Two stacked lines
-                // doubled the row height for information that reads fine inline.
+                /**
+                 * The name, and nothing else.
+                 *
+                 * This used to print the rider id beside it as `flex: 0 0
+                 * auto` — unshrinkable — with the name allowed to collapse.
+                 * That worked against the fixtures, whose ids are "R03". A
+                 * real id is a 36-character uuid that needs more than the
+                 * whole column on its own, so the name was squeezed to zero
+                 * width and the run showed four rows of uuid and no people.
+                 *
+                 * The id is not what an operator identifies a rider by, so it
+                 * now lives in the title attribute: available on hover, out of
+                 * the way of the name.
+                 */
                 render: (r) => (
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, minWidth: 0 }}>
-                    <Box
-                      component="span"
-                      sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
-                    >
-                      {r.riderName}
-                    </Box>
-                    <Mono sx={{ fontSize: 11, color: accent[300], flex: '0 0 auto' }}>{r.riderId}</Mono>
+                  <Box
+                    component="span"
+                    title={r.riderId}
+                    sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {r.riderName ?? 'Unnamed rider'}
                   </Box>
                 ),
               },
@@ -333,8 +353,9 @@ export function PaymentRun() {
       </Panel>
 
       <Typography sx={{ fontSize: 12, color: neutral[500], mt: 3 }}>
-        Recording a payment updates this run, the rider's receipt and the overdue list at once. In the
-        prototype it is an in-session write — the real ledger arrives with the backend.
+        Recording a payment updates this run, the rider's receipt and the overdue list at once. Each
+        collection is a new ledger row, never an edit of an existing one, so a correction is recorded
+        rather than overwritten.
       </Typography>
 
       <RecordPaymentDialog

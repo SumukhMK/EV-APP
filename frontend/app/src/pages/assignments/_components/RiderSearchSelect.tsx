@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { Mono } from '../../../components/Mono';
+import { EntityId } from '../../../components/EntityId';
 import type { Rider } from '../../../types';
 
 /**
@@ -67,7 +68,7 @@ export function RiderSearchSelect({
         renderOption={(props, r) => (
           <Box component="li" {...props} key={r.id}>
             <Box sx={{ display: 'flex', width: '100%', gap: 3, alignItems: 'baseline' }}>
-              <Mono sx={{ fontSize: 12 }}>{r.id}</Mono>
+              <EntityId id={r.id} sx={{ fontSize: 12 }} />
               <Typography sx={{ fontSize: 13, flex: 1 }}>{r.name}</Typography>
               <Typography sx={{ fontSize: 12, color: 'grey.500' }}>{r.phone}</Typography>
               <Mono sx={{ fontSize: 12, color: 'grey.500' }}>{r.currentVehicleId ?? '—'}</Mono>

@@ -15,6 +15,7 @@ import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
 import { FlowStrip } from '../../components/FlowStrip';
 import { UploadBox } from '../../components/UploadBox';
+import { TableSkeleton } from '../../components/TableSkeleton';
 import { commitBulkUpload, downloadImportTemplate, previewBulkUpload } from '../../lib/api/vehicles';
 import type { BulkUploadPreview } from '../../types';
 import { neutral, status as tones } from '../../theme/tokens';
@@ -165,7 +166,23 @@ export function BulkUploadVehicles() {
         />
       </Panel>
 
-      {preview && (
+      {validate.isPending && (
+        <Panel
+          label="Checking the file"
+          subtitle="Every row is parsed, checked and looked up against the registry. Nothing is imported yet."
+          sx={{ mt: 5 }}
+        >
+          <TableSkeleton rows={6} columns={[2, 2, 3, 3]} label="Checking the file" />
+        </Panel>
+      )}
+
+      {validate.isError && (
+        <Alert severity="error" variant="outlined" sx={{ mt: 5 }}>
+          {validate.error instanceof Error ? validate.error.message : 'That file could not be read.'}
+        </Alert>
+      )}
+
+      {preview && !validate.isPending && (
         <>
           <Box sx={{ mt: 5 }}>
             <StatTiles
