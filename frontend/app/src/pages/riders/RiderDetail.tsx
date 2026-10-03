@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
@@ -11,7 +11,7 @@ import { DefinitionList } from '../../components/DefinitionList';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
-import { getRider, listRiderPayments } from '../../lib/api/riders';
+import { getRider, listRiderPayments, reactivateRider } from '../../lib/api/riders';
 import { getVehicle } from '../../lib/api/vehicles';
 import {
   KYC_STATUS_LABEL,
@@ -23,12 +23,48 @@ import {
   RIDER_STATUS_TONE,
   VEHICLE_STATE_LABEL,
   VEHICLE_STATE_TONE,
+  EXCHANGE_REASON_LABEL,
+  DEBOARD_REASON_LABEL,
 } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
 
+/**
+ * Why a bike came back, whichever end it came from.
+ *
+ * The assignment row's `reason` column holds both enums — an exchange reason
+ * and a deboard reason share it, because they answer the same question at
+ * different moments. This panel lists both, so it needs one lookup that
+ * covers either.
+ *
+ * Deliberately here rather than in `lib/labels.ts`: that module is in the
+ * initial bundle, which sits within a hair of its 200KB budget, and this map
+ * is read by exactly one lazily-loaded screen. A constant used by one route
+ * belongs in that route's chunk.
+ */
+const RETURN_REASON_LABEL: Record<string, string> = {
+  ...EXCHANGE_REASON_LABEL,
+  ...DEBOARD_REASON_LABEL,
+};
+
 export function RiderDetail() {
+  const queryClient = useQueryClient();
   const { riderId = '' } = useParams();
+
+  /**
+   * The way back onto the register.
+   *
+   * Deboarding used to be a one-way door: it is the only writer of DEBOARDED,
+   * the assignable list filters on ACTIVE, and re-onboarding — which the copy
+   * below used to offer as the remedy — is refused because the phone number is
+   * already on the register. So a rider who handed a bike back could never be
+   * given another one.
+   */
+  const putBack = useMutation({
+    mutationFn: () => reactivateRider(riderId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['riders'] }),
+  });
+
 
   const rider = useQuery({
     queryKey: ['rider', riderId],
@@ -109,6 +145,10 @@ export function RiderDetail() {
           ) : canTakeBike ? (
             <Button component={Link} to={`/assignments/assign?riderId=${r.id}`}>
               Assign bike
+            </Button>
+          ) : r.status === 'DEBOARDED' ? (
+            <Button onClick={() => putBack.mutate()} disabled={putBack.isPending}>
+              {putBack.isPending ? 'Putting back…' : 'Put back on register'}
             </Button>
           ) : undefined
         }
@@ -206,14 +246,56 @@ export function RiderDetail() {
                 <>
                   This rider is {RIDER_STATUS_LABEL[r.status].toLowerCase()} and cannot hold a bike.{' '}
                   {r.status === 'BLACKLISTED'
-                    ? 'A blacklisted rider is not re-onboarded.'
-                    : 'Re-onboarding is what puts a deboarded rider back on the register.'}
+                    ? 'A blacklisted rider is not put back on the register.'
+                    : 'Put them back on the register to give them another bike.'}
                 </>
               )}
             </Typography>
           )}
         </Panel>
       </Box>
+
+      <Panel
+        label="Bike history"
+        subtitle="Every bike this rider has held, newest first. The open one has no return date."
+        sx={{ mt: 5 }}
+      >
+        {(r.assignments ?? []).length === 0 ? (
+          <Typography sx={{ fontSize: 14, color: 'text.secondary', py: 4 }}>
+            This rider has never held a bike.
+          </Typography>
+        ) : (
+          <SimpleTable
+            rows={r.assignments ?? []}
+            getRowKey={(a) => `${a.vehicleId}-${a.startedOn}`}
+            columns={[
+              { key: 'vehicle', header: 'Bike', width: 130, render: (a) => <Mono>{a.vehicleId}</Mono> },
+              { key: 'from', header: 'From', width: 130, render: (a) => <Mono>{formatDate(a.startedOn)}</Mono> },
+              {
+                key: 'to',
+                header: 'To',
+                width: 130,
+                // An open assignment has no return date. Saying so beats an
+                // empty cell, which reads as missing data rather than current.
+                render: (a) =>
+                  a.endedOn ? (
+                    <Mono>{formatDate(a.endedOn)}</Mono>
+                  ) : (
+                    <Box component="span" sx={{ fontSize: 13, color: tones.accent.fg }}>On this bike now</Box>
+                  ),
+              },
+              { key: 'days', header: 'Days', align: 'right', width: 70, render: (a) => <Mono>{a.days}</Mono> },
+              {
+                key: 'reason',
+                header: 'Why it came back',
+                width: 170,
+                render: (a) => (a.reason ? RETURN_REASON_LABEL[a.reason] ?? a.reason : '—'),
+              },
+              { key: 'closedBy', header: 'Closed by', width: 150, render: (a) => a.closedBy ?? '—' },
+            ]}
+          />
+        )}
+      </Panel>
 
       <Panel
         label="Payment history"

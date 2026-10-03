@@ -7,9 +7,11 @@ import type {
   RiderPaymentRow,
   RiderStatus,
   VehicleState,
+  RiderDetail,
+  RiderAssignmentRow,
 } from '../../types';
 import { riders } from '../../mocks/riders';
-import { vehicles } from '../../mocks/vehicles';
+import { assignmentsByVehicle, vehicles } from '../../mocks/vehicles';
 import { riderPaymentHistory } from '../../mocks/payments';
 import { ApiError, delay, paginate } from './client';
 import { RIDER_STATUS_LABEL } from '../labels';
@@ -65,10 +67,39 @@ export async function riderFacets(query: Omit<RiderQuery, 'status'> = {}): Promi
   return delay(facets);
 }
 
-export async function getRider(id: string): Promise<Rider> {
+/** Puts a deboarded rider back on the active register. */
+export async function reactivateRider(id: string): Promise<Rider> {
+  const rider = riders.find((r) => r.id === id);
+  if (!rider) throw new ApiError('Rider not found', 404);
+  if (rider.status === 'BLACKLISTED') {
+    throw new ApiError(`${rider.name} is blacklisted and cannot be put back on the register`, 409);
+  }
+  rider.status = 'ACTIVE';
+  return delay({ ...rider }, 300);
+}
+
+export async function getRider(id: string): Promise<RiderDetail> {
   const r = riders.find((x) => x.id === id);
   if (!r) throw new ApiError(`No rider with id ${id}`, 404);
-  return delay(r);
+  // The fixture keeps assignment history keyed by bike, because that is the
+  // screen it was written for. Turning it round here keeps one source of
+  // truth rather than a second list that can disagree with the first.
+  const assignments: RiderAssignmentRow[] = Object.entries(assignmentsByVehicle)
+    .flatMap(([vehicleId, rows]) =>
+      rows
+        .filter((a) => a.riderId === id)
+        .map((a) => ({
+          vehicleId,
+          startedOn: a.startedOn,
+          endedOn: a.endedOn,
+          days: a.days,
+          reason: null,
+          returnCondition: null,
+          closedBy: a.closedBy,
+        })),
+    )
+    .sort((a, b) => b.startedOn.localeCompare(a.startedOn));
+  return delay({ ...r, assignments });
 }
 
 /**

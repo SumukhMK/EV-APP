@@ -90,8 +90,21 @@ public class RiderController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
-    public RiderResponse get(@PathVariable UUID id) {
-        return riderService.toResponse(riderService.findById(id));
+    public RiderDetailResponse get(@PathVariable UUID id) {
+        return riderService.toDetailResponse(riderService.findById(id));
+    }
+
+    /**
+     * Puts a deboarded rider back on the active register.
+     *
+     * <p>Not a general status-update endpoint, deliberately: it writes exactly
+     * one value and refuses a blacklisted rider. The register has no other way
+     * back, so without this a deboard was permanent.
+     */
+    @PostMapping("/{id}/reactivate")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
+    public RiderResponse reactivate(@PathVariable UUID id) {
+        return riderService.toResponse(riderService.reactivate(id));
     }
 
     private static RiderStatus parseStatus(String status) {

@@ -39,6 +39,16 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
     /** The bike's assignment history, newest first — the vehicle detail's assignments list. */
     List<Assignment> findByVehicleIdOrderByStartedOnDesc(UUID vehicleId);
 
+    /**
+     * Every bike this rider has held, newest first — open rows included.
+     *
+     * <p>The rider-side finders above all filter {@code endedOn is null},
+     * because they answer "which bike now". This one deliberately does not:
+     * the profile's history panel exists to show the bikes that have gone
+     * back, which those finders can never see.
+     */
+    List<Assignment> findByRiderIdOrderByStartedOnDesc(UUID riderId);
+
     /** Every open assignment in the tenant. The read facade answers the derived fields from this. */
     List<Assignment> findByEndedOnIsNull();
 
