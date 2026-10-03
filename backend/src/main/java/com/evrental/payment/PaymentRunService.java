@@ -61,6 +61,17 @@ public class PaymentRunService {
     private final AssignmentQuery assignments;
     private final ReceiptNumbers receiptNumbers;
     private final BillingClock clock;
+
+    /**
+     * Days past the end of a week before a rider is chased.
+     *
+     * <p>Three is this operator's rule, not a fact about fleets, so it is
+     * configuration rather than a constant. It decides one thing — whether a
+     * row is flagged on the run and the overdue list — and deliberately does
+     * not touch {@link DunningStage}, whose 7/14/21 ladder is a separate
+     * escalation the screens already use.
+     */
+    private final int graceDays;
     private final JdbcTemplate jdbc;
 
     public PaymentRunService(PaymentPeriodRepository periods,
@@ -71,7 +82,8 @@ public class PaymentRunService {
                              AssignmentQuery assignments,
                              ReceiptNumbers receiptNumbers,
                              BillingClock clock,
-                             JdbcTemplate jdbc) {
+                             JdbcTemplate jdbc,
+                              @org.springframework.beans.factory.annotation.Value("${app.payment.grace-days:3}") int graceDays) {
         this.periods = periods;
         this.collections = collections;
         this.charges = charges;
@@ -80,6 +92,7 @@ public class PaymentRunService {
         this.assignments = assignments;
         this.receiptNumbers = receiptNumbers;
         this.clock = clock;
+        this.graceDays = graceDays;
         this.jdbc = jdbc;
     }
 
@@ -111,7 +124,7 @@ public class PaymentRunService {
 
         List<PaymentPeriodRowResponse> body = rows.stream()
                 .map(row -> PaymentPeriodRowResponse.from(row, nameOf(riderById, row.getRiderId()),
-                        registryById.get(row.getVehicleId())))
+                        registryById.get(row.getVehicleId()), today, graceDays))
                 .sorted(Comparator.comparing(PaymentPeriodRowResponse::riderName,
                         Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
@@ -278,7 +291,8 @@ public class PaymentRunService {
                             registryById.get(row.getVehicleId()),
                             days,
                             row.balancePaise(),
-                            DunningStage.forDays(days));
+                            DunningStage.forDays(days),
+                            days > graceDays);
                 })
                 .sorted(Comparator.comparingLong(OverdueRiderResponse::daysOverdue).reversed())
                 .toList();
@@ -377,7 +391,8 @@ public class PaymentRunService {
         periods.save(period);
 
         return PaymentPeriodRowResponse.from(period, rider.getName(),
-                registryIdsFor(List.of(period)).get(period.getVehicleId()));
+                registryIdsFor(List.of(period)).get(period.getVehicleId()),
+                clock.today(), graceDays);
     }
 
     /**

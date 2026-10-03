@@ -2,6 +2,7 @@ package com.evrental.payment;
 
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,6 +27,14 @@ public interface PaymentPeriodRepository extends JpaRepository<PaymentPeriod, UU
 
     /** The rider profile's payment history panel, newest week first. */
     List<PaymentPeriod> findByRiderIdOrderByPeriodStartDesc(UUID riderId);
+
+    /**
+     * The same read for a page of riders, in one query.
+     *
+     * <p>The register's list screen needs each rider's current standing, and
+     * one query per row is a query per row.
+     */
+    List<PaymentPeriod> findByRiderIdInOrderByPeriodStartDesc(Collection<UUID> riderIds);
 
     /**
      * Every week that closed while still short, newest first.

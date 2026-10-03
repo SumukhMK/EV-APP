@@ -8,6 +8,7 @@ import com.evrental.common.NotFoundException;
 import com.evrental.common.PageResponse;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -36,11 +37,14 @@ public class RiderService {
     private final RiderRepository riders;
     private final AadhaarCipher aadhaarCipher;
     private final AssignmentQuery assignmentQuery;
+    private final RiderPaymentStatusQuery paymentStatus;
 
-    public RiderService(RiderRepository riders, AadhaarCipher aadhaarCipher, AssignmentQuery assignmentQuery) {
+    public RiderService(RiderRepository riders, AadhaarCipher aadhaarCipher, AssignmentQuery assignmentQuery,
+                        RiderPaymentStatusQuery paymentStatus) {
         this.riders = riders;
         this.aadhaarCipher = aadhaarCipher;
         this.assignmentQuery = assignmentQuery;
+        this.paymentStatus = paymentStatus;
     }
 
     /**
@@ -86,6 +90,25 @@ public class RiderService {
         rider.setWhatsappVerified(request.verification().whatsappVerified());
         rider.setAlternate1Verified(request.verification().alternate1Verified());
         rider.setAadhaarEncrypted(aadhaarCipher.encrypt(request.aadhaarNumber()));
+
+        // Steps 1, 3 and 4 of the wizard, which were validated and then
+        // dropped. Trimmed and blank-to-null so an untouched optional field
+        // is absent rather than an empty string, which reads as "answered
+        // with nothing".
+        rider.setPermanentAddress(trimmed(request.permanentAddress()));
+        rider.setWhatsappNumber(trimmed(request.whatsappNumber()));
+        rider.setAlternateNumber1(trimmed(request.alternateNumber1()));
+        rider.setLocalAddress(trimmed(request.localAddress()));
+        rider.setCity(trimmed(request.city()));
+        rider.setStateName(trimmed(request.state()));
+        rider.setPinCode(trimmed(request.pinCode()));
+        rider.setLocationCoordinates(trimmed(request.locationCoordinates()));
+        rider.setPanNumber(trimmed(request.panNumber()));
+        rider.setDrivingLicence(trimmed(request.drivingLicence()));
+        rider.setPlatformRiderId(trimmed(request.platformRiderId()));
+        // Defaults to what they were asked for rather than to zero: a rider
+        // onboarded without the field answered has paid the plan, not nothing.
+        rider.setDepositPaidPaise(request.depositPaid() == null ? request.depositPlan() : request.depositPaid());
         return riders.save(rider);
     }
 
@@ -180,7 +203,29 @@ public class RiderService {
      * stale or missing bike.
      */
     public RiderResponse toResponse(Rider rider) {
-        return RiderResponse.from(rider, assignmentQuery.currentVehicleIdOf(rider.getId()));
+        return RiderResponse.from(rider,
+                assignmentQuery.currentVehicleIdOf(rider.getId()),
+                paymentStatus.statusFor(List.of(rider.getId())).get(rider.getId()));
+    }
+
+    /**
+     * The same mapping for a page of riders, reading both derived fields in
+     * one batch each.
+     *
+     * <p>{@link #toResponse} is fine for a single rider and wrong for a list:
+     * used per row it issues two queries per row, and the register's list is
+     * the most-opened screen in the product.
+     */
+    public List<RiderResponse> toResponses(List<Rider> page) {
+        if (page.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = page.stream().map(Rider::getId).toList();
+        Map<UUID, String> vehicles = assignmentQuery.currentVehicleIdsOf(ids);
+        Map<UUID, String> statuses = paymentStatus.statusFor(ids);
+        return page.stream()
+                .map(r -> RiderResponse.from(r, vehicles.get(r.getId()), statuses.get(r.getId())))
+                .toList();
     }
 
     /**
@@ -227,7 +272,7 @@ public class RiderService {
 
     /** A rider with the bikes they have held, for the profile screen. */
     public RiderDetailResponse toDetailResponse(Rider rider) {
-        return RiderDetailResponse.from(toResponse(rider), assignmentQuery.historyForRider(rider.getId()));
+        return RiderDetailResponse.from(toResponse(rider), rider, assignmentQuery.historyForRider(rider.getId()));
     }
 
     /**
@@ -243,5 +288,14 @@ public class RiderService {
 
     private static String searchPattern(String raw) {
         return raw == null || raw.isBlank() ? null : "%" + raw.trim().toLowerCase() + "%";
+    }
+
+    /** Blank optional answers are absent, not empty strings. */
+    private static String trimmed(String value) {
+        if (value == null) {
+            return null;
+        }
+        String t = value.trim();
+        return t.isEmpty() ? null : t;
     }
 }

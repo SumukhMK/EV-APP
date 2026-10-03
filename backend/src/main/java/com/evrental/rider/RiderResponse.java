@@ -34,6 +34,17 @@ public record RiderResponse(
 
     /** The registry id of the bike this rider holds, or null. */
     public static RiderResponse from(Rider r, String currentVehicleId) {
+        return from(r, currentVehicleId, null);
+    }
+
+    /**
+     * @param paymentStatus the rider's current standing from the money module,
+     *                      or null when they have never been billed. This used
+     *                      to be the literal "PENDING" for every rider ever
+     *                      returned, which put a chip on three screens saying
+     *                      the same word regardless of what the ledger held.
+     */
+    public static RiderResponse from(Rider r, String currentVehicleId, String paymentStatus) {
         return new RiderResponse(
                 r.getId().toString(),
                 r.getName(),
@@ -45,7 +56,7 @@ public record RiderResponse(
                 r.getBillingDay(),
                 currentVehicleId,
                 r.getOnboardedOn(),
-                "PENDING",
+                paymentStatus == null ? "PENDING" : paymentStatus,
                 r.getPlatform(),
                 r.getPaymentDay(),
                 r.getPaymentMode());

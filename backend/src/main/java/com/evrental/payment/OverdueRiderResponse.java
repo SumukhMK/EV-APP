@@ -21,5 +21,7 @@ public record OverdueRiderResponse(
         String vehicleId,
         long daysOverdue,
         long amountDue,
-        DunningStage stage) {
+        DunningStage stage,
+        /** Past the operator's buffer. See PaymentPeriodRowResponse. */
+        boolean pastGrace) {
 }

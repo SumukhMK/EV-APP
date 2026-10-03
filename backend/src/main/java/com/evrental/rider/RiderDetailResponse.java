@@ -30,13 +30,40 @@ public record RiderDetailResponse(
         String platform,
         PaymentDay paymentDay,
         PaymentMode paymentMode,
-        List<RiderAssignmentRow> assignments) {
+        List<RiderAssignmentRow> assignments,
+        /**
+         * The onboarding answers V012 started keeping.
+         *
+         * <p>On the detail response only. The list has no use for a rider's
+         * PAN, and a register page carrying every rider's address is a lot of
+         * wire for a column nobody renders.
+         *
+         * <p>No Aadhaar here, for the reason RiderResponse states: it is
+         * stored encrypted and never returned, not even masked.
+         */
+        String permanentAddress,
+        String whatsappNumber,
+        String alternateNumber1,
+        String localAddress,
+        String city,
+        String state,
+        String pinCode,
+        String locationCoordinates,
+        String panNumber,
+        String drivingLicence,
+        String platformRiderId,
+        Long depositPaid) {
 
-    public static RiderDetailResponse from(RiderResponse r, List<RiderAssignmentRow> assignments) {
+    public static RiderDetailResponse from(RiderResponse r, Rider rider,
+                                           List<RiderAssignmentRow> assignments) {
         return new RiderDetailResponse(
                 r.id(), r.name(), r.phone(), r.status(), r.kycStatus(),
                 r.planAmount(), r.depositHeld(), r.billingDay(), r.currentVehicleId(),
                 r.onboardedOn(), r.paymentStatus(), r.platform(), r.paymentDay(), r.paymentMode(),
-                assignments);
+                assignments,
+                rider.getPermanentAddress(), rider.getWhatsappNumber(), rider.getAlternateNumber1(),
+                rider.getLocalAddress(), rider.getCity(), rider.getStateName(), rider.getPinCode(),
+                rider.getLocationCoordinates(), rider.getPanNumber(), rider.getDrivingLicence(),
+                rider.getPlatformRiderId(), rider.getDepositPaidPaise());
     }
 }
