@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 import javax.sql.DataSource;
@@ -93,6 +94,9 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
             jdbc.update("DELETE FROM service_job_items WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM service_job_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM service_jobs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // Before riders and vehicles: an assignment row holds a foreign
+            // key to both, so deleting them first fails on the constraint.
+            jdbc.update("DELETE FROM assignments WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_lifecycle_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicles WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
@@ -127,6 +131,34 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
             return null;
         });
         vehicleId = insertVehicle(TENANT, "BLRSS0428", "CHASSIS0428");
+
+        // Every rider is given an open assignment that predates any period
+        // these tests look at.
+        //
+        // This is not decoration. The run bills the days a rider actually held
+        // a bike, so a rider with no assignment row is billed nothing and
+        // every test about plans, charges and arrears would be asserting
+        // against zeroes. It used to pass without this because
+        // AssignmentQuery was a stub that answered empty for everyone and the
+        // run fell back to charging a full week — the fallback is gone, so the
+        // fixture has to say what it always meant: these riders have bikes.
+        // A bike each: "one rider, one bike" is a partial unique index on the
+        // open rows, so four riders cannot share BLRSS0428.
+        List<UUID> riderIds = List.of(MONDAY_RIDER, CHARGED_RIDER, NO_PLAN_RIDER, WEDNESDAY_RIDER);
+        List<UUID> bikes = new java.util.ArrayList<>();
+        bikes.add(vehicleId);
+        for (int i = 1; i < riderIds.size(); i++) {
+            bikes.add(insertVehicle(TENANT, "BLRSS043" + i, "CHASSIS043" + i));
+        }
+        superAdmin(jdbc -> {
+            for (int i = 0; i < riderIds.size(); i++) {
+                jdbc.update("""
+                        INSERT INTO assignments (tenant_id, rider_id, vehicle_id, started_on)
+                        VALUES (?, ?, ?, CURRENT_DATE - 60)
+                        """, TENANT, riderIds.get(i), bikes.get(i));
+            }
+            return null;
+        });
     }
 
     private void insertUser(JdbcTemplate jdbc, UUID tenantId, String name, String email, String role) {
