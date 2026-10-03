@@ -33,7 +33,7 @@ start, not after you push.
 | Stage | What it is | Who | Can start once |
 |---|---|---|---|
 | **S0** | Boot the app, login, JWT, tenant isolation, database setup, Docker, CI | SMK (skeleton), **Abhiram** (auth) | **done** |
-| **S1** | Bikes: create, edit, the nine states, CSV upload | **SMK** | **done** |
+| **S1** | Bikes: create, edit, the nine states, Excel/CSV upload | **SMK** | **done** |
 | **S2** | Riders: onboard, list, read, KYC flags, Aadhaar encrypted at rest | **Abhiram** | **done** |
 | **S3** | Users and roles: who is allowed to call what | **SMK** | **done** |
 | **S4** | Service jobs: intake, repair queues, QC, cost | **SMK** | **done** |
@@ -267,8 +267,8 @@ that is the point. It is the floor the modules get built on.
 The vehicle module, built on the S0 floor.
 
 - `vehicle/` owns the registry: create, edit, read, the nine states and the
-  transitions between them, search and facets, and CSV bulk upload (preview
-  then commit).
+  transitions between them, search and facets, and Excel/CSV bulk upload
+  (preview then commit).
 - Every list is paginated through the shared `PageResponse`; every failure
   leaves through the shared error handler. Nothing in the module builds an
   error or a page by hand.
@@ -347,10 +347,95 @@ in `assignment/` (annotated `@Primary`) so the payment run can name the bike a
 rider held and bill only the days they held it — `NoAssignmentsYet` still
 answers empty, so every run row bills a full week against no bike.
 
-**Deployment:** the path exists (`render.yaml`, `netlify.toml`, `DEPLOY.md`)
-but is not live yet — the Render service is created but not running, and
-`VITE_API_BASE` is not set as a GitHub variable. Until both happen the
-deployed site stays the fixtures demo.
+**Deployment is live (2026-10-02).** Both repository variables are set
+(`RENDER_SERVICE_ID`, `VITE_API_BASE`), the Render service serves at
+`https://evrental-api.onrender.com`, and the Netlify site is wired to it. The
+seven swapped modules now read the real database on the deployed site.
+
+Two things about it are worth knowing before debugging a "broken" deploy:
+
+- **The first request after an idle period takes ~20 seconds.** Render sleeps
+  the instance and Neon scales to zero, so the first call wakes both. It is
+  not a hang; the second call is sub-second.
+- **A deploy failure shows as a green CI run with a red `Deploy API` job.**
+  The site deploys from a separate lane and stays up on the old bundle, so
+  the symptom is an API that times out while the site looks fine.
+
+**The V009 collision (2026-09-29 to 10-02), because it will happen again.**
+Two branches each added a `V009`: the payment run merged first and deployed,
+then the backend-dev merge brought in `V009__assignments.sql` and renumbered
+payment to `V010`. Production had therefore run the payment script *as*
+version 9, and `flyway.repair()` — added that evening to silence the checksum
+error — relabelled that row as the assignments migration without running it.
+The database then held the complete payment schema under the wrong number and
+no `assignments` table at all. `V010` and `V011` are both written to be
+re-runnable for exactly that reason, and `MigrationRecoveryTest` reproduces
+the production history in a container so it cannot silently return.
+
+The lesson for the table above: **check the migration directory for the next
+free number at merge time, not when you start the branch.** Two people on
+part-time schedules will pick the same number otherwise.
+
+**The bulk upload accepts Excel (2026-10-02).** The screen had advertised
+`.xlsx` since S1 while the parser only read CSV, so every Excel upload was
+read as UTF-8 text and rejected with a message about a missing column. The
+API now reads real workbooks (`poi-ooxml`), sniffing the ZIP signature rather
+than trusting the extension, and handles the two things a real export does
+that a hand-written fixture does not: a date cell holds a serial number, and
+a registry id Excel decided was numeric loses its formatting.
+
+`GET /vehicles/imports/template` returns a formatted `.xlsx` to fill in,
+generated per request from the same header list the parser reads so the two
+cannot drift. The upload screen gained a **Download template** button and lost
+three claims that were not true: a "Map columns" stage that existed on neither
+side, a column list naming fields the importer has never accepted, and a note
+saying header names need not match exactly. They must.
+
+**Validation is server-side and stays there.** The endpoint is reachable
+without the UI, and the duplicate checks need the database. The frontend's
+job is to render the per-row errors the preview returns.
+
+---
+
+## Still to build
+
+In rough order of what it costs the product:
+
+| What | Who | Why it matters |
+|---|---|---|
+| `com.evrental.payment.AssignmentQuery` in `assignment/`, `@Primary` | **Abhiram** | `NoAssignmentsYet` still answers empty, so every run row bills a full week against a bike it cannot name. This is wrong money, not a missing screen. |
+| Settlement approval | **Abhiram → SMK** | A deboard's `outstandingRent` / `depositRefund` sit on the assignment row with no endpoint to approve them into ledger rows. |
+| The dashboard's backend | **SMK** | See below. |
+| The deposit ceiling (`total > rider.depositHeld`) | **SMK** | Still mock-only; `ServiceJobFacade` does not enforce it, and that is what S5's deboard calls. |
+
+### The dashboard is not swapped, and was never in the swap table
+
+`lib/api/dashboard.ts` has **no `.live.ts` sibling and no `IS_LIVE` check** —
+it imports `mocks/dashboard` directly, so every tile on `/dashboard`,
+`/operations/today` and `/recovery` shows fixture data *even in a live build*.
+This is not a module that was missed in the 2026-09-30 sweep; it was never one
+of the six, because it never had a live/mock pair to switch between.
+
+What those numbers actually are today:
+
+- the eight KPI tiles — `vehicles.filter(...).length` over the fixture fleet;
+- the deployments chart — a hardcoded 13-element array, with a hardcoded
+  "Aug 2025 — Aug 2026" subtitle;
+- Today's Operations' movement and outcome strips — derived from an FNV hash
+  of the date string, so they change daily and mean nothing;
+- the recovery board — `inRecovery * 0.4` and `* 0.2`, ratios invented in the
+  frontend.
+
+**There is no backend for any of it.** No `/dashboard`, `/metrics`, `/summary`
+or `/stats` path exists in any of the twelve controllers. One aggregate *was*
+built and is unconsumed: `GET /service/queues/counts`.
+
+The cheap half needs no new endpoint — `GET /vehicles/facets` already returns
+per-state counts and `GET /payments/overdue` the overdue list, which between
+them cover all eight tiles. The charts and the operations strips need real
+endpoints. `recoveryCounts`' `leftAtRoadside` / `missing` have no backing
+state in the registry at all and need a vehicle sub-state before they can be
+anything but invented.
 
 ---
 
