@@ -8,7 +8,7 @@
 #   push to any branch  →  verify (site) ∥ backend (API)
 #   push to main        →  verify → deploy to production
 #                          backend → deploy-api to Render
-#   PR into main        →  verify → deploy to a preview URL, commented on the PR
+#   PR into main        →  verify only (previews are off; see PREVIEW_DEPLOYS)
 #
 # `backend` runs alongside `verify` and gates only the API: the API is not part
 # of the bundle Netlify serves, so a red backend must not stop a site deploy,
@@ -145,8 +145,11 @@ jobs:
     # Only main and PRs deploy. A push to phase-1-scaffold is gated but does
     # not publish anywhere — otherwise every work-in-progress push would be
     # competing for a URL.
+    # A PR only reaches this job when previews are switched on; otherwise the
+    # whole job is skipped rather than started and then stepped over, so a PR
+    # costs no deploy and no runner minutes.
     if: >-
-      github.event_name == 'pull_request' ||
+      (github.event_name == 'pull_request' && vars.PREVIEW_DEPLOYS == 'true') ||
       (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')
     permissions:
       contents: read
@@ -192,9 +195,20 @@ jobs:
       # lived in two places and the second one was missed when the site moved
       # accounts — every preview comment then linked to a domain the project
       # no longer owned.
+      # Off by default, because every preview is a deploy against the same
+      # free-tier allowance the production site spends, and a PR with twelve
+      # pushes is twelve of them. The first account's credits ran out; this is
+      # one of the taps.
+      #
+      # Same switch as the keep-alive ping: a repository variable, so turning
+      # previews on for a review week and off again afterwards is a settings
+      # change rather than a commit.
+      #
+      #   PREVIEW_DEPLOYS = true   (reviewers get a URL on each PR)
+      #   unset or anything else   (no preview, no comment)
       - name: Deploy a preview
         id: preview
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && vars.PREVIEW_DEPLOYS == 'true'
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
@@ -220,7 +234,7 @@ jobs:
       # Edited in place rather than appended, so a PR with twelve pushes has one
       # comment carrying the current link, not twelve carrying the same one.
       - name: Comment the preview URL
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && vars.PREVIEW_DEPLOYS == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
