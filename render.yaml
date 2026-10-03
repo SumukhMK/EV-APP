@@ -52,7 +52,7 @@ services:
       # no wildcard. Deploy previews live on their own subdomains and are not
       # covered by this; add them explicitly if they need to reach the API.
       - key: CORS_ALLOWED_ORIGINS
-        sync: false # https://fleetech-os.netlify.app
+        sync: false # https://fleetech.netlify.app
 
       # At least 32 bytes, generated per environment. Rotating it invalidates
       # every issued token, which is the intended behaviour for a leak.
