@@ -67,6 +67,14 @@ export async function riderFacets(query: Omit<RiderQuery, 'status'> = {}): Promi
   return delay(facets);
 }
 
+/** Records the KYC decision. */
+export async function decideKyc(id: string, decision: 'VERIFIED' | 'REJECTED'): Promise<Rider> {
+  const rider = riders.find((r) => r.id === id);
+  if (!rider) throw new ApiError('Rider not found', 404);
+  rider.kycStatus = decision;
+  return delay({ ...rider }, 300);
+}
+
 /** Puts a deboarded rider back on the active register. */
 export async function reactivateRider(id: string): Promise<Rider> {
   const rider = riders.find((r) => r.id === id);
@@ -99,6 +107,8 @@ export async function getRider(id: string): Promise<RiderDetail> {
         })),
     )
     .sort((a, b) => b.startedOn.localeCompare(a.startedOn));
+  // The fixture predates these fields, so a mock rider has none. The screen
+  // renders a dash, which is what a rider onboarded before V012 shows live.
   return delay({ ...r, assignments });
 }
 

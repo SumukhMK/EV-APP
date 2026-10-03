@@ -109,6 +109,50 @@ public class Rider {
     @Column(name = "updated_on", nullable = false)
     private Instant updatedOn;
 
+
+    // --- the onboarding answers V012 added -------------------------------
+    //
+    // Every one of these was validated by OnboardRiderRequest and then
+    // discarded. Nullable because riders onboarded before V012 have none.
+
+    @Column(name = "permanent_address")
+    private String permanentAddress;
+
+    @Column(name = "whatsapp_number")
+    private String whatsappNumber;
+
+    @Column(name = "alternate_number_1")
+    private String alternateNumber1;
+
+    @Column(name = "local_address")
+    private String localAddress;
+
+    @Column
+    private String city;
+
+    /** The state in the address. Named apart from {@code status} on purpose. */
+    @Column(name = "state_name")
+    private String stateName;
+
+    @Column(name = "pin_code")
+    private String pinCode;
+
+    @Column(name = "location_coordinates")
+    private String locationCoordinates;
+
+    @Column(name = "pan_number")
+    private String panNumber;
+
+    @Column(name = "driving_licence")
+    private String drivingLicence;
+
+    @Column(name = "platform_rider_id")
+    private String platformRiderId;
+
+    /** What the rider actually handed over, against the planned deposit. */
+    @Column(name = "deposit_paid_paise")
+    private Long depositPaidPaise;
+
     public UUID getId() {
         return id;
     }
@@ -255,5 +299,101 @@ public class Rider {
 
     public Instant getUpdatedOn() {
         return updatedOn;
+    }
+
+    public String getPermanentAddress() {
+        return permanentAddress;
+    }
+
+    public void setPermanentAddress(String permanentAddress) {
+        this.permanentAddress = permanentAddress;
+    }
+
+    public String getWhatsappNumber() {
+        return whatsappNumber;
+    }
+
+    public void setWhatsappNumber(String whatsappNumber) {
+        this.whatsappNumber = whatsappNumber;
+    }
+
+    public String getAlternateNumber1() {
+        return alternateNumber1;
+    }
+
+    public void setAlternateNumber1(String alternateNumber1) {
+        this.alternateNumber1 = alternateNumber1;
+    }
+
+    public String getLocalAddress() {
+        return localAddress;
+    }
+
+    public void setLocalAddress(String localAddress) {
+        this.localAddress = localAddress;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getStateName() {
+        return stateName;
+    }
+
+    public void setStateName(String stateName) {
+        this.stateName = stateName;
+    }
+
+    public String getPinCode() {
+        return pinCode;
+    }
+
+    public void setPinCode(String pinCode) {
+        this.pinCode = pinCode;
+    }
+
+    public String getLocationCoordinates() {
+        return locationCoordinates;
+    }
+
+    public void setLocationCoordinates(String locationCoordinates) {
+        this.locationCoordinates = locationCoordinates;
+    }
+
+    public String getPanNumber() {
+        return panNumber;
+    }
+
+    public void setPanNumber(String panNumber) {
+        this.panNumber = panNumber;
+    }
+
+    public String getDrivingLicence() {
+        return drivingLicence;
+    }
+
+    public void setDrivingLicence(String drivingLicence) {
+        this.drivingLicence = drivingLicence;
+    }
+
+    public String getPlatformRiderId() {
+        return platformRiderId;
+    }
+
+    public void setPlatformRiderId(String platformRiderId) {
+        this.platformRiderId = platformRiderId;
+    }
+
+    public Long getDepositPaidPaise() {
+        return depositPaidPaise;
+    }
+
+    public void setDepositPaidPaise(Long depositPaidPaise) {
+        this.depositPaidPaise = depositPaidPaise;
     }
 }

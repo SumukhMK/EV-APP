@@ -184,4 +184,26 @@ export interface RiderAssignmentRow {
 /** A rider plus the bikes they have held (`GET /riders/{id}`). */
 export interface RiderDetail extends Rider {
   assignments: RiderAssignmentRow[];
+
+  /**
+   * The onboarding answers the register started keeping in V012.
+   *
+   * All optional: every rider onboarded before that migration has none, and
+   * the screen shows a dash rather than pretending the operator left a
+   * required field blank.
+   *
+   * No Aadhaar here. It is stored encrypted and never returned, not masked.
+   */
+  permanentAddress?: string | null;
+  whatsappNumber?: string | null;
+  alternateNumber1?: string | null;
+  localAddress?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pinCode?: string | null;
+  locationCoordinates?: string | null;
+  panNumber?: string | null;
+  drivingLicence?: string | null;
+  platformRiderId?: string | null;
+  depositPaid?: number | null;
 }

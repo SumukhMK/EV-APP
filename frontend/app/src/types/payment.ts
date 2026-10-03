@@ -6,6 +6,13 @@ export type PaymentStatus = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
 
 /** One rider's line in a weekly payment run (screen 15). */
 export interface PaymentPeriodRow {
+  /** Days since the week closed; 0 while it is still running. */
+  daysOverdue: number;
+  /**
+   * Past the operator's buffer and still short. A verdict, not a duration —
+   * the threshold is a business rule and lives on the API.
+   */
+  pastGrace: boolean;
   riderId: string;
   riderName: string;
   vehicleId: string;
@@ -31,6 +38,8 @@ export interface PaymentRun {
 export type DunningStage = 'REMINDER_DUE' | 'WARNING_1' | 'WARNING_2' | 'REPOSSESSION_DUE';
 
 export interface OverdueRider {
+  /** Past the operator's buffer. */
+  pastGrace: boolean;
   riderId: string;
   riderName: string;
   /** Shown on the list so a reminder can be a call, not a click-through. */

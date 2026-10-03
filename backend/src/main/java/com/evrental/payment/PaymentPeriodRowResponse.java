@@ -27,9 +27,28 @@ public record PaymentPeriodRowResponse(
         long arrears,
         long totalDue,
         long amountPaid,
-        PaymentStatus status) {
+        PaymentStatus status,
+        /**
+         * Days since the week closed, zero while it is still running.
+         *
+         * <p>The run used to show a status chip and nothing else, so a rider
+         * one day late and a rider three weeks late looked identical on the
+         * screen the chasing is done from.
+         */
+        long daysOverdue,
+        /**
+         * Past the operator's buffer and still short.
+         *
+         * <p>A verdict, not a duration, because the threshold is a business
+         * rule and belongs in one place rather than in every screen that
+         * compares a number to three.
+         */
+        boolean pastGrace) {
 
-    public static PaymentPeriodRowResponse from(PaymentPeriod period, String riderName, String registryId) {
+    public static PaymentPeriodRowResponse from(PaymentPeriod period, String riderName, String registryId,
+                                                java.time.LocalDate today, int graceDays) {
+        long daysOverdue = period.daysOverdue(today);
+        boolean short_ = period.getAmountPaidPaise() < period.getTotalDuePaise();
         return new PaymentPeriodRowResponse(
                 period.getRiderId(),
                 riderName,
@@ -42,6 +61,8 @@ public record PaymentPeriodRowResponse(
                 period.getArrearsPaise(),
                 period.getTotalDuePaise(),
                 period.getAmountPaidPaise(),
-                period.getStatus());
+                period.getStatus(),
+                daysOverdue,
+                short_ && daysOverdue > graceDays);
     }
 }

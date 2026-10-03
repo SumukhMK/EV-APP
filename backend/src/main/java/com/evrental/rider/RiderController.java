@@ -7,6 +7,7 @@ import com.evrental.vehicle.VehicleState;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -60,9 +61,12 @@ public class RiderController {
             @RequestParam(required = false) String platform,
             @RequestParam(required = false) String vehicleState) {
         RiderQuery query = new RiderQuery(q, parseStatus(status), platform, parseVehicleState(vehicleState));
-        return PageResponse.from(
-                riderService.search(query, PageRequest.of(page, Math.min(size, 100), Sort.by("id"))),
-                riderService::toResponse);
+        Page<Rider> found = riderService.search(query, PageRequest.of(page, Math.min(size, 100), Sort.by("id")));
+        // Batched, not per row: toResponse issues two derived-field queries,
+        // and this is the most-opened screen in the product.
+        List<RiderResponse> rows = riderService.toResponses(found.getContent());
+        return new PageResponse<>(rows, found.getNumber(), found.getSize(),
+                found.getTotalElements(), found.getTotalPages());
     }
 
     @GetMapping("/facets")
@@ -78,20 +82,33 @@ public class RiderController {
     @GetMapping("/assignable")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
     public List<RiderResponse> assignable() {
-        return riderService.assignable().stream().map(riderService::toResponse).toList();
+        return riderService.toResponses(riderService.assignable());
     }
 
     /** Riders actually holding a bike. */
     @GetMapping("/assigned")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
     public List<RiderResponse> assigned() {
-        return riderService.assigned().stream().map(riderService::toResponse).toList();
+        return riderService.toResponses(riderService.assigned());
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
     public RiderDetailResponse get(@PathVariable UUID id) {
         return riderService.toDetailResponse(riderService.findById(id));
+    }
+
+    /**
+     * Records the KYC decision for a rider.
+     *
+     * <p>SUPER_ADMIN and FLEET_ADMIN only. Deciding whether someone's
+     * identity documents are acceptable is not a counter task, and the rest
+     * of the register being open to FLEET_STAFF does not make this so.
+     */
+    @PostMapping("/{id}/kyc")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
+    public RiderResponse decideKyc(@PathVariable UUID id, @RequestBody KycDecisionRequest request) {
+        return riderService.toResponse(riderService.decideKyc(id, request.decision()));
     }
 
     /**

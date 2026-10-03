@@ -47,6 +47,10 @@ function row(
     riderId,
     riderName,
     vehicleId,
+    // The current week is the one the run shows, and it has not closed, so
+    // nothing on it is overdue. The API says the same for a running period.
+    daysOverdue: 0,
+    pastGrace: false,
     planAmount: rupees(planRupees),
     daysBilled,
     perDayAmount: Math.round(rupees(planRupees) / 7),
@@ -110,6 +114,9 @@ function buildRun(billingDay: BillingDay): PaymentRun {
         riderId: r.id,
         riderName: r.name,
         vehicleId: r.currentVehicleId ?? '—',
+        // The run shows the current week, which has not closed.
+        daysOverdue: 0,
+        pastGrace: false,
         planAmount: r.planAmount,
         daysBilled,
         perDayAmount,
@@ -264,6 +271,9 @@ export const overdueRiders: OverdueRider[] = riders
       riderId: r.id,
       riderName: r.name,
       phone: r.phone,
+      // Three days is the operator's buffer; the API holds the real value and
+      // the fixture mirrors its default so the two screens agree in either mode.
+      pastGrace: days > 3,
       vehicleId: r.currentVehicleId ?? '—',
       daysOverdue: days,
       amountDue: designed ? designed.amountRupees * 100 : Math.round((r.planAmount / 7) * days),
