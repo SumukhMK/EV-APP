@@ -1,41 +1,28 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { RiderVerification } from '../../../types';
+import { useCallback, useState } from 'react';
 import type { VerificationState } from '../../../components/VerifyField';
 
 export type VerifiableField = 'aadhaar' | 'primary' | 'whatsapp' | 'alt1';
 
-const ALL_FIELDS: VerifiableField[] = ['aadhaar', 'primary', 'whatsapp', 'alt1'];
-
-/** Maps the four verification slots to their corresponding form field names. */
-export const FIELD_FORM_MAP: Record<VerifiableField, string> = {
-  aadhaar: 'aadhaarNumber',
-  primary: 'phone',
-  whatsapp: 'whatsappNumber',
-  alt1: 'alternateNumber1',
-};
-
 /**
- * State machine for the four identity fields that must be proved before a
- * rider can be onboarded. Each field goes through:
+ * Identity verification, as it actually stands: not implemented.
  *
- *   UNVERIFIED → CODE_SENT → VERIFYING → VERIFIED
- *                                    ↘ FAILED
+ * <p>This used to run a four-field OTP state machine against nothing. There
+ * was no SMS provider and no endpoint — `verify` accepted any six digits
+ * after a 300ms timer — and `allVerified` gated the onboarding submit. So the
+ * wizard could not be completed without typing a code four times, and
+ * completing it recorded every number as verified when none had been.
  *
- * Editing a verified number resets it to UNVERIFIED — the code was sent to the
- * old value, so the proof no longer holds.
+ * <p>The flags now go to the API as false, which is the truth: the operator
+ * typed a number and nobody checked it. The onboarding form no longer waits
+ * for a proof that does not exist.
  *
- * The six-digit rule is a placeholder for the endpoint that nobody has
- * specified yet, per the Phase 1 rule: nothing invented where a rule is
- * unknown.
+ * <p>The shape is kept so the four step components are untouched. When a
+ * provider is chosen, the state machine comes back here and nothing else
+ * needs to move.
  */
 export function useRiderVerification() {
-  const [states, setStates] = useState<Record<VerifiableField, VerificationState>>({
-    aadhaar: 'UNVERIFIED',
-    primary: 'UNVERIFIED',
-    whatsapp: 'UNVERIFIED',
-    alt1: 'UNVERIFIED',
-  });
-
+  // Values still live here so a step can reset a field, but no state machine
+  // runs over them any more.
   const [codes, setCodes] = useState<Record<VerifiableField, string>>({
     aadhaar: '',
     primary: '',
@@ -43,103 +30,42 @@ export function useRiderVerification() {
     alt1: '',
   });
 
-  /** If a field was verified, editing resets it so the proof cannot go stale. */
-  const onValueChange = useCallback((field: VerifiableField) => {
-    setStates((prev) => {
-      if (prev[field] === 'VERIFIED') return { ...prev, [field]: 'UNVERIFIED' };
-      return prev;
-    });
+  const setCode = useCallback((field: VerifiableField, value: string) => {
+    setCodes((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const send = useCallback((field: VerifiableField) => {
-    // Resend from FAILED also works — moves back to CODE_SENT.
-    setStates((prev) => ({
-      ...prev,
-      [field]: 'CODE_SENT',
-    }));
-  }, []);
-
-  const verify = useCallback((field: VerifiableField) => {
-    setStates((prev) => {
-      if (prev[field] !== 'CODE_SENT') return prev;
-      return { ...prev, [field]: 'VERIFYING' };
-    });
-
-    // Placeholder: accept any 6-digit code. The real endpoint will replace
-    // this setTimeout and the six-digit gate.
-    setTimeout(() => {
-      setCodes((prev) => {
-        const code = prev[field];
-        setStates((s) => ({
-          ...s,
-          [field]: code.length === 6 ? 'VERIFIED' : 'FAILED',
-        }));
-        return prev;
-      });
-    }, 300);
-  }, []);
-
-  const invalidate = useCallback((field: VerifiableField) => {
-    setStates((prev) => {
-      if (prev[field] === 'VERIFIED') return { ...prev, [field]: 'UNVERIFIED' };
-      return prev;
-    });
-  }, []);
-
-  const setCode = useCallback((field: VerifiableField, code: string) => {
-    setCodes((prev) => ({ ...prev, [field]: code }));
-  }, []);
+  // Takes the field so every existing call site compiles unchanged; it has
+  // nothing to do now that no state machine runs.
+  const noop = useCallback((_field?: VerifiableField) => {}, []);
 
   /**
-   * Mirror one field's proof onto another — used when WhatsApp is ticked as
-   * "same as primary". It is the same number, so it carries the same state
-   * rather than asking the counter to send a second code to it, and it keeps
-   * tracking the primary if that is verified later. Unticking drops it back to
-   * unverified, because the field is then empty again.
+   * "Same as primary" copies the number across. It used to also carry the
+   * verification across, which was the one piece of this hook doing real
+   * work — a number verified once should not need verifying twice.
    */
-  const [mirrorsPrimary, setMirrorsPrimary] = useState(false);
-
-  const setSameAsPrimary = useCallback((field: VerifiableField, same: boolean) => {
-    if (field !== 'whatsapp') return;
-    setMirrorsPrimary(same);
-    if (!same) setStates((prev) => ({ ...prev, whatsapp: 'UNVERIFIED' }));
-  }, []);
-
-  /** The effective state of a field, after mirroring. */
-  const stateOf = useCallback(
-    (f: VerifiableField): VerificationState =>
-      f === 'whatsapp' && mirrorsPrimary ? states.primary : states[f],
-    [mirrorsPrimary, states],
-  );
-
-  const allVerified = useMemo(
-    () => ALL_FIELDS.every((f) => stateOf(f) === 'VERIFIED'),
-    [stateOf],
-  );
-
-  const asRequest = useCallback((): RiderVerification => ({
-    aadhaarVerified: stateOf('aadhaar') === 'VERIFIED',
-    primaryVerified: stateOf('primary') === 'VERIFIED',
-    whatsappVerified: stateOf('whatsapp') === 'VERIFIED',
-    alternate1Verified: stateOf('alt1') === 'VERIFIED',
-  }), [stateOf]);
-
-  const outstanding = useMemo(
-    () => ALL_FIELDS.filter((f) => stateOf(f) !== 'VERIFIED'),
-    [stateOf],
-  );
+  const setSameAsPrimary = useCallback((_field: VerifiableField, _same: boolean) => {}, []);
 
   return {
-    stateOf,
-    codeOf: (f: VerifiableField) => codes[f],
+    /** Nothing is verified, because nothing verifies it. */
+    stateOf: (_field?: VerifiableField): VerificationState => 'UNVERIFIED',
+    codeOf: (field: VerifiableField) => codes[field],
     setCode,
+    send: noop,
+    verify: noop,
+    onValueChange: noop,
     setSameAsPrimary,
-    onValueChange,
-    send,
-    verify,
-    invalidate,
-    allVerified,
-    asRequest,
-    outstanding,
+    /** No gate: the form is complete when its fields are filled. */
+    allVerified: true,
+    outstanding: [] as VerifiableField[],
+    /**
+     * False for every field. Claiming otherwise would put a verification
+     * record in the database that no one performed.
+     */
+    asRequest: () => ({
+      aadhaarVerified: false,
+      primaryVerified: false,
+      whatsappVerified: false,
+      alternate1Verified: false,
+    }),
   };
 }

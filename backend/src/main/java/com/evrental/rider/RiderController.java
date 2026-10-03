@@ -37,9 +37,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class RiderController {
 
     private final RiderService riderService;
+    private final com.evrental.user.UserRepository users;
 
-    public RiderController(RiderService riderService) {
+    public RiderController(RiderService riderService, com.evrental.user.UserRepository users) {
         this.riderService = riderService;
+        this.users = users;
     }
 
     @PostMapping
@@ -99,6 +101,22 @@ public class RiderController {
     }
 
     /**
+     * Changes a rider's weekly plan.
+     *
+     * <p>SA/FA only: the plan is what the rider is billed every week
+     * afterwards, so it is a money decision.
+     */
+    @PostMapping("/{id}/plan")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
+    public RiderResponse changePlan(@PathVariable UUID id,
+                                    @Valid @RequestBody ChangePlanRequest request,
+                                    Authentication authentication) {
+        JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
+        return riderService.toResponse(
+                riderService.changePlan(id, request.planAmount(), actorNameOf(principal)));
+    }
+
+    /**
      * Records the KYC decision for a rider.
      *
      * <p>SUPER_ADMIN and FLEET_ADMIN only. Deciding whether someone's
@@ -132,5 +150,12 @@ public class RiderController {
     private static VehicleState parseVehicleState(String state) {
         return state == null || state.isBlank() || "ALL".equals(state)
                 ? null : VehicleState.valueOf(state);
+    }
+
+    /** The name that goes on the audit trail, read from the caller's record. */
+    private String actorNameOf(JwtPrincipal principal) {
+        return users.findById(principal.userId())
+                .map(com.evrental.user.User::getName)
+                .orElse("Unknown");
     }
 }

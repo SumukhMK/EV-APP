@@ -74,6 +74,8 @@ class AuthHardeningTest extends PostgresTestBase {
     void seed() {
         asSuperAdmin(jdbc -> {
             jdbc.update("DELETE FROM refresh_tokens WHERE tenant_id = ?", TENANT);
+            // Same for the role log and the user it describes.
+            jdbc.update("DELETE FROM user_role_changes");
             jdbc.update("DELETE FROM users WHERE tenant_id = ?", TENANT);
             jdbc.update("DELETE FROM tenants WHERE id = ?", TENANT);
             jdbc.update(

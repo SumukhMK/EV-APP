@@ -12,8 +12,5 @@ import * as mock from './inspections.mock';
  */
 const impl: typeof mock = IS_LIVE ? { ...mock, ...live } : mock;
 
-export const recordInspection = impl.recordInspection;
-export const listQcQueue = impl.listQcQueue;
-export const decideQc = impl.decideQc;
 export const listInspectableVehicles = impl.listInspectableVehicles;
 export const getVehicleServiceHistory = impl.getVehicleServiceHistory;

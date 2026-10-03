@@ -32,9 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository users;
+    private final com.evrental.audit.ChangeLog changeLog;
 
-    public UserService(UserRepository users) {
+    public UserService(UserRepository users, com.evrental.audit.ChangeLog changeLog) {
         this.users = users;
+        this.changeLog = changeLog;
     }
 
     public PageResponse<UserResponse> list(Pageable pageable) {
@@ -78,10 +80,22 @@ public class UserService {
                     throw new ConflictException("This email is already in use", "email");
                 });
 
+        // Recorded before the write, in the same transaction, so the trail
+        // and the change either both happen or neither does. Only a real
+        // difference is logged — saving a form without touching the role is
+        // not a role change.
+        changeLog.roleChanged(user.getTenantId(), user.getId(),
+                user.getRole().name(), request.role().name(), actorNameOf(actorUserId));
+
         user.setName(request.name().trim());
         user.setEmail(request.email().trim());
         user.setRole(request.role());
         user.setStatus(request.status());
         return UserResponse.from(users.save(user));
+    }
+
+    /** The name that goes on the trail, read from the actor's own record. */
+    private String actorNameOf(UUID actorUserId) {
+        return users.findById(actorUserId).map(User::getName).orElse("Unknown");
     }
 }

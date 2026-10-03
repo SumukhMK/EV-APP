@@ -82,21 +82,6 @@ export const VEHICLE_GATE_TONE: Record<VehicleGate, StatusTone> = {
   RETIRED: 'neutral',
 };
 
-/**
- * The only transitions the UI offers. Enforced server-side later; until then
- * this is what stops the demo showing a nonsense move.
- */
-export const VEHICLE_TRANSITIONS: Record<VehicleState, VehicleState[]> = {
-  INDUCTED: ['QC_PENDING'],
-  QC_PENDING: ['READY_TO_DEPLOY', 'UNDER_REPAIR'],
-  READY_TO_DEPLOY: ['DEPLOYED', 'UNDER_REPAIR', 'RETIRED'],
-  DEPLOYED: ['UNDER_REPAIR', 'QC_PENDING', 'RECOVERY', 'ACCIDENT'],
-  RETURNED: [],                     // legacy — no outbound transitions
-  RECOVERY: ['UNDER_REPAIR', 'ACCIDENT', 'RETIRED'],
-  UNDER_REPAIR: ['QC_PENDING', 'ACCIDENT', 'RETIRED'],
-  ACCIDENT: ['UNDER_REPAIR', 'RETIRED'],
-  RETIRED: [],
-};
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PAID: 'Paid',

@@ -1,27 +1,8 @@
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { StateChip } from './StateChip';
-import type { StatusTone } from '../theme/tokens';
 
 export type VerificationState = 'UNVERIFIED' | 'CODE_SENT' | 'VERIFYING' | 'VERIFIED' | 'FAILED';
-
-const STATE_LABEL: Record<VerificationState, string> = {
-  UNVERIFIED: 'Not verified',
-  CODE_SENT: 'Code sent',
-  VERIFYING: 'Verifying',
-  VERIFIED: 'Verified',
-  FAILED: 'Verification failed',
-};
-
-const STATE_TONE: Record<VerificationState, StatusTone> = {
-  UNVERIFIED: 'neutral',
-  CODE_SENT: 'caution',
-  VERIFYING: 'caution',
-  VERIFIED: 'good',
-  FAILED: 'bad',
-};
 
 export interface VerifyFieldProps {
   label: string;
@@ -56,20 +37,14 @@ export function VerifyField({
   label,
   value,
   onValueChange,
-  code,
-  onCodeChange,
   state,
-  onSend,
-  onVerify,
   placeholder,
-  codeLabel = 'OTP',
   maxLength,
   error,
   note,
   readOnly = false,
 }: VerifyFieldProps) {
   const verified = state === 'VERIFIED';
-  const busy = state === 'VERIFYING';
 
   return (
     <Box
@@ -95,26 +70,18 @@ export function VerifyField({
         slotProps={{ htmlInput: { inputMode: 'numeric', maxLength } }}
       />
 
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-        <TextField
-          value={code}
-          onChange={(e) => onCodeChange(e.target.value)}
-          placeholder={`Enter ${codeLabel}`}
-          disabled={verified || readOnly || state === 'UNVERIFIED'}
-          sx={{ flex: 1 }}
-        />
-        <Button variant="outlined" onClick={onSend} disabled={verified || readOnly || busy || !value}>
-          {state === 'UNVERIFIED' ? `Send ${codeLabel}` : `Resend ${codeLabel}`}
-        </Button>
-        <Button variant="outlined" onClick={onVerify} disabled={verified || readOnly || busy || !code}>
-          Verify
-        </Button>
-      </Box>
+      {/*
+        The OTP box and its Send and Verify buttons used to sit here.
+        There is no verification service behind them — any six digits passed —
+        so they were a gate that proved nothing while looking like proof, and
+        they blocked onboarding until somebody typed 123456 four times.
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <StateChip label={STATE_LABEL[state]} tone={STATE_TONE[state]} />
-        {note && <Typography sx={{ fontSize: 12, color: 'grey.500' }}>{note}</Typography>}
-      </Box>
+        They are gone rather than disabled: a control that cannot do its job
+        is worse than its absence, because the next person assumes it works.
+        The props stay on this component so the step files are untouched and
+        the OTP flow is a re-render away once a provider exists.
+      */}
+      {note && <Typography sx={{ fontSize: 12, color: 'grey.500' }}>{note}</Typography>}
     </Box>
   );
 }

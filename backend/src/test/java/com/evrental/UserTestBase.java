@@ -72,10 +72,15 @@ public abstract class UserTestBase extends PostgresTestBase {
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
             jdbc.update("DELETE FROM refresh_tokens WHERE tenant_id IN (?, ?, ?)",
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
+            // Same for the role log and the user it describes.
+            jdbc.update("DELETE FROM user_role_changes");
             jdbc.update("DELETE FROM users WHERE tenant_id IN (?, ?, ?)",
                     TENANT, OTHER_TENANT, PLATFORM_TENANT);
             // The platform tenant row itself is V001's, shared by the whole
             // suite — never deleted, only its users.
+            // Reference data holds a foreign key to the tenant, so it goes first.
+            jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Users Co', 'users-co', 'ACTIVE')", TENANT);

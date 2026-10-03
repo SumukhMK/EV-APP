@@ -8,6 +8,9 @@ import com.evrental.user.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import java.util.UUID;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -76,5 +79,26 @@ public class AssignmentController {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
         return riderService.toResponse(assignmentService.deboard(
                 request, principal.tenantId(), principal.userId(), actorName(principal)));
+    }
+
+    /**
+     * The settlements waiting on a decision.
+     *
+     * <p>SA/FA only: approving one writes to the money ledger. RBAC.md's
+     * conflict 4 says the approval is a Fleet Admin's, and the deboard that
+     * records the figures is deliberately not.
+     */
+    @GetMapping("/settlements")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
+    public java.util.List<SettlementResponse> pendingSettlements() {
+        return assignmentService.pendingSettlements();
+    }
+
+    @PostMapping("/settlements/{assignmentId}/approve")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
+    public SettlementResponse approveSettlement(@PathVariable UUID assignmentId,
+                                                Authentication authentication) {
+        JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
+        return assignmentService.approveSettlement(assignmentId, actorName(principal));
     }
 }

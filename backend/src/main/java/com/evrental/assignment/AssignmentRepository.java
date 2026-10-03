@@ -52,6 +52,9 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
     /** Every open assignment in the tenant. The read facade answers the derived fields from this. */
     List<Assignment> findByEndedOnIsNull();
 
+    /** Closed rows nobody has settled. The partial index V014 adds serves this. */
+    List<Assignment> findBySettlementApprovedOnIsNullAndEndedOnIsNotNullOrderByEndedOnDesc();
+
     /** Riders whose current bike is in the given state — the register's vehicleState filter. */
     @Query("""
             select a.riderId from Assignment a
