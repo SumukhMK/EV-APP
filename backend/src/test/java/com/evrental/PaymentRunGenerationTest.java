@@ -102,12 +102,22 @@ class PaymentRunGenerationTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$.rows[2].totalDue").value(0));
     }
 
-    /** No assignment module, so no bike can be named. Stated, not guessed. */
+    /**
+     * The run names the bike the rider held.
+     *
+     * <p>This test used to be called {@code vehicleIsNullUntilS5} and asserted
+     * the opposite, because {@code payment.AssignmentQuery} had only the
+     * {@code NoAssignmentsYet} stub behind it. S5 shipped and it stayed that
+     * way — the assignment module published a different interface of the same
+     * name — so the column went on being null long after the database could
+     * answer it. Now it is answered, and the id is the one an operator reads
+     * off the frame rather than a row id.
+     */
     @Test
-    void vehicleIsNullUntilS5() throws Exception {
+    void theRunNamesTheBikeTheRiderHeld() throws Exception {
         mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.rows[0].vehicleId").doesNotExist());
+                .andExpect(jsonPath("$.rows[0].vehicleId").value("BLRSS0428"));
     }
 
     // -----------------------------------------------------------------------
