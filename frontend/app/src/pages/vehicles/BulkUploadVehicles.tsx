@@ -16,7 +16,7 @@ import { SimpleTable } from '../../components/SimpleTable';
 import { FlowStrip } from '../../components/FlowStrip';
 import { UploadBox } from '../../components/UploadBox';
 import { commitBulkUpload, downloadImportTemplate, previewBulkUpload } from '../../lib/api/vehicles';
-import type { BulkUploadPreview } from '../../types';
+import type { BulkUploadPreview, ImportResult } from '../../types';
 import { neutral, status as tones } from '../../theme/tokens';
 
 /** The stages the import walks, drawn under the header so the operator knows
@@ -65,7 +65,7 @@ export function BulkUploadVehicles() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [preview, setPreview] = useState<BulkUploadPreview | null>(null);
-  const [done, setDone] = useState<number | null>(null);
+  const [done, setDone] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const validate = useMutation({
@@ -76,7 +76,7 @@ export function BulkUploadVehicles() {
   const commit = useMutation({
     mutationFn: (p: BulkUploadPreview) => commitBulkUpload(p),
     onSuccess: (result) => {
-      setDone(result.imported);
+      setDone(result);
       setPreview(null);
       invalidateVehicles(queryClient);
     },
@@ -139,10 +139,30 @@ export function BulkUploadVehicles() {
       )}
 
       {done !== null && (
-        <Alert severity="success" variant="outlined" sx={{ mt: 5 }}>
-          {done} vehicles imported. They are in the registry as{' '}
+        <Alert
+          severity={done.skipped > 0 ? 'warning' : 'success'}
+          variant="outlined"
+          sx={{ mt: 5 }}
+        >
+          {done.imported} vehicles imported. They are in the registry as{' '}
           <Box component="span" sx={{ color: neutral[200] }}>Inducted</Box> and need inspection before
           they can be deployed.
+          {done.skipped > 0 && (
+            <>
+              <Box sx={{ mt: 2 }}>
+                {done.skipped} {done.skipped === 1 ? 'row was' : 'rows were'} skipped. These passed the
+                preview and could not be imported — usually because the bike was added by someone else
+                while this preview was open.
+              </Box>
+              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 3 }}>
+                {done.skippedRows.map((row) => (
+                  <Box component="li" key={row.rowNumber}>
+                    Row {row.rowNumber} · <Mono>{row.id}</Mono> — {row.error}
+                  </Box>
+                ))}
+              </Box>
+            </>
+          )}
         </Alert>
       )}
 
