@@ -186,12 +186,24 @@ public class PaymentRunService {
         Optional<AssignmentQuery.Window> window =
                 assignments.openAssignmentFor(rider.getId(), period.start(), period.end());
 
-        // Until S5 there is no assignment to ask, so a rider on a plan is
-        // billed the full week. Stated as a known compromise rather than
-        // hidden: the arithmetic is right, the attribution is incomplete.
+        // No overlapping assignment now means what it says: the rider held no
+        // bike this week, so there is no rent to charge.
+        //
+        // This used to fall back to a full week, and had to: AssignmentQuery
+        // was answered by NoAssignmentsYet, which returned empty for everyone,
+        // so treating empty as "no bike" would have billed the entire register
+        // nothing. The fallback was the documented compromise — right
+        // arithmetic, absent attribution — and it quietly survived S5, because
+        // the assignment module published a different interface of the same
+        // name and nobody noticed the contract was still unimplemented.
+        //
+        // With a real implementation behind it, empty is a fact rather than a
+        // gap, and billing a week of rent for a bike the rider did not have is
+        // the wrong answer. The row still exists and reads zero; a run that
+        // silently omits people is how somebody stops being billed by accident.
         int daysBilled = window
                 .map(w -> period.overlapDays(w.startedOn(), w.endedOn()))
-                .orElse(period.lengthDays());
+                .orElse(0);
         UUID vehicleId = window.map(AssignmentQuery.Window::vehicleId).orElse(null);
 
         // No plan, nothing to bill. The row still exists, and reads zero.
