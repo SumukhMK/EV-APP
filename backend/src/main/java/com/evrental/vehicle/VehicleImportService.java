@@ -38,6 +38,27 @@ public class VehicleImportService {
     private static final List<String> REQUIRED_HEADERS = List.of(
             "id", "chassisNumber", "model", "batteryType", "hub", "inductedOn");
 
+    /**
+     * The length each column accepts, taken from {@link CreateVehicleRequest}
+     * so there is one set of numbers rather than two.
+     *
+     * <p>This path cannot use the bean-validation annotations that carry them:
+     * those are applied by {@code @Valid} at the controller, and a commit
+     * calls {@code VehicleService.create()} directly. Without this table an
+     * over-long cell previewed as a valid row and then failed inside Postgres
+     * at commit — which, because the commit is one transaction, rolled back
+     * the whole file. The operator was told one row would import, got none,
+     * and the message read "That value is already in use".
+     */
+    private static final Map<String, Integer> MAX_LENGTHS = Map.of(
+            "id", CreateVehicleRequest.ID_MAX,
+            "chassisNumber", CreateVehicleRequest.CHASSIS_NUMBER_MAX,
+            "model", CreateVehicleRequest.MODEL_MAX,
+            "batteryType", CreateVehicleRequest.BATTERY_TYPE_MAX,
+            "batteryVendor", CreateVehicleRequest.BATTERY_VENDOR_MAX,
+            "hub", CreateVehicleRequest.HUB_MAX,
+            "registrationNumber", CreateVehicleRequest.REGISTRATION_NUMBER_MAX);
+
     private final VehicleImportRepository imports;
     private final VehicleImportRowRepository rows;
     private final VehicleRepository vehicles;
@@ -114,11 +135,20 @@ public class VehicleImportService {
         }
 
         int imported = 0;
+        List<SkippedRowResponse> skipped = new ArrayList<>();
         for (VehicleImportRow row : rows.findByImportIdOrderByRowNumberAsc(importId)) {
             if (row.getError() != null) {
+                // Already reported in the preview. Counting it again here
+                // would tell the operator twice about one problem.
                 continue;
             }
-            if (validateCommitRow(row.getPayload()) != null) {
+            String stale = validateCommitRow(row.getPayload());
+            if (stale != null) {
+                // Previewed as importable and is not any more. The row keeps
+                // the reason so a reopened import still explains itself.
+                row.setError(stale);
+                rows.save(row);
+                skipped.add(SkippedRowResponse.of(row, stale));
                 continue;
             }
             vehicleService.create(toCreateRequest(row.getPayload()), tenantId, actorUserId, actorName);
@@ -128,21 +158,44 @@ public class VehicleImportService {
         batch.setStatus(VehicleImportStatus.COMMITTED);
         batch.setCommittedOn(Instant.now());
         imports.save(batch);
-        return new ImportResultResponse(imported);
+        return new ImportResultResponse(imported, skipped.size(), List.copyOf(skipped));
     }
 
-    private String validateRow(Map<String, String> payload,
-                               Map<String, Long> registryCounts,
-                               Map<String, Long> chassisCounts) {
+    /**
+     * The checks both passes share: present, short enough, and a real date.
+     *
+     * <p>Ordered required-then-length so a blank cell is reported as missing
+     * rather than as a length failure, and returning the first failure so the
+     * operator gets the one sentence the screen has room for.
+     */
+    private String validateShape(Map<String, String> payload) {
         for (String header : REQUIRED_HEADERS) {
             if (blank(payload.get(header))) {
                 return header + " is required";
             }
         }
+        for (Map.Entry<String, Integer> limit : MAX_LENGTHS.entrySet()) {
+            String value = payload.get(limit.getKey());
+            // Trimmed, because create() trims before it inserts: a cell padded
+            // to one past the limit is not actually too long for the column.
+            if (value != null && value.trim().length() > limit.getValue()) {
+                return limit.getKey() + " must be at most " + limit.getValue() + " characters";
+            }
+        }
         try {
-            LocalDate.parse(payload.get("inductedOn"));
+            LocalDate.parse(payload.get("inductedOn").trim());
         } catch (DateTimeParseException ex) {
             return "inductedOn must be an ISO-8601 date";
+        }
+        return null;
+    }
+
+    private String validateRow(Map<String, String> payload,
+                               Map<String, Long> registryCounts,
+                               Map<String, Long> chassisCounts) {
+        String shape = validateShape(payload);
+        if (shape != null) {
+            return shape;
         }
 
         String registryId = payload.get("id").trim();
@@ -163,21 +216,29 @@ public class VehicleImportService {
         return null;
     }
 
+    /**
+     * The same row, re-checked against the registry as it is now.
+     *
+     * <p>Only the facts that can change between the two steps are worth
+     * re-reading — somebody else inducting the same bike while the preview is
+     * on screen. The shape checks are repeated because they are cheap and
+     * because a staged payload is read back from the database, not from the
+     * request that validated it.
+     *
+     * <p>Trimmed on the way in: {@code validateRow} trims and so does
+     * {@code VehicleService.create()}, and this used to not, so a padded cell
+     * could pass here and then raise a 409 inside create() that aborted the
+     * whole transaction.
+     */
     private String validateCommitRow(Map<String, String> payload) {
-        for (String header : REQUIRED_HEADERS) {
-            if (blank(payload.get(header))) {
-                return header + " is required";
-            }
+        String shape = validateShape(payload);
+        if (shape != null) {
+            return shape;
         }
-        try {
-            LocalDate.parse(payload.get("inductedOn"));
-        } catch (DateTimeParseException ex) {
-            return "inductedOn must be an ISO-8601 date";
-        }
-        if (vehicles.findByRegistryId(payload.get("id")).isPresent()) {
+        if (vehicles.findByRegistryId(payload.get("id").trim()).isPresent()) {
             return "id already exists";
         }
-        if (vehicles.findByChassisNumber(payload.get("chassisNumber")).isPresent()) {
+        if (vehicles.findByChassisNumber(payload.get("chassisNumber").trim()).isPresent()) {
             return "chassisNumber already exists";
         }
         return null;

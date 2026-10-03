@@ -8,6 +8,7 @@ import type {
   VehicleDetail,
   VehicleState,
   UpdateVehicleRequest,
+  ImportResult,
 } from '../../types';
 import {
   assignmentsByVehicle,
@@ -179,8 +180,9 @@ export async function previewBulkUpload(file: File): Promise<BulkUploadPreview> 
   );
 }
 
-export async function commitBulkUpload(preview: BulkUploadPreview): Promise<{ imported: number }> {
-  return delay({ imported: preview.validRows }, 500);
+export async function commitBulkUpload(preview: BulkUploadPreview): Promise<ImportResult> {
+  // The mock has no registry to go stale against, so nothing is ever skipped.
+  return delay({ imported: preview.validRows, skipped: 0, skippedRows: [] }, 500);
 }
 
 /** A bike with no recorded history still has its live assignment, if any. */

@@ -8,6 +8,7 @@ import type {
   VehicleDetail,
   VehicleState,
   UpdateVehicleRequest,
+  ImportResult,
 } from '../../types';
 import { request, downloadFile } from './client';
 import type { VehicleQuery } from './vehicles.mock';
@@ -81,8 +82,8 @@ export function previewBulkUpload(file: File): Promise<BulkUploadPreview> {
   return request<BulkUploadPreview>('/vehicles/imports', { method: 'POST', file });
 }
 
-export function commitBulkUpload(preview: BulkUploadPreview): Promise<{ imported: number }> {
-  return request<{ imported: number }>(
+export function commitBulkUpload(preview: BulkUploadPreview): Promise<ImportResult> {
+  return request<ImportResult>(
     `/vehicles/imports/${encodeURIComponent(preview.importId)}/commit`,
     { method: 'POST' },
   );

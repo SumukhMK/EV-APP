@@ -165,3 +165,23 @@ export interface QcQueueItem {
   costPaise: number;
   daysWaiting: number;
 }
+
+/**
+ * What a commit actually did.
+ *
+ * `skipped` counts only rows the preview said would import and the commit
+ * then could not — almost always because somebody inducted the same bike
+ * while the preview sat on screen. Rows the preview already failed are not
+ * counted here; the operator has seen those.
+ */
+export interface SkippedImportRow {
+  rowNumber: number;
+  id: string;
+  error: string;
+}
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  skippedRows: SkippedImportRow[];
+}
