@@ -19,6 +19,7 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
@@ -151,6 +152,96 @@ class ImportFileReaderTest {
                 .hasMessage("This workbook is password-protected. Remove the password and upload it again.");
     }
 
+    // --- Bounds: what keeps a bad file from taking the server down ----------
+
+    /**
+     * The reader stops at the row limit instead of loading the whole sheet.
+     * A 16,384-column, 100-row workbook of 4.5 MB killed a 384 MB JVM in
+     * 1.5 seconds when the sheet was read into a DOM first; every test in
+     * this section is a budget that makes memory depend on our constants,
+     * not on the file.
+     */
+    @Test
+    void readingStopsAtTheRowLimitInsteadOfLoadingTheWholeSheet() {
+        byte[] bytes = streamedXlsx(5_000, 2, 10);
+
+        ImportFile file = ImportFileReader.read(bytes, 100);
+
+        assertThat(file.rows()).hasSize(100);
+        assertThat(file.truncated()).isTrue();
+    }
+
+    @Test
+    void aFileWithinTheRowLimitIsNotMarkedTruncated() {
+        byte[] bytes = streamedXlsx(50, 2, 10);
+
+        ImportFile file = ImportFileReader.read(bytes, 100);
+
+        // Header plus fifty.
+        assertThat(file.rows()).hasSize(51);
+        assertThat(file.truncated()).isFalse();
+    }
+
+    @Test
+    void onlyTheFirstColumnsAreRead() {
+        byte[] bytes = streamedXlsx(3, 2_000, 1);
+
+        ImportFile file = ImportFileReader.read(bytes);
+
+        assertThat(file.rows()).allSatisfy(row -> assertThat(row).hasSizeLessThanOrEqualTo(ImportFileReader.MAX_COLUMNS));
+    }
+
+    @Test
+    void aCellLongerThanTheLimitIsCutOff() {
+        byte[] bytes = xlsx(sheet -> text(sheet, 0, "id", "x".repeat(5_000)));
+
+        assertThat(ImportFileReader.read(bytes).rows().get(0).get(1)).hasSize(ImportFileReader.MAX_CELL_CHARS);
+    }
+
+    /** One 32 KB string repeated down a column compresses to under 1%, which POI's default guard calls a zip bomb. */
+    @Test
+    void aHighlyRepetitiveSheetIsNotMistakenForAZipBomb() {
+        String blob = "lorem ipsum ".repeat(2_730);
+        byte[] bytes = streamedXlsx(2_000, 2, 1, blob);
+
+        ImportFile file = ImportFileReader.read(bytes, 2_011);
+
+        // Header plus two thousand.
+        assertThat(file.rows()).hasSize(2_001);
+    }
+
+    /** Within the row and column limits but with far more text than a fleet export carries. */
+    @Test
+    void aSheetWithTooMuchTextIsRefusedRatherThanHeld() {
+        byte[] bytes = streamedXlsx(2_000, 200, 60);
+
+        assertThatThrownBy(() -> ImportFileReader.read(bytes, 2_011))
+                .isInstanceOf(ImportFileException.class)
+                .hasMessage(ImportFileReader.TOO_MUCH_DATA);
+    }
+
+    /** The binary .xls can only be read whole, so its size is the bound. */
+    @Test
+    void anOversizedXlsIsRefusedWithAdvice() throws Exception {
+        byte[] bytes;
+        try (HSSFWorkbook wb = new HSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = wb.createSheet("Vehicles");
+            for (int r = 0; r < 4_000; r++) {
+                Row row = sheet.createRow(r);
+                for (int c = 0; c < 20; c++) {
+                    row.createCell(c).setCellValue("cell " + r + "," + c);
+                }
+            }
+            wb.write(out);
+            bytes = out.toByteArray();
+        }
+        assertThat(bytes.length).isGreaterThan(ImportFileReader.MAX_XLS_BYTES);
+
+        assertThatThrownBy(() -> ImportFileReader.read(bytes))
+                .isInstanceOf(ImportFileException.class)
+                .hasMessage(ImportFileReader.XLS_TOO_LARGE);
+    }
+
     // --- CSV ---------------------------------------------------------------
 
     @Test
@@ -203,6 +294,40 @@ class ImportFileReaderTest {
         assertThat(ImportFileReader.read(bytes).rows()).hasSize(2);
     }
 
+    /** A quote opened and never closed swallows the rest of the file. Name the cause, not "not a spreadsheet". */
+    @Test
+    void anUnclosedQuoteIsNamedAsSuch() {
+        byte[] bytes = csv("id,model\nBLRSS0001,\"Eagle 2\nBLRSS0002,Eagle 2\n", StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> ImportFileReader.read(bytes))
+                .isInstanceOf(ImportFileException.class)
+                .hasMessage(ImportFileReader.BAD_CSV);
+    }
+
+    @Test
+    void csvReadingStopsAtTheRowLimit() {
+        StringBuilder sb = new StringBuilder("id,model\n");
+        for (int i = 0; i < 5_000; i++) {
+            sb.append("ID").append(i).append(",Eagle 2\n");
+        }
+
+        ImportFile file = ImportFileReader.read(csv(sb.toString(), StandardCharsets.UTF_8), 100);
+
+        assertThat(file.rows()).hasSize(100);
+        assertThat(file.truncated()).isTrue();
+    }
+
+    @Test
+    void csvColumnsAndCellsAreCappedToo() {
+        String header = String.join(",", java.util.Collections.nCopies(2_000, "c"));
+        String row = "ID1," + "y".repeat(5_000);
+
+        ImportFile file = ImportFileReader.read(csv(header + "\n" + row + "\n", StandardCharsets.UTF_8));
+
+        assertThat(file.rows().get(0)).hasSize(ImportFileReader.MAX_COLUMNS);
+        assertThat(file.rows().get(1).get(1)).hasSize(ImportFileReader.MAX_CELL_CHARS);
+    }
+
     // --- Not a spreadsheet --------------------------------------------------
 
     @Test
@@ -244,6 +369,38 @@ class ImportFileReaderTest {
 
     private static byte[] csv(String text, Charset charset) {
         return text.getBytes(charset);
+    }
+
+    private static byte[] streamedXlsx(int rows, int columns, int cellChars) {
+        return streamedXlsx(rows, columns, cellChars, null);
+    }
+
+    /**
+     * A workbook written with the streaming writer, so a test can produce
+     * thousands of rows or columns without itself holding them. The header
+     * is {@code c0, c1, …}; every data cell is {@code fixed} when given, or
+     * a distinct string of {@code cellChars} characters otherwise.
+     */
+    private static byte[] streamedXlsx(int rows, int columns, int cellChars, String fixed) {
+        try (SXSSFWorkbook wb = new SXSSFWorkbook(100); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = wb.createSheet("Vehicles");
+            Row header = sheet.createRow(0);
+            for (int c = 0; c < columns; c++) {
+                header.createCell(c).setCellValue("c" + c);
+            }
+            for (int r = 1; r <= rows; r++) {
+                Row row = sheet.createRow(r);
+                for (int c = 0; c < columns; c++) {
+                    String value = fixed != null ? fixed : ("r" + r + "c" + c + "-").repeat(Math.max(1, cellChars / 8));
+                    row.createCell(c).setCellValue(fixed != null ? value : value.substring(0, Math.min(value.length(), cellChars)));
+                }
+            }
+            wb.write(out);
+            wb.dispose();
+            return out.toByteArray();
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static byte[] xlsx(Consumer<Sheet> build) {

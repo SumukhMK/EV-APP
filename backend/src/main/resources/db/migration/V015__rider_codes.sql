@@ -15,6 +15,14 @@
 -- RiderCodes.next() holds the row for the rest of the onboarding transaction,
 -- so a rollback puts the number back.
 
+-- Flyway connects as `evrental` with no app.tenant_id on the transaction, and
+-- riders carries FORCE ROW LEVEL SECURITY — so without this the backfill
+-- below updates zero rows, the INSERT ... SELECT seeds no counters, and the
+-- SET NOT NULL fails with "contains null values" on any database that
+-- already has riders. Same line V010 and V013 open with, for the same
+-- reason. Transaction-scoped: it ends with the migration.
+SELECT set_config('app.tenant_id', '*', true);
+
 CREATE TABLE IF NOT EXISTS rider_code_counters (
   tenant_id UUID NOT NULL REFERENCES tenants (id),
   next_no   BIGINT NOT NULL DEFAULT 1,

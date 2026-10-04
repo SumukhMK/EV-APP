@@ -408,6 +408,23 @@ preview names the sheet it read and the columns it ignored. A file over the
 multipart limit is a 413 sentence, not a 500. CSV goes through Commons CSV;
 the hand-written parser is gone.
 
+**Bounded memory (same branch, after a soak).** Running the jar at Render's
+heap (384 MB) and uploading adversarial files found that a 4.5 MB workbook
+of 16,384 columns killed the JVM in 1.5 s: POI's object model held 1.6
+million cells before the row cap was checked. The .xlsx path is now a SAX
+stream from a spooled temp file (`OPCPackage.open(File)` — the InputStream
+form buffers every entry in memory), stopping at the row cap, keeping 256
+columns, cutting cells at 1,000 characters, with a total-text budget and a
+shared-strings budget; .xls is size-capped at 512 KB; CSV streams and stops
+at the cap; two files parse at a time (503 past that); POI's zip-bomb ratio
+is off because the budgets bound memory and the entry-size cap bounds time.
+`-XX:+ExitOnOutOfMemoryError` is on the container so any future OOM restarts
+cleanly instead of limping. Every rejection logs POI's reason at WARN.
+V015's backfill also gained the `set_config('app.tenant_id','*')` line it
+was missing — under FORCE ROW LEVEL SECURITY it updated zero rows on any
+database that already had riders (production's role bypasses RLS, so only
+developers saw it).
+
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
 job is to render the per-row errors the preview returns.

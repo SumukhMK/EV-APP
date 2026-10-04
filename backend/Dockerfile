@@ -58,4 +58,11 @@ EXPOSE 8080
 # No `local` profile here. The container reads DB_URL, JWT_SECRET and the rest
 # from the environment, exactly as a deployed environment will — so running it
 # this way exercises the real configuration path, not the developer shortcut.
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "org.springframework.boot.loader.launch.JarLauncher"]
+# ExitOnOutOfMemoryError: a JVM that has run out of heap is not a server
+# any more — threads die mid-request, the pool wedges, and the health check
+# keeps answering UP from whatever survived. Exiting hands the restart to the
+# platform (Render restarts a crashed service) instead of leaving an
+# instance that only the one person with console access can diagnose. The
+# importer is bounded so this should never fire; it is here for whatever
+# is not.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+ExitOnOutOfMemoryError", "org.springframework.boot.loader.launch.JarLauncher"]

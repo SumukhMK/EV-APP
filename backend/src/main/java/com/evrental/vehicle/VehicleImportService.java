@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,9 +82,22 @@ public class VehicleImportService {
         this.clock = clock;
     }
 
+    /**
+     * How many files may be parsed at once.
+     *
+     * <p>Every other request's memory is set by the database; this one's is
+     * set by whoever uploaded the file. The reader bounds one file by its
+     * own constants, so two at a time bounds the server — a third waits for
+     * a slot, and after {@link #PARSE_WAIT} is told to come back. One
+     * operator never sees that; five people uploading the same minute do,
+     * instead of taking the instance down between them.
+     */
+    private static final Semaphore PARSERS = new Semaphore(2);
+    private static final Duration PARSE_WAIT = Duration.ofSeconds(15);
+
     @Transactional
     public BulkUploadPreviewResponse preview(MultipartFile file, UUID tenantId, UUID uploadedBy) {
-        Parsed parsed = parse(file);
+        Parsed parsed = parseWithinSlot(file);
         List<Map<String, String>> parsedRows = parsed.rows();
 
         Map<String, Long> registryCounts = counts(parsedRows, "id");
@@ -276,6 +291,24 @@ public class VehicleImportService {
      * parses, so the stored payload is one shape; one that does not parse is
      * kept as typed so the row error can quote it.
      */
+    private Parsed parseWithinSlot(MultipartFile file) {
+        boolean acquired;
+        try {
+            acquired = PARSERS.tryAcquire(PARSE_WAIT.toSeconds(), TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ImportBusyException();
+        }
+        if (!acquired) {
+            throw new ImportBusyException();
+        }
+        try {
+            return parse(file);
+        } finally {
+            PARSERS.release();
+        }
+    }
+
     private Parsed parse(MultipartFile file) {
         byte[] bytes;
         try {
@@ -283,18 +316,21 @@ public class VehicleImportService {
         } catch (IOException e) {
             throw new ImportFileException("Could not read the upload");
         }
-        ImportFile parsed = ImportFileReader.read(bytes);
+        // The cap plus the rows the header may hide behind, plus one: the
+        // reader stops there, so a 200,000-row file costs what a 2,011-row
+        // file costs, and "truncated" is how it says there was more.
+        ImportFile parsed = ImportFileReader.read(bytes, MAX_ROWS + HeaderMatcher.SCAN_ROWS + 1);
         HeaderMatch header = HeaderMatcher.locate(parsed.rows());
         List<List<String>> records = parsed.rows().subList(header.headerRow() + 1, parsed.rows().size());
 
         if (records.isEmpty()) {
             throw new ImportFileException("The file has no data rows");
         }
-        if (records.size() > MAX_ROWS) {
+        if (parsed.truncated() || records.size() > MAX_ROWS) {
             throw new ImportFileException(
-                    String.format("The file has %,d rows. The maximum is %,d — split it into smaller files.",
-                            records.size(), MAX_ROWS),
-                    Map.of("rows", records.size(), "maxRows", MAX_ROWS));
+                    String.format("The file has more than %,d rows. The maximum is %,d — split it into smaller files.",
+                            MAX_ROWS, MAX_ROWS),
+                    Map.of("maxRows", MAX_ROWS));
         }
 
         List<Map<String, String>> rows = new ArrayList<>(records.size());
