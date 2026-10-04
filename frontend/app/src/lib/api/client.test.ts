@@ -62,6 +62,26 @@ describe('request', () => {
     });
   });
 
+  it('carries the structured details when the body has them', async () => {
+    fetchMock.mockResolvedValueOnce(
+      json(
+        {
+          message: 'Could not find these columns: hub',
+          status: 422,
+          field: 'file',
+          details: { missingColumns: ['hub'], foundColumns: ['Depot'] },
+        },
+        422,
+      ),
+    );
+
+    await expect(request('/vehicles/imports', { method: 'POST' })).rejects.toMatchObject({
+      name: 'ApiError',
+      field: 'file',
+      details: { missingColumns: ['hub'], foundColumns: ['Depot'] },
+    });
+  });
+
   it('still produces a printable error when the body is not JSON', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,

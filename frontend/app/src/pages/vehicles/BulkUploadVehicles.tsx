@@ -2,11 +2,13 @@ import { useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import UploadIcon from '@mui/icons-material/UploadFileOutlined';
 import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 import { invalidateVehicles } from '../../lib/invalidate';
+import { ApiError } from '../../lib/api/client';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -14,7 +16,7 @@ import { StatTiles } from '../../components/StatTiles';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
 import { FlowStrip } from '../../components/FlowStrip';
-import { UploadBox } from '../../components/UploadBox';
+import { UploadBox, type UploadRejection } from '../../components/UploadBox';
 import { TableSkeleton } from '../../components/TableSkeleton';
 import { commitBulkUpload, downloadImportTemplate, previewBulkUpload } from '../../lib/api/vehicles';
 import type { BulkUploadPreview, ImportResult } from '../../types';
@@ -23,10 +25,10 @@ import { neutral, status as tones } from '../../theme/tokens';
 /** The stages the import walks, drawn under the header so the operator knows
  * how many more times it will ask before it commits.
  *
- * "Map columns" used to sit second and never existed on either side — the
- * parser has always matched headers exactly. A step the product cannot
- * perform is worse than one it does not advertise, so it is gone and the
- * template below is the answer instead. */
+ * "Map columns" used to sit second and never existed on either side. It is
+ * still not a step: the server now recognises the common ways a hub spells a
+ * column, so there is nothing to map by hand — and when it cannot, the error
+ * below lists what it found next to what it needs. */
 const IMPORT_STAGES = [
   'Upload',
   'Validate',
@@ -36,13 +38,9 @@ const IMPORT_STAGES = [
 ] as const;
 
 /**
- * The columns the API parses, spelled exactly as the header row must spell
- * them. This list was previously a different set of nine field names that the
- * importer has never accepted — it promised IoT, controller and motor numbers
- * it cannot store, and omitted the two it requires.
- *
- * Six are required. batteryVendor and registrationNumber may be blank, but
- * the columns must be present.
+ * The columns the API parses, as the template spells them. Six are required.
+ * batteryVendor and registrationNumber may be blank, but the columns must be
+ * present. Spelling is loose — see the note under the box.
  */
 const EXPECTED_COLUMNS = [
   'id',
@@ -54,6 +52,23 @@ const EXPECTED_COLUMNS = [
   'registrationNumber',
   'inductedOn',
 ] as const;
+
+/** What the server accepts, as the browser can check it before sending. */
+const ACCEPT = {
+  'text/csv': ['.csv'],
+  'text/plain': ['.csv'],
+  'application/vnd.ms-excel': ['.xls', '.csv'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+};
+
+/** Mirrors spring.servlet.multipart.max-file-size; the server says the same if this is bypassed. */
+const MAX_FILE_MB = 10;
+
+const REJECTIONS: Record<UploadRejection, string> = {
+  type: 'That file is not a spreadsheet. Upload an .xlsx, .xls or .csv file.',
+  size: `The file is larger than ${MAX_FILE_MB} MB. Split it into smaller files.`,
+  count: 'Upload one file at a time.',
+};
 
 /**
  * Two-stage import: validate first, then commit. The preview is what makes
@@ -68,6 +83,8 @@ export function BulkUploadVehicles() {
   const [preview, setPreview] = useState<BulkUploadPreview | null>(null);
   const [done, setDone] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  /** A file turned away in the browser, before any request. */
+  const [rejected, setRejected] = useState<string | null>(null);
 
   const validate = useMutation({
     mutationFn: (file: File) => previewBulkUpload(file),
@@ -102,9 +119,44 @@ export function BulkUploadVehicles() {
     },
   });
 
-  // Before a file: at Upload. Once a preview is loaded: at Preview. While the
-  // clean rows are being written: at Confirm import.
-  const activeStage = commit.isPending ? 4 : preview ? 3 : 0;
+  /**
+   * Back to nothing. Every path that brings in a new file goes through here
+   * first, because the screen used to clear only the finished result: a
+   * second upload that failed left the first file's preview on screen under
+   * the error, and the operator read the old rows as the new file's.
+   */
+  const clear = () => {
+    setPreview(null);
+    setDone(null);
+    setRejected(null);
+    validate.reset();
+  };
+
+  const onFile = (file: File) => {
+    clear();
+    validate.mutate(file);
+  };
+
+  const onReject = (reason: UploadRejection) => {
+    clear();
+    setRejected(REJECTIONS[reason]);
+  };
+
+  // Before a file: at Upload. While the server reads it: at Validate. Once a
+  // preview is loaded: at Preview. While the clean rows are being written:
+  // at Confirm import.
+  const activeStage = validate.isPending ? 1 : commit.isPending ? 4 : preview ? 3 : 0;
+
+  // A problem with the whole file, as the server explained it. When it sent
+  // the columns it was missing and the ones it found, those are laid out
+  // rather than read out of the sentence.
+  const fileError = validate.error instanceof ApiError ? validate.error : null;
+  const missingColumns = stringList(fileError?.details?.missingColumns);
+  const foundColumns = stringList(fileError?.details?.foundColumns);
+  const errorMessage = rejected
+    ?? (validate.isError
+      ? (validate.error instanceof Error ? validate.error.message : 'That file could not be read.')
+      : null);
 
   return (
     <>
@@ -169,20 +221,19 @@ export function BulkUploadVehicles() {
 
       <Panel
         label="File"
-        subtitle="An .xlsx or .csv export of the registry. One bike per row, header row first."
+        subtitle="An .xlsx, .xls or .csv export of the registry. One bike per row, header row first."
         sx={{ mt: 5 }}
       >
         <UploadBox
           title={validate.isPending ? 'Validating…' : 'Drop a file or choose one'}
-          description="A .xlsx or .csv export of the registry, one bike per row."
-          accept=".csv,.xlsx"
+          description={`An .xlsx, .xls or .csv export of the registry, one bike per row. Up to ${MAX_FILE_MB} MB.`}
+          accept={ACCEPT}
+          maxSize={MAX_FILE_MB * 1024 * 1024}
           buttonLabel="Choose a file"
-          onFile={(file) => {
-            setDone(null);
-            validate.mutate(file);
-          }}
+          onFile={onFile}
+          onReject={onReject}
           expectedColumns={EXPECTED_COLUMNS}
-          columnNote="Header names must match exactly. Download the template above to start from the right columns."
+          columnNote="Column names are matched loosely — “Chassis Number”, “Reg No” and “Induction Date” are all understood, and a title row above the header is fine. Download the template to start from the right columns."
         />
       </Panel>
 
@@ -196,10 +247,35 @@ export function BulkUploadVehicles() {
         </Panel>
       )}
 
-      {validate.isError && (
+      {errorMessage && missingColumns.length === 0 && (
         <Alert severity="error" variant="outlined" sx={{ mt: 5 }}>
-          {validate.error instanceof Error ? validate.error.message : 'That file could not be read.'}
+          {errorMessage}
         </Alert>
+      )}
+
+      {errorMessage && missingColumns.length > 0 && (
+        <Panel
+          label="The file could not be used"
+          subtitle="Rename the columns in your file to match, or start from the template."
+          sx={{ mt: 5 }}
+          action={
+            <Button
+              startIcon={<DownloadIcon />}
+              disabled={template.isPending}
+              onClick={() => template.mutate()}
+            >
+              {template.isPending ? 'Preparing…' : 'Download template'}
+            </Button>
+          }
+        >
+          <Alert severity="error" variant="outlined">
+            {errorMessage}
+          </Alert>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5, mt: 4 }}>
+            <ColumnList id="missing-columns" label="Missing columns" items={missingColumns} tone="bad" />
+            <ColumnList id="found-columns" label="Columns in your file" items={foundColumns} />
+          </Box>
+        </Panel>
       )}
 
       {preview && !validate.isPending && (
@@ -216,14 +292,24 @@ export function BulkUploadVehicles() {
 
           <Panel
             label="Preview"
-            subtitle={`${preview.fileName} — rows with an error are skipped. Fix them in the file and upload again.`}
+            subtitle={`${preview.fileName}${preview.sheetName ? ` · sheet “${preview.sheetName}”` : ''} — rows with an error are skipped. Fix them in the file and upload again.`}
             sx={{ mt: 5 }}
             action={
-              <Button onClick={() => setConfirmOpen(true)} disabled={commit.isPending || preview.validRows === 0}>
-                {commit.isPending ? 'Importing…' : `Import ${preview.validRows} vehicles`}
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button color="inherit" onClick={clear} disabled={commit.isPending}>
+                  Remove file
+                </Button>
+                <Button onClick={() => setConfirmOpen(true)} disabled={commit.isPending || preview.validRows === 0}>
+                  {commit.isPending ? 'Importing…' : `Import ${preview.validRows} vehicles`}
+                </Button>
+              </Box>
             }
           >
+            {preview.ignoredColumns.length > 0 && (
+              <Typography sx={{ fontSize: 12, color: 'grey.500', mb: 3 }}>
+                Ignored columns: {preview.ignoredColumns.join(', ')} — they matched no field and were skipped.
+              </Typography>
+            )}
             <SimpleTable
               rows={preview.rows}
               getRowKey={(r) => String(r.rowNumber)}
@@ -271,4 +357,53 @@ export function BulkUploadVehicles() {
       />
     </>
   );
+}
+
+/** A labelled run of chips — the missing columns in red, the found ones plain. */
+function ColumnList({
+  id,
+  label,
+  items,
+  tone,
+}: {
+  id: string;
+  label: string;
+  items: string[];
+  tone?: 'bad';
+}) {
+  return (
+    <Box>
+      <Typography variant="overline" id={id}>{label}</Typography>
+      <Box
+        component="ul"
+        aria-labelledby={id}
+        sx={{ listStyle: 'none', p: 0, m: 0, mt: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}
+      >
+        {items.length === 0 && (
+          <Box component="li" sx={{ fontSize: 12, color: 'grey.500' }}>none</Box>
+        )}
+        {items.map((item) => (
+          <Box
+            component="li"
+            key={item}
+            sx={{
+              fontSize: 12,
+              px: 2,
+              py: '3px',
+              borderRadius: '4px',
+              background: tone === 'bad' ? tones.bad.bg : neutral[900],
+              color: tone === 'bad' ? tones.bad.fg : neutral[300],
+            }}
+          >
+            {item}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+/** The detail as a list of strings, or nothing — the server's shape is not trusted blindly. */
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
