@@ -43,14 +43,24 @@ public abstract class AssignmentTestBase extends PostgresTestBase {
 
     /** An ACTIVE rider on TENANT's register, for the happy paths. */
     protected static final UUID RIDER_A = UUID.fromString("50000000-0000-0000-0000-0000000000a1");
+    /** The user-facing code for RIDER_A. */
+    protected static final String RIDER_A_CODE = "R01";
     /** A second ACTIVE rider, for the one-bike-one-rider rules. */
     protected static final UUID RIDER_C = UUID.fromString("50000000-0000-0000-0000-0000000000c1");
+    /** The user-facing code for RIDER_C. */
+    protected static final String RIDER_C_CODE = "R02";
     /** A DEBOARDED rider — the status the rules refuse to put a bike on. */
     protected static final UUID RIDER_DEBOARDED = UUID.fromString("50000000-0000-0000-0000-0000000000d1");
+    /** The user-facing code for the deboarded rider. */
+    protected static final String RIDER_DEBOARDED_CODE = "R03";
     /** An ACTIVE rider on OTHER_TENANT's register — invisible to TENANT's callers. */
     protected static final UUID RIDER_B = UUID.fromString("60000000-0000-0000-0000-0000000000b1");
+    /** The user-facing code for RIDER_B within OTHER_TENANT. */
+    protected static final String RIDER_B_CODE = "R21";
     /** An ACTIVE rider on the platform tenant, for the super-admin happy path. */
     protected static final UUID RIDER_PLATFORM = UUID.fromString("00000000-0000-0000-0000-0000000000f1");
+    /** The user-facing code for RIDER_PLATFORM within PLATFORM_TENANT. */
+    protected static final String RIDER_PLATFORM_CODE = "R31";
 
     /** A bike in the yard, for assigning and exchanging onto. */
     protected static final String VEHICLE_READY = "BLRSS5001";
@@ -119,6 +129,8 @@ public abstract class AssignmentTestBase extends PostgresTestBase {
             // Reference data holds a foreign key to the tenant, so it goes first.
             jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM rider_code_counters WHERE tenant_id IN (?, ?, ?)",
+                    TENANT, OTHER_TENANT, PLATFORM_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Assignments Co', 'assignments-co', 'ACTIVE')", TENANT);
@@ -129,21 +141,23 @@ public abstract class AssignmentTestBase extends PostgresTestBase {
             insertUser(jdbc, TENANT, "Abhinandan", SERVICE_MANAGER_EMAIL, "SERVICE_MANAGER", PASSWORD);
             insertUser(jdbc, OTHER_TENANT, "Rival Admin", OTHER_FLEET_ADMIN_EMAIL, "FLEET_ADMIN", PASSWORD);
             insertUser(jdbc, PLATFORM_TENANT, "Priya Menon", SUPER_ADMIN_EMAIL, "SUPER_ADMIN", PASSWORD);
-            insertRider(jdbc, RIDER_A, TENANT, "Anil Shetty", "9845012277",
+            insertRider(jdbc, RIDER_A, RIDER_A_CODE, TENANT, "Anil Shetty", "9845012277",
                     "ACTIVE", "VERIFIED", 175000, 300000, "MONDAY", "MONDAY", "UPI", "Zomato",
                     "111122223333");
-            insertRider(jdbc, RIDER_C, TENANT, "Kiran Rao", "9845012288",
+            insertRider(jdbc, RIDER_C, RIDER_C_CODE, TENANT, "Kiran Rao", "9845012288",
                     "ACTIVE", "VERIFIED", 190000, 300000, "MONDAY", "TUESDAY", "UPI", "Swiggy",
                     "111122224444");
-            insertRider(jdbc, RIDER_DEBOARDED, TENANT, "Vinod Naik", "9008773412",
+            insertRider(jdbc, RIDER_DEBOARDED, RIDER_DEBOARDED_CODE, TENANT, "Vinod Naik", "9008773412",
                     "DEBOARDED", "VERIFIED", 170000, 0, "MONDAY", "SATURDAY", "UPI", "Porter",
                     "111122225555");
-            insertRider(jdbc, RIDER_B, OTHER_TENANT, "Rival Rider", "9000000002",
+            insertRider(jdbc, RIDER_B, RIDER_B_CODE, OTHER_TENANT, "Rival Rider", "9000000002",
                     "ACTIVE", "VERIFIED", 175000, 300000, "MONDAY", "MONDAY", "UPI", "Zomato",
                     "444455556666");
-            insertRider(jdbc, RIDER_PLATFORM, PLATFORM_TENANT, "Platform Rider", "9000000099",
+            insertRider(jdbc, RIDER_PLATFORM, RIDER_PLATFORM_CODE, PLATFORM_TENANT, "Platform Rider", "9000000099",
                     "ACTIVE", "VERIFIED", 175000, 300000, "MONDAY", "MONDAY", "UPI", "Zomato",
                     "999988887777");
+            jdbc.update("INSERT INTO rider_code_counters (tenant_id, next_no) VALUES (?, 4), (?, 2), (?, 2)",
+                    TENANT, OTHER_TENANT, PLATFORM_TENANT);
             insertVehicle(jdbc, TENANT, VEHICLE_READY, "CH-5001", VehicleState.READY_TO_DEPLOY);
             insertVehicle(jdbc, TENANT, VEHICLE_READY_2, "CH-5002", VehicleState.READY_TO_DEPLOY);
             insertVehicle(jdbc, TENANT, VEHICLE_DEPLOYED, "CH-5003", VehicleState.DEPLOYED);
@@ -160,16 +174,36 @@ public abstract class AssignmentTestBase extends PostgresTestBase {
                 tenantId, name, email, passwordEncoder.encode(password), role);
     }
 
-    protected void insertRider(JdbcTemplate jdbc, UUID id, UUID tenantId, String name, String phone,
+    protected void insertRider(JdbcTemplate jdbc, UUID id, String riderCode, UUID tenantId, String name, String phone,
                                String status, String kycStatus, long planPaise, long depositPaise,
                                String billingDay, String paymentDay, String paymentMode, String platform,
                                String aadhaar) {
-        jdbc.update("INSERT INTO riders (id, tenant_id, name, phone, status, kyc_status, "
+        jdbc.update("INSERT INTO riders (id, rider_code, tenant_id, name, phone, status, kyc_status, "
                         + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, payment_mode, "
                         + "platform, onboarded_on, aadhaar_encrypted) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, ?)",
-                id, tenantId, name, phone, status, kycStatus, planPaise, depositPaise,
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, ?)",
+                id, riderCode, tenantId, name, phone, status, kycStatus, planPaise, depositPaise,
                 billingDay, paymentDay, paymentMode, platform, aadhaarCipher.encrypt(aadhaar));
+    }
+
+    protected String riderCode(UUID riderId) {
+        if (RIDER_A.equals(riderId)) {
+            return RIDER_A_CODE;
+        }
+        if (RIDER_C.equals(riderId)) {
+            return RIDER_C_CODE;
+        }
+        if (RIDER_DEBOARDED.equals(riderId)) {
+            return RIDER_DEBOARDED_CODE;
+        }
+        if (RIDER_B.equals(riderId)) {
+            return RIDER_B_CODE;
+        }
+        if (RIDER_PLATFORM.equals(riderId)) {
+            return RIDER_PLATFORM_CODE;
+        }
+        return superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT rider_code FROM riders WHERE id = ?", String.class, riderId));
     }
 
     protected void insertVehicle(JdbcTemplate jdbc, UUID tenantId, String registryId, String chassis,

@@ -13,10 +13,13 @@ import java.util.UUID;
  * V007 had no such column and this record had no such field, because the
  * period depends on the rider's billing day and riders were S2. Both arrived
  * with V009.
+ *
+ * <p>{@code riderId} is the rider code an operator reads ("R01"), not the
+ * register's internal row id.
  */
 public record RiderChargeResponse(
         UUID id,
-        UUID riderId,
+        String riderId,
         UUID serviceJobId,
         UUID vehicleId,
         long amountPaise,
@@ -26,9 +29,9 @@ public record RiderChargeResponse(
         Instant chargedOn,
         Instant settledOn) {
 
-    public static RiderChargeResponse from(RiderCharge charge) {
+    public static RiderChargeResponse from(RiderCharge charge, String riderCode) {
         return new RiderChargeResponse(
-                charge.getId(), charge.getRiderId(), charge.getServiceJobId(), charge.getVehicleId(),
+                charge.getId(), riderCode, charge.getServiceJobId(), charge.getVehicleId(),
                 charge.getAmountPaise(), charge.getLiability(), charge.getStatus(),
                 charge.getPeriodStart(), charge.getChargedOn(), charge.getSettledOn());
     }

@@ -42,8 +42,12 @@ public abstract class RiderTestBase extends PostgresTestBase {
 
     /** A rider on TENANT's register, for read tests. */
     protected static final UUID RIDER_A = UUID.fromString("10000000-0000-0000-0000-0000000000a1");
+    /** The user-facing code for RIDER_A. */
+    protected static final String RIDER_A_CODE = "R01";
     /** A rider on OTHER_TENANT's register — invisible to TENANT's callers. */
     protected static final UUID RIDER_B = UUID.fromString("20000000-0000-0000-0000-0000000000b1");
+    /** The user-facing code for RIDER_B within OTHER_TENANT. */
+    protected static final String RIDER_B_CODE = "R21";
 
     /** A valid onboard body. Tests that want a failure change one field. */
     protected static final String ONBOARD_BODY = """
@@ -100,6 +104,7 @@ public abstract class RiderTestBase extends PostgresTestBase {
             // Reference data holds a foreign key to the tenant, so it goes first.
             jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM rider_code_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Riders Co', 'riders-co', 'ACTIVE')", TENANT);
@@ -110,12 +115,14 @@ public abstract class RiderTestBase extends PostgresTestBase {
             insertUser(jdbc, TENANT, "Abhinandan", SERVICE_MANAGER_EMAIL, "SERVICE_MANAGER", PASSWORD);
             insertUser(jdbc, OTHER_TENANT, "Rival Admin", OTHER_FLEET_ADMIN_EMAIL, "FLEET_ADMIN", PASSWORD);
             insertUser(jdbc, PLATFORM_TENANT, "Priya Menon", SUPER_ADMIN_EMAIL, "SUPER_ADMIN", PASSWORD);
-            insertRider(jdbc, RIDER_A, TENANT, "Anil Shetty", "9845012277",
+            insertRider(jdbc, RIDER_A, RIDER_A_CODE, TENANT, "Anil Shetty", "9845012277",
                     "ACTIVE", "VERIFIED", 175000, 300000, "MONDAY", "MONDAY", "UPI", "Zomato",
                     "111122223333");
-            insertRider(jdbc, RIDER_B, OTHER_TENANT, "Rival Rider", "9000000002",
+            insertRider(jdbc, RIDER_B, RIDER_B_CODE, OTHER_TENANT, "Rival Rider", "9000000002",
                     "ACTIVE", "VERIFIED", 175000, 300000, "MONDAY", "MONDAY", "UPI", "Zomato",
                     "444455556666");
+            jdbc.update("INSERT INTO rider_code_counters (tenant_id, next_no) VALUES (?, 2), (?, 2)",
+                    TENANT, OTHER_TENANT);
             return null;
         });
     }
@@ -127,16 +134,27 @@ public abstract class RiderTestBase extends PostgresTestBase {
                 tenantId, name, email, passwordEncoder.encode(password), role);
     }
 
-    protected void insertRider(JdbcTemplate jdbc, UUID id, UUID tenantId, String name, String phone,
+    protected void insertRider(JdbcTemplate jdbc, UUID id, String riderCode, UUID tenantId, String name, String phone,
                                String status, String kycStatus, long planPaise, long depositPaise,
                                String billingDay, String paymentDay, String paymentMode, String platform,
                                String aadhaar) {
-        jdbc.update("INSERT INTO riders (id, tenant_id, name, phone, status, kyc_status, "
+        jdbc.update("INSERT INTO riders (id, rider_code, tenant_id, name, phone, status, kyc_status, "
                         + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, payment_mode, "
                         + "platform, onboarded_on, aadhaar_encrypted) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, ?)",
-                id, tenantId, name, phone, status, kycStatus, planPaise, depositPaise,
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, ?)",
+                id, riderCode, tenantId, name, phone, status, kycStatus, planPaise, depositPaise,
                 billingDay, paymentDay, paymentMode, platform, aadhaarCipher.encrypt(aadhaar));
+    }
+
+    protected String riderCode(UUID riderId) {
+        if (RIDER_A.equals(riderId)) {
+            return RIDER_A_CODE;
+        }
+        if (RIDER_B.equals(riderId)) {
+            return RIDER_B_CODE;
+        }
+        return superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT rider_code FROM riders WHERE id = ?", String.class, riderId));
     }
 
     /** A bearer token for the given account, obtained through the real login endpoint. */

@@ -48,6 +48,16 @@ public class Rider {
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
+    /**
+     * The human-facing id ("R01"), unique per tenant. The database primary
+     * key above stays the UUID every join uses; this is what every screen,
+     * URL and search box uses instead — the same split Vehicle has between
+     * {@code id} and {@code registryId}. Assigned once, at onboarding, by
+     * {@link RiderCodes}.
+     */
+    @Column(name = "rider_code", nullable = false)
+    private String riderCode;
+
     @Column(nullable = false)
     private String name;
 
@@ -163,6 +173,14 @@ public class Rider {
 
     public void setTenantId(UUID tenantId) {
         this.tenantId = tenantId;
+    }
+
+    public String getRiderCode() {
+        return riderCode;
+    }
+
+    public void setRiderCode(String riderCode) {
+        this.riderCode = riderCode;
     }
 
     public String getName() {

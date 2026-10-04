@@ -24,7 +24,7 @@ class ChangeLogAuditTest extends RiderTestBase {
 
     @Test
     void aPlanChangeIsRecordedAndAppearsInTheTrail() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/plan")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/plan")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"planAmount\":160000}"))
@@ -41,12 +41,12 @@ class ChangeLogAuditTest extends RiderTestBase {
     /** Saving the same number is not a change, and does not clutter the trail. */
     @Test
     void settingThePlanToWhatItAlreadyIsRecordsNothing() throws Exception {
-        String body = mvc.perform(get("/api/v1/riders/" + RIDER_A)
+        String body = mvc.perform(get("/api/v1/riders/" + RIDER_A_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andReturn().getResponse().getContentAsString();
         Integer current = com.jayway.jsonpath.JsonPath.read(body, "$.planAmount");
 
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/plan")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/plan")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"planAmount\":" + current + "}"))
@@ -61,7 +61,7 @@ class ChangeLogAuditTest extends RiderTestBase {
     /** The plan is what a rider is billed every week, so it is a money decision. */
     @Test
     void fleetStaffCannotChangeAPlan() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/plan")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/plan")
                         .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"planAmount\":100000}"))
@@ -70,7 +70,7 @@ class ChangeLogAuditTest extends RiderTestBase {
 
     @Test
     void aNegativePlanIsRefused() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/plan")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/plan")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"planAmount\":-1}"))

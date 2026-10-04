@@ -18,7 +18,7 @@ class AssignmentRbacTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -29,7 +29,7 @@ class AssignmentRbacTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isForbidden());
     }
 
@@ -43,7 +43,7 @@ class AssignmentRbacTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"NONE","nextVehicleState":"QC_PENDING",
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
                 .andExpect(status().isForbidden());
     }
 
@@ -58,7 +58,7 @@ class AssignmentRbacTest extends AssignmentTestBase {
                                  "nextVehicleState":"QC_PENDING",
                                  "outstandingRent":0,"depositRefund":300000,
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isForbidden());
     }
 
@@ -69,7 +69,7 @@ class AssignmentRbacTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk());
     }
 
@@ -82,7 +82,7 @@ class AssignmentRbacTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_PLATFORM, VEHICLE_PLATFORM)))
+                                """.formatted(RIDER_PLATFORM_CODE, VEHICLE_PLATFORM)))
                 .andExpect(status().isOk());
     }
 
@@ -95,7 +95,7 @@ class AssignmentRbacTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isNotFound());
     }
 }

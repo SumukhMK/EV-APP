@@ -1,7 +1,7 @@
 package com.evrental.payment;
 
+import com.evrental.rider.RiderService;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,13 +28,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class RiderPaymentController {
 
     private final PaymentRunService runs;
+    private final RiderService riderService;
 
-    public RiderPaymentController(PaymentRunService runs) {
+    public RiderPaymentController(PaymentRunService runs, RiderService riderService) {
         this.runs = runs;
+        this.riderService = riderService;
     }
 
     @GetMapping
-    public List<RiderPaymentRow> periods(@PathVariable UUID riderId) {
-        return runs.historyFor(riderId);
+    public List<RiderPaymentRow> periods(@PathVariable String riderId) {
+        return runs.historyFor(riderService.findByRiderCode(riderId).getId());
     }
 }

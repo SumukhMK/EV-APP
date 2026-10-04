@@ -28,14 +28,22 @@ public interface RiderRepository extends JpaRepository<Rider, UUID> {
     Optional<Rider> findByPhone(@Param("phone") String phone);
 
     /**
+     * Written out for the same reason findByPhone is: Spring Data's derived
+     * ...IgnoreCase cannot use idx_riders_code. RLS scopes this to the
+     * caller's tenant.
+     */
+    @Query("select r from Rider r where lower(r.riderCode) = lower(:riderCode)")
+    Optional<Rider> findByRiderCode(@Param("riderCode") String riderCode);
+
+    /**
      * The list. Every parameter is optional and a null means "do not filter" —
      * written as `(:param is null or ...)` so one query serves every
      * combination, the same shape as VehicleRepository.search.
      *
      * <p>q is matched against every column the row prints, because that is what
      * a search box appears to promise. The caller passes it already lowercased
-     * and wrapped in % signs. The mock also matches the rider id, but live ids
-     * are UUIDs nobody types, so id is deliberately not searched.
+     * and wrapped in % signs. riderCode is included because, unlike the raw
+     * UUID it replaced, it is exactly what a search box promises to find.
      */
     @Query("""
             select r from Rider r
@@ -45,7 +53,8 @@ public interface RiderRepository extends JpaRepository<Rider, UUID> {
               and (:q is null
                    or lower(r.name) like :q
                    or lower(r.phone) like :q
-                   or lower(r.platform) like :q)
+                   or lower(r.platform) like :q
+                   or lower(r.riderCode) like :q)
             """)
     Page<Rider> search(@Param("q") String q,
                        @Param("status") RiderStatus status,
@@ -66,7 +75,8 @@ public interface RiderRepository extends JpaRepository<Rider, UUID> {
               and (:q is null
                    or lower(r.name) like :q
                    or lower(r.phone) like :q
-                   or lower(r.platform) like :q)
+                   or lower(r.platform) like :q
+                   or lower(r.riderCode) like :q)
             group by r.status
             """)
     List<Object[]> countByStatus(@Param("q") String q,

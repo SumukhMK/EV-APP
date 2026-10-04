@@ -28,7 +28,7 @@ class AuditTrailTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk());
 
         mvc.perform(get("/api/v1/audit")
@@ -47,7 +47,7 @@ class AuditTrailTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk());
 
         mvc.perform(get("/api/v1/audit")
@@ -64,7 +64,7 @@ class AuditTrailTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk());
 
         String body = mvc.perform(get("/api/v1/audit")

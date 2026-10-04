@@ -1,5 +1,7 @@
 package com.evrental.payment;
 
+import com.evrental.rider.Rider;
+import com.evrental.rider.RiderService;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,28 +30,35 @@ import org.springframework.web.bind.annotation.RestController;
 public class RiderChargeController {
 
     private final RiderChargeService charges;
+    private final RiderService riderService;
 
-    public RiderChargeController(RiderChargeService charges) {
+    public RiderChargeController(RiderChargeService charges, RiderService riderService) {
         this.charges = charges;
+        this.riderService = riderService;
     }
 
     @GetMapping
-    public List<RiderChargeResponse> forRider(@RequestParam UUID riderId,
+    public List<RiderChargeResponse> forRider(@RequestParam String riderId,
                                               @RequestParam(required = false) RiderChargeStatus status) {
-        return charges.forRider(riderId, status).stream().map(RiderChargeResponse::from).toList();
+        Rider rider = riderService.findByRiderCode(riderId);
+        return charges.forRider(rider.getId(), status).stream()
+                .map(c -> RiderChargeResponse.from(c, rider.getRiderCode()))
+                .toList();
     }
 
     /** What this rider owes, in paise. The one number the collections desk asks for. */
     @GetMapping("/outstanding")
-    public OutstandingResponse outstanding(@RequestParam UUID riderId) {
-        return new OutstandingResponse(riderId, charges.outstandingPaiseFor(riderId));
+    public OutstandingResponse outstanding(@RequestParam String riderId) {
+        Rider rider = riderService.findByRiderCode(riderId);
+        return new OutstandingResponse(rider.getRiderCode(), charges.outstandingPaiseFor(rider.getId()));
     }
 
     @PostMapping("/{id}/settle")
     public RiderChargeResponse settle(@PathVariable UUID id) {
-        return RiderChargeResponse.from(charges.settle(id));
+        RiderCharge charge = charges.settle(id);
+        return RiderChargeResponse.from(charge, riderService.findById(charge.getRiderId()).getRiderCode());
     }
 
-    public record OutstandingResponse(UUID riderId, long outstandingPaise) {
+    public record OutstandingResponse(String riderId, long outstandingPaise) {
     }
 }

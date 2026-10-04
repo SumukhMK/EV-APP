@@ -67,9 +67,10 @@ class RiderSchemaTest extends PostgresTestBase {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO riders (tenant_id, name, phone, status, kyc_status, "
                             + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, "
-                            + "payment_mode, platform, onboarded_on, aadhaar_encrypted) "
+                            + "payment_mode, platform, onboarded_on, aadhaar_encrypted, rider_code) "
                             + "VALUES (?, 'Bad Rider', '9000000005', 'TELEPORTED', 'PENDING', "
-                            + "0, 0, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, 'v1:test-iv:test-ciphertext')")) {
+                            + "0, 0, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, "
+                            + "'v1:test-iv:test-ciphertext', 'R-SCHEMA-1')")) {
                 ps.setObject(1, TENANT_A);
                 ps.executeUpdate();
             }
@@ -85,9 +86,10 @@ class RiderSchemaTest extends PostgresTestBase {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO riders (tenant_id, name, phone, status, kyc_status, "
                             + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, "
-                            + "payment_mode, platform, onboarded_on, aadhaar_encrypted) "
+                            + "payment_mode, platform, onboarded_on, aadhaar_encrypted, rider_code) "
                             + "VALUES (?, 'Bad Rider', '9000000006', 'ACTIVE', 'PENDING', "
-                            + "0, 0, 'FRIDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, 'v1:test-iv:test-ciphertext')")) {
+                            + "0, 0, 'FRIDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, "
+                            + "'v1:test-iv:test-ciphertext', 'R-SCHEMA-2')")) {
                 ps.setObject(1, TENANT_A);
                 ps.executeUpdate();
             }
@@ -103,9 +105,10 @@ class RiderSchemaTest extends PostgresTestBase {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO riders (tenant_id, name, phone, status, kyc_status, "
                             + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, "
-                            + "payment_mode, platform, onboarded_on, aadhaar_encrypted) "
+                            + "payment_mode, platform, onboarded_on, aadhaar_encrypted, rider_code) "
                             + "VALUES (?, 'Bad Rider', '9000000007', 'ACTIVE', 'PENDING', "
-                            + "-1, 0, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, 'v1:test-iv:test-ciphertext')")) {
+                            + "-1, 0, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, "
+                            + "'v1:test-iv:test-ciphertext', 'R-SCHEMA-3')")) {
                 ps.setObject(1, TENANT_A);
                 ps.executeUpdate();
             }
@@ -124,9 +127,9 @@ class RiderSchemaTest extends PostgresTestBase {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO riders (tenant_id, name, phone, status, kyc_status, "
                             + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, "
-                            + "payment_mode, platform, onboarded_on) "
+                            + "payment_mode, platform, onboarded_on, rider_code) "
                             + "VALUES (?, 'Bad Rider', '9000000009', 'ACTIVE', 'PENDING', "
-                            + "0, 0, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE)")) {
+                            + "0, 0, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, 'R-SCHEMA-4')")) {
                 ps.setObject(1, TENANT_A);
                 ps.executeUpdate();
             }
@@ -228,14 +231,15 @@ class RiderSchemaTest extends PostgresTestBase {
     private UUID insertRider(UUID tenantId, String phone) {
         return onConnection("*", conn -> {
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO riders (tenant_id, name, phone, status, kyc_status, "
+                    "INSERT INTO riders (tenant_id, rider_code, name, phone, status, kyc_status, "
                             + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, "
                             + "payment_mode, platform, onboarded_on, aadhaar_encrypted) "
-                            + "VALUES (?, 'Schema Rider', ?, 'ACTIVE', 'PENDING', "
+                            + "VALUES (?, ?, 'Schema Rider', ?, 'ACTIVE', 'PENDING', "
                             + "175000, 300000, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, "
                             + "'v1:test-iv:test-ciphertext') RETURNING id")) {
                 ps.setObject(1, tenantId);
-                ps.setString(2, phone);
+                ps.setString(2, "RS" + UUID.randomUUID().toString().substring(0, 8));
+                ps.setString(3, phone);
                 var rs = ps.executeQuery();
                 rs.next();
                 return (UUID) rs.getObject(1);

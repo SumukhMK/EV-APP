@@ -83,7 +83,7 @@ public class AssignmentService {
      */
     @Transactional
     public Rider assign(AssignVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName) {
-        Rider rider = riders.findById(request.riderId());
+        Rider rider = riders.findByRiderCode(request.riderId());
         requireActive(rider);
 
         assignments.findOpenByRiderId(rider.getId()).ifPresent(open -> {
@@ -120,7 +120,7 @@ public class AssignmentService {
      */
     @Transactional
     public Rider exchange(ExchangeVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName) {
-        Rider rider = riders.findById(request.riderId());
+        Rider rider = riders.findByRiderCode(request.riderId());
         requireActive(rider);
 
         Assignment open = assignments.findOpenByRiderId(rider.getId())
@@ -174,7 +174,7 @@ public class AssignmentService {
      */
     @Transactional
     public Rider deboard(DeboardRiderRequest request, UUID tenantId, UUID actorUserId, String actorName) {
-        Rider rider = riders.findById(request.riderId());
+        Rider rider = riders.findByRiderCode(request.riderId());
 
         Assignment open = assignments.findOpenByRiderId(rider.getId())
                 .orElseThrow(() -> new ConflictException(
@@ -362,10 +362,11 @@ public class AssignmentService {
     }
 
     private SettlementResponse toSettlement(Assignment a) {
+        Rider rider = riders.findById(a.getRiderId());
         return new SettlementResponse(
                 a.getId().toString(),
-                a.getRiderId(),
-                riders.findById(a.getRiderId()).getName(),
+                rider.getRiderCode(),
+                rider.getName(),
                 vehicles.findById(a.getVehicleId()).map(com.evrental.vehicle.Vehicle::getRegistryId).orElse(null),
                 a.getEndedOn(),
                 a.getOutstandingRentPaise() == null ? 0 : a.getOutstandingRentPaise(),

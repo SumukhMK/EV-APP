@@ -28,9 +28,9 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"NONE","nextVehicleState":"QC_PENDING",
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(RIDER_A.toString()))
+                .andExpect(jsonPath("$.id").value(RIDER_A_CODE))
                 .andExpect(jsonPath("$.currentVehicleId").value(VEHICLE_READY_2));
 
         // The old assignment is closed with the return facts; the new one is
@@ -68,7 +68,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"NONE","nextVehicleState":"QC_PENDING",
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_DEPLOYED, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_DEPLOYED, VEHICLE_READY_2)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value(
                         "Anil Shetty is not holding " + VEHICLE_DEPLOYED))
@@ -87,7 +87,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"NONE","nextVehicleState":"QC_PENDING",
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Pick a different bike to exchange onto"))
                 .andExpect(jsonPath("$.field").value("toVehicleId"));
@@ -105,7 +105,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"NONE","nextVehicleState":"QC_PENDING",
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_DEPLOYED)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_DEPLOYED)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value(VEHICLE_DEPLOYED + " is not Ready to Deploy"))
                 .andExpect(jsonPath("$.field").value("toVehicleId"));
@@ -124,7 +124,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "returnCondition":"MINOR","nextVehicleState":"UNDER_REPAIR",
                                  "damageItems":[{"part":"Handlebar","note":"bent"}],
                                  "note":"swapped at the hub"}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
                 .andExpect(status().isOk());
 
         // A minor-damage return goes to the repair bench, and the job carries
@@ -154,7 +154,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"NONE","nextVehicleState":"READY_TO_DEPLOY",
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value("Choose a return destination"))
                 .andExpect(jsonPath("$.field").value("nextVehicleState"));
@@ -168,7 +168,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"NONE","nextVehicleState":"QC_PENDING",
                                  "damageItems":[{"part":"Handlebar"}]}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value(
                         "Clear the damaged-part rows or choose a damage severity"))
@@ -183,7 +183,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"MINOR","nextVehicleState":"UNDER_REPAIR",
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value(
                         "Record the damaged parts before returning this bike"))
@@ -198,7 +198,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                  "occurredOn":"2026-09-28","reason":"RIDER_REQUEST",
                                  "returnCondition":"NONE","nextVehicleState":"UNDER_REPAIR",
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value("Explain the destination override"))
                 .andExpect(jsonPath("$.field").value("note"));
@@ -210,7 +210,7 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(riderId, vehicleId)))
+                                """.formatted(riderCode(riderId), vehicleId)))
                 .andExpect(status().isOk());
     }
 }

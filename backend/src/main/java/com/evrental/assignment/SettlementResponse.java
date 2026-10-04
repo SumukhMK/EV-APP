@@ -2,7 +2,6 @@ package com.evrental.assignment;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.UUID;
 
 /**
  * A deboard's money facts, and whether anyone has acted on them.
@@ -12,7 +11,7 @@ import java.util.UUID;
  */
 public record SettlementResponse(
         String assignmentId,
-        UUID riderId,
+        String riderId,
         String riderName,
         String vehicleId,
         LocalDate endedOn,

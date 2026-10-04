@@ -2,9 +2,9 @@ package com.evrental.payment;
 
 import com.evrental.auth.JwtPrincipal;
 import com.evrental.rider.BillingDay;
+import com.evrental.rider.RiderService;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -37,9 +37,11 @@ import tools.jackson.databind.node.NullNode;
 public class PaymentRunController {
 
     private final PaymentRunService runs;
+    private final RiderService riderService;
 
-    public PaymentRunController(PaymentRunService runs) {
+    public PaymentRunController(PaymentRunService runs, RiderService riderService) {
         this.runs = runs;
+        this.riderService = riderService;
     }
 
     /**
@@ -71,8 +73,8 @@ public class PaymentRunController {
      * empty body throws rather than resolving to null.
      */
     @GetMapping("/receipts/{riderId}")
-    public ResponseEntity<Object> receipt(@PathVariable UUID riderId) {
-        PaymentReceiptResponse receipt = runs.receiptFor(riderId);
+    public ResponseEntity<Object> receipt(@PathVariable String riderId) {
+        PaymentReceiptResponse receipt = runs.receiptFor(riderService.findByRiderCode(riderId).getId());
         return ResponseEntity.ok(receipt == null ? NullNode.getInstance() : receipt);
     }
 

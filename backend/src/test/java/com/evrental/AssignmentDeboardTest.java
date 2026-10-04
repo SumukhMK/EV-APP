@@ -28,9 +28,9 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                                  "nextVehicleState":"QC_PENDING",
                                  "outstandingRent":0,"depositRefund":300000,
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(RIDER_A.toString()))
+                .andExpect(jsonPath("$.id").value(RIDER_A_CODE))
                 .andExpect(jsonPath("$.currentVehicleId").doesNotExist())
                 .andExpect(jsonPath("$.status").value("DEBOARDED"));
 
@@ -67,7 +67,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                                  "nextVehicleState":"QC_PENDING",
                                  "outstandingRent":0,"depositRefund":300000,
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_DEPLOYED)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_DEPLOYED)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value(
                         "Anil Shetty is not holding " + VEHICLE_DEPLOYED))
@@ -88,7 +88,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                                  "outstandingRent":175000,"depositRefund":200000,
                                  "damageItems":[{"part":"Mirror","note":"cracked"}],
                                  "note":"mirror cracked on the way back"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk());
 
         // The BUILD.md done-when: a minor-damage deboard opens a job and the
@@ -119,7 +119,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                                  "nextVehicleState":"READY_TO_DEPLOY",
                                  "outstandingRent":0,"depositRefund":300000,
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value("Choose a return destination"))
                 .andExpect(jsonPath("$.field").value("nextVehicleState"));
@@ -134,7 +134,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                                  "nextVehicleState":"UNDER_REPAIR",
                                  "outstandingRent":0,"depositRefund":300000,
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value(
                         "Record the damaged parts before returning this bike"))
@@ -150,7 +150,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                                  "nextVehicleState":"UNDER_REPAIR",
                                  "outstandingRent":0,"depositRefund":300000,
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value("Explain the destination override"))
                 .andExpect(jsonPath("$.field").value("note"));
@@ -169,7 +169,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                                  "nextVehicleState":"QC_PENDING",
                                  "outstandingRent":-1,"depositRefund":300000,
                                  "damageItems":[]}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isUnprocessableEntity());
     }
 
@@ -179,7 +179,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(riderId, vehicleId)))
+                                """.formatted(riderCode(riderId), vehicleId)))
                 .andExpect(status().isOk());
     }
 }

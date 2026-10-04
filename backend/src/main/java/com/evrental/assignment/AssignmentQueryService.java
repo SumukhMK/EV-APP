@@ -60,7 +60,7 @@ public class AssignmentQueryService implements AssignmentQuery {
         for (Assignment a : open) {
             Rider rider = ridersById.get(a.getRiderId());
             if (rider != null) {
-                out.put(a.getVehicleId(), new CurrentRider(rider.getId().toString(), rider.getName()));
+                out.put(a.getVehicleId(), new CurrentRider(rider.getRiderCode(), rider.getName()));
             }
         }
         return out;
@@ -73,7 +73,7 @@ public class AssignmentQueryService implements AssignmentQuery {
         return history.stream().map(a -> {
             Rider rider = ridersById.get(a.getRiderId());
             return new AssignmentHistoryRow(
-                    a.getRiderId().toString(),
+                    rider == null ? null : rider.getRiderCode(),
                     rider == null ? "Unknown rider" : rider.getName(),
                     rider == null ? 0 : rider.getPlanAmountPaise(),
                     a.getStartedOn(),
@@ -152,7 +152,7 @@ public class AssignmentQueryService implements AssignmentQuery {
 
     private CurrentRider riderOf(UUID riderId) {
         return riders.findById(riderId)
-                .map(r -> new CurrentRider(r.getId().toString(), r.getName()))
+                .map(r -> new CurrentRider(r.getRiderCode(), r.getName()))
                 .orElse(null);
     }
 

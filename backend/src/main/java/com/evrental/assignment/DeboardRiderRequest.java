@@ -7,15 +7,15 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * The deboard form (screen 12), mirroring DeboardRiderRequest in
  * frontend/app/src/types/assignment.ts. Money is paise, like every other
- * amount on the wire — the form converts rupees at the edge.
+ * amount on the wire — the form converts rupees at the edge. riderId is the
+ * rider code an operator reads, such as "R01".
  */
 public record DeboardRiderRequest(
-        @NotNull UUID riderId,
+        @NotBlank String riderId,
         @NotBlank String vehicleId,
         @NotNull LocalDate returnedOn,
         @NotNull com.evrental.service.DamageCategory returnCondition,

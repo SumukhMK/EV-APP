@@ -52,7 +52,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                          {"riderId":"%s","amount":%d,"method":"%s"}
-                         """.formatted(riderId, amount, method)));
+                         """.formatted(riderCode(riderId), amount, method)));
     }
 
     // -----------------------------------------------------------------------
@@ -84,7 +84,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAID"));
 
-        mvc.perform(get("/api/v1/payments/receipts/" + CHARGED_RIDER)
+        mvc.perform(get("/api/v1/payments/receipts/" + CHARGED_RIDER_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.balance").value(-50_000));
     }
@@ -138,7 +138,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
     /** Nothing collected, nothing to prove. */
     @Test
     void anUntouchedPeriodHasNoReceiptNumber() throws Exception {
-        mvc.perform(get("/api/v1/payments/receipts/" + CHARGED_RIDER)
+        mvc.perform(get("/api/v1/payments/receipts/" + CHARGED_RIDER_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.receiptNo").doesNotExist())
@@ -196,7 +196,13 @@ class PaymentCollectionTest extends PaymentRunTestBase {
 
     @Test
     void anUnknownRiderIs404() throws Exception {
-        pay(UUID.randomUUID(), 1_000, "CASH").andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/payments/collections")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                 {"riderId":"%s","amount":1000,"method":"CASH"}
+                                 """.formatted(UUID.randomUUID())))
+                .andExpect(status().isNotFound());
     }
 
     /** A rider on the other cycle has no line in the Monday period yet. */
@@ -212,7 +218,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
     void anotherTenantsRiderIs404() throws Exception {
         pay(RIVAL_RIDER, 1_000, "CASH").andExpect(status().isNotFound());
 
-        mvc.perform(get("/api/v1/payments/receipts/" + RIVAL_RIDER)
+        mvc.perform(get("/api/v1/payments/receipts/" + RIVAL_RIDER_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
     }
@@ -236,7 +242,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 .andReturn().getResponse().getContentAsString();
         var row = new tools.jackson.databind.ObjectMapper().readTree(run).get("rows").get(1);
 
-        mvc.perform(get("/api/v1/payments/receipts/" + CHARGED_RIDER)
+        mvc.perform(get("/api/v1/payments/receipts/" + CHARGED_RIDER_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.billedAmount").value(row.get("billedAmount").asLong()))
@@ -257,7 +263,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
      */
     @Test
     void aRiderWithNoLineInThisPeriodIs200Null() throws Exception {
-        mvc.perform(get("/api/v1/payments/receipts/" + WEDNESDAY_RIDER)
+        mvc.perform(get("/api/v1/payments/receipts/" + WEDNESDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(content().string("null"));
@@ -275,7 +281,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
         pay(CHARGED_RIDER, 20_000, "CASH").andExpect(status().isOk());
         pay(CHARGED_RIDER, 30_000, "UPI").andExpect(status().isOk());
 
-        mvc.perform(get("/api/v1/payments/receipts/" + CHARGED_RIDER)
+        mvc.perform(get("/api/v1/payments/receipts/" + CHARGED_RIDER_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.method").value("UPI"))
                 .andExpect(jsonPath("$.amountPaid").value(50_000))
@@ -308,12 +314,12 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 // Worst first: three weeks behind before two.
-                .andExpect(jsonPath("$[0].riderId").value(MONDAY_RIDER.toString()))
+                .andExpect(jsonPath("$[0].riderId").value(MONDAY_RIDER_CODE))
                 .andExpect(jsonPath("$[0].amountDue").value(PLAIN_PLAN_PAISE))
                 .andExpect(jsonPath("$[0].daysOverdue").value(22))
                 .andExpect(jsonPath("$[0].stage").value("REPOSSESSION_DUE"))
                 .andExpect(jsonPath("$[0].phone").value("9845010001"))
-                .andExpect(jsonPath("$[1].riderId").value(CHARGED_RIDER.toString()))
+                .andExpect(jsonPath("$[1].riderId").value(CHARGED_RIDER_CODE))
                 .andExpect(jsonPath("$[1].amountDue").value(PLAIN_PLAN_PAISE - 75_000))
                 .andExpect(jsonPath("$[1].daysOverdue").value(15))
                 .andExpect(jsonPath("$[1].stage").value("WARNING_2"));
@@ -348,7 +354,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 PLAIN_PLAN_PAISE, PLAIN_PLAN_PAISE, "PAID");
         pay(CHARGED_RIDER, 60_000, "BANK_TRANSFER").andExpect(status().isOk());
 
-        mvc.perform(get("/api/v1/payments/riders/" + CHARGED_RIDER + "/periods")
+        mvc.perform(get("/api/v1/payments/riders/" + CHARGED_RIDER_CODE + "/periods")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))

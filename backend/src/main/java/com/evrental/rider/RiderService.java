@@ -40,15 +40,18 @@ public class RiderService {
     private final AssignmentQuery assignmentQuery;
     private final RiderPaymentStatusQuery paymentStatus;
     private final com.evrental.audit.ChangeLog changeLog;
+    private final RiderCodes riderCodes;
 
     public RiderService(RiderRepository riders, AadhaarCipher aadhaarCipher, AssignmentQuery assignmentQuery,
                         RiderPaymentStatusQuery paymentStatus,
-                        com.evrental.audit.ChangeLog changeLog) {
+                        com.evrental.audit.ChangeLog changeLog,
+                        RiderCodes riderCodes) {
         this.riders = riders;
         this.aadhaarCipher = aadhaarCipher;
         this.assignmentQuery = assignmentQuery;
         this.paymentStatus = paymentStatus;
         this.changeLog = changeLog;
+        this.riderCodes = riderCodes;
     }
 
     /**
@@ -78,6 +81,7 @@ public class RiderService {
 
         Rider rider = new Rider();
         rider.setTenantId(tenantId);
+        rider.setRiderCode(riderCodes.next(tenantId));
         rider.setName(name);
         rider.setPhone(phone);
         rider.setStatus(RiderStatus.ACTIVE);
@@ -174,6 +178,17 @@ public class RiderService {
      */
     public Rider findById(UUID id) {
         return riders.findById(id).orElseThrow(() -> NotFoundException.of("Rider", id));
+    }
+
+    /**
+     * The door every controller uses now. {@link #findById} stays for the
+     * modules that already hold a rider's internal UUID (an assignment row,
+     * a charge, a payment period) — this is for callers that only have the
+     * code a URL or a form carries.
+     */
+    public Rider findByRiderCode(String riderCode) {
+        return riders.findByRiderCode(riderCode)
+                .orElseThrow(() -> NotFoundException.of("Rider", riderCode));
     }
 
     /**

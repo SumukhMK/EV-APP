@@ -30,7 +30,7 @@ class RiderRbacTest extends RiderTestBase {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
 
-        mvc.perform(get("/api/v1/riders/" + RIDER_A)
+        mvc.perform(get("/api/v1/riders/" + RIDER_A_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
@@ -51,7 +51,7 @@ class RiderRbacTest extends RiderTestBase {
         mvc.perform(get("/api/v1/riders/assigned")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/riders/" + RIDER_A)
+        mvc.perform(get("/api/v1/riders/" + RIDER_A_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/riders")
@@ -59,7 +59,7 @@ class RiderRbacTest extends RiderTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ONBOARD_BODY))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/payments/riders/" + RIDER_A + "/periods")
+        mvc.perform(get("/api/v1/payments/riders/" + RIDER_A_CODE + "/periods")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
     }

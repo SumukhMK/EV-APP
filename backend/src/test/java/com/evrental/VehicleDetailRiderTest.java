@@ -29,7 +29,7 @@ class VehicleDetailRiderTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk());
 
         // The list, which was always right.
@@ -38,14 +38,14 @@ class VehicleDetailRiderTest extends AssignmentTestBase {
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(VEHICLE_READY))
-                .andExpect(jsonPath("$.content[0].currentRiderId").value(RIDER_A.toString()))
+                .andExpect(jsonPath("$.content[0].currentRiderId").value(RIDER_A_CODE))
                 .andExpect(jsonPath("$.content[0].currentRiderName").value("Anil Shetty"));
 
         // The detail of the same bike, which was not.
         mvc.perform(get("/api/v1/vehicles/" + VEHICLE_READY)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.currentRiderId").value(RIDER_A.toString()))
+                .andExpect(jsonPath("$.currentRiderId").value(RIDER_A_CODE))
                 .andExpect(jsonPath("$.currentRiderName").value("Anil Shetty"));
     }
 
