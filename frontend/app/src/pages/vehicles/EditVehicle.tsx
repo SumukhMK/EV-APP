@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -17,7 +17,7 @@ import { SelectField } from '../../components/form/SelectField';
 import { getVehicle, updateVehicle } from '../../lib/api/vehicles';
 import { ApiError } from '../../lib/api/client';
 import { editVehicleSchema, type EditVehicleValues } from '../../lib/schemas/vehicle';
-import { MODELS, HUBS } from '../../mocks/seed';
+import { useFormOptions } from '../../lib/useFormOptions';
 import { layout } from '../../theme/tokens';
 
 /**
@@ -30,6 +30,9 @@ export function EditVehicle() {
   const { vehicleId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // The tenant's hubs and models; the bike's current ones stay listed even
+  // if they have since been retired, so the form does not blank them.
+  const reference = useFormOptions();
   const [banner, setBanner] = useState<string | null>(null);
 
   const vehicle = useQuery({
@@ -53,6 +56,11 @@ export function EditVehicle() {
     },
     mode: 'onBlur',
   });
+  // Subscribed, not read on render: the pickers keep listing the bike's own
+  // hub and model even when the reference lists have not arrived or no
+  // longer include them.
+  const hubValue = useWatch({ control: form.control, name: 'hub' });
+  const modelValue = useWatch({ control: form.control, name: 'model' });
 
   // The form only has values worth showing once the record has loaded, so it
   // resets onto the fetched vehicle rather than trying to seed defaults
@@ -149,7 +157,7 @@ export function EditVehicle() {
               control={form.control}
               name="model"
               label="Model"
-              options={MODELS.map((m) => ({ value: m, label: m }))}
+              options={reference.including(reference.models, modelValue)}
             />
             <SelectField
               control={form.control}
@@ -167,7 +175,7 @@ export function EditVehicle() {
               control={form.control}
               name="hub"
               label="Hub"
-              options={HUBS.map((h) => ({ value: h, label: h }))}
+              options={reference.including(reference.hubs, hubValue)}
             />
             <TextField label="Registration number" {...field('registrationNumber')} />
           </Box>

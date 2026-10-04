@@ -151,6 +151,15 @@ describe('bulk upload', () => {
     expect(screen.getByText(/Ignored columns: Notes, Colour/)).toBeInTheDocument();
   });
 
+  it('counts vehicles in the singular when there is one', async () => {
+    preview.mockResolvedValueOnce(staged);
+    const { input } = show();
+
+    await userEvent.upload(input(), csv('fleet.csv'));
+
+    expect(await screen.findByRole('button', { name: 'Import 1 vehicle' })).toBeInTheDocument();
+  });
+
   it('remove file clears the preview so the operator can start over', async () => {
     preview.mockResolvedValueOnce(staged);
     const { input } = show();

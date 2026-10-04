@@ -3,6 +3,8 @@ package com.evrental.service;
 import com.evrental.common.ConflictException;
 import com.evrental.common.NotFoundException;
 import com.evrental.common.ValidationException;
+import com.evrental.rider.Rider;
+import com.evrental.rider.RiderRepository;
 import com.evrental.vehicle.Vehicle;
 import com.evrental.vehicle.VehicleRepository;
 import com.evrental.vehicle.VehicleState;
@@ -56,6 +58,7 @@ public class ServiceJobService implements ServiceJobFacade {
     private final ServiceJobItemRepository items;
     private final QcInspectionRepository inspections;
     private final VehicleRepository vehicles;
+    private final RiderRepository riders;
     private final VehicleTransitions vehicleTransitions;
     private final VehicleStateMachine stateMachine;
     private final ApplicationEventPublisher publisher;
@@ -65,6 +68,7 @@ public class ServiceJobService implements ServiceJobFacade {
                              ServiceJobItemRepository items,
                              QcInspectionRepository inspections,
                              VehicleRepository vehicles,
+                             RiderRepository riders,
                              VehicleTransitions vehicleTransitions,
                              VehicleStateMachine stateMachine,
                              ApplicationEventPublisher publisher) {
@@ -73,6 +77,7 @@ public class ServiceJobService implements ServiceJobFacade {
         this.items = items;
         this.inspections = inspections;
         this.vehicles = vehicles;
+        this.riders = riders;
         this.vehicleTransitions = vehicleTransitions;
         this.stateMachine = stateMachine;
         this.publisher = publisher;
@@ -82,8 +87,26 @@ public class ServiceJobService implements ServiceJobFacade {
     // Opening
     // -----------------------------------------------------------------------
 
+    /**
+     * A job opened from the desk. The rider arrives as a code (R01) — the
+     * only name for a rider the API speaks since riders got codes — and is
+     * resolved here; the row keeps the UUID. Modules that already hold the
+     * UUID come in through {@link #openJob} and skip the lookup.
+     */
     @Transactional
     public ServiceJob open(CreateServiceJobRequest request, UUID tenantId, UUID actorUserId, String actorName) {
+        UUID riderId = null;
+        if (request.riderId() != null && !request.riderId().isBlank()) {
+            String code = request.riderId().trim();
+            riderId = riders.findByRiderCode(code)
+                    .map(Rider::getId)
+                    .orElseThrow(() -> NotFoundException.of("Rider", code));
+        }
+        return open(request, riderId, tenantId, actorUserId, actorName);
+    }
+
+    private ServiceJob open(CreateServiceJobRequest request, UUID riderId,
+                            UUID tenantId, UUID actorUserId, String actorName) {
         Vehicle vehicle = vehicles.findByRegistryId(request.vehicleId().trim())
                 // RLS hides another tenant's bike, so "not yours" and "not
                 // there" arrive here as the same thing -- which is the answer
@@ -110,7 +133,7 @@ public class ServiceJobService implements ServiceJobFacade {
         ServiceJob job = new ServiceJob();
         job.setTenantId(tenantId);
         job.setVehicleId(vehicle.getId());
-        job.setRiderId(request.riderId());
+        job.setRiderId(riderId);
         job.setSource(request.source());
         job.setDamageCategory(request.damageCategory());
         job.setQueue(queue);
@@ -494,9 +517,11 @@ public class ServiceJobService implements ServiceJobFacade {
     @Transactional
     public ServiceJob openJob(UUID tenantId, String vehicleId, UUID riderId, ServiceJobSource source,
                               DamageCategory damage, String damageNotes, String actor) {
+        // Callers here already hold the rider's UUID (an assignment row), so
+        // the request carries no code and the UUID goes straight through.
         return open(new CreateServiceJobRequest(
-                vehicleId, riderId, source, damage, damageNotes, null, null, null),
-                tenantId, null, actor);
+                vehicleId, null, source, damage, damageNotes, null, null, null),
+                riderId, tenantId, null, actor);
     }
 
     // -----------------------------------------------------------------------

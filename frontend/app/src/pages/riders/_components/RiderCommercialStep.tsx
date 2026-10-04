@@ -98,8 +98,14 @@ export function RiderCommercialStep({ step }: { step: number }) {
               <Autocomplete
                 freeSolo
                 options={[...WORKING_PLATFORMS]}
+                // Both the value and the text are the form field. freeSolo's
+                // onChange fires only on a pick or an Enter, so a platform
+                // typed and then tabbed away from was lost; onInputChange is
+                // what makes the typed text the value.
                 value={field.value ?? ''}
-                onChange={(_, next) => field.onChange(next ?? '')}
+                inputValue={field.value ?? ''}
+                onInputChange={(_, text) => field.onChange(text)}
+                onChange={(_, next) => field.onChange(typeof next === 'string' ? next : (next ?? ''))}
                 renderInput={(params) => (
                   <TextField
                     {...params}

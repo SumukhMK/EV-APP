@@ -54,6 +54,11 @@ public abstract class VehicleTestBase extends PostgresTestBase {
     @BeforeEach
     void seedTenantAndUsers() {
         superAdmin(jdbc -> {
+            // A vehicle test may give a bike to a rider (the search matches the
+            // rider's name); both rows point at vehicles and riders, so they go
+            // before either.
+            jdbc.update("DELETE FROM assignments WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_lifecycle_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicles WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             // Before users: vehicle_imports.uploaded_by references users (id),

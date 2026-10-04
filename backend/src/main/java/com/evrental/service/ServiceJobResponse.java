@@ -1,6 +1,7 @@
 package com.evrental.service;
 
 import java.time.Instant;
+import com.evrental.rider.Rider;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,7 +21,9 @@ import java.util.UUID;
 public record ServiceJobResponse(
         UUID id,
         String vehicleId,
-        UUID riderId,
+        /** The rider's code (R01), the same id the rider screens and URLs use. Null when nobody was on the bike. */
+        String riderId,
+        String riderName,
         ServiceJobSource source,
         DamageCategory damageCategory,
         ServiceQueue queue,
@@ -40,19 +43,21 @@ public record ServiceJobResponse(
         Instant updatedOn) {
 
     /** A list row: the job itself, with its child collections left empty. */
-    public static ServiceJobResponse summary(ServiceJob job, String registryId) {
-        return detail(job, registryId, List.of(), List.of(), List.of());
+    public static ServiceJobResponse summary(ServiceJob job, String registryId, Rider rider) {
+        return detail(job, registryId, rider, List.of(), List.of(), List.of());
     }
 
     public static ServiceJobResponse detail(ServiceJob job,
                                             String registryId,
+                                            Rider rider,
                                             List<ServiceJobEvent> events,
                                             List<ServiceJobItem> items,
                                             List<QcInspection> inspections) {
         return new ServiceJobResponse(
                 job.getId(),
                 registryId,
-                job.getRiderId(),
+                rider == null ? null : rider.getRiderCode(),
+                rider == null ? null : rider.getName(),
                 job.getSource(),
                 job.getDamageCategory(),
                 job.getQueue(),

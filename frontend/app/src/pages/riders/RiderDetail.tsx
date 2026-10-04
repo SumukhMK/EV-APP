@@ -14,6 +14,7 @@ import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
 import { decideKyc, getRider, listRiderPayments, reactivateRider } from '../../lib/api/riders';
 import { getVehicle } from '../../lib/api/vehicles';
+import { invalidateRiders } from '../../lib/invalidate';
 import {
   KYC_STATUS_LABEL,
   KYC_STATUS_TONE,
@@ -62,9 +63,12 @@ export function RiderDetail() {
    * already on the register. So a rider who handed a bike back could never be
    * given another one.
    */
+  // invalidateRiders, not ['riders'] alone: this screen reads ['rider', id],
+  // and a decision that only refreshed the list left the detail saying
+  // "KYC pending" until a reload.
   const putBack = useMutation({
     mutationFn: () => reactivateRider(riderId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['riders'] }),
+    onSuccess: () => invalidateRiders(queryClient),
   });
 
 
@@ -82,7 +86,7 @@ export function RiderDetail() {
 
   const kyc = useMutation({
     mutationFn: (decision: 'VERIFIED' | 'REJECTED') => decideKyc(riderId, decision),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['riders'] }),
+    onSuccess: () => invalidateRiders(queryClient),
   });
 
   const rider = useQuery({

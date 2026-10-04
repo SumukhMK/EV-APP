@@ -2,6 +2,8 @@ package com.evrental.service;
 
 import com.evrental.common.NotFoundException;
 import com.evrental.common.PageResponse;
+import com.evrental.rider.Rider;
+import com.evrental.rider.RiderRepository;
 import com.evrental.vehicle.Vehicle;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,17 +37,20 @@ public class ServiceJobReader {
     private final ServiceJobItemRepository items;
     private final QcInspectionRepository inspections;
     private final VehicleRepository vehicles;
+    private final RiderRepository riders;
 
     public ServiceJobReader(ServiceJobRepository jobs,
                             ServiceJobEventRepository events,
                             ServiceJobItemRepository items,
                             QcInspectionRepository inspections,
-                            VehicleRepository vehicles) {
+                            VehicleRepository vehicles,
+                            RiderRepository riders) {
         this.jobs = jobs;
         this.events = events;
         this.items = items;
         this.inspections = inspections;
         this.vehicles = vehicles;
+        this.riders = riders;
     }
 
     public PageResponse<ServiceJobResponse> list(ServiceJobStatus status,
@@ -64,7 +69,9 @@ public class ServiceJobReader {
 
         Page<ServiceJob> page = jobs.search(status, queue, source, vehicleId, pageable);
         Map<UUID, String> registryIds = registryIdsFor(page.getContent());
-        return PageResponse.from(page, job -> ServiceJobResponse.summary(job, registryIds.get(job.getVehicleId())));
+        Map<UUID, Rider> ridersById = ridersFor(page.getContent());
+        return PageResponse.from(page, job -> ServiceJobResponse.summary(
+                job, registryIds.get(job.getVehicleId()), ridersById.get(job.getRiderId())));
     }
 
     /**
@@ -80,6 +87,7 @@ public class ServiceJobReader {
         return ServiceJobResponse.detail(
                 job,
                 registryIdOf(job.getVehicleId()),
+                job.getRiderId() == null ? null : riders.findById(job.getRiderId()).orElse(null),
                 events.findByJobIdOrderByOccurredOnAsc(jobId),
                 items.findByJobId(jobId),
                 inspections.findByJobIdOrderByInspectedOnAsc(jobId));
@@ -112,6 +120,18 @@ public class ServiceJobReader {
 
     private String registryIdOf(UUID vehicleId) {
         return vehicles.findById(vehicleId).map(Vehicle::getRegistryId).orElse(null);
+    }
+
+    /** The riders a page of jobs names, in one query — the screen prints code and name on every row. */
+    private Map<UUID, Rider> ridersFor(List<ServiceJob> page) {
+        List<UUID> ids = page.stream().map(ServiceJob::getRiderId).filter(java.util.Objects::nonNull).distinct().toList();
+        Map<UUID, Rider> byId = new HashMap<>();
+        if (!ids.isEmpty()) {
+            for (Rider rider : riders.findAllById(ids)) {
+                byId.put(rider.getId(), rider);
+            }
+        }
+        return byId;
     }
 
     private Map<UUID, String> registryIdsFor(List<ServiceJob> page) {

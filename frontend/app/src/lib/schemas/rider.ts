@@ -143,7 +143,9 @@ export const ONBOARD_RIDER_DEFAULTS: OnboardRiderValues = {
   locationCoordinates: '',
   panNumber: '',
   drivingLicence: '',
-  workingPlatform: 'Other',
+  // Empty, not 'Other': the box is freeSolo, and a pre-filled word is what a
+  // typed platform gets appended to — a rider was saved on "OtherZomato".
+  workingPlatform: '',
   platformRiderId: '',
   planRupees: 1750,
   billingDay: 'MONDAY',
