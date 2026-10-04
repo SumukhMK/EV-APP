@@ -1,5 +1,6 @@
 package com.evrental.common;
 
+import com.evrental.vehicle.ImportBusyException;
 import com.evrental.vehicle.ImportFileException;
 import java.util.Comparator;
 import org.slf4j.Logger;
@@ -86,6 +87,12 @@ public class GlobalExceptionHandler {
                 ? "The file is larger than " + (max / (1024 * 1024)) + " MB. Split it into smaller files."
                 : "The file is too large. Split it into smaller files.";
         return body(HttpStatus.CONTENT_TOO_LARGE, message, "file");
+    }
+
+    /** The import's parse slots are all taken. Temporary by definition, so 503 and not 429. */
+    @ExceptionHandler(ImportBusyException.class)
+    public ResponseEntity<ApiErrorResponse> importBusy(ImportBusyException ex) {
+        return body(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), "file");
     }
 
     /** A multipart request with no {@code file} part: the form was submitted empty. */

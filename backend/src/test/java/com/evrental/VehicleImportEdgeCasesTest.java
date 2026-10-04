@@ -172,11 +172,12 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
         int before = superAdmin(jdbc -> jdbc.queryForObject(
                 "SELECT count(*) FROM vehicle_imports WHERE tenant_id = ?", Integer.class, TENANT));
 
+        // "More than": the reader stops at the cap rather than counting a
+        // file it will refuse anyway, so the exact total is unknown by design.
         mvc.perform(upload(csv(rows(2001))))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.message")
-                        .value("The file has 2,001 rows. The maximum is 2,000 — split it into smaller files."))
-                .andExpect(jsonPath("$.details.rows").value(2001))
+                        .value("The file has more than 2,000 rows. The maximum is 2,000 — split it into smaller files."))
                 .andExpect(jsonPath("$.details.maxRows").value(2000));
 
         int after = superAdmin(jdbc -> jdbc.queryForObject(
@@ -189,6 +190,33 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
         mvc.perform(upload(csv(rows(2000))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalRows").value(2000));
+    }
+
+    /** Excel's full width. Read in bounded memory; the surplus columns are simply not imported. */
+    @Test
+    void aSheetAsWideAsExcelAllowsIsPreviewedNotFatal() throws Exception {
+        byte[] bytes;
+        try (org.apache.poi.xssf.streaming.SXSSFWorkbook wb = new org.apache.poi.xssf.streaming.SXSSFWorkbook(50);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = wb.createSheet("Vehicles");
+            String[] header = TEMPLATE_HEADER.trim().split(",");
+            Row h = sheet.createRow(0);
+            for (int c = 0; c < 16_384; c++) {
+                h.createCell(c).setCellValue(c < header.length ? header[c] : "extra" + c);
+            }
+            String[] values = {"BLRSS0961", "CH-961", "Eagle 2", "Yuma", "Yuma", "Koramangala", "KA01AA0961", "2026-09-01"};
+            Row r = sheet.createRow(1);
+            for (int c = 0; c < 16_384; c++) {
+                r.createCell(c).setCellValue(c < values.length ? values[c] : "x");
+            }
+            wb.write(out);
+            wb.dispose();
+            bytes = out.toByteArray();
+        }
+
+        mvc.perform(upload(xlsx(bytes)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.validRows").value(1));
     }
 
     @Test
