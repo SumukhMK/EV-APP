@@ -16,7 +16,9 @@ function makeJob(req: CreateServiceJobRequest): ServiceJob {
   const date = req.occurredOn ?? iso();
   return {
     id: `SVC-${String(nextId++).padStart(4, '0')}`, vehicleId: req.vehicleId,
-    riderId: req.riderId, source: req.source, damageCategory: req.damageCategory,
+    riderId: req.riderId,
+    riderName: req.riderId ? (riders.find((r) => r.id === req.riderId)?.name ?? null) : null,
+    source: req.source, damageCategory: req.damageCategory,
     queue, damageNotes: req.damageNotes ?? null, location: req.location ?? null,
     reference: req.reference?.trim() || null, workSummary: '', activity: [], inspections: [],
     items: [], totalCostPaise: 0, liability: null, technician: null,

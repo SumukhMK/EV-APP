@@ -72,7 +72,10 @@ export function RiderIdentityStep({ step, verification }: Props) {
             {...register('permanentAddress')}
             error={fieldError('permanentAddress').error}
             helperText={fieldError('permanentAddress').helperText}
-            slotProps={{ htmlInput: { multiline: true, minRows: 2 } }}
+            // On the TextField, not the native input: `multiline` is not a
+            // DOM attribute, and React warned about it on every render.
+            multiline
+            minRows={2}
             sx={{ gridColumn: { xs: '1 / -1', sm: '1 / -1' } }}
           />
         </Box>

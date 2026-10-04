@@ -3,7 +3,6 @@ package com.evrental.service;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.util.UUID;
 
 /**
  * Opening a job, from a deboard, an RSA or QRT callout, a walk-in or a
@@ -19,7 +18,9 @@ public record CreateServiceJobRequest(
         @NotBlank(message = "Vehicle id is required")
         @Size(max = 20, message = "Vehicle id must be at most 20 characters")
         String vehicleId,
-        UUID riderId,
+        /** The rider's code (R01), as every other endpoint names a rider. Null when nobody is on the bike. */
+        @Size(max = 10, message = "Rider id must be at most 10 characters")
+        String riderId,
         @NotNull(message = "Source is required")
         ServiceJobSource source,
         @NotNull(message = "Damage category is required")

@@ -4,7 +4,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +16,7 @@ import { DateField } from '../../components/form/DateField';
 import { createVehicle } from '../../lib/api/vehicles';
 import { ApiError } from '../../lib/api/client';
 import { ADD_VEHICLE_DEFAULTS, addVehicleSchema, type AddVehicleValues } from '../../lib/schemas/vehicle';
-import { MODELS, HUBS } from '../../mocks/seed';
+import { useFormOptions } from '../../lib/useFormOptions';
 import { layout } from '../../theme/tokens';
 
 /**
@@ -27,6 +27,9 @@ import { layout } from '../../theme/tokens';
 export function AddVehicle() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // The tenant's hubs and models, not the seed's. A hub added through the
+  // API never appeared here while the lists were constants.
+  const reference = useFormOptions();
   const [banner, setBanner] = useState<string | null>(null);
 
   const form = useForm<AddVehicleValues>({
@@ -34,6 +37,10 @@ export function AddVehicle() {
     defaultValues: ADD_VEHICLE_DEFAULTS,
     mode: 'onBlur',
   });
+  // Subscribed, not read on render: the pickers must keep offering what
+  // the form holds even before the reference lists arrive.
+  const hubValue = useWatch({ control: form.control, name: 'hub' });
+  const modelValue = useWatch({ control: form.control, name: 'model' });
 
   const save = useMutation({
     mutationFn: (values: AddVehicleValues) =>
@@ -109,7 +116,7 @@ export function AddVehicle() {
               control={form.control}
               name="hub"
               label="Hub"
-              options={HUBS.map((h) => ({ value: h, label: h }))}
+              options={reference.including(reference.hubs, hubValue)}
             />
             <Controller
               control={form.control}
@@ -134,7 +141,7 @@ export function AddVehicle() {
               control={form.control}
               name="model"
               label="Model"
-              options={MODELS.map((m) => ({ value: m, label: m }))}
+              options={reference.including(reference.models, modelValue)}
             />
             <SelectField
               control={form.control}

@@ -199,6 +199,10 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
      * nobody is on the bike bills nobody, and the service refuses it.
      */
     protected UUID openJob(String token, String registryId, String damage, UUID riderId) throws Exception {
+        // The wire names a rider by code, never by the row's UUID — the same
+        // contract the assignment endpoints keep. The only rider these tests
+        // know is RIDER_ID, whose code is RIDER_CODE.
+        String riderCode = riderId == null ? null : RIDER_CODE;
         String body = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .post("/api/v1/service/jobs")
                         .header("Authorization", "Bearer " + token)
@@ -207,7 +211,7 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
                                  {"vehicleId":"%s","source":"DEBOARD","damageCategory":"%s",
                                   "damageNotes":"Scratched left panel"%s}
                                  """.formatted(registryId, damage,
-                                        riderId == null ? "" : ",\"riderId\":\"" + riderId + "\"")))
+                                        riderCode == null ? "" : ",\"riderId\":\"" + riderCode + "\"")))
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(new ObjectMapper().readTree(body).get("id").asString());
     }

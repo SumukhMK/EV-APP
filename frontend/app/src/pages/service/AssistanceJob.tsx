@@ -299,7 +299,10 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
           <Panel label="What was reported">
             <DefinitionList items={[
               { label: 'Bike', value: <Link to={`/vehicles/${job.vehicleId}`}>{job.vehicleId}</Link> },
-              { label: 'Rider', value: job.riderId ? <Link to={`/riders/${job.riderId}`}>{job.riderId}</Link> : 'No rider on this bike' },
+              // Name and code, linked by code — riderId is the code the rider
+              // routes take. It used to be the row's UUID, printed raw, linking
+              // to a page that no longer existed.
+              { label: 'Rider', value: job.riderId ? <Link to={`/riders/${job.riderId}`}>{job.riderName ? `${job.riderName} · ${job.riderId}` : job.riderId}</Link> : 'No rider on this bike' },
               { label: 'Bike shows as', value: vehicle.data ? VEHICLE_STATE_LABEL[vehicle.data.state] : 'Loading…' },
               { label: 'Where it is', value: job.location ?? vehicle.data?.hub ?? 'Not noted' },
             ]} />

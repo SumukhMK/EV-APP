@@ -425,6 +425,25 @@ was missing — under FORCE ROW LEVEL SECURITY it updated zero rows on any
 database that already had riders (production's role bypasses RLS, so only
 developers saw it).
 
+**QA pass (2026-10-04).** Every section driven end to end in a headless
+browser against the local stack, as the fleet admin. Found and fixed: the
+service module still spoke rider UUIDs after riders got codes — opening a
+help-desk job for a bike with a rider was a 400, and the job screen printed
+a UUID that linked to a 404 (`CreateServiceJobRequest.riderId` and
+`ServiceJobResponse.riderId` are now the code, with `riderName` alongside);
+the vehicle search did not match the current rider's name or code though
+the box promised it; the rider detail kept saying "KYC pending" after a
+decision (list key invalidated, detail key not); the onboarding platform
+box started as "Other" and appended what was typed ("OtherZomato"); the
+add-vehicle date accepted "0109-20-26" and surfaced the API's generic 400;
+the hub and model pickers read constants from `src/mocks/seed` instead of
+`/reference/form-options`. Open, not fixed here: nothing in the UI calls
+`GET/POST /assignments/settlements…`, so a deboard's deposit refund can
+never be approved from a screen; KYC decisions and rider onboarding are not
+in the audit trail (ChangeLog records plan and role changes only); service
+job ids are shown as raw UUIDs; a DEPLOYED bike with no open assignment
+(87 of the seeded 97) has no way back except through inspection.
+
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
 job is to render the per-row errors the preview returns.

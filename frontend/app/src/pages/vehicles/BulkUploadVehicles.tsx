@@ -300,7 +300,7 @@ export function BulkUploadVehicles() {
                   Remove file
                 </Button>
                 <Button onClick={() => setConfirmOpen(true)} disabled={commit.isPending || preview.validRows === 0}>
-                  {commit.isPending ? 'Importing…' : `Import ${preview.validRows} vehicles`}
+                  {commit.isPending ? 'Importing…' : `Import ${vehicles(preview.validRows)}`}
                 </Button>
               </Box>
             }
@@ -348,7 +348,7 @@ export function BulkUploadVehicles() {
         title="Import vehicles?"
         message={`${preview?.validRows ?? 0} clean rows will be added to the registry.`}
         info={`Only the ${preview?.validRows ?? 0} rows without errors are imported. ${preview?.errorRows ?? 0} rows with errors are skipped — fix them in the file and upload again.`}
-        confirmLabel={`Import ${preview?.validRows ?? 0} vehicles`}
+        confirmLabel={`Import ${vehicles(preview?.validRows ?? 0)}`}
         tone="bad"
         dismissible={false}
         pending={commit.isPending}
@@ -401,6 +401,11 @@ function ColumnList({
       </Box>
     </Box>
   );
+}
+
+/** "1 vehicle", "12 vehicles". */
+function vehicles(n: number): string {
+  return `${n} ${n === 1 ? 'vehicle' : 'vehicles'}`;
 }
 
 /** The detail as a list of strings, or nothing — the server's shape is not trusted blindly. */

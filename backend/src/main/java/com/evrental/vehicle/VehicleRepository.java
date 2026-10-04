@@ -64,7 +64,10 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
                    or lower(v.make) like :q
                    or lower(v.hub) like :q
                    or lower(v.batteryType) like :q
-                   or lower(coalesce(v.batteryVendor, '')) like :q)
+                   or lower(coalesce(v.batteryVendor, '')) like :q
+                   or exists (select 1 from Assignment a, Rider r
+                              where a.vehicleId = v.id and a.endedOn is null and r.id = a.riderId
+                                and (lower(r.name) like :q or lower(r.riderCode) like :q)))
             """)
     Page<Vehicle> search(@Param("q") String q,
                          @Param("state") VehicleState state,
@@ -91,7 +94,10 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
                    or lower(v.make) like :q
                    or lower(v.hub) like :q
                    or lower(v.batteryType) like :q
-                   or lower(coalesce(v.batteryVendor, '')) like :q)
+                   or lower(coalesce(v.batteryVendor, '')) like :q
+                   or exists (select 1 from Assignment a, Rider r
+                              where a.vehicleId = v.id and a.endedOn is null and r.id = a.riderId
+                                and (lower(r.name) like :q or lower(r.riderCode) like :q)))
             group by v.state
             """)
     List<Object[]> countByState(@Param("q") String q,

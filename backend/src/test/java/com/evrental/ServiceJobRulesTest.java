@@ -184,7 +184,7 @@ class ServiceJobRulesTest extends ServiceJobTestBase {
                         .content("""
                                  {"vehicleId":"BLRSS0601","riderId":"%s","source":"DEBOARD",
                                   "damageCategory":"MINOR","damageNotes":"Scuffed"}
-                                 """.formatted(riderId)))
+                                 """.formatted(RIDER_CODE)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         UUID withRider = UUID.fromString(

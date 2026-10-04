@@ -63,7 +63,10 @@ export interface QcInspection {
 export interface ServiceJob {
   id: string;
   vehicleId: string;
+  /** The rider's code (R01) — the same id the rider screens and URLs use. */
   riderId: string | null;
+  /** Their name, so the job screen reads "Prakash Bhandari · R01", not an id. */
+  riderName: string | null;
   source: ServiceJobSource;
   damageCategory: DamageCategory;
   queue: ServiceQueue;

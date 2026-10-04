@@ -20,6 +20,9 @@ const FILLED_FORM = {
   city: 'Bengaluru',
   state: 'Karnataka',
   pinCode: '560102',
+  // The platform box opens empty now (it used to open on "Other"), so a
+  // filled form names one.
+  workingPlatform: 'Zomato',
 };
 
 /**
