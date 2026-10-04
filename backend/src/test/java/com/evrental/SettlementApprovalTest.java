@@ -28,7 +28,7 @@ class SettlementApprovalTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(riderId, vehicleId)))
+                                """.formatted(riderCode(riderId), vehicleId)))
                 .andExpect(status().isOk());
     }
 
@@ -42,7 +42,7 @@ class SettlementApprovalTest extends AssignmentTestBase {
                                  "nextVehicleState":"QC_PENDING",
                                  "outstandingRent":%d,"depositRefund":%d,
                                  "damageItems":[]}
-                                """.formatted(riderId, vehicleId, rent, refund)))
+                                """.formatted(riderCode(riderId), vehicleId, rent, refund)))
                 .andExpect(status().isOk());
     }
 

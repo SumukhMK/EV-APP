@@ -48,6 +48,8 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
      * exists — a random UUID would now fail the insert.
      */
     protected static final UUID RIDER_ID = UUID.fromString("e0000000-0000-0000-0000-000000000001");
+    /** The user-facing code for RIDER_ID. */
+    protected static final String RIDER_CODE = "R01";
 
     /** The nine checks, all clear. Tests that want a failure flip one. */
     protected static final String ALL_CHECKS_PASS = """
@@ -114,6 +116,7 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
             // Reference data holds a foreign key to the tenant, so it goes first.
             jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM rider_code_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Service Co', 'service-co', 'ACTIVE')", TENANT);
@@ -128,12 +131,13 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
             jdbc.update("INSERT INTO users (tenant_id, name, email, password_hash, role, status) "
                     + "VALUES (?, 'Abhinandan', ?, ?, 'SERVICE_MANAGER', 'ACTIVE')",
                     TENANT, MANAGER_EMAIL, passwordEncoder.encode(PASSWORD));
-            jdbc.update("INSERT INTO riders (id, tenant_id, name, phone, status, kyc_status, "
+            jdbc.update("INSERT INTO riders (id, rider_code, tenant_id, name, phone, status, kyc_status, "
                     + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, payment_mode, "
                     + "platform, onboarded_on, aadhaar_encrypted) "
-                    + "VALUES (?, ?, 'Test Rider', '9000000001', 'ACTIVE', 'PENDING', "
+                    + "VALUES (?, ?, ?, 'Test Rider', '9000000001', 'ACTIVE', 'PENDING', "
                     + "175000, 300000, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, ?)",
-                    RIDER_ID, TENANT, aadhaarCipher.encrypt("999988887777"));
+                    RIDER_ID, RIDER_CODE, TENANT, aadhaarCipher.encrypt("999988887777"));
+            jdbc.update("INSERT INTO rider_code_counters (tenant_id, next_no) VALUES (?, 2)", TENANT);
             return null;
         });
         adminUserId = superAdmin(jdbc ->
@@ -163,6 +167,14 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
                     "SELECT set_config('app.tenant_id', ?, true)", String.class, TENANT.toString());
             return work.get();
         });
+    }
+
+    protected String riderCode(UUID riderId) {
+        if (RIDER_ID.equals(riderId)) {
+            return RIDER_CODE;
+        }
+        return superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT rider_code FROM riders WHERE id = ?", String.class, riderId));
     }
 
     /** A bearer token for the given account, through the real login endpoint. */

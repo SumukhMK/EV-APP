@@ -32,7 +32,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(riderId, vehicleId)))
+                                """.formatted(riderCode(riderId), vehicleId)))
                 .andExpect(status().isOk());
     }
 
@@ -46,7 +46,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
                                  "nextVehicleState":"QC_PENDING",
                                  "outstandingRent":0,"depositRefund":300000,
                                  "damageItems":[]}
-                                """.formatted(riderId, vehicleId)))
+                                """.formatted(riderCode(riderId), vehicleId)))
                 .andExpect(status().isOk());
     }
 
@@ -59,10 +59,10 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
         mvc.perform(get("/api/v1/riders/assignable")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(RIDER_A)).isEmpty());
+        .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(RIDER_A_CODE)).isEmpty());
 
         // The door back.
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/reactivate")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/reactivate")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
@@ -71,7 +71,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
         mvc.perform(get("/api/v1/riders/assignable")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(RIDER_A)).isNotEmpty());
+        .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(RIDER_A_CODE)).isNotEmpty());
     }
 
     /** And once back, they can actually hold a bike again. */
@@ -80,7 +80,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
         assign(RIDER_A, VEHICLE_READY);
         deboard(RIDER_A, VEHICLE_READY);
 
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/reactivate")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/reactivate")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk());
 
@@ -89,7 +89,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-29"}
-                                """.formatted(RIDER_A, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY_2)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentVehicleId").value(VEHICLE_READY_2));
     }
@@ -97,7 +97,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
     /** Reactivating somebody who never left is a no-op, not an error. */
     @Test
     void reactivatingAnActiveRiderIsHarmless() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/reactivate")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/reactivate")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
@@ -105,7 +105,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
 
     @Test
     void reactivateIsGatedLikeTheRestOfTheRegister() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/reactivate")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/reactivate")
                         .header("Authorization", "Bearer " + tokenFor(SERVICE_MANAGER_EMAIL)))
                 .andExpect(status().isForbidden());
     }
@@ -115,7 +115,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
         assign(RIDER_A, VEHICLE_READY);
         deboard(RIDER_A, VEHICLE_READY);
 
-        mvc.perform(get("/api/v1/riders/" + RIDER_A)
+        mvc.perform(get("/api/v1/riders/" + RIDER_A_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentVehicleId").doesNotExist())
@@ -131,7 +131,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
     void theHistoryListsEveryBikeNewestFirst() throws Exception {
         assign(RIDER_A, VEHICLE_READY);
         deboard(RIDER_A, VEHICLE_READY);
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/reactivate")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/reactivate")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk());
         mvc.perform(post("/api/v1/assignments/assign")
@@ -139,10 +139,10 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-29"}
-                                """.formatted(RIDER_A, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY_2)))
                 .andExpect(status().isOk());
 
-        mvc.perform(get("/api/v1/riders/" + RIDER_A)
+        mvc.perform(get("/api/v1/riders/" + RIDER_A_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.assignments.length()").value(2))
@@ -153,7 +153,7 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
 
     @Test
     void aRiderWhoNeverHeldABikeHasAnEmptyHistoryRatherThanNoField() throws Exception {
-        mvc.perform(get("/api/v1/riders/" + RIDER_C)
+        mvc.perform(get("/api/v1/riders/" + RIDER_C_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.assignments").isArray())

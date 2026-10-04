@@ -23,7 +23,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
         insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L, "PENDING");
 
-        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER)
+        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentStatus").value("PAID"));
@@ -34,7 +34,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
         insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 50000L, "PENDING");
 
-        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER)
+        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentStatus").value("PARTIAL"));
@@ -46,7 +46,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY).minusWeeks(3);
         insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L, "PENDING");
 
-        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER)
+        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentStatus").value("OVERDUE"));
@@ -55,7 +55,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
     /** Never billed is not the same as owing. */
     @Test
     void aRiderWithNoBillingHistoryReadsPending() throws Exception {
-        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER)
+        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentStatus").value("PENDING"));
@@ -83,7 +83,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
         insertPeriod(TENANT, MONDAY_RIDER, start.minusWeeks(2), com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L, "PENDING");
         insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L, "PENDING");
 
-        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER)
+        mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentStatus").value("PENDING"));

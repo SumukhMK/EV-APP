@@ -41,13 +41,13 @@ class PaymentRunRbacTest extends PaymentRunTestBase {
             mvc.perform(get(url).header("Authorization", "Bearer " + token))
                     .andExpect(status().isForbidden());
         }
-        mvc.perform(get("/api/v1/payments/receipts/" + MONDAY_RIDER)
+        mvc.perform(get("/api/v1/payments/receipts/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/payments/collections")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"riderId\":\"" + MONDAY_RIDER + "\",\"amount\":100,\"method\":\"CASH\"}"))
+                        .content("{\"riderId\":\"" + MONDAY_RIDER_CODE + "\",\"amount\":100,\"method\":\"CASH\"}"))
                 .andExpect(status().isForbidden());
     }
 
@@ -72,7 +72,7 @@ class PaymentRunRbacTest extends PaymentRunTestBase {
     /** FS-12: fleet staff see a rider's payment history, on the rider's page. */
     @Test
     void fleetStaffMaySeeARidersHistoryPanel() throws Exception {
-        mvc.perform(get("/api/v1/payments/riders/" + MONDAY_RIDER + "/periods")
+        mvc.perform(get("/api/v1/payments/riders/" + MONDAY_RIDER_CODE + "/periods")
                         .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL)))
                 .andExpect(status().isOk());
     }
@@ -80,7 +80,7 @@ class PaymentRunRbacTest extends PaymentRunTestBase {
     /** The panel is a Riders-section page, and a service manager is not in it. */
     @Test
     void serviceManagersAreRefusedTheHistoryPanel() throws Exception {
-        mvc.perform(get("/api/v1/payments/riders/" + MONDAY_RIDER + "/periods")
+        mvc.perform(get("/api/v1/payments/riders/" + MONDAY_RIDER_CODE + "/periods")
                         .header("Authorization", "Bearer " + tokenFor(MANAGER_EMAIL)))
                 .andExpect(status().isForbidden());
     }

@@ -6,7 +6,6 @@ import com.evrental.common.PageResponse;
 import com.evrental.vehicle.VehicleState;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -94,10 +93,10 @@ public class RiderController {
         return riderService.toResponses(riderService.assigned());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{riderCode}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
-    public RiderDetailResponse get(@PathVariable UUID id) {
-        return riderService.toDetailResponse(riderService.findById(id));
+    public RiderDetailResponse get(@PathVariable String riderCode) {
+        return riderService.toDetailResponse(riderService.findByRiderCode(riderCode));
     }
 
     /**
@@ -106,14 +105,15 @@ public class RiderController {
      * <p>SA/FA only: the plan is what the rider is billed every week
      * afterwards, so it is a money decision.
      */
-    @PostMapping("/{id}/plan")
+    @PostMapping("/{riderCode}/plan")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
-    public RiderResponse changePlan(@PathVariable UUID id,
+    public RiderResponse changePlan(@PathVariable String riderCode,
                                     @Valid @RequestBody ChangePlanRequest request,
                                     Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
+        Rider rider = riderService.findByRiderCode(riderCode);
         return riderService.toResponse(
-                riderService.changePlan(id, request.planAmount(), actorNameOf(principal)));
+                riderService.changePlan(rider.getId(), request.planAmount(), actorNameOf(principal)));
     }
 
     /**
@@ -123,10 +123,11 @@ public class RiderController {
      * identity documents are acceptable is not a counter task, and the rest
      * of the register being open to FLEET_STAFF does not make this so.
      */
-    @PostMapping("/{id}/kyc")
+    @PostMapping("/{riderCode}/kyc")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
-    public RiderResponse decideKyc(@PathVariable UUID id, @RequestBody KycDecisionRequest request) {
-        return riderService.toResponse(riderService.decideKyc(id, request.decision()));
+    public RiderResponse decideKyc(@PathVariable String riderCode, @RequestBody KycDecisionRequest request) {
+        Rider rider = riderService.findByRiderCode(riderCode);
+        return riderService.toResponse(riderService.decideKyc(rider.getId(), request.decision()));
     }
 
     /**
@@ -136,10 +137,11 @@ public class RiderController {
      * one value and refuses a blacklisted rider. The register has no other way
      * back, so without this a deboard was permanent.
      */
-    @PostMapping("/{id}/reactivate")
+    @PostMapping("/{riderCode}/reactivate")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
-    public RiderResponse reactivate(@PathVariable UUID id) {
-        return riderService.toResponse(riderService.reactivate(id));
+    public RiderResponse reactivate(@PathVariable String riderCode) {
+        Rider rider = riderService.findByRiderCode(riderCode);
+        return riderService.toResponse(riderService.reactivate(rider.getId()));
     }
 
     private static RiderStatus parseStatus(String status) {

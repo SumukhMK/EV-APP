@@ -1,7 +1,5 @@
 package com.evrental.payment;
 
-import java.util.UUID;
-
 /**
  * One rider's line in a weekly payment run (screen 15), mirroring
  * PaymentPeriodRow in frontend/app/src/types/payment.ts field for field.
@@ -11,12 +9,14 @@ import java.util.UUID;
  * property the whole design exists to protect: a receipt printed six weeks ago
  * shows the plan the rider was actually on, not the one they are on now.
  *
- * <p>{@code vehicleId} is the registry id an operator reads ("BLRSS0428"), not
- * a row id, and it is <b>null until S5</b>: a bike is a property of the open
- * assignment and {@code assignment/} is not built. See {@link AssignmentQuery}.
+ * <p>{@code riderId} is the rider code an operator reads ("R01"), not the
+ * register's internal row id. {@code vehicleId} is the registry id an
+ * operator reads ("BLRSS0428"), not a row id, and it is <b>null until S5</b>:
+ * a bike is a property of the open assignment and {@code assignment/} is not
+ * built. See {@link AssignmentQuery}.
  */
 public record PaymentPeriodRowResponse(
-        UUID riderId,
+        String riderId,
         String riderName,
         String vehicleId,
         long planAmount,
@@ -45,12 +45,12 @@ public record PaymentPeriodRowResponse(
          */
         boolean pastGrace) {
 
-    public static PaymentPeriodRowResponse from(PaymentPeriod period, String riderName, String registryId,
-                                                java.time.LocalDate today, int graceDays) {
+    public static PaymentPeriodRowResponse from(PaymentPeriod period, String riderCode, String riderName,
+                                                String registryId, java.time.LocalDate today, int graceDays) {
         long daysOverdue = period.daysOverdue(today);
         boolean short_ = period.getAmountPaidPaise() < period.getTotalDuePaise();
         return new PaymentPeriodRowResponse(
-                period.getRiderId(),
+                riderCode,
                 riderName,
                 registryId,
                 period.getPlanAmountPaise(),

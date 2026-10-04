@@ -1,11 +1,14 @@
 package com.evrental.payment;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.util.UUID;
 
 /**
  * What "record a payment" sends (screens 15 and 16), mirroring
  * RecordPaymentRequest in frontend/app/src/types/payment.ts.
+ *
+ * <p>{@code riderId} is the rider code an operator reads, such as "R01", not
+ * the register's internal row id.
  *
  * <p>{@code amount} is what actually came in, so a partial payment is simply
  * an amount short of the balance and an overpayment is one past it. Both are
@@ -22,7 +25,7 @@ import java.util.UUID;
  * is optional so the existing dialog keeps working unchanged.
  */
 public record RecordPaymentRequest(
-        @NotNull UUID riderId,
+        @NotBlank String riderId,
         long amount,
         @NotNull String method,
         String reference) {

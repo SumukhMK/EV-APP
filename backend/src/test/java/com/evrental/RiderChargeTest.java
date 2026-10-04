@@ -205,7 +205,7 @@ class RiderChargeTest extends ServiceJobTestBase {
 
         mvc.perform(get("/api/v1/payments/charges/outstanding")
                         .header("Authorization", "Bearer " + token)
-                        .param("riderId", riderId.toString()))
+                        .param("riderId", riderCode(riderId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.outstandingPaise").value(85000));
 
@@ -216,7 +216,7 @@ class RiderChargeTest extends ServiceJobTestBase {
         // Settled money is not owed money.
         mvc.perform(get("/api/v1/payments/charges/outstanding")
                         .header("Authorization", "Bearer " + token)
-                        .param("riderId", riderId.toString()))
+                        .param("riderId", riderCode(riderId)))
                 .andExpect(jsonPath("$.outstandingPaise").value(0));
     }
 
@@ -228,7 +228,7 @@ class RiderChargeTest extends ServiceJobTestBase {
 
         mvc.perform(get("/api/v1/payments/charges")
                         .header("Authorization", "Bearer " + token)
-                        .param("riderId", riderId.toString()))
+                        .param("riderId", riderCode(riderId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].amountPaise").value(85000))
@@ -236,7 +236,7 @@ class RiderChargeTest extends ServiceJobTestBase {
 
         mvc.perform(get("/api/v1/payments/charges")
                         .header("Authorization", "Bearer " + token)
-                        .param("riderId", riderId.toString())
+                        .param("riderId", riderCode(riderId))
                         .param("status", "SETTLED"))
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -253,7 +253,7 @@ class RiderChargeTest extends ServiceJobTestBase {
             String other = tokenFor(email);
             mvc.perform(get("/api/v1/payments/charges")
                             .header("Authorization", "Bearer " + other)
-                            .param("riderId", riderId.toString()))
+                            .param("riderId", riderCode(riderId)))
                     .andExpect(status().isForbidden());
             mvc.perform(post("/api/v1/payments/charges/" + chargeIdsForJob().get(0) + "/settle")
                             .header("Authorization", "Bearer " + other))
@@ -263,7 +263,7 @@ class RiderChargeTest extends ServiceJobTestBase {
 
     @Test
     void noTokenReadsNothing() throws Exception {
-        mvc.perform(get("/api/v1/payments/charges").param("riderId", riderId.toString()))
+        mvc.perform(get("/api/v1/payments/charges").param("riderId", riderCode(riderId)))
                 .andExpect(status().isUnauthorized());
     }
 }

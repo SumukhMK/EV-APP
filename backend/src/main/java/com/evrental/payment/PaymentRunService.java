@@ -123,7 +123,8 @@ public class PaymentRunService {
         Map<UUID, String> registryById = registryIdsFor(rows);
 
         List<PaymentPeriodRowResponse> body = rows.stream()
-                .map(row -> PaymentPeriodRowResponse.from(row, nameOf(riderById, row.getRiderId()),
+                .map(row -> PaymentPeriodRowResponse.from(row, codeOf(riderById, row.getRiderId()),
+                        nameOf(riderById, row.getRiderId()),
                         registryById.get(row.getVehicleId()), today, graceDays))
                 .sorted(Comparator.comparing(PaymentPeriodRowResponse::riderName,
                         Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
@@ -297,7 +298,7 @@ public class PaymentRunService {
                     Rider rider = riderById.get(row.getRiderId());
                     long days = row.daysOverdue(today);
                     return new OverdueRiderResponse(
-                            row.getRiderId(),
+                            rider == null ? null : rider.getRiderCode(),
                             rider == null ? null : rider.getName(),
                             rider == null ? null : rider.getPhone(),
                             registryById.get(row.getVehicleId()),
@@ -341,7 +342,7 @@ public class PaymentRunService {
         PaymentCollection latest = collections.findByPeriodIdOrderByCollectedOnDesc(period.getId())
                 .stream().findFirst().orElse(null);
 
-        return PaymentReceiptResponse.from(period, rider.getName(),
+        return PaymentReceiptResponse.from(period, rider.getRiderCode(), rider.getName(),
                 registryIdsFor(List.of(period)).get(period.getVehicleId()), latest);
     }
 
@@ -370,7 +371,7 @@ public class PaymentRunService {
         }
         PaymentMethod method = parseMethod(request.method());
 
-        Rider rider = riders.findById(request.riderId())
+        Rider rider = riders.findByRiderCode(request.riderId())
                 .orElseThrow(() -> NotFoundException.of("Rider", request.riderId()));
 
         LocalDate today = clock.today();
@@ -402,7 +403,7 @@ public class PaymentRunService {
 
         periods.save(period);
 
-        return PaymentPeriodRowResponse.from(period, rider.getName(),
+        return PaymentPeriodRowResponse.from(period, rider.getRiderCode(), rider.getName(),
                 registryIdsFor(List.of(period)).get(period.getVehicleId()),
                 clock.today(), graceDays);
     }
@@ -512,5 +513,10 @@ public class PaymentRunService {
     private static String nameOf(Map<UUID, Rider> riderById, UUID riderId) {
         Rider rider = riderById.get(riderId);
         return rider == null ? null : rider.getName();
+    }
+
+    private static String codeOf(Map<UUID, Rider> riderById, UUID riderId) {
+        Rider rider = riderById.get(riderId);
+        return rider == null ? null : rider.getRiderCode();
     }
 }

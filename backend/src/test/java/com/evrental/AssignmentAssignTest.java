@@ -21,9 +21,9 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(RIDER_A.toString()))
+                .andExpect(jsonPath("$.id").value(RIDER_A_CODE))
                 .andExpect(jsonPath("$.currentVehicleId").value(VEHICLE_READY))
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
@@ -56,7 +56,7 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_DEBOARDED, VEHICLE_READY)))
+                                """.formatted(RIDER_DEBOARDED_CODE, VEHICLE_READY)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value(
                         "Vinod Naik is deboarded and cannot hold a bike"))
@@ -72,7 +72,7 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_READY_2)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY_2)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value(
                         "Anil Shetty already holds " + VEHICLE_READY + ". Use Exchange vehicle instead."))
@@ -86,7 +86,7 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"BLRSS9999","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A)))
+                                """.formatted(RIDER_A_CODE)))
                 .andExpect(status().isNotFound());
     }
 
@@ -97,7 +97,7 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A, VEHICLE_DEPLOYED)))
+                                """.formatted(RIDER_A_CODE, VEHICLE_DEPLOYED)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value(VEHICLE_DEPLOYED + " is not Ready to Deploy"))
                 .andExpect(jsonPath("$.field").value("vehicleId"));
@@ -112,7 +112,7 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_C, VEHICLE_READY)))
+                                """.formatted(RIDER_C_CODE, VEHICLE_READY)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value(VEHICLE_READY + " is not Ready to Deploy"))
                 .andExpect(jsonPath("$.field").value("vehicleId"));
@@ -127,7 +127,7 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_B, VEHICLE_READY)))
+                                """.formatted(RIDER_B_CODE, VEHICLE_READY)))
                 .andExpect(status().isNotFound());
     }
 
@@ -146,7 +146,7 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(riderId, vehicleId)))
+                                """.formatted(riderCode(riderId), vehicleId)))
                 .andExpect(status().isOk());
     }
 }

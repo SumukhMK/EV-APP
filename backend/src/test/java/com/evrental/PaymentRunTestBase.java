@@ -57,11 +57,21 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
     protected static final long WEDNESDAY_PLAN_PAISE = 190_000L;
 
     protected static final UUID MONDAY_RIDER = UUID.fromString("70000000-0000-0000-0000-0000000000a1");
+    /** The user-facing code for MONDAY_RIDER. */
+    protected static final String MONDAY_RIDER_CODE = "R01";
     protected static final UUID CHARGED_RIDER = UUID.fromString("70000000-0000-0000-0000-0000000000a2");
+    /** The user-facing code for CHARGED_RIDER. */
+    protected static final String CHARGED_RIDER_CODE = "R02";
     protected static final UUID NO_PLAN_RIDER = UUID.fromString("70000000-0000-0000-0000-0000000000a3");
+    /** The user-facing code for NO_PLAN_RIDER. */
+    protected static final String NO_PLAN_RIDER_CODE = "R03";
     protected static final UUID WEDNESDAY_RIDER = UUID.fromString("70000000-0000-0000-0000-0000000000a4");
+    /** The user-facing code for WEDNESDAY_RIDER. */
+    protected static final String WEDNESDAY_RIDER_CODE = "R04";
     /** On OTHER_TENANT's register — invisible to TENANT's callers. */
     protected static final UUID RIVAL_RIDER = UUID.fromString("80000000-0000-0000-0000-0000000000b1");
+    /** The user-facing code for RIVAL_RIDER within OTHER_TENANT. */
+    protected static final String RIVAL_RIDER_CODE = "R21";
 
     @Autowired
     protected MockMvc mvc;
@@ -111,6 +121,7 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
             // Reference data holds a foreign key to the tenant, so it goes first.
             jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM rider_code_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
 
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
@@ -125,16 +136,18 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
             insertUser(jdbc, PLATFORM_TENANT, "Priya Menon", SUPER_ADMIN_EMAIL, "SUPER_ADMIN");
 
             // Named so the run's by-name ordering is predictable.
-            insertRider(jdbc, MONDAY_RIDER, TENANT, "Anil Shetty", "9845010001",
+            insertRider(jdbc, MONDAY_RIDER, MONDAY_RIDER_CODE, TENANT, "Anil Shetty", "9845010001",
                     ROUNDING_PLAN_PAISE, BillingDay.MONDAY);
-            insertRider(jdbc, CHARGED_RIDER, TENANT, "Bhavana Rao", "9845010002",
+            insertRider(jdbc, CHARGED_RIDER, CHARGED_RIDER_CODE, TENANT, "Bhavana Rao", "9845010002",
                     PLAIN_PLAN_PAISE, BillingDay.MONDAY);
-            insertRider(jdbc, NO_PLAN_RIDER, TENANT, "Chetan Naik", "9845010003",
+            insertRider(jdbc, NO_PLAN_RIDER, NO_PLAN_RIDER_CODE, TENANT, "Chetan Naik", "9845010003",
                     0L, BillingDay.MONDAY);
-            insertRider(jdbc, WEDNESDAY_RIDER, TENANT, "Deepa Hegde", "9845010004",
+            insertRider(jdbc, WEDNESDAY_RIDER, WEDNESDAY_RIDER_CODE, TENANT, "Deepa Hegde", "9845010004",
                     WEDNESDAY_PLAN_PAISE, BillingDay.WEDNESDAY);
-            insertRider(jdbc, RIVAL_RIDER, OTHER_TENANT, "Rival Rider", "9000000002",
+            insertRider(jdbc, RIVAL_RIDER, RIVAL_RIDER_CODE, OTHER_TENANT, "Rival Rider", "9000000002",
                     PLAIN_PLAN_PAISE, BillingDay.MONDAY);
+            jdbc.update("INSERT INTO rider_code_counters (tenant_id, next_no) VALUES (?, 5), (?, 2)",
+                    TENANT, OTHER_TENANT);
             return null;
         });
         vehicleId = insertVehicle(TENANT, "BLRSS0428", "CHASSIS0428");
@@ -174,15 +187,35 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
                 tenantId, name, email, passwordEncoder.encode(PASSWORD), role);
     }
 
-    private void insertRider(JdbcTemplate jdbc, UUID id, UUID tenantId, String name, String phone,
+    private void insertRider(JdbcTemplate jdbc, UUID id, String riderCode, UUID tenantId, String name, String phone,
                              long planPaise, BillingDay billingDay) {
-        jdbc.update("INSERT INTO riders (id, tenant_id, name, phone, status, kyc_status, "
+        jdbc.update("INSERT INTO riders (id, rider_code, tenant_id, name, phone, status, kyc_status, "
                         + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, payment_mode, "
                         + "platform, onboarded_on, aadhaar_encrypted) "
-                        + "VALUES (?, ?, ?, ?, 'ACTIVE', 'VERIFIED', ?, 300000, ?, 'MONDAY', 'UPI', "
+                        + "VALUES (?, ?, ?, ?, ?, 'ACTIVE', 'VERIFIED', ?, 300000, ?, 'MONDAY', 'UPI', "
                         + "'Zomato', CURRENT_DATE - 60, ?)",
-                id, tenantId, name, phone, planPaise, billingDay.name(),
+                id, riderCode, tenantId, name, phone, planPaise, billingDay.name(),
                 aadhaarCipher.encrypt("9999" + phone.substring(4) + "77"));
+    }
+
+    protected String riderCode(UUID riderId) {
+        if (MONDAY_RIDER.equals(riderId)) {
+            return MONDAY_RIDER_CODE;
+        }
+        if (CHARGED_RIDER.equals(riderId)) {
+            return CHARGED_RIDER_CODE;
+        }
+        if (NO_PLAN_RIDER.equals(riderId)) {
+            return NO_PLAN_RIDER_CODE;
+        }
+        if (WEDNESDAY_RIDER.equals(riderId)) {
+            return WEDNESDAY_RIDER_CODE;
+        }
+        if (RIVAL_RIDER.equals(riderId)) {
+            return RIVAL_RIDER_CODE;
+        }
+        return superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT rider_code FROM riders WHERE id = ?", String.class, riderId));
     }
 
     protected UUID insertVehicle(UUID tenantId, String registryId, String chassis) {

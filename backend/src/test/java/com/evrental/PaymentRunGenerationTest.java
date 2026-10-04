@@ -78,7 +78,7 @@ class PaymentRunGenerationTest extends PaymentRunTestBase {
 
         mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.rows[0].riderId").value(MONDAY_RIDER.toString()))
+                .andExpect(jsonPath("$.rows[0].riderId").value(MONDAY_RIDER_CODE))
                 .andExpect(jsonPath("$.rows[0].planAmount").value(ROUNDING_PLAN_PAISE))
                 .andExpect(jsonPath("$.rows[0].daysBilled").value(7))
                 .andExpect(jsonPath("$.rows[0].perDayAmount").value(perDay))
@@ -96,7 +96,7 @@ class PaymentRunGenerationTest extends PaymentRunTestBase {
     void aRiderWithNoPlanGetsAZeroRowNotAMissingOne() throws Exception {
         mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.rows[2].riderId").value(NO_PLAN_RIDER.toString()))
+                .andExpect(jsonPath("$.rows[2].riderId").value(NO_PLAN_RIDER_CODE))
                 .andExpect(jsonPath("$.rows[2].daysBilled").value(0))
                 .andExpect(jsonPath("$.rows[2].billedAmount").value(0))
                 .andExpect(jsonPath("$.rows[2].totalDue").value(0));
@@ -132,7 +132,7 @@ class PaymentRunGenerationTest extends PaymentRunTestBase {
 
         mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.rows[1].riderId").value(CHARGED_RIDER.toString()))
+                .andExpect(jsonPath("$.rows[1].riderId").value(CHARGED_RIDER_CODE))
                 .andExpect(jsonPath("$.rows[1].serviceCharges").value(31_000))
                 .andExpect(jsonPath("$.rows[1].arrears").value(70_000))
                 .andExpect(jsonPath("$.rows[1].totalDue").value(PLAIN_PLAN_PAISE + 31_000 + 70_000));

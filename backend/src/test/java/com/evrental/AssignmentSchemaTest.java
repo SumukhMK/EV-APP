@@ -255,14 +255,15 @@ class AssignmentSchemaTest extends PostgresTestBase {
     private UUID insertRider(UUID tenantId, String phone) {
         return onConnection("*", conn -> {
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO riders (tenant_id, name, phone, status, kyc_status, "
+                    "INSERT INTO riders (tenant_id, rider_code, name, phone, status, kyc_status, "
                             + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, "
                             + "payment_mode, platform, onboarded_on, aadhaar_encrypted) "
-                            + "VALUES (?, 'Schema Rider', ?, 'ACTIVE', 'PENDING', "
+                            + "VALUES (?, ?, 'Schema Rider', ?, 'ACTIVE', 'PENDING', "
                             + "175000, 300000, 'MONDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, "
                             + "'v1:test-iv:test-ciphertext') RETURNING id")) {
                 ps.setObject(1, tenantId);
-                ps.setString(2, phone);
+                ps.setString(2, "RA" + UUID.randomUUID().toString().substring(0, 8));
+                ps.setString(3, phone);
                 var rs = ps.executeQuery();
                 rs.next();
                 return (UUID) rs.getObject(1);

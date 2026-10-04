@@ -46,7 +46,7 @@ public record RiderResponse(
      */
     public static RiderResponse from(Rider r, String currentVehicleId, String paymentStatus) {
         return new RiderResponse(
-                r.getId().toString(),
+                r.getRiderCode(),
                 r.getName(),
                 r.getPhone(),
                 r.getStatus(),

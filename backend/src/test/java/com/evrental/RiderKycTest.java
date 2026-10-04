@@ -25,14 +25,14 @@ class RiderKycTest extends RiderTestBase {
 
     @Test
     void aRidersDocumentsCanBeVerified() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/kyc")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/kyc")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(decision("VERIFIED")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.kycStatus").value("VERIFIED"));
 
-        mvc.perform(get("/api/v1/riders/" + RIDER_A)
+        mvc.perform(get("/api/v1/riders/" + RIDER_A_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(jsonPath("$.kycStatus").value("VERIFIED"));
     }
@@ -40,7 +40,7 @@ class RiderKycTest extends RiderTestBase {
     /** Rejecting records a decision; it does not remove the rider. */
     @Test
     void aRidersDocumentsCanBeRejectedWithoutRemovingThem() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/kyc")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/kyc")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(decision("REJECTED")))
@@ -52,13 +52,13 @@ class RiderKycTest extends RiderTestBase {
     /** A decision can be revised — documents get resubmitted. */
     @Test
     void aDecisionCanBeChanged() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/kyc")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/kyc")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(decision("REJECTED")))
                 .andExpect(status().isOk());
 
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/kyc")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/kyc")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(decision("VERIFIED")))
@@ -69,7 +69,7 @@ class RiderKycTest extends RiderTestBase {
     /** Pending is where a rider starts, not an outcome to record. */
     @Test
     void pendingIsNotADecision() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/kyc")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/kyc")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(decision("PENDING")))
@@ -79,7 +79,7 @@ class RiderKycTest extends RiderTestBase {
     /** Judging someone's documents is not a counter task. */
     @Test
     void fleetStaffCannotDecideKyc() throws Exception {
-        mvc.perform(post("/api/v1/riders/" + RIDER_A + "/kyc")
+        mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/kyc")
                         .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(decision("VERIFIED")))

@@ -99,10 +99,10 @@ class RiderReadTest extends RiderTestBase {
 
     @Test
     void getsARiderById() throws Exception {
-        mvc.perform(get("/api/v1/riders/" + RIDER_A)
+        mvc.perform(get("/api/v1/riders/" + RIDER_A_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(RIDER_A.toString()))
+                .andExpect(jsonPath("$.id").value(RIDER_A_CODE))
                 .andExpect(jsonPath("$.name").value("Anil Shetty"));
     }
 
@@ -117,7 +117,7 @@ class RiderReadTest extends RiderTestBase {
     void anotherTenantsRiderIsA404NotALeak() throws Exception {
         // RLS hides RIDER_B from TENANT's callers, so the read must 404
         // rather than answer with another operator's rider.
-        mvc.perform(get("/api/v1/riders/" + RIDER_B)
+        mvc.perform(get("/api/v1/riders/" + RIDER_B_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isNotFound());
     }
@@ -128,7 +128,7 @@ class RiderReadTest extends RiderTestBase {
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(RIDER_A.toString()));
+                .andExpect(jsonPath("$[0].id").value(RIDER_A_CODE));
     }
 
     @Test
@@ -143,7 +143,7 @@ class RiderReadTest extends RiderTestBase {
 
     @Test
     void thePaymentHistorySeamReturnsAnEmptyList() throws Exception {
-        mvc.perform(get("/api/v1/payments/riders/" + RIDER_A + "/periods")
+        mvc.perform(get("/api/v1/payments/riders/" + RIDER_A_CODE + "/periods")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
