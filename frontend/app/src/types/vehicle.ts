@@ -123,6 +123,17 @@ export interface BulkUploadPreview {
    */
   importId: string;
   fileName: string;
+  /**
+   * The worksheet the rows came from, so an operator who meant a different
+   * one finds out before committing. Absent for a CSV.
+   */
+  sheetName?: string | null;
+  /**
+   * Header names in the file that matched no field and were skipped. Shown,
+   * because a silently dropped column is how a "Notes" column full of
+   * registration numbers goes unnoticed.
+   */
+  ignoredColumns: string[];
   totalRows: number;
   validRows: number;
   errorRows: number;

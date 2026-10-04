@@ -2,29 +2,19 @@ package com.evrental.vehicle;
 
 import com.evrental.common.ConflictException;
 import com.evrental.common.NotFoundException;
-import com.evrental.common.ValidationException;
-import java.io.ByteArrayInputStream;
+import com.evrental.payment.BillingClock;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.ss.usermodel.FormulaEvaluator;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,11 +22,24 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class VehicleImportService {
 
-    /** Package-private so {@link VehicleImportTemplate} builds from the same list. */
-    static final List<String> HEADERS = List.of(
-            "id", "chassisNumber", "model", "batteryType", "batteryVendor", "hub", "registrationNumber", "inductedOn");
+    /** The columns a row carries. Owned by the header matcher; re-exported for the template. */
+    static final List<String> HEADERS = HeaderMatcher.COLUMNS;
     private static final List<String> REQUIRED_HEADERS = List.of(
             "id", "chassisNumber", "model", "batteryType", "hub", "inductedOn");
+
+    /**
+     * The most rows one file may carry.
+     *
+     * <p>Every row is staged as its own database row and sent back in the
+     * preview, so a file is bounded by what one request and one screen can
+     * hold, not by what Excel can. The fleet being migrated is 150 bikes;
+     * 2,000 leaves room for a year of growth in one file and keeps the
+     * preview under a second.
+     */
+    static final int MAX_ROWS = 2_000;
+
+    /** How long a preview stays committable. The nightly sweeper uses the same figure. */
+    static final Duration PREVIEW_TTL = Duration.ofHours(24);
 
     /**
      * The length each column accepts, taken from {@link CreateVehicleRequest}
@@ -63,23 +66,24 @@ public class VehicleImportService {
     private final VehicleImportRowRepository rows;
     private final VehicleRepository vehicles;
     private final VehicleService vehicleService;
+    private final BillingClock clock;
 
     public VehicleImportService(VehicleImportRepository imports,
                                 VehicleImportRowRepository rows,
                                 VehicleRepository vehicles,
-                                VehicleService vehicleService) {
+                                VehicleService vehicleService,
+                                BillingClock clock) {
         this.imports = imports;
         this.rows = rows;
         this.vehicles = vehicles;
         this.vehicleService = vehicleService;
+        this.clock = clock;
     }
 
     @Transactional
     public BulkUploadPreviewResponse preview(MultipartFile file, UUID tenantId, UUID uploadedBy) {
-        List<Map<String, String>> parsedRows = parse(file);
-        if (parsedRows.isEmpty()) {
-            throw new ValidationException("file", "The file has no data rows");
-        }
+        Parsed parsed = parse(file);
+        List<Map<String, String>> parsedRows = parsed.rows();
 
         Map<String, Long> registryCounts = counts(parsedRows, "id");
         Map<String, Long> chassisCounts = counts(parsedRows, "chassisNumber");
@@ -110,6 +114,8 @@ public class VehicleImportService {
         return new BulkUploadPreviewResponse(
                 batch.getId().toString(),
                 batch.getFileName(),
+                parsed.sheetName(),
+                parsed.ignoredColumns(),
                 totalRows,
                 validRows,
                 errorRows,
@@ -132,6 +138,13 @@ public class VehicleImportService {
                 .orElseThrow(() -> NotFoundException.of("Import", importId));
         if (batch.getStatus() != VehicleImportStatus.PENDING) {
             throw new ConflictException("This import has already been " + batch.getStatus().name().toLowerCase());
+        }
+        // The sweeper marks these EXPIRED once a night. Between the preview
+        // turning a day old and that run, the age is checked here, so the
+        // promise "a preview lasts 24 hours" is exact rather than "until
+        // about 03:15 the following morning".
+        if (batch.getUploadedOn().isBefore(Instant.now().minus(PREVIEW_TTL))) {
+            throw new ConflictException("This preview has expired. Upload the file again.");
         }
 
         int imported = 0;
@@ -162,7 +175,8 @@ public class VehicleImportService {
     }
 
     /**
-     * The checks both passes share: present, short enough, and a real date.
+     * The checks both passes share: present, short enough, a real date that
+     * has happened.
      *
      * <p>Ordered required-then-length so a blank cell is reported as missing
      * rather than as a length failure, and returning the first failure so the
@@ -182,10 +196,14 @@ public class VehicleImportService {
                 return limit.getKey() + " must be at most " + limit.getValue() + " characters";
             }
         }
-        try {
-            LocalDate.parse(payload.get("inductedOn").trim());
-        } catch (DateTimeParseException ex) {
-            return "inductedOn must be an ISO-8601 date";
+        Optional<LocalDate> inductedOn = ImportDates.parse(payload.get("inductedOn"));
+        if (inductedOn.isEmpty()) {
+            return "inductedOn must be a date like " + ImportDates.HINT;
+        }
+        // A bike cannot have joined the fleet next month. Today is today in
+        // IST, where the fleet is — not in the UTC the container runs in.
+        if (inductedOn.get().isAfter(clock.today())) {
+            return "inductedOn cannot be in the future";
         }
         return null;
     }
@@ -244,181 +262,53 @@ public class VehicleImportService {
         return null;
     }
 
-    private List<Map<String, String>> parse(MultipartFile file) {
+    /** The file as rows keyed by field, plus what the preview says about where they came from. */
+    private record Parsed(List<Map<String, String>> rows, String sheetName, List<String> ignoredColumns) {
+    }
+
+    /**
+     * Bytes to rows keyed by field name.
+     *
+     * <p>Three steps, each its own class with its own tests: the reader turns
+     * any supported format into rows of text, the matcher finds the header
+     * among them and names the columns, and this method picks each field out
+     * of each row by that mapping. A date is normalised to ISO here when it
+     * parses, so the stored payload is one shape; one that does not parse is
+     * kept as typed so the row error can quote it.
+     */
+    private Parsed parse(MultipartFile file) {
         byte[] bytes;
         try {
             bytes = file.getBytes();
         } catch (IOException e) {
-            throw new ValidationException("file", "Could not read the upload");
+            throw new ImportFileException("Could not read the upload");
         }
-        if (bytes.length == 0) {
-            throw new ValidationException("file", "The file is empty");
-        }
+        ImportFile parsed = ImportFileReader.read(bytes);
+        HeaderMatch header = HeaderMatcher.locate(parsed.rows());
+        List<List<String>> records = parsed.rows().subList(header.headerRow() + 1, parsed.rows().size());
 
-        // The content decides, not the extension. A browser sends whatever
-        // the operating system has mapped, a user renames a file to .csv to
-        // "fix" a failed upload, and an .xlsx always begins with the ZIP
-        // signature. Sniffing the bytes gets all three right.
-        List<List<String>> records;
-        if (looksLikeXlsx(bytes)) {
-            records = parseXlsx(bytes);
-        } else {
-            String raw = new String(bytes, StandardCharsets.UTF_8);
-            if (raw.isBlank()) {
-                throw new ValidationException("file", "The file is empty");
-            }
-            records = parseCsv(raw);
-        }
         if (records.isEmpty()) {
-            throw new ValidationException("file", "The file is empty");
+            throw new ImportFileException("The file has no data rows");
+        }
+        if (records.size() > MAX_ROWS) {
+            throw new ImportFileException(
+                    String.format("The file has %,d rows. The maximum is %,d — split it into smaller files.",
+                            records.size(), MAX_ROWS),
+                    Map.of("rows", records.size(), "maxRows", MAX_ROWS));
         }
 
-        List<String> header = records.get(0);
-        for (String expected : HEADERS) {
-            if (!header.contains(expected)) {
-                throw new ValidationException("file", "The file is missing the " + expected + " column");
-            }
-        }
-        if (records.size() == 1) {
-            throw new ValidationException("file", "The file has no data rows");
-        }
-
-        List<Map<String, String>> rows = new ArrayList<>();
-        for (int i = 1; i < records.size(); i++) {
-            List<String> record = records.get(i);
+        List<Map<String, String>> rows = new ArrayList<>(records.size());
+        for (List<String> record : records) {
             Map<String, String> payload = new LinkedHashMap<>();
-            for (int c = 0; c < header.size(); c++) {
-                payload.put(header.get(c), c < record.size() ? record.get(c) : "");
+            for (String field : HEADERS) {
+                int column = header.columns().get(field);
+                payload.put(field, column < record.size() ? record.get(column).trim() : "");
             }
+            ImportDates.parse(payload.get("inductedOn"))
+                    .ifPresent(date -> payload.put("inductedOn", date.format(DateTimeFormatter.ISO_LOCAL_DATE)));
             rows.add(payload);
         }
-        return rows;
-    }
-
-    /** The ZIP local-file-header signature every .xlsx starts with. */
-    private static boolean looksLikeXlsx(byte[] bytes) {
-        return bytes.length >= 4
-                && bytes[0] == 0x50 && bytes[1] == 0x4B
-                && (bytes[2] == 0x03 || bytes[2] == 0x05 || bytes[2] == 0x07);
-    }
-
-    /**
-     * The first sheet of a workbook, as the same rows {@link #parseCsv} would
-     * have produced — so every rule downstream is blind to the file format.
-     *
-     * <p>Only the first sheet is read. A fleet export is one sheet, and
-     * silently importing a second one (often a lookup list or a pivot) would
-     * create bikes nobody asked for.
-     */
-    private static List<List<String>> parseXlsx(byte[] bytes) {
-        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
-            if (workbook.getNumberOfSheets() == 0) {
-                throw new ValidationException("file", "The workbook has no sheets");
-            }
-            Sheet sheet = workbook.getSheetAt(0);
-            DataFormatter formatter = new DataFormatter();
-            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
-
-            List<List<String>> records = new ArrayList<>();
-            int lastRow = sheet.getLastRowNum();
-            for (int r = sheet.getFirstRowNum(); r <= lastRow; r++) {
-                Row row = sheet.getRow(r);
-                if (row == null) {
-                    // A row the user cleared. Excel keeps it in the used
-                    // range; it is not a row of the import.
-                    continue;
-                }
-                List<String> values = new ArrayList<>();
-                for (int c = 0; c < row.getLastCellNum(); c++) {
-                    values.add(readCell(row.getCell(c), formatter, evaluator));
-                }
-                if (values.stream().allMatch(String::isEmpty)) {
-                    continue;
-                }
-                records.add(values);
-            }
-            return records;
-        } catch (ValidationException e) {
-            throw e;
-        } catch (IOException | RuntimeException e) {
-            // POI throws a family of unchecked exceptions for a file that is
-            // not a workbook, is password protected, or is the older .xls
-            // binary. The operator gets one sentence they can act on rather
-            // than a parser class name.
-            throw new ValidationException("file",
-                    "Could not read that file as an Excel workbook. Save it as .xlsx or .csv and try again.");
-        }
-    }
-
-    /**
-     * One cell as the text a person would have typed.
-     *
-     * <p>Two cases make this more than {@code toString()}. A date cell holds
-     * a serial number, so a date picked from Excel's own picker arrives as
-     * 46266 and must go back out as 2026-09-01 for the ISO parse downstream.
-     * And a registry id Excel decided was numeric would otherwise render as
-     * 1.23457E+11, so a whole number is written without the exponent or the
-     * trailing .0 the default format adds.
-     */
-    private static String readCell(Cell cell, DataFormatter formatter, FormulaEvaluator evaluator) {
-        if (cell == null) {
-            return "";
-        }
-        CellType type = cell.getCellType() == CellType.FORMULA
-                ? cell.getCachedFormulaResultType()
-                : cell.getCellType();
-
-        if (type == CellType.NUMERIC) {
-            if (DateUtil.isCellDateFormatted(cell)) {
-                LocalDate date = cell.getLocalDateTimeCellValue().toLocalDate();
-                return date.format(DateTimeFormatter.ISO_LOCAL_DATE);
-            }
-            double value = cell.getNumericCellValue();
-            if (value == Math.rint(value) && !Double.isInfinite(value) && Math.abs(value) < 1e15) {
-                return String.valueOf((long) value);
-            }
-        }
-        return formatter.formatCellValue(cell, evaluator).trim();
-    }
-
-    private static List<List<String>> parseCsv(String raw) {
-        List<List<String>> rows = new ArrayList<>();
-        List<String> currentRow = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean inQuotes = false;
-
-        for (int i = 0; i < raw.length(); i++) {
-            char ch = raw.charAt(i);
-            if (ch == '"') {
-                if (inQuotes && i + 1 < raw.length() && raw.charAt(i + 1) == '"') {
-                    current.append('"');
-                    i++;
-                } else {
-                    inQuotes = !inQuotes;
-                }
-            } else if (ch == ',' && !inQuotes) {
-                currentRow.add(current.toString().trim());
-                current.setLength(0);
-            } else if ((ch == '\n' || ch == '\r') && !inQuotes) {
-                if (ch == '\r' && i + 1 < raw.length() && raw.charAt(i + 1) == '\n') {
-                    i++;
-                }
-                currentRow.add(current.toString().trim());
-                current.setLength(0);
-                if (!currentRow.stream().allMatch(String::isEmpty)) {
-                    rows.add(currentRow);
-                }
-                currentRow = new ArrayList<>();
-            } else {
-                current.append(ch);
-            }
-        }
-
-        currentRow.add(current.toString().trim());
-        if (!currentRow.stream().allMatch(String::isEmpty)) {
-            rows.add(currentRow);
-        }
-        return rows;
+        return new Parsed(rows, parsed.sheetName(), header.ignored());
     }
 
     private static Map<String, Long> counts(List<Map<String, String>> rows, String key) {

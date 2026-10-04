@@ -389,7 +389,24 @@ generated per request from the same header list the parser reads so the two
 cannot drift. The upload screen gained a **Download template** button and lost
 three claims that were not true: a "Map columns" stage that existed on neither
 side, a column list naming fields the importer has never accepted, and a note
-saying header names need not match exactly. They must.
+saying header names need not match exactly. At the time, they had to.
+
+**Hardening (import-hardening branch).** The first real file from a hub was
+rejected, and the screen showed the previous file's preview under the error.
+Parsing is now three tested units in front of the service: `ImportFileReader`
+(bytes → rows of text; `.xlsx`, `.xls` and CSV by content, BOM and UTF-16
+and Windows-1252 CSVs, delimiter sniffed, first visible non-empty sheet,
+readable messages for a PDF, a password-protected workbook or a ZIP that is
+not one), `HeaderMatcher` (finds the header among up to ten title rows,
+matches names loosely — case, spaces, punctuation, a short alias table so
+"Chassis Number" and "Reg No" work — and reports every missing column at once
+with the columns it found, as `details` on the 422), and `ImportDates`
+(day-first `01/09/2026`, dashes, dots, month names, midnight timestamps; a
+future date is a row error). The service caps a file at 2,000 rows, refuses
+to commit a preview older than 24 hours even before the nightly sweep, and the
+preview names the sheet it read and the columns it ignored. A file over the
+multipart limit is a 413 sentence, not a 500. CSV goes through Commons CSV;
+the hand-written parser is gone.
 
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's

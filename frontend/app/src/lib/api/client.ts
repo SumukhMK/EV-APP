@@ -50,12 +50,19 @@ export class ApiError extends Error {
   status: number;
   /** Set when the failure belongs to one form field, so RHF can attach it. */
   field?: string;
+  /**
+   * Structured facts behind the message, when the server has them — the
+   * columns a spreadsheet was missing, say. The message always stands on its
+   * own; a screen that ignores this loses layout, not information.
+   */
+  details?: Record<string, unknown>;
 
-  constructor(message: string, status: number, field?: string) {
+  constructor(message: string, status: number, field?: string, details?: Record<string, unknown>) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.field = field;
+    this.details = details;
   }
 }
 
@@ -124,14 +131,16 @@ function buildUrl(path: string, query: RequestOptions['query']): string {
 async function toApiError(response: Response): Promise<ApiError> {
   let message = `Request failed (${response.status})`;
   let field: string | undefined;
+  let details: Record<string, unknown> | undefined;
   try {
     const body = await response.json();
     if (body && typeof body.message === 'string') message = body.message;
     if (body && typeof body.field === 'string') field = body.field;
+    if (body && typeof body.details === 'object' && body.details !== null) details = body.details;
   } catch {
     // Not JSON. Keep the status-based message.
   }
-  return new ApiError(message, response.status, field);
+  return new ApiError(message, response.status, field, details);
 }
 
 /**

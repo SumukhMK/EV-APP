@@ -171,6 +171,8 @@ export async function previewBulkUpload(file: File): Promise<BulkUploadPreview> 
     {
       importId: crypto.randomUUID(),
       fileName: file.name,
+      sheetName: file.name.endsWith('.csv') ? null : 'Vehicles',
+      ignoredColumns: [],
       totalRows: rows.length,
       validRows: rows.filter((r) => !r.error).length,
       errorRows: rows.filter((r) => r.error).length,

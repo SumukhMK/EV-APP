@@ -129,7 +129,8 @@ class VehicleImportExcelTest extends VehicleTestBase {
                         .file(xlsx("fleet.xlsx", workbook))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.message").value("The file is missing the inductedOn column"));
+                .andExpect(jsonPath("$.message")
+                        .value(org.hamcrest.Matchers.startsWith("Could not find these columns: inductedOn")));
     }
 
     /** A .xlsx that is not a workbook must say so, not leak a parser error. */

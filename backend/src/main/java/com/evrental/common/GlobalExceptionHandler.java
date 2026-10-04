@@ -1,5 +1,6 @@
 package com.evrental.common;
 
+import com.evrental.vehicle.ImportFileException;
 import java.util.Comparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +14,8 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -55,6 +58,40 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ApiErrorResponse> validation(ValidationException ex) {
         return body(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), ex.field());
+    }
+
+    /**
+     * A whole upload that cannot be used. Same 422 as any validation
+     * failure, with the facts behind the sentence attached so the screen can
+     * list the missing columns next to the ones it found.
+     */
+    @ExceptionHandler(ImportFileException.class)
+    public ResponseEntity<ApiErrorResponse> importFile(ImportFileException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(new ApiErrorResponse(
+                ex.getMessage(), HttpStatus.UNPROCESSABLE_CONTENT.value(), ex.field(),
+                ex.details().isEmpty() ? null : ex.details()));
+    }
+
+    /**
+     * An upload over {@code spring.servlet.multipart.max-file-size}. The
+     * container rejects it before the controller runs, so without this the
+     * catch-all turned a 10 MB spreadsheet into "Something went wrong". The
+     * limit is read off the exception rather than repeated here, so the
+     * sentence and application.yml cannot disagree.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> tooLarge(MaxUploadSizeExceededException ex) {
+        long max = ex.getMaxUploadSize();
+        String message = max > 0
+                ? "The file is larger than " + (max / (1024 * 1024)) + " MB. Split it into smaller files."
+                : "The file is too large. Split it into smaller files.";
+        return body(HttpStatus.CONTENT_TOO_LARGE, message, "file");
+    }
+
+    /** A multipart request with no {@code file} part: the form was submitted empty. */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiErrorResponse> missingPart(MissingServletRequestPartException ex) {
+        return body(HttpStatus.BAD_REQUEST, "Choose a file to upload", ex.getRequestPartName());
     }
 
     /**

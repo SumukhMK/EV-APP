@@ -1,8 +1,13 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import { useRef } from 'react';
-import { neutral } from '../theme/tokens';
+import { useState } from 'react';
+import { useDropzone, type Accept, type FileRejection } from 'react-dropzone';
+import { accent, neutral } from '../theme/tokens';
+import { shakeStyles } from '../hooks/useShakeValidation';
+
+/** Why a file was turned away before it was sent. The screen owns the wording. */
+export type UploadRejection = 'type' | 'size' | 'count';
 
 /**
  * Where a file goes in, and what it has to contain.
@@ -11,52 +16,72 @@ import { neutral } from '../theme/tokens';
  * mapping if source column names differ" — is really an admission that the
  * spreadsheets arriving from the hubs do not agree with each other, so telling
  * somebody the columns we want *before* they upload is what stops the mapping
- * step becoming the whole job. Native input, hidden, driven by the button, so
- * the keyboard reaches it.
+ * step becoming the whole job.
+ *
+ * Drag-and-drop is real (react-dropzone), which is also what checks the type
+ * and size before a byte leaves the browser: a photo or a 40 MB export is
+ * turned away here with a shake, rather than after a round trip. Native
+ * input, hidden, driven by the button, so the keyboard reaches it.
  */
 export function UploadBox({
   title,
   description,
   accept,
+  maxSize,
   buttonLabel,
   onFile,
+  onReject,
   expectedColumns,
   columnNote,
 }: {
   title: string;
   description: string;
-  accept: string;
+  /** MIME type → extensions, as react-dropzone wants it. */
+  accept: Accept;
+  /** In bytes. Files over it are rejected before upload. */
+  maxSize?: number;
   buttonLabel: string;
   onFile: (file: File) => void;
+  onReject?: (reason: UploadRejection) => void;
   expectedColumns?: readonly string[];
   columnNote?: string;
 }) {
-  const input = useRef<HTMLInputElement>(null);
+  const [shaking, setShaking] = useState(false);
+
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    accept,
+    maxSize,
+    multiple: false,
+    // The button opens the picker; a click anywhere on the box would also
+    // open it, which surprises people who were only reaching for the text.
+    noClick: true,
+    noKeyboard: true,
+    onDropAccepted: (files) => onFile(files[0]),
+    onDropRejected: (rejections: FileRejection[]) => {
+      setShaking(true);
+      setTimeout(() => setShaking(false), 600);
+      onReject?.(reasonFor(rejections));
+    },
+  });
 
   return (
-    <Box>
+    <Box sx={shakeStyles}>
       <Box
+        {...getRootProps()}
+        className={shaking ? 'shake-field' : undefined}
         sx={{
-          border: `1px dashed ${neutral[700]}`,
+          border: `1px dashed ${isDragActive ? accent[400] : neutral[700]}`,
+          background: isDragActive ? accent[900] : undefined,
           borderRadius: 2,
           p: { xs: 5, sm: 7 },
           textAlign: 'center',
+          transition: 'border-color 120ms, background 120ms',
         }}
       >
-        <Typography sx={{ fontSize: 15 }}>{title}</Typography>
+        <Typography sx={{ fontSize: 15 }}>{isDragActive ? 'Drop it here' : title}</Typography>
         <Typography sx={{ fontSize: 13, color: 'grey.500', mt: 2, mb: 4 }}>{description}</Typography>
-        <input
-          ref={input}
-          type="file"
-          accept={accept}
-          hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onFile(f);
-            e.target.value = '';
-          }}
-        />
-        <Button variant="contained" onClick={() => input.current?.click()}>
+        <input {...getInputProps()} />
+        <Button variant="contained" onClick={open}>
           {buttonLabel}
         </Button>
       </Box>
@@ -88,4 +113,12 @@ export function UploadBox({
       )}
     </Box>
   );
+}
+
+/** The first rejection's first reason, as one of ours. */
+function reasonFor(rejections: FileRejection[]): UploadRejection {
+  const code = rejections[0]?.errors[0]?.code;
+  if (code === 'file-too-large') return 'size';
+  if (code === 'too-many-files') return 'count';
+  return 'type';
 }

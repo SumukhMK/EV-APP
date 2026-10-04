@@ -36,6 +36,7 @@
          raised its minimum API to 1.40) is obsolete. -->
     <testcontainers.version>2.0.5</testcontainers.version>
     <poi.version>5.4.1</poi.version>
+    <commons-csv.version>1.14.1</commons-csv.version>
   </properties>
 
   <dependencyManagement>
@@ -110,6 +111,17 @@
       <groupId>org.apache.poi</groupId>
       <artifactId>poi-ooxml</artifactId>
       <version>${poi.version}</version>
+    </dependency>
+    <!-- CSV for the same upload. The hand-written parser before this handled
+         quotes and CRLF and nothing else: Excel's byte-order mark became part
+         of the first header, a semicolon-separated file from a European
+         locale arrived as one column, and the UTF-16 "Unicode Text" export
+         was gibberish. Commons CSV is the RFC 4180 reader; the charset and
+         delimiter sniffing in front of it is ours. -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-csv</artifactId>
+      <version>${commons-csv.version}</version>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>

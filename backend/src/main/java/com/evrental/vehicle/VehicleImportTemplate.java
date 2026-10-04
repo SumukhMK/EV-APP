@@ -43,7 +43,8 @@ public class VehicleImportTemplate {
     private static final List<String> NOTES = List.of(
             "How to use this file",
             "",
-            "1. Replace the two example rows with your own bikes. Keep the header row exactly as it is.",
+            "1. Replace the two example rows with your own bikes. Keep the header row; common names like "
+                    + "\"Chassis Number\" or \"Reg No\" are also understood, and a title row above it is fine.",
             "2. Required for every row: id, chassisNumber, model, batteryType, hub, inductedOn.",
             "3. batteryVendor and registrationNumber may be left blank, but keep the columns.",
             "4. inductedOn is the date the bike joined the fleet, written as YYYY-MM-DD.",

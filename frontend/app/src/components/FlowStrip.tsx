@@ -26,6 +26,9 @@ export function FlowStrip({
         return (
           <Box key={s} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box
+              // The colour says which stage is live; this says it to a
+              // screen reader, and to a test.
+              aria-current={active ? 'step' : undefined}
               sx={{
                 fontSize: 12,
                 px: 2,
