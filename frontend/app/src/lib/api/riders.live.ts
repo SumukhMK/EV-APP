@@ -39,9 +39,6 @@ export function decideKyc(id: string, decision: 'VERIFIED' | 'REJECTED'): Promis
 }
 
 /** Puts a deboarded rider back on the active register. */
-export function reactivateRider(id: string): Promise<Rider> {
-  return request<Rider>(`/riders/${encodeURIComponent(id)}/reactivate`, { method: 'POST' });
-}
 
 export function getRider(id: string): Promise<RiderDetail> {
   return request<RiderDetail>(`/riders/${encodeURIComponent(id)}`);

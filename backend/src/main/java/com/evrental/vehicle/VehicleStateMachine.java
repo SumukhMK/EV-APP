@@ -77,8 +77,12 @@ public class VehicleStateMachine {
                 VehicleState.RETIRED));
 
         // Pass releases, failure returns to repair (SERVICE_MANAGEMENT.md 11, 14).
+        // DEPLOYED: a bike checked while its rider still holds it (a routine
+        // check, a roadside repair) goes back to that rider on a QC pass,
+        // not into the free pool. READY_TO_DEPLOY is for a bike nobody holds.
         allowed.put(VehicleState.QC_PENDING, EnumSet.of(
                 VehicleState.READY_TO_DEPLOY,
+                VehicleState.DEPLOYED,
                 VehicleState.UNDER_REPAIR));
 
         allowed.put(VehicleState.ACCIDENT, EnumSet.of(

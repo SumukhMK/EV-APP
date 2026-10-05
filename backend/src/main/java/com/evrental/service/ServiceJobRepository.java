@@ -27,6 +27,10 @@ public interface ServiceJobRepository extends JpaRepository<ServiceJob, UUID> {
     @Query("select j from ServiceJob j where j.id = :id")
     Optional<ServiceJob> findByIdForUpdate(@Param("id") UUID id);
 
+    /** By the code an operator reads ("J01"); case-insensitive, as idx_service_jobs_code is. */
+    @Query("select j from ServiceJob j where lower(j.jobCode) = lower(:code)")
+    Optional<ServiceJob> findByJobCode(@Param("code") String code);
+
     /** The open job for a bike, if it has one. The partial index allows only one. */
     @Query("select j from ServiceJob j where j.vehicleId = :vehicleId and j.status <> 'CLOSED'")
     Optional<ServiceJob> findOpenForVehicle(@Param("vehicleId") UUID vehicleId);

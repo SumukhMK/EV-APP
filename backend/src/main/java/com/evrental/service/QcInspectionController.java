@@ -53,16 +53,16 @@ public class QcInspectionController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
-    public QcInspectionResponse submit(@PathVariable UUID id,
+    public QcInspectionResponse submit(@PathVariable String id,
                                        @Valid @RequestBody SubmitQcRequest request,
                                        Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
         return QcInspectionResponse.from(
-                jobs.submitQc(id, request, principal.userId(), actorName(principal)));
+                jobs.submitQc(jobs.resolve(id), request, principal.userId(), actorName(principal)));
     }
 
     @GetMapping
-    public List<QcInspectionResponse> history(@PathVariable UUID id) {
-        return reader.qcHistory(id);
+    public List<QcInspectionResponse> history(@PathVariable String id) {
+        return reader.qcHistory(jobs.resolve(id));
     }
 }

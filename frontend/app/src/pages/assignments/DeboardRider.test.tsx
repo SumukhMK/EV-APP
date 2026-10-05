@@ -16,6 +16,17 @@ function show() {
 }
 
 describe('deboard settlement', () => {
+  /** Nothing about the return can be filled in before the rider is known: the panels are inert and say why. */
+  it('locks the return, money and confirmation panels until a rider is picked', async () => {
+    show();
+    const rent = await screen.findByRole('spinbutton', { name: 'Rent still owed (₹)' });
+    expect(rent.closest('[inert]')).not.toBeNull();
+    expect(screen.getAllByRole('note', { name: '' }).map((n) => n.textContent)).toEqual(
+      expect.arrayContaining(['Pick the rider first']),
+    );
+    expect(screen.getAllByText('Pick the rider first')).toHaveLength(3);
+  });
+
   it('settles the rent but never asks the desk to guess a damage deduction', async () => {
     show();
     expect(await screen.findByRole('spinbutton', { name: 'Rent still owed (₹)' })).toBeInTheDocument();

@@ -22,7 +22,7 @@ import org.springframework.http.MediaType;
 class QcInspectionTest extends ServiceJobTestBase {
 
     private String token;
-    private UUID jobId;
+    private String jobId;
 
     @BeforeEach
     void openAndRepair() throws Exception {
@@ -195,7 +195,7 @@ class QcInspectionTest extends ServiceJobTestBase {
     @Test
     void anUndamagedBikeThatFailsQcGoesForAssessmentRatherThanAGuessedQueue() throws Exception {
         UUID clean = insertVehicle(TENANT, "BLRSS0431", "CHASSIS0431", VehicleState.DEPLOYED);
-        UUID inspectionJob = openJob(token, "BLRSS0431", "NONE");
+        String inspectionJob = openJob(token, "BLRSS0431", "NONE");
 
         mvc.perform(post("/api/v1/service/jobs/" + inspectionJob + "/qc")
                         .header("Authorization", "Bearer " + token)
@@ -209,6 +209,108 @@ class QcInspectionTest extends ServiceJobTestBase {
                 .andExpect(jsonPath("$.queue").value("ASSESSMENT"));
 
         assertThat(stateOf(clean)).isEqualTo(VehicleState.UNDER_REPAIR);
+    }
+
+    /**
+     * The chain Sumukh ran in production: new bike → first check → QC pass →
+     * assign → exchange. The exchange was refused with "already has an open
+     * service job" because the passed check had never been closed.
+     */
+    @Test
+    void aCleanFirstCheckClosesItselfSoTheBikeCanComeBackLater() throws Exception {
+        UUID fresh = insertVehicle(TENANT, "BLRSS0440", "SESEAG03202300440", VehicleState.INDUCTED);
+        String firstCheck = openJob(token, "BLRSS0440", "NONE");
+
+        mvc.perform(post("/api/v1/service/jobs/" + firstCheck + "/qc")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"checks\":" + ALL_CHECKS_PASS + ",\"inspector\":\"Suresh\"}"))
+                .andExpect(status().isCreated());
+
+        assertThat(stateOf(fresh)).isEqualTo(VehicleState.READY_TO_DEPLOY);
+        mvc.perform(get("/api/v1/service/jobs/" + firstCheck).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.queue").value("READY_TO_DEPLOY"))
+                .andExpect(jsonPath("$.totalCostPaise").value(0));
+
+        // The job screen's "Pass QC and release" sends a close after the QC;
+        // with nothing to bill it is answered with the job, not "already closed".
+        mvc.perform(post("/api/v1/service/jobs/" + firstCheck + "/close")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[],\"liability\":\"RIDER\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.liability").value("COMPANY"));
+        // A close that brings money to a closed job is still refused.
+        mvc.perform(post("/api/v1/service/jobs/" + firstCheck + "/close")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"label\":\"Mirror\",\"costPaise\":5000}],\"liability\":\"COMPANY\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("This job is already closed"));
+
+        // The bike's next visit — a return after an assignment — is not refused.
+        mvc.perform(post("/api/v1/service/jobs")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                 {"vehicleId":"BLRSS0440","source":"DEBOARD","damageCategory":"MINOR",
+                                  "damageNotes":"Scuffed on return"}
+                                 """))
+                .andExpect(status().isCreated());
+    }
+
+    /** A repair that passed QC still owes the fleet a money decision, and the message says so. */
+    @Test
+    void aPassedRepairStaysOpenForTheMoneyDecisionAndTheNextVisitSaysWhy() throws Exception {
+        mvc.perform(put("/api/v1/service/jobs/" + jobId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Panel replaced",
+                                  "technician":"Raju","note":"Costed",
+                                  "items":[{"label":"Left panel","costPaise":85000,"kind":"PART"}]}
+                                 """))
+                .andExpect(status().isOk());
+        submitQc(ALL_CHECKS_PASS, "Suresh").andExpect(status().isCreated());
+
+        mvc.perform(get("/api/v1/service/jobs/" + jobId).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+
+        mvc.perform(post("/api/v1/service/jobs")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                 {"vehicleId":"BLRSS0428","source":"DEBOARD","damageCategory":"MINOR",
+                                  "damageNotes":"Back again"}
+                                 """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("This bike's last job (" + jobId
+                        + ") passed QC but is still waiting to be closed — close it from the help desk first"));
+    }
+
+    /**
+     * Sumukh's chain: "Check this bike" on a bike its rider still holds, QC
+     * pass — the bike went to Ready to Deploy while the rider kept it on
+     * paper. The workshop releases a held bike back to its rider.
+     */
+    @Test
+    void aHeldBikeThatPassesQcGoesBackToItsRiderNotIntoTheFreePool() throws Exception {
+        superAdmin(jdbc -> jdbc.update(
+                "INSERT INTO assignments (tenant_id, rider_id, vehicle_id, started_on) VALUES (?, ?, ?, DATE '2026-09-01')",
+                TENANT, RIDER_ID, vehicleId));
+
+        submitQc(ALL_CHECKS_PASS, "Suresh").andExpect(status().isCreated());
+
+        assertThat(stateOf(vehicleId)).isEqualTo(VehicleState.DEPLOYED);
+        mvc.perform(get("/api/v1/service/jobs/" + jobId).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.queue").value("READY_TO_DEPLOY"))
+                .andExpect(jsonPath("$.activity[-1:].note").value("QC passed — all nine checks clear"));
+        String lifecycle = superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT note FROM vehicle_lifecycle_events WHERE vehicle_id = ? ORDER BY occurred_on DESC, id DESC LIMIT 1",
+                String.class, vehicleId));
+        assertThat(lifecycle).isEqualTo("QC passed — back with the rider");
     }
 
     @Test

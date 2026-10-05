@@ -2,6 +2,8 @@ package com.evrental.payment;
 
 import com.evrental.rider.Rider;
 import com.evrental.rider.RiderService;
+import com.evrental.service.ServiceJob;
+import com.evrental.service.ServiceJobRepository;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,10 +33,21 @@ public class RiderChargeController {
 
     private final RiderChargeService charges;
     private final RiderService riderService;
+    private final ServiceJobRepository serviceJobs;
 
-    public RiderChargeController(RiderChargeService charges, RiderService riderService) {
+    public RiderChargeController(RiderChargeService charges, RiderService riderService,
+                                 ServiceJobRepository serviceJobs) {
         this.charges = charges;
         this.riderService = riderService;
+        this.serviceJobs = serviceJobs;
+    }
+
+    /** The code of the job a charge came from; null when the charge has no job or the job is not visible. */
+    private String jobCodeOf(RiderCharge charge) {
+        if (charge.getServiceJobId() == null) {
+            return null;
+        }
+        return serviceJobs.findById(charge.getServiceJobId()).map(ServiceJob::getJobCode).orElse(null);
     }
 
     @GetMapping
@@ -42,7 +55,7 @@ public class RiderChargeController {
                                               @RequestParam(required = false) RiderChargeStatus status) {
         Rider rider = riderService.findByRiderCode(riderId);
         return charges.forRider(rider.getId(), status).stream()
-                .map(c -> RiderChargeResponse.from(c, rider.getRiderCode()))
+                .map(c -> RiderChargeResponse.from(c, rider.getRiderCode(), jobCodeOf(c)))
                 .toList();
     }
 
@@ -56,7 +69,8 @@ public class RiderChargeController {
     @PostMapping("/{id}/settle")
     public RiderChargeResponse settle(@PathVariable UUID id) {
         RiderCharge charge = charges.settle(id);
-        return RiderChargeResponse.from(charge, riderService.findById(charge.getRiderId()).getRiderCode());
+        return RiderChargeResponse.from(charge, riderService.findById(charge.getRiderId()).getRiderCode(),
+                jobCodeOf(charge));
     }
 
     public record OutstandingResponse(String riderId, long outstandingPaise) {

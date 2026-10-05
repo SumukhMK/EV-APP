@@ -91,4 +91,6 @@ public interface RiderRepository extends JpaRepository<Rider, UUID> {
      * listAssignableRiders.
      */
     List<Rider> findByStatus(RiderStatus status);
+
+    List<Rider> findByStatusIn(java.util.Collection<RiderStatus> statuses);
 }

@@ -234,7 +234,7 @@ describe('return disposition consistency', () => {
     const vehicle = vehicles.find((v) => v.id === body.vehicleId)!;
     expect(vehicle.state).toBe(destination);
     expect(vehicle.currentRiderId).toBeNull();
-    expect(riders.find((r) => r.id === body.riderId)?.status).toBe('DEBOARDED');
+    expect(riders.find((r) => r.id === body.riderId)?.status).toBe('INACTIVE');
     expect(serviceJobs).toHaveLength(1);
     expect(serviceJobs[0].damageNotes).toContain('Cracked glass');
     expect(serviceJobs[0].activity[0].vehicleState).toBe(destination);

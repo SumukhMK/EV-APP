@@ -90,7 +90,7 @@ const NO_BIKE: ReadonlyArray<
   ['R05', 'Vinod Naik', '9008773412', 1700, 'MONDAY', 'INACTIVE', 'VERIFIED', '2025-11-03', 'Porter', 'SATURDAY', 0],
   ['R28', 'Suresh Pillai', '8123409965', 1750, 'WEDNESDAY', 'INACTIVE', 'VERIFIED', '2026-01-19', 'Dunzo', 'SUNDAY', 0],
   // Off the register for good.
-  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'BLACKLISTED', 'REJECTED', '2025-09-15', 'Ownly', 'MONDAY', 0],
+  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'INACTIVE', 'REJECTED', '2025-09-15', 'Ownly', 'MONDAY', 0],
 ];
 
 /** Overdue riders the dashboard counts: 16. Two of them are designed rows. */
@@ -131,6 +131,7 @@ function buildRiders(): Rider[] {
       currentVehicleId: bike.id,
       onboardedOn: '2026-04-08',
       paymentStatus,
+      duesPaise: 0,
       platform,
       paymentDay,
       paymentMode: pick(rng, PAYMENT_MODES),
@@ -155,6 +156,7 @@ function buildRiders(): Rider[] {
       currentVehicleId: bike.id,
       onboardedOn: `202${5 + Math.floor(rng() * 2)}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 28)).padStart(2, '0')}`,
       paymentStatus: 'PENDING',
+      duesPaise: 0,
       platform: pick(rng, PLATFORMS),
       paymentDay: pick(rng, PAYMENT_DAYS),
       paymentMode: pick(rng, PAYMENT_MODES),
@@ -178,6 +180,7 @@ function buildRiders(): Rider[] {
       currentVehicleId: bike.id,
       onboardedOn: `202${5 + Math.floor(rng() * 2)}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 28)).padStart(2, '0')}`,
       paymentStatus: 'PAID',
+      duesPaise: 0,
       platform: pick(rng, PLATFORMS),
       paymentDay: pick(rng, PAYMENT_DAYS),
       paymentMode: pick(rng, PAYMENT_MODES),
@@ -213,6 +216,7 @@ function buildRiders(): Rider[] {
       currentVehicleId: null,
       onboardedOn,
       paymentStatus: 'PENDING',
+      duesPaise: 0,
       platform,
       paymentDay,
       paymentMode: pick(rng, PAYMENT_MODES),

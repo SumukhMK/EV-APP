@@ -23,7 +23,7 @@ export const VEHICLE_STATE_LABEL: Record<VehicleState, string> = {
   INDUCTED: 'Onboarding',
   READY_TO_DEPLOY: 'Ready to Deploy',
   DEPLOYED: 'Active',
-  RETURNED: 'Returned (legacy)',
+  RETURNED: 'Returned',
   RECOVERY: 'Recovery',
   UNDER_REPAIR: 'In Service',
   QC_PENDING: 'Quality Check',
@@ -98,22 +98,12 @@ export const PAYMENT_STATUS_TONE: Record<PaymentStatus, StatusTone> = {
 };
 
 export const RIDER_STATUS_LABEL: Record<RiderStatus, string> = {
-  ONBOARDING: 'Onboarding',
   ACTIVE: 'Active',
-  SUSPENDED: 'Suspended',
-  DEBOARDED: 'Deboarded',
-  OFFBOARDED: 'Offboarded',
-  BLACKLISTED: 'Blacklisted',
-  INACTIVE: 'Inactive (legacy)',
+  INACTIVE: 'Inactive',
 };
 
 export const RIDER_STATUS_TONE: Record<RiderStatus, StatusTone> = {
-  ONBOARDING: 'neutral',
   ACTIVE: 'good',
-  SUSPENDED: 'bad',
-  DEBOARDED: 'warn',
-  OFFBOARDED: 'neutral',
-  BLACKLISTED: 'bad',
   INACTIVE: 'neutral',
 };
 

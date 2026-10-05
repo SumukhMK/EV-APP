@@ -106,6 +106,8 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
             // service_jobs now references riders (V008), so riders go after jobs.
             // The change log holds a foreign key to the rider it describes.
             jdbc.update("DELETE FROM rider_plan_changes WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // A held bike's QC test puts an assignment on a rider; it goes before the rider.
+            jdbc.update("DELETE FROM assignments WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_lifecycle_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicles WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
@@ -117,6 +119,7 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
             jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM rider_code_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM job_code_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Service Co', 'service-co', 'ACTIVE')", TENANT);
@@ -188,7 +191,8 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
     }
 
     /** Opens a job with no rider on the bike — a walk-in or a yard find. */
-    protected UUID openJob(String token, String registryId, String damage) throws Exception {
+    /** Opens a job and returns its code ("J01"), which is what the API names a job by. */
+    protected String openJob(String token, String registryId, String damage) throws Exception {
         return openJob(token, registryId, damage, null);
     }
 
@@ -198,7 +202,7 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
      * <p>The rider matters at closing time: billing RIDER or DEPOSIT when
      * nobody is on the bike bills nobody, and the service refuses it.
      */
-    protected UUID openJob(String token, String registryId, String damage, UUID riderId) throws Exception {
+    protected String openJob(String token, String registryId, String damage, UUID riderId) throws Exception {
         // The wire names a rider by code, never by the row's UUID — the same
         // contract the assignment endpoints keep. The only rider these tests
         // know is RIDER_ID, whose code is RIDER_CODE.
@@ -213,7 +217,7 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
                                  """.formatted(registryId, damage,
                                         riderCode == null ? "" : ",\"riderId\":\"" + riderCode + "\"")))
                 .andReturn().getResponse().getContentAsString();
-        return UUID.fromString(new ObjectMapper().readTree(body).get("id").asString());
+        return new ObjectMapper().readTree(body).get("id").asString();
     }
 
     /** Arranges and inspects rows across tenants, which RLS otherwise hides. */

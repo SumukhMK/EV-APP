@@ -15,7 +15,8 @@ function makeJob(req: CreateServiceJobRequest): ServiceJob {
   const queue = req.queue ?? queueForCondition(req.damageCategory);
   const date = req.occurredOn ?? iso();
   return {
-    id: `SVC-${String(nextId++).padStart(4, '0')}`, vehicleId: req.vehicleId,
+    // The same shape the API issues (V016): "J01", two digits until the hundredth.
+    id: `J${String(nextId++).padStart(2, '0')}`, vehicleId: req.vehicleId,
     riderId: req.riderId,
     riderName: req.riderId ? (riders.find((r) => r.id === req.riderId)?.name ?? null) : null,
     source: req.source, damageCategory: req.damageCategory,

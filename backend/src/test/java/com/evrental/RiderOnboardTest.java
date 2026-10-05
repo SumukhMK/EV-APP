@@ -28,7 +28,7 @@ class RiderOnboardTest extends RiderTestBase {
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.name").value("Ravi Kumar"))
                 .andExpect(jsonPath("$.phone").value("9876543210"))
-                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.status").value("INACTIVE"))
                 .andExpect(jsonPath("$.kycStatus").value("PENDING"))
                 .andExpect(jsonPath("$.planAmount").value(175000))
                 .andExpect(jsonPath("$.depositHeld").value(300000))

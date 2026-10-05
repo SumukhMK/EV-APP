@@ -11,6 +11,8 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useReturnTo } from '../../app/useReturnTo';
+import { getVehicle } from '../../lib/api/vehicles';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -63,8 +65,11 @@ const CONDITIONS = (['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const).map((c) => 
  * written down. The screen shows the deposit, the outstanding rent and the
  * refund side by side and lets them settle it, rather than inventing a formula.
  */
+const IN_WORKSHOP = new Set(['UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT']);
+
 export function DeboardRider() {
   const navigate = useNavigate();
+  const { returnTo, cameFromElsewhere, backLabel } = useReturnTo('/riders');
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
@@ -108,6 +113,13 @@ export function DeboardRider() {
     }
   }, [rider, picked.vehicleId, form]);
 
+  // The bike the rider holds, for one question: is it already in the workshop?
+  const bike = useQuery({
+    queryKey: ['vehicle', rider?.currentVehicleId],
+    queryFn: () => getVehicle(rider!.currentVehicleId!),
+    enabled: Boolean(rider?.currentVehicleId),
+  });
+
   // What the record says is owed this period — shown in the summary, typed
   // again in the settlement, because the settlement is what the desk agrees.
   const payments = useQuery({
@@ -138,7 +150,9 @@ export function DeboardRider() {
     onSuccess: (updated) => {
       invalidateAssignments(queryClient);
       invalidateServiceJobs(queryClient);
-      navigate(`/riders/${updated.id}`);
+      navigate(cameFromElsewhere ? returnTo : `/riders/${updated.id}`, {
+        state: { notice: `${updated.name} deboarded — the bike is back with the workshop` },
+      });
     },
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
@@ -194,12 +208,14 @@ export function DeboardRider() {
         <PageHeader
           section="Riders"
           title="Deboard rider"
+          backTo={cameFromElsewhere ? returnTo : undefined}
+          backLabel={backLabel}
           actions={
             <>
-              <Button color="inherit" component={Link} to="/riders">
+              <Button color="inherit" component={Link} to={returnTo}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending || !confirmed}>
+              <Button type="submit" disabled={save.isPending}>
                 {save.isPending ? 'Saving…' : 'Finish and take the bike back'}
               </Button>
             </>
@@ -251,11 +267,18 @@ export function DeboardRider() {
                 {form.formState.errors.vehicleId.message}
               </Typography>
             )}
+            {bike.data && IN_WORKSHOP.has(bike.data.state) && (
+              <Alert severity="info" sx={{ mt: 4 }}>
+                {bike.data.id} is already in the workshop. The return is written on its open job and the bike stays
+                where it is — the destination below does not move it.
+              </Alert>
+            )}
           </Panel>
 
           <Panel
             label="Why is the bike coming back?"
             subtitle="The condition you pick suggests where the bike should go. You can choose something else, just say why."
+            locked={!rider && 'Pick the rider first'}
           >
             {/* The note sits beside the control it qualifies rather than under
                 it — a lone select in a two-column row left half the panel bare. */}
@@ -310,6 +333,7 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
           <Panel
             label="Money"
             subtitle="Only the rent is settled here. Damage is not priced yet."
+            locked={!rider && 'Pick the rider first'}
           >
             {/* A number input hands back a string unless it is asked not to. */}
             <TextField
@@ -342,6 +366,7 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
             <Panel
               label="Before you finish"
               subtitle="Here is what will happen when you confirm."
+              locked={!rider && 'Pick the rider first'}
             >
               <DefinitionList
                 divider="top"
@@ -381,8 +406,8 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
                 The bike movement and the service job are saved together. The job shows up in Bikes in service straight away.
               </Typography>
               <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-                The rider becomes inactive and the bike is freed up. Onboard them again to bring
-                them back.
+                The rider stays on the register as Inactive and the bike is freed up. Give them another bike from
+                Assign vehicle whenever they are ready.
               </Typography>
               <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm the rider, where the bike goes, and the money." />
             </Panel>

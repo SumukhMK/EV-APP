@@ -42,6 +42,13 @@ public class ServiceJob {
     @Column(name = "vehicle_id", nullable = false)
     private UUID vehicleId;
 
+    /**
+     * The code an operator reads and a URL carries ("J01"), one sequence per
+     * tenant (V016). The UUID above stays the key; this is the name.
+     */
+    @Column(name = "job_code", nullable = false, length = 10)
+    private String jobCode;
+
     /** Null for a walk-in or a routine inspection: not every job has a rider. */
     @Column(name = "rider_id")
     private UUID riderId;
@@ -108,6 +115,14 @@ public class ServiceJob {
 
     public UUID getTenantId() {
         return tenantId;
+    }
+
+    public String getJobCode() {
+        return jobCode;
+    }
+
+    public void setJobCode(String jobCode) {
+        this.jobCode = jobCode;
     }
 
     public void setTenantId(UUID tenantId) {

@@ -240,4 +240,37 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                                 """.formatted(riderCode(riderId), vehicleId)))
                 .andExpect(status().isOk());
     }
+
+    /** A swap while the bike being handed back is already in the workshop: no second job, the bike stays put, the new bike goes out. */
+    @Test
+    void aSwapWorksWhileTheOldBikeIsAlreadyInTheWorkshop() throws Exception {
+        assign(RIDER_A, VEHICLE_READY);
+        mvc.perform(post("/api/v1/service/jobs")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"vehicleId":"%s","source":"INSPECTION","damageCategory":"NONE","queue":"QC_PENDING"}
+                                """.formatted(VEHICLE_READY)))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/api/v1/assignments/exchange")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","fromVehicleId":"%s","toVehicleId":"%s","reason":"SERVICE_REQUIRED",
+                                 "occurredOn":"2026-09-28","returnCondition":"NONE","nextVehicleState":"QC_PENDING","damageItems":[]}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentVehicleId").value(VEHICLE_READY_2));
+
+        org.assertj.core.api.Assertions.assertThat(stateOf(VEHICLE_READY))
+                .isEqualTo(com.evrental.vehicle.VehicleState.QC_PENDING);
+        org.assertj.core.api.Assertions.assertThat(stateOf(VEHICLE_READY_2))
+                .isEqualTo(com.evrental.vehicle.VehicleState.DEPLOYED);
+        Integer openJobs = superAdmin(jdbc -> jdbc.queryForObject("""
+                SELECT count(*) FROM service_jobs sj JOIN vehicles v ON v.id = sj.vehicle_id
+                WHERE v.registry_id = ? AND sj.status <> 'CLOSED'
+                """, Integer.class, VEHICLE_READY));
+        org.assertj.core.api.Assertions.assertThat(openJobs).isEqualTo(1);
+    }
 }

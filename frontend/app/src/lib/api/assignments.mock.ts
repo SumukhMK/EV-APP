@@ -88,6 +88,15 @@ export async function assignVehicle(body: AssignVehicleRequest): Promise<Rider> 
     );
   }
   const vehicle = requireDeployable(body.vehicleId);
+  if (rider.duesPaise > rider.depositHeld && !body.overrideDues) {
+    throw new ApiError(
+      `${rider.name} owes more than the deposit covers — collect first, or an admin can override with a note`,
+      422,
+      'dues',
+    );
+  }
+  // Holding a bike is what ACTIVE means.
+  rider.status = 'ACTIVE';
   open(rider, vehicle);
   // `startedOn` and `note` go to the assignment record server-side.
   void body.startedOn;
@@ -138,7 +147,7 @@ export async function deboardRider(body: DeboardRiderRequest): Promise<Rider> {
   const note = returnNote(body);
   recordServiceReturn(vehicle, { riderId: rider.id, source: 'DEBOARD', category: body.returnCondition, nextState: body.nextVehicleState, note, date: body.returnedOn });
   close(rider, vehicle, body.nextVehicleState);
-  rider.status = 'DEBOARDED';
+  rider.status = 'INACTIVE';
   void body.outstandingRent;
   void body.depositRefund;
   return delay(rider, 460);

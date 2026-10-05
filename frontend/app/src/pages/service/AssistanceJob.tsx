@@ -19,7 +19,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
-import { Panel } from '../../components/Panel';
+import { Locked, Panel } from '../../components/Panel';
 import { RecordSearchSelect } from '../../components/RecordSearchSelect';
 import { StateChip } from '../../components/StateChip';
 import { createServiceJob, getServiceJob, listServiceJobs, updateServiceJob } from '../../lib/api/serviceJobs';
@@ -38,7 +38,7 @@ import { CATEGORY_LABEL, LIABILITY_LABEL, SOURCE_LABEL, SERVICE_QUEUE_LABEL } fr
 const deskPath = '/service/assistance';
 const columns = { display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' }, gap: 4, mt: 4, alignItems: 'start' };
 const damageCategories = ['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const;
-type Intent = 'STAY' | 'QC' | 'MOVE' | 'QC_FAIL' | 'RELEASE';
+type Intent = 'QC' | 'MOVE' | 'QC_FAIL' | 'RELEASE';
 type IntentOption = { id: Intent; label: string; hint: string; cta: string; disabled?: boolean };
 const requiresReference = (queue: ServiceQueue) => ['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(queue);
 
@@ -124,7 +124,7 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
                   This bike is already in the list "{SERVICE_QUEUE_LABEL[existing.queue]}". Carry on with job {existing.id} instead of opening a second one.
                 </Alert>
               ) : (
-                <>
+                <Locked locked={!vehicleId && 'Pick the bike first'} sx={{ display: 'grid', gap: 4 }}>
                   <TextField select label="How did the bike reach us?" value={source} onChange={(e) => {
                     const value = e.target.value;
                     if (value === 'RSA' || value === 'QRT' || value === 'WALK_IN' || value === 'INSPECTION') {
@@ -153,11 +153,11 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
                   </TextField>
                   {requiresReference(queue) && <TextField label={queue === 'PARTS_WAITING' ? 'Which parts, and when are they expected?' : 'Claim number or who to follow up with'} value={reference} onChange={(e) => setReference(e.target.value)} required />}
                   <TextField label="What is wrong with the bike?" multiline minRows={3} required value={notes} onChange={(e) => setNotes(e.target.value)} helperText="Write what the rider reported, which parts look affected, and why you picked this list if it is not the obvious one." />
-                </>
+                </Locked>
               )}
             </Box>
           </Panel>
-          <Panel label="Check and confirm">
+          <Panel label="Check and confirm" locked={!vehicleId && 'Pick the bike first'}>
             <DefinitionList items={[
               { label: 'Bike', value: picked?.id ?? 'Pick a bike' },
               { label: 'Rider', value: picked?.currentRiderName ?? 'No rider on this bike' },
@@ -198,6 +198,8 @@ export function AssistanceJob() {
 }
 
 function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: string; onSaved: (job: ServiceJob) => void }) {
+  // Exchange and deboard, reached from here, come back here when done.
+  const { pathname: herePath } = useLocation();
   const { user } = useSession();
   const queryClient = useQueryClient();
   const editable = canManageService(user.roleKey) && job.status !== 'CLOSED';
@@ -211,7 +213,11 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const [repairApproved, setRepairApproved] = useState(false);
   const hasRepairWork = Boolean(job.workSummary?.trim());
   const allQcPassed = QC_CHECKS.every((c) => qcChecks[c.id]) && (!hasRepairWork || repairApproved);
-  const [intent, setIntent] = useState<Intent>('STAY');
+  // There is no "save progress" or "save my notes" anywhere: every save moves
+  // the bike somewhere — for QC, to another list, back to the fleet, or back
+  // to the bench — and until the operator has picked which, the button says
+  // so instead of saving a no-op.
+  const [intent, setIntent] = useState<Intent | null>(null);
   const prevAllQcPassed = useRef(allQcPassed);
   useEffect(() => {
     if (inQC && allQcPassed && !prevAllQcPassed.current) setIntent('RELEASE');
@@ -226,8 +232,13 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const [technician, setTechnician] = useState(job.technician ?? '');
   const [confirmation, setConfirmation] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const failQueue: ServiceQueue = category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : 'MINOR_REPAIR';
-  const queue: ServiceQueue = intent === 'STAY' ? job.queue : intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
+  // Where the server sends a failed bike (ServiceJobService.reworkQueueFor):
+  // its damage category's repair bench, or — for a bike that arrived
+  // undamaged and still failed — assessment, since nobody has said what is
+  // wrong yet. The screen used to promise "Small repair" and the bike then
+  // landed in "Needs checking".
+  const failQueue: ServiceQueue = category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : category === 'MINOR' ? 'MINOR_REPAIR' : 'ASSESSMENT';
+  const queue: ServiceQueue = intent === null ? job.queue : intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
   const signature = JSON.stringify({ items, intent, queue, category, findings, note, reference, liability, technician, qcChecks, repairApproved });
   const priced: ServiceJobItem[] = items.map((item) => ({ label: item.label.trim(), costPaise: Math.round(Number(item.cost) * 100), kind: item.kind }));
   const valid = items.every((item, i) => item.label.trim() && /^\d+(\.\d{1,2})?$/.test(item.cost) && Number.isSafeInteger(priced[i].costPaise) && priced[i].costPaise >= 0);
@@ -240,13 +251,14 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const options: IntentOption[] = inQC ? [
     { id: 'RELEASE', label: 'QC passed — move to Ready to Deploy', hint: allQcPassed ? releaseHint : 'Complete all checks first.', cta: 'Pass QC and release', disabled: !canRelease || !allQcPassed },
     { id: 'QC_FAIL', label: `QC failed — send back for repair`, hint: 'The bike goes back to the repair queue.', cta: `Send back to ${SERVICE_QUEUE_LABEL[failQueue]}` },
-    { id: 'STAY', label: 'Save progress', hint: 'The bike stays in Quality Check.', cta: 'Save progress' },
   ] : [
-    { id: 'STAY', label: 'Still working on it — save my notes', hint: `The bike stays in ${SERVICE_QUEUE_LABEL[job.queue]}.`, cta: 'Save my notes' },
     { id: 'QC', label: 'Work is done — send it for Quality Check', hint: 'QC is mandatory before the bike can go back on the road.', cta: 'Send for Quality Check' },
     { id: 'MOVE', label: 'Move it to a different list', hint: 'Use this when you are waiting on parts, a warranty or an insurance claim.', cta: `Move to ${SERVICE_QUEUE_LABEL[moveQueue]}` },
   ];
-  const chosen = options.find((option) => option.id === intent) ?? options[0];
+  // Undefined until the operator has picked something the screen offers —
+  // in QC mode that is pass or fail, nothing else.
+  const chosen = options.find((option) => option.id === intent);
+  const cta = chosen ? chosen.cta : 'Pick what to do';
   // In QC mode, auto-fill findings and technician from the checklist instead of free text.
   const qcFindings = inQC
     ? `QC checklist: ${QC_CHECKS.filter((c) => qcChecks[c.id]).map((c) => c.label).join(', ')}${hasRepairWork && repairApproved ? '. Repair approved.' : ''}`
@@ -277,7 +289,8 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const patchItem = (index: number, patch: Partial<(typeof items)[number]>) => setItems(items.map((item, i) => i === index ? { ...item, ...patch } : item));
 
   const { containerRef: formRef, shake: shakeField } = useShakeValidation();
-  const blocker = !category ? 'Pick how bad the damage is.'
+  const blocker = !chosen ? 'Pick what to do above.'
+    : !category ? 'Pick how bad the damage is.'
     : !valid ? 'Fix the cost lines.'
     : !inQC && (releasing || queue === 'QC_PENDING') && !findings.trim() ? 'Write what you found.'
     : !inQC && (releasing || queue === 'QC_PENDING') && !technician.trim() ? 'Say who did the work.'
@@ -287,7 +300,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
     : releasing && !canRelease ? 'Only fleet and admin roles can release.'
     : confirmation !== signature ? 'Tick the confirm box.'
     : '';
-  const ready = Boolean(category) && valid && Number.isSafeInteger(total) && (inQC || hasServiceNote(note)) && confirmation === signature &&
+  const ready = Boolean(chosen) && Boolean(category) && valid && Number.isSafeInteger(total) && (inQC || hasServiceNote(note)) && confirmation === signature &&
     (!requiresReference(queue) || reference.trim()) &&
     (!inQC && (!(releasing || queue === 'QC_PENDING') || (technician.trim() && findings.trim())) || inQC) &&
     (!releasing || canRelease) &&
@@ -318,8 +331,8 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
             {editable && vehicle.data?.currentRiderId && <Box sx={{ mt: 3 }}>
               <Typography variant="body2" color="text.secondary">The rider still has this bike on their name. Give them a different bike, or end the assignment.</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
-                <Button component={Link} to={`/assignments/exchange?riderId=${vehicle.data.currentRiderId}`}>Give another bike</Button>
-                <Button component={Link} to={`/assignments/deboard?riderId=${vehicle.data.currentRiderId}`} color="inherit">End assignment</Button>
+                <Button component={Link} to={`/assignments/exchange?riderId=${vehicle.data.currentRiderId}`} state={{ returnTo: herePath }}>Give another bike</Button>
+                <Button component={Link} to={`/assignments/deboard?riderId=${vehicle.data.currentRiderId}`} state={{ returnTo: herePath }} color="inherit">End assignment</Button>
               </Box>
             </Box>}
           </Panel>
@@ -454,7 +467,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>What do you want to do?</Typography>
                 <Typography variant="caption" color="text.secondary">Pick one. The button at the bottom does exactly what you pick.</Typography>
-                <RadioGroup value={intent} onChange={(e) => { setIntent(e.target.value as Intent); setConfirmation(''); }} sx={{ mt: 1 }}>
+                <RadioGroup value={intent ?? ''} onChange={(e) => { setIntent(e.target.value as Intent); setConfirmation(''); }} sx={{ mt: 1 }}>
                   {options.map((option) => (
                     <FormControlLabel key={option.id} value={option.id} disabled={option.disabled || save.isPending} control={<Radio size="small" />} sx={{ alignItems: 'flex-start', mb: 1, '& .MuiRadio-root': { pt: 0 } }}
                       label={<Box sx={{ pt: '2px' }}><Typography variant="body2">{option.label}</Typography><Typography variant="caption" color="text.secondary">{option.hint}</Typography></Box>} />
@@ -474,11 +487,11 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
                 </TextField>
               ) : <Alert severity="info">You can write down what you found and move the bike between lists. Fleet and admin roles decide who pays and send the bike back out.</Alert>}
               <Typography variant="body2" color="text.secondary">{job.riderId ? 'The rider is charged only when the bike finally goes back out, not when you save or send it for QC.' : 'No rider on this bike, so the company covers the cost.'}</Typography>
-              <TextField label={inQC ? 'Notes (optional)' : intent === 'STAY' ? 'What did you do just now?' : 'Why are you making this change?'} required={!inQC} multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} helperText={inQC ? 'Anything extra you noticed. Leave blank if nothing.' : 'A line or two.'} />
+              <TextField label={inQC ? 'Notes (optional)' : 'Why are you making this change?'} required={!inQC} multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} helperText={inQC ? 'Anything extra you noticed. Leave blank if nothing.' : 'A line or two.'} />
               {!valid && <Alert severity="warning">Every line needs a short description and an amount of ₹0 or more, up to two decimals.</Alert>}
               <FormControlLabel control={<Checkbox checked={confirmation === signature} onChange={(e) => setConfirmation(e.target.checked ? signature : '')} />} label={releasing ? 'I approve this work, the cost, and sending the bike back out.' : 'I confirm these details and where the bike is going.'} />
               {save.isError && <Alert severity="error">{save.error.message}</Alert>}
-              <Button onClick={() => { if (!ready) { shakeField(); return; } if (releasing) { setConfirmOpen(true); return; } save.mutate(); }} disabled={save.isPending || vehicle.isPending || vehicle.isError}>{save.isPending ? 'Saving...' : chosen.cta}</Button>
+              <Button onClick={() => { if (!ready) { shakeField(); return; } if (releasing) { setConfirmOpen(true); return; } save.mutate(); }} disabled={save.isPending || vehicle.isPending || vehicle.isError}>{save.isPending ? 'Saving...' : cta}</Button>
               {blocker && <Typography variant="caption" color="text.secondary" sx={{ mt: -2 }}>{blocker}</Typography>}
             </Box>
           ) : <DefinitionList items={[
@@ -493,7 +506,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
         title="Release the bike?"
         message="The bike leaves service management and the rider is charged."
         info={`${job.riderId ? `Rider ${job.riderId} is charged ${rupeesWithSymbol(total)}${liability === 'DEPOSIT' ? ' from their deposit' : liability === 'COMPANY' ? ' — the company covers it' : ''}.` : 'No rider on this bike — the company covers the cost.'} The bike moves to ${VEHICLE_STATE_LABEL[targetState]}.`}
-        confirmLabel={chosen.cta}
+        confirmLabel={cta}
         tone="bad"
         dismissible={false}
         pending={save.isPending}

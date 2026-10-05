@@ -440,8 +440,8 @@ the hub and model pickers read constants from `src/mocks/seed` instead of
 `/reference/form-options`. Open, not fixed here: nothing in the UI calls
 `GET/POST /assignments/settlements…`, so a deboard's deposit refund can
 never be approved from a screen; KYC decisions and rider onboarding are not
-in the audit trail (ChangeLog records plan and role changes only); service
-job ids are shown as raw UUIDs; a DEPLOYED bike with no open assignment
+in the audit trail (ChangeLog records plan and role changes only); a
+DEPLOYED bike with no open assignment
 (87 of the seeded 97) has no way back except through inspection.
 
 **QA pass, round two (2026-10-05).** Sumukh's own test found what the first
@@ -481,7 +481,92 @@ every role denial is a 403. Left as designed: overpayment is accepted and
 the balance goes negative (it is a credit, and the test says so), and a
 PAID line can still take money for the same reason. Still open: duplicate
 Aadhaar is not detected — the number is encrypted with a random IV, so
-detection needs a keyed-hash column (V016, `aadhaar_hash` + unique index).
+detection needs a keyed-hash column (V017, `aadhaar_hash` + unique index).
+
+**No internal ids on screen (2026-10-05).** Service jobs were the last
+record a screen named by its database id — the help desk rows, the
+vehicle's work-record list, the job header and every job URL. V016 gives
+them `job_code` ("J01", "J02"…, one sequence per tenant) in the shape V015
+gave riders: a row-locked counter so a rolled-back open puts its number
+back, a backfill oldest-first under the RLS bypass, a unique index on
+`lower(job_code)`. The API's `id` is the code; `/service/jobs/{id}` and the
+QC endpoints resolve a code (case-insensitive) or, for an old ledger row, a
+UUID. `RiderChargeResponse.serviceJobId` is the code too. Still carrying a
+UUID, deliberately: `SettlementResponse.assignmentId` (no screen reads it)
+and `UserResponse.id` (a row key, never shown). The crawl that found this
+— every screen, rendered text scanned for a UUID — is the check to repeat
+after any new list or detail screen.
+
+**A clean first check closes itself (2026-10-05).** Found by running the
+stories through the real screens on a fresh tenant: a new bike's first
+check passed QC, the bike was assigned, and the exchange was refused with
+"already has an open service job". Closing a job is a money decision, so a
+passed inspection stayed open forever and blocked every later return. A
+passed check with no damage and no cost now closes on QC pass (liability
+COMPANY, "nothing to bill"); a repair still waits for the fleet to say who
+pays, and the refusal names the job and says what to do. Every 500 carries
+a short reference that the server log line also carries, because the
+Render log is readable by one person.
+V017 closes the clean checks that had already passed before the rule
+existed (with a line in each job's activity log), so the fix holds for
+every bike already in the fleet, not only the next one.
+
+**Deboarded is "done with that bike", not gone (2026-10-05, Sumukh).**
+Three rules on assign, in `AssignmentService.assign`: a deboarded rider is
+on the assign list and the assignment puts them back on the register in the
+same transaction; dues (unpaid rent plus open charges, `duesPaise` on every
+rider response, `RiderPaymentStatusQuery.owedPaiseFor`) never reset and are
+shown and confirmed rather than blocking; and the deposit is the limit — a
+rider who owes more than the deposit held does not get a bike unless a
+fleet admin or super admin sends `overrideDues` with a note, which the
+lifecycle line records word for word. Suspended and blacklisted riders are
+decisions about a person and stay off the list. The explicit "Put back on
+register" stays for a desk that wants a rider active without a bike yet.
+The query client now refetches on mount and on focus with five seconds of
+freshness, so a screen shows what the database holds when you arrive at it.
+
+**A held bike goes back to its rider; a return while in the workshop lands
+on the open job (2026-10-05).** "Check this bike" on a bike its rider still
+holds, QC pass: the bike went to READY_TO_DEPLOY with the assignment still
+open, and "End assignment" from the job page was refused because the bike
+already had an open job. Now `ServiceJobService.releaseTarget` sends a
+released bike to DEPLOYED when somebody holds it (new edge QC_PENDING →
+DEPLOYED, WORKSHOP roles) and to READY_TO_DEPLOY otherwise; and
+`AssignmentService.returnToWorkshop` writes an exchange or deboard return
+on the bike's open job (`ServiceJobFacade.recordReturnOnOpenJob`) instead
+of opening a second one, leaving the bike where the workshop has it. The
+job screen has no "save progress" or "save my notes" any more: every save
+moves the bike somewhere, and the button says "Pick what to do" until the
+operator has picked which. Screens reached from a record (job, bike,
+rider) carry `state.returnTo` and go back there on Cancel and after a
+save (`useReturnTo`).
+
+**Two rider statuses (2026-10-05, Sumukh).** ACTIVE is holding a bike;
+INACTIVE is on the register without one — freshly onboarded or deboarded
+alike. Seven statuses had grown on the column and two of them were the same
+fact; "Put back on register" existed only to move between them. V018 drops
+the other values and recomputes every rider from the open assignments;
+`RiderResponse` derives the status from the open assignment so the wire
+cannot disagree with the assignments table; the assign flow writes ACTIVE,
+the deboard flow writes INACTIVE, nothing else writes it; the reactivate
+endpoint and button are gone. Suspension and blacklisting are not statuses
+any more — when the business needs them they are decisions about a person
+and belong in their own place, not in the word that says whether a rider
+has a bike.
+
+**The demo seed is the whole fleet, not just the bikes (2026-10-05).**
+`DevFleetSeeder` loads a tenant that reads like a fleet a few months in:
+137 bikes (two retired), 24 riders with codes, addresses, PAN and licence,
+every plan, billing day, payment mode and KYC state; 18 on bikes and 6
+without, three of them with a closed history and one with a settlement
+waiting; a job on every bike the CSV puts in the workshop across every
+queue, six closed jobs behind open and settled charges, a failed QC
+attempt; eight weeks of billing with paid, partial, overdue and pending
+weeks and numbered receipts; plan and role changes in the trail. Still
+gated on `app.bootstrap.seed-fleet` (local only) and skipped when the
+tenant has bikes. `APP_RESEED=true` on one boot wipes the demo tenant's
+operational rows (and the platform tenant's) and reloads, moving the
+platform admin into the demo tenant so she sees it. Never leave it on.
 
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's

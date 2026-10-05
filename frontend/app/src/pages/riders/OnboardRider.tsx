@@ -30,6 +30,7 @@ import { RiderIdentityStep } from './_components/RiderIdentityStep';
 import { RiderContactStep } from './_components/RiderContactStep';
 import { RiderAddressStep } from './_components/RiderAddressStep';
 import { RiderCommercialStep } from './_components/RiderCommercialStep';
+import { shakeStyles } from '../../hooks/useShakeValidation';
 
 /**
  * A rider joins the register ACTIVE with KYC pending and no bike. The form
@@ -40,6 +41,16 @@ import { RiderCommercialStep } from './_components/RiderCommercialStep';
  *
  * Same reasoning as AddVehicle landing a bike as INDUCTED.
  */
+/** Which section each field lives in, in the order the sections appear. */
+const FIELD_STEP: Record<keyof OnboardRiderValues, number> = {
+  aadhaarNumber: 1, name: 1, permanentAddress: 1,
+  phone: 2, whatsappNumber: 2, alternateNumber1: 2,
+  localAddress: 3, state: 3, city: 3, pinCode: 3, panNumber: 3, drivingLicence: 3,
+  workingPlatform: 4, platformRiderId: 4, planRupees: 4, billingDay: 4, paymentDay: 4,
+  paymentMode: 4, depositRupees: 4, depositPaidRupees: 4, onboardedOn: 4,
+};
+const STEP_ORDER = Object.keys(FIELD_STEP) as (keyof OnboardRiderValues)[];
+
 export function OnboardRider() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -68,7 +79,8 @@ export function OnboardRider() {
         city: values.city,
         state: values.state,
         pinCode: values.pinCode,
-        locationCoordinates: values.locationCoordinates || null,
+        // No longer collected: the form asks for a state and a city instead.
+        locationCoordinates: null,
         // Documents — step 3, optional.
         panNumber: values.panNumber || null,
         drivingLicence: values.drivingLicence || null,
@@ -96,11 +108,47 @@ export function OnboardRider() {
     },
   });
 
-  const submit = form.handleSubmit(async (values) => {
-    setBanner(null);
-    const created = await save.mutateAsync(values);
-    navigate(`/riders/${created.id}`);
-  });
+  /**
+   * Take the operator to the first thing that is wrong. The form is four
+   * sections long; a refused submit that only reddened a field below the
+   * fold looked like nothing happened. Scrolls the section into view,
+   * shakes it, and puts the cursor in the field.
+   */
+  const goToProblem = (field: keyof OnboardRiderValues | null, step: number) => {
+    const section = document.getElementById(`step-${step}`);
+    section?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    section?.classList.add('shake-field');
+    setTimeout(() => section?.classList.remove('shake-field'), 600);
+    if (field) {
+      setTimeout(() => form.setFocus(field), 350);
+    }
+  };
+
+  const submit = form.handleSubmit(
+    async (values) => {
+      setBanner(null);
+      if (!verification.allVerified) {
+        // Aadhaar is step 1, the three numbers are step 2.
+        const first = verification.outstanding[0];
+        setBanner('Verify the Aadhaar number and all three mobile numbers before onboarding.');
+        goToProblem(null, first === 'aadhaar' ? 1 : 2);
+        return;
+      }
+      // Errors are shown by the mutation's onError; see AddVehicle for the same shape.
+      const created = await save.mutateAsync(values).catch(() => null);
+      if (!created) return;
+      navigate(`/riders/${created.id}`, { state: { notice: `${created.name} onboarded as ${created.id}` } });
+    },
+    (errors) => {
+      const first = STEP_ORDER.find((name) => name in errors) ?? null;
+      const step = first ? FIELD_STEP[first] : 1;
+      const count = Object.keys(errors).length;
+      setBanner(count === 1
+        ? 'One field needs attention — it is marked below.'
+        : `${count} fields need attention — the first is marked below.`);
+      goToProblem(first, step);
+    },
+  );
 
   // The summary reads the live form rather than a second copy of the state,
   // so it cannot disagree with the fields above it.
@@ -125,7 +173,7 @@ export function OnboardRider() {
 
   return (
     <FormProvider {...form}>
-      <Box component="form" onSubmit={submit} noValidate>
+      <Box component="form" onSubmit={submit} noValidate sx={shakeStyles}>
         <PageHeader
           section="Riders"
           title="Onboard rider"
@@ -134,10 +182,7 @@ export function OnboardRider() {
               <Button color="inherit" component={Link} to="/riders">
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={save.isPending || !verification.allVerified}
-              >
+              <Button type="submit" disabled={save.isPending}>
                 {save.isPending ? 'Onboarding…' : 'Onboard rider'}
               </Button>
             </>

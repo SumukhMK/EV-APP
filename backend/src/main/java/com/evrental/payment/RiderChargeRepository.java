@@ -24,6 +24,9 @@ public interface RiderChargeRepository extends JpaRepository<RiderCharge, UUID> 
 
     List<RiderCharge> findByRiderIdAndStatusOrderByChargedOnDesc(UUID riderId, RiderChargeStatus status);
 
+    /** The open charges of many riders in one read, for a list's "owes" column. */
+    List<RiderCharge> findByRiderIdInAndStatus(java.util.Collection<UUID> riderIds, RiderChargeStatus status);
+
     /**
      * Charges landing <em>in</em> a period — the run row's {@code serviceCharges}.
      *

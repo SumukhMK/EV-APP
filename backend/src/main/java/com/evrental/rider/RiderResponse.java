@@ -28,6 +28,8 @@ public record RiderResponse(
         String currentVehicleId,
         LocalDate onboardedOn,
         String paymentStatus,
+        /** Unpaid rent plus open charges, in paise. What the desk weighs against the deposit before a bike goes out. */
+        long duesPaise,
         String platform,
         PaymentDay paymentDay,
         PaymentMode paymentMode) {
@@ -45,6 +47,10 @@ public record RiderResponse(
      *                      the same word regardless of what the ledger held.
      */
     public static RiderResponse from(Rider r, String currentVehicleId, String paymentStatus) {
+        return from(r, currentVehicleId, paymentStatus, 0L);
+    }
+
+    public static RiderResponse from(Rider r, String currentVehicleId, String paymentStatus, long duesPaise) {
         return new RiderResponse(
                 r.getRiderCode(),
                 r.getName(),
@@ -57,6 +63,7 @@ public record RiderResponse(
                 currentVehicleId,
                 r.getOnboardedOn(),
                 paymentStatus == null ? "PENDING" : paymentStatus,
+                duesPaise,
                 r.getPlatform(),
                 r.getPaymentDay(),
                 r.getPaymentMode());

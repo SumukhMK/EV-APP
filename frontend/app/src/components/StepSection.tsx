@@ -25,6 +25,7 @@ export function StepSection({
   return (
     <Box
       component="section"
+      id={`step-${step}`}
       sx={{
         background: base.surface,
         borderRadius: 2,

@@ -63,18 +63,118 @@ class AssignmentAssignTest extends AssignmentTestBase {
                 .andExpect(status().isNotFound());
     }
 
+    /**
+     * Two statuses only (Sumukh, 2026-10-05): INACTIVE is on the register
+     * without a bike, ACTIVE is holding one. The assignment flips it.
+     */
     @Test
-    void anInactiveRiderCannotHoldABike() throws Exception {
+    void anInactiveRiderBecomesActiveWhenGivenABike() throws Exception {
         mvc.perform(post("/api/v1/assignments/assign")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
                                 """.formatted(RIDER_DEBOARDED_CODE, VEHICLE_READY)))
-                .andExpect(status().isConflict())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.currentVehicleId").value(VEHICLE_READY));
+
+        org.assertj.core.api.Assertions.assertThat(lastLifecycleNote(VEHICLE_READY))
+                .isEqualTo("Assigned to Vinod Naik");
+        String column = superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT status FROM riders WHERE id = ?", String.class, RIDER_DEBOARDED));
+        org.assertj.core.api.Assertions.assertThat(column).isEqualTo("ACTIVE");
+    }
+
+
+    /** Dues are carried, not cleared: a rider who owes less than the deposit gets the bike and the log says what they owe. */
+    @Test
+    void duesWithinTheDepositAreCarriedAndRecorded() throws Exception {
+        insertOpenCharge(RIDER_A, 120000L); // deposit held is 3,00,000
+
+        mvc.perform(post("/api/v1/assignments/assign")
+                        .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.duesPaise").value(120000));
+
+        org.assertj.core.api.Assertions.assertThat(lastLifecycleNote(VEHICLE_READY))
+                .isEqualTo("Assigned to Anil Shetty — owes ₹1,200");
+    }
+
+    /** The deposit is the limit: above it the bike does not go out without an admin. */
+    @Test
+    void duesAboveTheDepositAreRefusedWithTheNumbers() throws Exception {
+        insertOpenCharge(RIDER_A, 450000L);
+
+        mvc.perform(post("/api/v1/assignments/assign")
+                        .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("dues"))
                 .andExpect(jsonPath("$.message").value(
-                        "Vinod Naik is deboarded and cannot hold a bike"))
-                .andExpect(jsonPath("$.field").value("riderId"));
+                        "Anil Shetty owes ₹4,500 against a deposit of ₹3,000 — collect first, or an admin can override with a note"));
+
+        // A fleet hand asking for the override is still refused: the say-so is an admin's.
+        mvc.perform(post("/api/v1/assignments/assign")
+                        .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28",
+                                 "overrideDues":true,"note":"He promised to pay Friday"}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("dues"));
+    }
+
+    @Test
+    void anAdminCanOverrideTheDepositLimitWithANoteAndItIsLogged() throws Exception {
+        insertOpenCharge(RIDER_A, 450000L);
+
+        // No note, no override.
+        mvc.perform(post("/api/v1/assignments/assign")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28","overrideDues":true}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("note"))
+                .andExpect(jsonPath("$.message").value("Say why the bike is going out despite the dues"));
+
+        mvc.perform(post("/api/v1/assignments/assign")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28",
+                                 "overrideDues":true,"note":"Pays from this week's earnings"}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentVehicleId").value(VEHICLE_READY));
+
+        org.assertj.core.api.Assertions.assertThat(lastLifecycleNote(VEHICLE_READY))
+                .isEqualTo("Assigned to Anil Shetty — owes ₹4,500; above the deposit, admin override by Meenakshi Iyer: "
+                        + "Pays from this week's earnings");
+    }
+
+    private void insertOpenCharge(java.util.UUID riderId, long paise) {
+        superAdmin(jdbc -> jdbc.update(
+                "INSERT INTO rider_charges (tenant_id, rider_id, amount_paise, liability, status, period_start) "
+                        + "VALUES (?, ?, ?, 'RIDER', 'OPEN', DATE '2026-09-21')",
+                TENANT, riderId, paise));
+    }
+
+    private String lastLifecycleNote(String registryId) {
+        return superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT e.note FROM vehicle_lifecycle_events e JOIN vehicles v ON v.id = e.vehicle_id "
+                        + "WHERE v.registry_id = ? ORDER BY e.occurred_on DESC, e.id DESC LIMIT 1",
+                String.class, registryId));
     }
 
     @Test

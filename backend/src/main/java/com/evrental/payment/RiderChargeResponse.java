@@ -15,12 +15,14 @@ import java.util.UUID;
  * with V009.
  *
  * <p>{@code riderId} is the rider code an operator reads ("R01"), not the
- * register's internal row id.
+ * register's internal row id; {@code serviceJobId} is likewise the job code
+ * ("J01") the help desk shows, so the ledger and the workshop name the same
+ * thing.
  */
 public record RiderChargeResponse(
         UUID id,
         String riderId,
-        UUID serviceJobId,
+        String serviceJobId,
         UUID vehicleId,
         long amountPaise,
         ServiceLiability liability,
@@ -29,9 +31,9 @@ public record RiderChargeResponse(
         Instant chargedOn,
         Instant settledOn) {
 
-    public static RiderChargeResponse from(RiderCharge charge, String riderCode) {
+    public static RiderChargeResponse from(RiderCharge charge, String riderCode, String jobCode) {
         return new RiderChargeResponse(
-                charge.getId(), riderCode, charge.getServiceJobId(), charge.getVehicleId(),
+                charge.getId(), riderCode, jobCode, charge.getVehicleId(),
                 charge.getAmountPaise(), charge.getLiability(), charge.getStatus(),
                 charge.getPeriodStart(), charge.getChargedOn(), charge.getSettledOn());
     }

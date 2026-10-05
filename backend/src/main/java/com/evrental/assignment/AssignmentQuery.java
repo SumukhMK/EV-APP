@@ -44,6 +44,9 @@ public interface AssignmentQuery {
     /** Riders with an open assignment — the ones an exchange or deboard can act on. */
     Set<UUID> riderIdsHoldingBikes();
 
+    /** The rider holding this bike right now, by row id; empty when nobody does. */
+    java.util.Optional<UUID> riderIdHolding(UUID vehicleId);
+
     /** Riders whose current bike is in the given state — the register's vehicleState filter. */
     Set<UUID> riderIdsWhoseVehicleIsIn(VehicleState state);
 }

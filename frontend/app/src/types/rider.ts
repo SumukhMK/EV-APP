@@ -1,11 +1,13 @@
 import type { Iso8601, Paise } from './common';
 import type { PaymentMethod } from './payment';
 
-export const RIDER_STATUSES = [
-  'ONBOARDING', 'ACTIVE', 'SUSPENDED', 'DEBOARDED', 'OFFBOARDED', 'BLACKLISTED',
-  /** @deprecated Use SUSPENDED or DEBOARDED instead. Kept for legacy data. */
-  'INACTIVE',
-] as const;
+/**
+ * Two statuses, one fact: ACTIVE holds a bike, INACTIVE is on the register
+ * without one — freshly onboarded or deboarded alike. A deboard makes a
+ * rider INACTIVE and the next assignment makes them ACTIVE; there is no
+ * "put back on the register" step (Sumukh, 2026-10-05).
+ */
+export const RIDER_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
 
 export type RiderStatus = (typeof RIDER_STATUSES)[number];
 export type KycStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
@@ -102,6 +104,8 @@ export interface Rider {
   onboardedOn: Iso8601;
   /** Derived from the current period; the list screen colours a chip with it. */
   paymentStatus: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
+  /** Unpaid rent plus open charges, in paise. Weighed against the deposit before a bike goes out. */
+  duesPaise: Paise;
   platform: Platform;
   /** The day this rider says they pay. Captured, not acted on — see PaymentDay. */
   paymentDay: PaymentDay;

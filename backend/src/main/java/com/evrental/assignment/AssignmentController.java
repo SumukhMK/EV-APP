@@ -59,8 +59,10 @@ public class AssignmentController {
     public RiderResponse assign(@Valid @RequestBody AssignVehicleRequest request,
                                 Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
+        boolean admin = principal.role() == com.evrental.user.UserRole.SUPER_ADMIN
+                || principal.role() == com.evrental.user.UserRole.FLEET_ADMIN;
         return riderService.toResponse(assignmentService.assign(
-                request, principal.tenantId(), principal.userId(), actorName(principal)));
+                request, principal.tenantId(), principal.userId(), actorName(principal), admin));
     }
 
     @PostMapping("/exchange")

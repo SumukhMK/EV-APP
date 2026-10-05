@@ -19,7 +19,8 @@ import java.util.UUID;
  * of them would be three needless queries a page.
  */
 public record ServiceJobResponse(
-        UUID id,
+        /** The job code ("J01") — what the screens show and the URLs carry. The row's UUID stays inside. */
+        String id,
         String vehicleId,
         /** The rider's code (R01), the same id the rider screens and URLs use. Null when nobody was on the bike. */
         String riderId,
@@ -54,7 +55,7 @@ public record ServiceJobResponse(
                                             List<ServiceJobItem> items,
                                             List<QcInspection> inspections) {
         return new ServiceJobResponse(
-                job.getId(),
+                job.getJobCode(),
                 registryId,
                 rider == null ? null : rider.getRiderCode(),
                 rider == null ? null : rider.getName(),

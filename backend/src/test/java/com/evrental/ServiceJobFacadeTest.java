@@ -64,7 +64,7 @@ class ServiceJobFacadeTest extends ServiceJobTestBase {
 
     @Test
     void refusesASecondJobOnABikeThatIsAlreadyIn() {
-        asTenant(() -> facade.openJob(
+        ServiceJob first = asTenant(() -> facade.openJob(
                 TENANT, "BLRSS0428", null, ServiceJobSource.DEBOARD,
                 DamageCategory.MINOR, null, "Dhananjay"));
 
@@ -72,7 +72,7 @@ class ServiceJobFacadeTest extends ServiceJobTestBase {
                 TENANT, "BLRSS0428", null, ServiceJobSource.EXCHANGE,
                 DamageCategory.MINOR, null, "Dhananjay")))
                 .isInstanceOf(ConflictException.class)
-                .hasMessage("This bike already has an open service job");
+                .hasMessage("This bike already has an open service job (" + first.getJobCode() + ")");
     }
 
     @Test

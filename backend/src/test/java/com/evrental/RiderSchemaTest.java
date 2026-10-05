@@ -147,7 +147,8 @@ class RiderSchemaTest extends PostgresTestBase {
         onConnection("*", conn -> {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO service_jobs (tenant_id, vehicle_id, rider_id, source, "
-                            + "damage_category, queue) VALUES (?, ?, ?, 'DEBOARD', 'MINOR', 'MINOR_REPAIR')")) {
+                            + "damage_category, queue, job_code) VALUES (?, ?, ?, 'DEBOARD', 'MINOR', 'MINOR_REPAIR', "
+                            + "'X' || upper(substr(md5(gen_random_uuid()::text), 1, 8)))")) {
                 ps.setObject(1, TENANT_A);
                 ps.setObject(2, vehicleId);
                 ps.setObject(3, riderId);
@@ -165,7 +166,8 @@ class RiderSchemaTest extends PostgresTestBase {
         assertThatThrownBy(() -> onConnection("*", conn -> {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO service_jobs (tenant_id, vehicle_id, rider_id, source, "
-                            + "damage_category, queue) VALUES (?, ?, ?, 'DEBOARD', 'MINOR', 'MINOR_REPAIR')")) {
+                            + "damage_category, queue, job_code) VALUES (?, ?, ?, 'DEBOARD', 'MINOR', 'MINOR_REPAIR', "
+                            + "'X' || upper(substr(md5(gen_random_uuid()::text), 1, 8)))")) {
                 ps.setObject(1, TENANT_A);
                 ps.setObject(2, otherVehicleId);
                 ps.setObject(3, UUID.randomUUID());

@@ -48,6 +48,8 @@ export interface AssignVehicleRequest {
   vehicleId: string;
   startedOn: Iso8601;
   note?: string;
+  /** An admin's say-so that the bike goes out although dues exceed the deposit; needs a note. */
+  overrideDues?: boolean;
 }
 
 /**

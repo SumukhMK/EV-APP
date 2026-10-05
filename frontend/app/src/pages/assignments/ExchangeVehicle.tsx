@@ -10,6 +10,7 @@ import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useReturnTo } from '../../app/useReturnTo';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -61,8 +62,11 @@ const CONDITIONS = (['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const).map((c) => 
  * coming back takes the same route a deboarded one does — and the operator
  * can override the routing, because the prototype says they routinely do.
  */
+const IN_WORKSHOP = new Set(['UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT']);
+
 export function ExchangeVehicle() {
   const navigate = useNavigate();
+  const { returnTo, cameFromElsewhere, backLabel } = useReturnTo('/riders');
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
@@ -120,7 +124,9 @@ export function ExchangeVehicle() {
     onSuccess: (updated) => {
       invalidateAssignments(queryClient);
       invalidateServiceJobs(queryClient);
-      navigate(`/riders/${updated.id}`);
+      navigate(cameFromElsewhere ? returnTo : `/riders/${updated.id}`, {
+        state: { notice: `${updated.name} now has ${updated.currentVehicleId ?? 'a new bike'}` },
+      });
     },
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
@@ -169,12 +175,14 @@ export function ExchangeVehicle() {
         <PageHeader
           section="Riders"
           title="Exchange vehicle"
+          backTo={cameFromElsewhere ? returnTo : undefined}
+          backLabel={backLabel}
           actions={
             <>
-              <Button color="inherit" component={Link} to="/riders">
+              <Button color="inherit" component={Link} to={returnTo}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending || !confirmed}>
+              <Button type="submit" disabled={save.isPending}>
                 {save.isPending ? 'Saving…' : 'Save the swap'}
               </Button>
             </>
@@ -205,12 +213,19 @@ export function ExchangeVehicle() {
             <Box sx={{ mt: 5 }}>
               <SelectionSummary rider={rider} vehicle={bike.data} loading={bike.isLoading} />
             </Box>
+            {bike.data && IN_WORKSHOP.has(bike.data.state) && (
+              <Alert severity="info" sx={{ mt: 4 }}>
+                {bike.data.id} is already in the workshop. The return is written on its open job and the bike stays
+                where it is — the destination below does not move it.
+              </Alert>
+            )}
           </Panel>
 
           <Panel
             label="The bike coming back"
             subtitle="The condition you pick suggests where the bike should go. If you choose something else, say why."
             sx={{ maxWidth: layout.readingMax }}
+            locked={!rider && 'Pick the rider first'}
           >
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
               <SelectField
@@ -243,7 +258,7 @@ Recovery is not offered here — that is a separate job. For the bike coming bac
             )}
           </Panel>
 
-          <Panel label="The new bike" subtitle="Bikes that passed QC and are ready to go out.">
+          <Panel label="The new bike" subtitle="Bikes that passed QC and are ready to go out." locked={!rider && 'Pick the rider first'}>
             <Controller
               control={form.control}
               name="toVehicleId"
@@ -258,7 +273,7 @@ Recovery is not offered here — that is a separate job. For the bike coming bac
             />
           </Panel>
 
-          <Panel label="Summary" sx={{ maxWidth: layout.readingMax }}>
+          <Panel label="Summary" sx={{ maxWidth: layout.readingMax }} locked={!rider && 'Pick the rider first'}>
             <DefinitionList
               columns={2}
               items={[

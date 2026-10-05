@@ -81,6 +81,7 @@ public abstract class UserTestBase extends PostgresTestBase {
             // Reference data holds a foreign key to the tenant, so it goes first.
             jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM job_code_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
                     + "VALUES (?, 'Users Co', 'users-co', 'ACTIVE')", TENANT);

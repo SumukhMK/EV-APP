@@ -77,9 +77,10 @@ public class ServiceJobController {
                         Sort.by(Sort.Direction.DESC, "createdOn")));
     }
 
+    /** {id} is the job code ("J01") the screens and URLs carry. */
     @GetMapping("/jobs/{id}")
-    public ServiceJobResponse get(@PathVariable UUID id) {
-        return reader.detail(id);
+    public ServiceJobResponse get(@PathVariable String id) {
+        return reader.detail(jobs.resolve(id));
     }
 
     @PostMapping("/jobs")
@@ -94,12 +95,13 @@ public class ServiceJobController {
 
     @PutMapping("/jobs/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF','SERVICE_MANAGER')")
-    public ServiceJobResponse update(@PathVariable UUID id,
+    public ServiceJobResponse update(@PathVariable String id,
                                      @Valid @RequestBody UpdateServiceJobRequest request,
                                      Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
-        jobs.update(id, request, principal.userId(), actorName(principal));
-        return reader.detail(id);
+        UUID jobId = jobs.resolve(id);
+        jobs.update(jobId, request, principal.userId(), actorName(principal));
+        return reader.detail(jobId);
     }
 
     /**
@@ -108,12 +110,13 @@ public class ServiceJobController {
      */
     @PostMapping("/jobs/{id}/close")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
-    public ServiceJobResponse close(@PathVariable UUID id,
+    public ServiceJobResponse close(@PathVariable String id,
                                     @Valid @RequestBody CloseServiceJobRequest request,
                                     Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
-        jobs.close(id, request, principal.userId(), actorName(principal));
-        return reader.detail(id);
+        UUID jobId = jobs.resolve(id);
+        jobs.close(jobId, request, principal.userId(), actorName(principal));
+        return reader.detail(jobId);
     }
 
     @GetMapping("/queues/counts")

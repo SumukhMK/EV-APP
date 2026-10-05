@@ -29,6 +29,10 @@ import {
   type AssignVehicleValues,
 } from '../../lib/schemas/assignment';
 import { KYC_STATUS_LABEL, KYC_STATUS_TONE } from '../../lib/labels';
+import { useSession } from '../../app/sessionContext';
+import { useReturnTo } from '../../app/useReturnTo';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import { rupeesWithSymbol } from '../../lib/format';
 import { layout } from '../../theme/tokens';
 
@@ -49,7 +53,12 @@ export function AssignVehicle() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
+  /** The server's refusal when dues exceed the deposit; an admin can override it below. */
+  const [duesBlock, setDuesBlock] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const { user } = useSession();
+  const { returnTo, cameFromElsewhere, backLabel } = useReturnTo('/riders');
+  const canOverrideDues = user.roleKey === 'SUPER_ADMIN' || user.roleKey === 'FLEET_ADMIN';
   const [pendingValues, setPendingValues] = useState<AssignVehicleValues | null>(null);
 
   const riders = useQuery({
@@ -64,6 +73,7 @@ export function AssignVehicle() {
       vehicleId: '',
       startedOn: today(),
       note: '',
+      overrideDues: false,
     },
     mode: 'onBlur',
   });
@@ -72,7 +82,11 @@ export function AssignVehicle() {
     mutationFn: assignVehicle,
     onSuccess: () => invalidateAssignments(queryClient),
     onError: (error) => {
-      if (error instanceof ApiError && error.field) {
+      if (error instanceof ApiError && error.field === 'dues') {
+        // Not a field the form owns: the rider owes more than the deposit
+        // covers. Shown as its own block, with the admin's way through.
+        setDuesBlock(error.message);
+      } else if (error instanceof ApiError && error.field) {
         form.setError(error.field as keyof AssignVehicleValues, { message: error.message });
       } else {
         setBanner(error instanceof Error ? error.message : 'Could not assign the bike');
@@ -82,6 +96,10 @@ export function AssignVehicle() {
 
   const submit = form.handleSubmit((values) => {
     setBanner(null);
+    if (duesBlock && values.overrideDues && !values.note?.trim()) {
+      form.setError('note', { message: 'Say why the bike is going out despite the dues' });
+      return;
+    }
     setPendingValues(values);
     setConfirmOpen(true);
   });
@@ -105,7 +123,7 @@ export function AssignVehicle() {
         <PageHeader section="Riders" title="Assign vehicle" />
         <EmptyState
           title="No rider is waiting for a bike"
-          description="Every active rider already has a bike. Onboard a new rider, or use Exchange to move someone onto a different bike."
+          description="Every rider on the register already has a bike. Onboard a new rider, or use Exchange to move someone onto a different bike."
           action={
             <Button component={Link} to="/riders/onboard">
               Onboard rider
@@ -121,9 +139,11 @@ export function AssignVehicle() {
       <PageHeader
         section="Riders"
         title="Assign vehicle"
+        backTo={cameFromElsewhere ? returnTo : undefined}
+        backLabel={backLabel}
         actions={
           <>
-            <Button color="inherit" component={Link} to="/riders">
+            <Button color="inherit" component={Link} to={returnTo}>
               Cancel
             </Button>
             <Button type="submit" disabled={save.isPending}>
@@ -142,7 +162,7 @@ export function AssignVehicle() {
       <Box sx={{ display: 'grid', gap: 5, mt: 5, '& > *': { minWidth: 0 } }}>
         <Panel
           label="Rider"
-          subtitle="Riders who do not have a bike yet. KYC is shown here, but it does not block the assignment."
+          subtitle="Riders on the register without a bike right now. KYC and dues are shown; dues above the deposit need an admin."
           sx={{ maxWidth: layout.readingMax }}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
@@ -154,7 +174,10 @@ export function AssignVehicle() {
               placeholder="Type a name or rider id"
               options={(riders.data ?? []).map((r) => ({
                 value: r.id,
-                label: `${r.name} · ${r.id} · ${KYC_STATUS_LABEL[r.kycStatus]}`,
+                label: [
+                  `${r.name} · ${r.id} · ${KYC_STATUS_LABEL[r.kycStatus]}`,
+                  r.duesPaise > 0 ? `owes ${rupeesWithSymbol(r.duesPaise)}` : null,
+                ].filter(Boolean).join(' · '),
               }))}
             />
             <Controller
@@ -173,7 +196,7 @@ export function AssignVehicle() {
           </Box>
         </Panel>
 
-        <Panel label="Available bikes" subtitle="Bikes that passed QC and are ready to go out.">
+        <Panel label="Available bikes" subtitle="Bikes that passed QC and are ready to go out." locked={!rider && 'Pick the rider first'}>
           <Controller
             control={form.control}
             name="vehicleId"
@@ -187,7 +210,7 @@ export function AssignVehicle() {
           />
         </Panel>
 
-        <Panel label="Summary" sx={{ maxWidth: layout.readingMax }}>
+        <Panel label="Summary" sx={{ maxWidth: layout.readingMax }} locked={!rider && 'Pick the rider first'}>
           <DefinitionList
             columns={2}
             items={[
@@ -215,11 +238,48 @@ export function AssignVehicle() {
                   '—'
                 ),
               },
+              {
+                label: 'Owes',
+                value: rider ? (
+                  <Mono sx={{ fontSize: 13, color: rider.duesPaise > rider.depositHeld ? 'error.main' : undefined }}>
+                    {rider.duesPaise > 0 ? rupeesWithSymbol(rider.duesPaise) : 'Nothing'}
+                    {rider.duesPaise > 0 ? ` · deposit ${rupeesWithSymbol(rider.depositHeld)}` : ''}
+                  </Mono>
+                ) : '—',
+              },
               { label: 'Bike becomes', value: 'Active' },
+              {
+                label: 'Rider becomes',
+                value: 'Active — holding a bike',
+              },
             ]}
           />
+          {duesBlock && (
+            <Alert severity="warning" variant="outlined" sx={{ mt: 5 }}>
+              {duesBlock}
+              {canOverrideDues ? (
+                <FormControlLabel
+                  sx={{ display: 'flex', mt: 2 }}
+                  control={
+                    <Controller
+                      control={form.control}
+                      name="overrideDues"
+                      render={({ field: f }) => (
+                        <Checkbox checked={Boolean(f.value)} onChange={(e) => f.onChange(e.target.checked)} />
+                      )}
+                    />
+                  }
+                  label="Admin override — assign anyway, and say why in the note"
+                />
+              ) : (
+                <Typography sx={{ fontSize: 13, mt: 2 }}>
+                  Collect the dues first, or ask a fleet admin to override.
+                </Typography>
+              )}
+            </Alert>
+          )}
           <TextField
-            label="Note (optional)"
+            label={duesBlock ? 'Note (required for an override)' : 'Note (optional)'}
             multiline
             minRows={2}
             fullWidth
@@ -238,7 +298,12 @@ export function AssignVehicle() {
         open={confirmOpen}
         title="Assign the bike?"
         message="The bike becomes active and rent starts for the rider."
-        info={pendingValues ? `${rider?.name ?? pendingValues.riderId} gets ${pendingValues.vehicleId} at ${rupeesWithSymbol(rider?.planAmount ?? 0)} a week. Rent starts on the assignment date and the bike stays with the rider until it is returned.` : undefined}
+        info={pendingValues ? [
+          `${rider?.name ?? pendingValues.riderId} gets ${pendingValues.vehicleId} at ${rupeesWithSymbol(rider?.planAmount ?? 0)} a week.`,
+          rider && rider.duesPaise > 0 ? `They owe ${rupeesWithSymbol(rider.duesPaise)}, which stays on their ledger.` : null,
+          pendingValues.overrideDues ? 'You are overriding the deposit limit as an admin.' : null,
+          'Rent starts on the assignment date and the bike stays with the rider until it is returned.',
+        ].filter(Boolean).join(' ') : undefined}
         confirmLabel="Assign bike"
         tone="neutral"
         dismissible
@@ -247,7 +312,7 @@ export function AssignVehicle() {
           setConfirmOpen(false);
           if (!pendingValues) return;
           save.mutateAsync(pendingValues)
-            .then((r) => navigate(`/riders/${r.id}`))
+            .then((r) => navigate(cameFromElsewhere ? returnTo : `/riders/${r.id}`, { state: { notice: `${pendingValues.vehicleId} assigned to ${r.name}` } }))
             .catch(() => { /* errors are surfaced by the mutation's onError */ });
         }}
         onCancel={() => setConfirmOpen(false)}

@@ -4,15 +4,16 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/sessionContext';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
 import { DefinitionList } from '../../components/DefinitionList';
 import { Mono } from '../../components/Mono';
+import { ArrivalNotice } from '../../components/ArrivalNotice';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
-import { decideKyc, getRider, listRiderPayments, reactivateRider } from '../../lib/api/riders';
+import { decideKyc, getRider, listRiderPayments } from '../../lib/api/riders';
 import { getVehicle } from '../../lib/api/vehicles';
 import { invalidateRiders } from '../../lib/invalidate';
 import {
@@ -53,23 +54,8 @@ export function RiderDetail() {
   const queryClient = useQueryClient();
   const { user } = useSession();
   const { riderId = '' } = useParams();
+  const { pathname: herePath } = useLocation();
 
-  /**
-   * The way back onto the register.
-   *
-   * Deboarding used to be a one-way door: it is the only writer of DEBOARDED,
-   * the assignable list filters on ACTIVE, and re-onboarding — which the copy
-   * below used to offer as the remedy — is refused because the phone number is
-   * already on the register. So a rider who handed a bike back could never be
-   * given another one.
-   */
-  // invalidateRiders, not ['riders'] alone: this screen reads ['rider', id],
-  // and a decision that only refreshed the list left the detail saying
-  // "KYC pending" until a reload.
-  const putBack = useMutation({
-    mutationFn: () => reactivateRider(riderId),
-    onSuccess: () => invalidateRiders(queryClient),
-  });
 
 
   /**
@@ -138,10 +124,10 @@ export function RiderDetail() {
   const holdsBike = Boolean(r.currentVehicleId);
   // A deboarded or blacklisted rider cannot take a bike — the API refuses it —
   // so the action is not offered. Never present and dead.
-  const canTakeBike = r.status === 'ACTIVE';
 
   return (
     <>
+      <ArrivalNotice />
       <PageHeader
         section="Riders"
         backTo="/riders"
@@ -158,22 +144,18 @@ export function RiderDetail() {
           // rider is carried in the URL: these screens are reachable directly.
           holdsBike ? (
             <>
-              <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${r.id}`}>
+              <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${r.id}`} state={{ returnTo: herePath }}>
                 Exchange bike
               </Button>
-              <Button color="inherit" component={Link} to={`/assignments/deboard?riderId=${r.id}`}>
+              <Button color="inherit" component={Link} to={`/assignments/deboard?riderId=${r.id}`} state={{ returnTo: herePath }}>
                 Deboard
               </Button>
             </>
-          ) : canTakeBike ? (
-            <Button component={Link} to={`/assignments/assign?riderId=${r.id}`}>
+          ) : (
+            <Button component={Link} to={`/assignments/assign?riderId=${r.id}`} state={{ returnTo: herePath }}>
               Assign bike
             </Button>
-          ) : r.status === 'DEBOARDED' ? (
-            <Button onClick={() => putBack.mutate()} disabled={putBack.isPending}>
-              {putBack.isPending ? 'Putting back…' : 'Put back on register'}
-            </Button>
-          ) : undefined
+          )
         }
       />
 
@@ -277,22 +259,13 @@ export function RiderDetail() {
             </>
           ) : (
             <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-              {canTakeBike ? (
                 <>
-                  No bike yet. A bike can only be given out when it is{' '}
+              No bike yet. A bike can only be given out when it is{' '}
                   <Box component="span" sx={{ color: tones.accent.fg }}>
                     Ready to Deploy
                   </Box>
                   .
                 </>
-              ) : (
-                <>
-                  This rider is {RIDER_STATUS_LABEL[r.status].toLowerCase()} and cannot hold a bike.{' '}
-                  {r.status === 'BLACKLISTED'
-                    ? 'A blacklisted rider is not put back on the register.'
-                    : 'Put them back on the register to give them another bike.'}
-                </>
-              )}
             </Typography>
           )}
         </Panel>
@@ -311,10 +284,6 @@ export function RiderDetail() {
             { label: 'City', value: r.city || '—' },
             { label: 'State', value: r.state || '—' },
             { label: 'PIN', value: r.pinCode ? <Mono sx={{ fontSize: 13 }}>{r.pinCode}</Mono> : '—' },
-            {
-              label: 'Coordinates',
-              value: r.locationCoordinates ? <Mono sx={{ fontSize: 13 }}>{r.locationCoordinates}</Mono> : '—',
-            },
             { label: 'WhatsApp', value: r.whatsappNumber ? <Mono sx={{ fontSize: 13 }}>{r.whatsappNumber}</Mono> : '—' },
             {
               label: 'Alternate number',

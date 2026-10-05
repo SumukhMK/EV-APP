@@ -57,7 +57,7 @@ async function fillWork(user: ReturnType<typeof userEvent.setup>) {
   await user.paste('Mirror repaired and road tested');
   await user.click(screen.getByRole('textbox', { name: 'Who did the work?' }));
   await user.paste('Inspector');
-  await user.click(screen.getByRole('textbox', { name: 'What did you do just now?' }));
+  await user.click(screen.getByRole('textbox', { name: 'Why are you making this change?' }));
   await user.paste('Repair completed');
 }
 
@@ -110,8 +110,9 @@ describe('service workbench stories', () => {
     expect(screen.getByRole('link', { name: 'Give another bike' })).toHaveAttribute('href', `/assignments/exchange?riderId=${job.riderId}`);
     expect(screen.getByRole('combobox', { name: 'Who pays?' })).toBeInTheDocument();
     expect(screen.queryByText(/You can write down what you found/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /Work is done/ }));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Save my notes' }));
+    await user.click(screen.getByRole('button', { name: 'Send for Quality Check' }));
     expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(job.workSummary).toContain('road tested');
     expect(job.liability).toBe('RIDER');
@@ -151,6 +152,11 @@ describe('service workbench stories', () => {
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Send for Quality Check' }));
     await screen.findByRole('radio', { name: /QC passed/ });
+    // A QC sheet is a decision: pass or fail. There is no "save progress",
+    // and until one is picked the button says so rather than saving a no-op.
+    expect(screen.queryByRole('radio', { name: /Save progress/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Pick what to do' })).toBeInTheDocument();
     expect(screen.getByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(0);
     // Use "Check all" button for QC checks, then approve repair
@@ -179,8 +185,9 @@ describe('service workbench stories', () => {
     await user.type(screen.getByRole('textbox', { name: 'Item 1' }), 'Mirror');
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '-5');
     // Button is always enabled now (shakes on invalid submit). Confirmation resets on edit.
+    await user.click(screen.getByRole('radio', { name: /Work is done/ }));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Save my notes' }));
+    await user.click(screen.getByRole('button', { name: 'Send for Quality Check' }));
     expect(job.status).toBe('OPEN'); // save did not go through
     await user.clear(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }));
     await user.type(screen.getByRole('textbox', { name: 'Cost 1 (₹)' }), '200');
@@ -195,14 +202,15 @@ describe('service workbench stories', () => {
     await fillWork(user);
     expect(screen.getByText(/Nobody has noted this yet/)).toBeInTheDocument();
     // Submit without picking severity — save does not go through.
+    await user.click(screen.getByRole('radio', { name: /Work is done/ }));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Save my notes' }));
+    await user.click(screen.getByRole('button', { name: 'Send for Quality Check' }));
     expect(job.status).toBe('OPEN');
     // Pick severity, re-confirm, save succeeds.
     await user.click(screen.getByRole('combobox', { name: 'How bad is the damage?' }));
     await user.click(screen.getByRole('option', { name: 'Small damage' }));
     await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button', { name: 'Save my notes' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Send for Quality Check' })).toBeEnabled();
   });
 
   it('opens the existing job from inspection instead of requiring the vehicle-detail hop', async () => {
@@ -296,8 +304,10 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
-    expect(screen.getByRole('radio', { name: /Still working on it/ })).toBeChecked();
-    expect(screen.getByRole('button', { name: 'Save my notes' })).toBeInTheDocument();
+    // Nothing is picked for the operator: no "save my notes", no default move.
+    expect(screen.queryByRole('radio', { name: /Still working on it/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio').some((r) => (r as HTMLInputElement).checked)).toBe(false);
+    expect(screen.getByRole('button', { name: 'Pick what to do' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Which list?' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: /Move it to a different list/ }));
     await user.click(screen.getByRole('combobox', { name: 'Which list?' }));
@@ -313,8 +323,9 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
+    await user.click(screen.getByRole('radio', { name: /Work is done/ }));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: 'Save my notes' }));
+    await user.click(screen.getByRole('button', { name: 'Send for Quality Check' }));
     expect(await screen.findByText('Could not save job')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'What did you find, and what did you do?' })).toHaveValue('Mirror repaired and road tested');
     expect(job.workSummary).toBe('');

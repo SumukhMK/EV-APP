@@ -1,5 +1,7 @@
 package com.evrental;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -95,7 +97,7 @@ class ServiceJobReadTest extends ServiceJobTestBase {
 
     @Test
     void theDetailCarriesTheActivityLog() throws Exception {
-        UUID jobId = openJobId("BLRSS0428");
+        String jobId = openJobId("BLRSS0428");
 
         mvc.perform(get("/api/v1/service/jobs/" + jobId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -122,8 +124,8 @@ class ServiceJobReadTest extends ServiceJobTestBase {
         // clause in our code, is what keeps them out of this answer.
         insertVehicle(OTHER_TENANT, "RIVAL0009", "RIVALCHASSIS9", VehicleState.DEPLOYED);
         superAdmin(jdbc -> jdbc.update(
-                "INSERT INTO service_jobs (tenant_id, vehicle_id, source, damage_category, queue, status) "
-                        + "SELECT ?, id, 'DEBOARD', 'MINOR', 'MINOR_REPAIR', 'OPEN' "
+                "INSERT INTO service_jobs (tenant_id, vehicle_id, source, damage_category, queue, status, job_code) "
+                        + "SELECT ?, id, 'DEBOARD', 'MINOR', 'MINOR_REPAIR', 'OPEN', 'X' || upper(substr(md5(gen_random_uuid()::text), 1, 8)) "
                         + "FROM vehicles WHERE registry_id = 'RIVAL0009'", OTHER_TENANT));
 
         list("").andExpect(jsonPath("$.totalElements").value(3));
@@ -142,9 +144,32 @@ class ServiceJobReadTest extends ServiceJobTestBase {
                 .andExpect(status().isUnauthorized());
     }
 
-    private UUID openJobId(String registryId) throws Exception {
+    private String openJobId(String registryId) throws Exception {
         String body = list("?vehicleId=" + registryId).andReturn().getResponse().getContentAsString();
-        return UUID.fromString(new tools.jackson.databind.ObjectMapper()
-                .readTree(body).get("content").get(0).get("id").asString());
+        return new tools.jackson.databind.ObjectMapper()
+                .readTree(body).get("content").get(0).get("id").asString();
+    }
+
+    /** A job is named by its code on the wire — "J01", not the row's UUID — the way riders are "R01". */
+    @Test
+    void aJobIsNamedByItsCodeNotItsRowId() throws Exception {
+        String jobId = openJobId("BLRSS0428");
+        assertThat(jobId).matches("J\\d{2,}");
+
+        mvc.perform(get("/api/v1/service/jobs/" + jobId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(jobId))
+                .andExpect(jsonPath("$.vehicleId").value("BLRSS0428"));
+
+        // Case does not matter, the same as rider codes and registry ids.
+        mvc.perform(get("/api/v1/service/jobs/" + jobId.toLowerCase()).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(jobId));
+    }
+
+    @Test
+    void refusesACodeThatIsNotThere() throws Exception {
+        mvc.perform(get("/api/v1/service/jobs/J999").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
     }
 }

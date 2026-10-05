@@ -40,13 +40,18 @@ class RiderChargeTest extends ServiceJobTestBase {
     RiderChargeRepository charges;
 
     private String token;
-    private UUID jobId;
+    /** The job's code ("J01"): what the API and the URLs name it by. */
+    private String jobId;
+    /** The row behind it, for the repository and the event the listener hears. */
+    private UUID jobRowId;
     private final UUID riderId = RIDER_ID;
 
     @BeforeEach
     void openPriceAndPass() throws Exception {
         token = tokenFor(ADMIN_EMAIL);
         jobId = openJob(token, "BLRSS0428", "MINOR", riderId);
+        jobRowId = superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT id FROM service_jobs WHERE tenant_id = ? AND job_code = ?", UUID.class, TENANT, jobId));
         mvc.perform(put("/api/v1/service/jobs/" + jobId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -77,7 +82,7 @@ class RiderChargeTest extends ServiceJobTestBase {
     /** Rows this tenant's charges, read past RLS so the test sees what really landed. */
     private List<UUID> chargeIdsForJob() {
         return superAdmin(jdbc -> jdbc.queryForList(
-                "SELECT id FROM rider_charges WHERE service_job_id = ?", UUID.class, jobId));
+                "SELECT id FROM rider_charges WHERE service_job_id = ?", UUID.class, jobRowId));
     }
 
     @Test
@@ -88,7 +93,7 @@ class RiderChargeTest extends ServiceJobTestBase {
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertThat(chargeIdsForJob()).hasSize(1));
 
-        RiderCharge charge = asTenant(() -> charges.findByServiceJobId(jobId).orElseThrow());
+        RiderCharge charge = asTenant(() -> charges.findByServiceJobId(jobRowId).orElseThrow());
         assertThat(charge.getAmountPaise()).isEqualTo(85000);
         assertThat(charge.getRiderId()).isEqualTo(riderId);
         assertThat(charge.getLiability()).isEqualTo(ServiceLiability.RIDER);
@@ -103,7 +108,7 @@ class RiderChargeTest extends ServiceJobTestBase {
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertThat(chargeIdsForJob()).hasSize(1));
-        assertThat(asTenant(() -> charges.findByServiceJobId(jobId).orElseThrow()).getLiability())
+        assertThat(asTenant(() -> charges.findByServiceJobId(jobRowId).orElseThrow()).getLiability())
                 .isEqualTo(ServiceLiability.DEPOSIT);
     }
 
@@ -127,7 +132,7 @@ class RiderChargeTest extends ServiceJobTestBase {
                 assertThat(chargeIdsForJob()).hasSize(1));
 
         ServiceJobClosedEvent replay = new ServiceJobClosedEvent(
-                TENANT, jobId, vehicleId, riderId, ServiceLiability.RIDER, 85000);
+                TENANT, jobRowId, vehicleId, riderId, ServiceLiability.RIDER, 85000);
         chargeService.raiseFor(replay);
         chargeService.raiseFor(replay);
 
@@ -139,10 +144,10 @@ class RiderChargeTest extends ServiceJobTestBase {
         close("RIDER");
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertThat(chargeIdsForJob()).hasSize(1));
-        UUID original = asTenant(() -> charges.findByServiceJobId(jobId).orElseThrow()).getId();
+        UUID original = asTenant(() -> charges.findByServiceJobId(jobRowId).orElseThrow()).getId();
 
         RiderCharge again = chargeService.raiseFor(new ServiceJobClosedEvent(
-                TENANT, jobId, vehicleId, riderId, ServiceLiability.RIDER, 85000));
+                TENANT, jobRowId, vehicleId, riderId, ServiceLiability.RIDER, 85000));
 
         assertThat(again).isNotNull();
         assertThat(again.getId()).isEqualTo(original);
@@ -151,7 +156,7 @@ class RiderChargeTest extends ServiceJobTestBase {
     @Test
     void aFreeRepairIsNotADebt() {
         RiderCharge none = chargeService.raiseFor(new ServiceJobClosedEvent(
-                TENANT, jobId, vehicleId, riderId, ServiceLiability.RIDER, 0));
+                TENANT, jobRowId, vehicleId, riderId, ServiceLiability.RIDER, 0));
 
         assertThat(none).isNull();
         assertThat(chargeIdsForJob()).isEmpty();
@@ -160,7 +165,7 @@ class RiderChargeTest extends ServiceJobTestBase {
     @Test
     void aJobWithNoRiderBillsNobody() {
         RiderCharge none = chargeService.raiseFor(new ServiceJobClosedEvent(
-                TENANT, jobId, vehicleId, null, ServiceLiability.RIDER, 85000));
+                TENANT, jobRowId, vehicleId, null, ServiceLiability.RIDER, 85000));
 
         assertThat(none).isNull();
         assertThat(chargeIdsForJob()).isEmpty();
@@ -232,7 +237,7 @@ class RiderChargeTest extends ServiceJobTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].amountPaise").value(85000))
-                .andExpect(jsonPath("$[0].serviceJobId").value(jobId.toString()));
+                .andExpect(jsonPath("$[0].serviceJobId").value(jobId));
 
         mvc.perform(get("/api/v1/payments/charges")
                         .header("Authorization", "Bearer " + token)
