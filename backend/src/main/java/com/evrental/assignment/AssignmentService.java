@@ -86,6 +86,13 @@ public class AssignmentService {
         Rider rider = riders.findByRiderCode(request.riderId());
         requireActive(rider);
 
+        // Rent starts on this date. One that has not come yet would bill
+        // for days nobody rode — and "today" is today in IST, where the
+        // fleet is, not in the UTC the container runs in.
+        if (request.startedOn().isAfter(java.time.LocalDate.now(com.evrental.payment.BillingClock.ZONE))) {
+            throw new com.evrental.common.ValidationException("startedOn", "Assignment date cannot be in the future");
+        }
+
         assignments.findOpenByRiderId(rider.getId()).ifPresent(open -> {
             throw new ConflictException(rider.getName() + " already holds " + registryIdOf(open.getVehicleId())
                     + ". Use Exchange vehicle instead.", "riderId");
@@ -141,6 +148,7 @@ public class AssignmentService {
                 || assignments.findOpenByVehicleId(to.getId()).isPresent()) {
             throw new ConflictException(to.getRegistryId() + " is not Ready to Deploy", "toVehicleId");
         }
+        requireWithinAssignment(request.occurredOn(), open, "occurredOn", "Exchange date");
 
         String damageNotes = damageNotes(request.returnCondition(), request.damageItems());
         validateReturn(request.returnCondition(), request.nextVehicleState(), request.note(), request.damageItems());
@@ -184,6 +192,11 @@ public class AssignmentService {
         if (!vehicle.getRegistryId().equals(request.vehicleId().trim())) {
             throw new ConflictException(
                     rider.getName() + " is not holding " + request.vehicleId(), "vehicleId");
+        }
+        requireWithinAssignment(request.returnedOn(), open, "returnedOn", "Return date");
+        // The register holds the deposit; it cannot give back more than it holds.
+        if (request.depositRefund() > rider.getDepositHeldPaise()) {
+            throw new ValidationException("depositRefund", "Deposit refund cannot be more than the deposit held");
         }
 
         String damageNotes = damageNotes(request.returnCondition(), request.damageItems());
@@ -240,6 +253,21 @@ public class AssignmentService {
     }
 
     /** The part-level detail, joined the way the mock's returnNote joins it. */
+    /**
+     * A return or swap is dated, and the date becomes the close of one
+     * assignment and the start of the next. One before the rider ever had
+     * the bike, or one that has not come yet, was accepted — so rent for the
+     * replacement started in the past or the future. Today is today in IST.
+     */
+    private static void requireWithinAssignment(java.time.LocalDate on, Assignment open, String field, String label) {
+        if (on.isBefore(open.getStartedOn())) {
+            throw new ValidationException(field, label + " cannot be before the assignment began");
+        }
+        if (on.isAfter(java.time.LocalDate.now(com.evrental.payment.BillingClock.ZONE))) {
+            throw new ValidationException(field, label + " cannot be in the future");
+        }
+    }
+
     private String damageNotes(DamageCategory condition, List<DamageItem> damageItems) {
         if (condition == DamageCategory.NONE) {
             return "No damage reported";

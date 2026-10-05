@@ -12,7 +12,7 @@ import org.springframework.http.MediaType;
 class VehicleCreateTest extends VehicleTestBase {
 
     private static final String BODY = """
-            {"id":"BLRSS0600","chassisNumber":"CH-600","model":"Eagle 2",
+            {"id":"BLRSS0600","chassisNumber":"SESEAG03202300600","model":"Eagle 2",
              "batteryType":"Yuma","batteryVendor":"Yuma","hub":"Koramangala",
              "registrationNumber":"KA01AB1234","inductedOn":"2026-09-01"}
             """;
@@ -48,9 +48,103 @@ class VehicleCreateTest extends VehicleTestBase {
 
         mvc.perform(post("/api/v1/vehicles").header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(BODY.replace("CH-600", "CH-601")))
+                        .content(BODY.replace("SESEAG03202300600", "SESEAG03202300601")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.field").value("id"));
+    }
+
+    /**
+     * A chassis number is a 17-character VIN, and every bike in the fleet has
+     * one. The form said so and refused anything else; the API accepted
+     * anything up to 40 characters, so a short one typed into a spreadsheet
+     * or sent directly was stored. The rule lives here now.
+     */
+    @Test
+    void aChassisThatIsNotSeventeenLettersAndDigitsIs422OnTheChassisField() throws Exception {
+        for (String bad : java.util.List.of("SHORT123", "SESEAG-0320230-99", "SESEAG032023004021")) {
+            mvc.perform(post("/api/v1/vehicles")
+                            .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"id":"BLRSS0699","chassisNumber":"%s","model":"Eagle 2",
+                                     "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01"}
+                                    """.formatted(bad)))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.field").value("chassisNumber"))
+                    .andExpect(jsonPath("$.message").value("Chassis number must be exactly 17 letters and digits"));
+        }
+    }
+
+    /** A registry id is read off the bike and typed into search boxes: letters and digits, nothing else. */
+    @Test
+    void aRegistryIdWithSpacesPunctuationOrEmojiIs422OnTheIdField() throws Exception {
+        for (String bad : java.util.List.of("BLR SS-01!", "BLRSS🚲01", "BLRSS_0001")) {
+            mvc.perform(post("/api/v1/vehicles")
+                            .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"id":"%s","chassisNumber":"SESEAG03202300696","model":"Eagle 2",
+                                     "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01"}
+                                    """.formatted(bad)))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.field").value("id"))
+                    .andExpect(jsonPath("$.message").value("Vehicle id must be letters and digits only"));
+        }
+    }
+
+    /** A number plate: letters, digits, and the spaces or hyphens people put between them. */
+    @Test
+    void aRegistrationNumberWithEmojiIs422OnItsField() throws Exception {
+        mvc.perform(post("/api/v1/vehicles")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"id":"BLRSS0695","chassisNumber":"SESEAG03202300695","model":"Eagle 2",
+                                 "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01",
+                                 "registrationNumber":"KA01🚲1"}
+                                """))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("registrationNumber"))
+                .andExpect(jsonPath("$.message").value("Registration number must be letters, digits, spaces or hyphens"));
+
+        mvc.perform(post("/api/v1/vehicles")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"id":"BLRSS0695","chassisNumber":"SESEAG03202300695","model":"Eagle 2",
+                                 "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01",
+                                 "registrationNumber":"KA 01 AB-1234"}
+                                """))
+                .andExpect(status().isCreated());
+    }
+
+    /** The form only lets capitals through; the API stored whatever came. One spelling per bike. */
+    @Test
+    void aLowercaseRegistryIdIsStoredInCapitals() throws Exception {
+        mvc.perform(post("/api/v1/vehicles")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"id":"blrss0698","chassisNumber":"SESEAG03202300698","model":"Eagle 2",
+                                 "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value("BLRSS0698"));
+    }
+
+    /** The import refuses a future induction date; the single-add endpoint must too. */
+    @Test
+    void anInductionDateInTheFutureIs422OnTheDateField() throws Exception {
+        mvc.perform(post("/api/v1/vehicles")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"id":"BLRSS0697","chassisNumber":"SESEAG03202300697","model":"Eagle 2",
+                                 "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2031-01-01"}
+                                """))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("inductedOn"))
+                .andExpect(jsonPath("$.message").value("Induction date cannot be in the future"));
     }
 
     @Test

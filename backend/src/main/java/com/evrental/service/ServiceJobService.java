@@ -355,6 +355,11 @@ public class ServiceJobService implements ServiceJobFacade {
 
         Map<String, Boolean> checks = validatedChecks(request.checks());
         boolean passed = QcChecks.allPassed(checks);
+        // A fail sends the bike back to the bench; without a reason it goes
+        // back with nothing to fix.
+        if (!passed && (request.notes() == null || request.notes().isBlank())) {
+            throw new ValidationException("notes", "Say what failed so the workshop knows what to fix");
+        }
 
         QcInspection inspection = new QcInspection();
         inspection.setTenantId(job.getTenantId());
@@ -364,7 +369,10 @@ public class ServiceJobService implements ServiceJobFacade {
         inspection.setPassed(passed);
         inspection.setInspector(request.inspector().trim());
         inspection.setNotes(request.notes());
-        inspections.save(inspection);
+        // Flushed now, not at commit: inspectedOn is generated on insert and
+        // the response is built from this instance before the transaction
+        // ends, so without the flush the decision went back with no timestamp.
+        inspections.saveAndFlush(inspection);
 
         // A pass sends the bike back to the fleet; a fail sends it back to the
         // bench. Either way the queue and the bike move together, because a

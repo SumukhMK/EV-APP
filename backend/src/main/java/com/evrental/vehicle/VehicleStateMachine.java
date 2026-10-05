@@ -35,7 +35,13 @@ public class VehicleStateMachine {
     static {
         Map<VehicleState, Set<VehicleState>> allowed = new EnumMap<>(VehicleState.class);
 
+        // QC_PENDING is the first check. Every new bike arrives INDUCTED and
+        // must pass QC before it goes out, and the inspection screen's "no
+        // damage" route is the QC queue — without this edge a freshly
+        // onboarded bike could never be checked in. READY_TO_DEPLOY stays as
+        // the admin's direct move for a bike already known to be sound.
         allowed.put(VehicleState.INDUCTED, EnumSet.of(
+                VehicleState.QC_PENDING,
                 VehicleState.READY_TO_DEPLOY,
                 VehicleState.UNDER_REPAIR,
                 VehicleState.RETIRED));

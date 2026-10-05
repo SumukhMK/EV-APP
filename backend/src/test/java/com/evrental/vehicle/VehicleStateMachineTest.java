@@ -25,8 +25,13 @@ class VehicleStateMachineTest {
     private static final Map<VehicleState, Set<VehicleState>> EXPECTED = new EnumMap<>(VehicleState.class);
 
     static {
+        // QC_PENDING: a new bike's first check. The inspection screen's only
+        // "no damage" route is the QC queue, and without this edge a freshly
+        // onboarded bike could never be checked in — "A vehicle that is
+        // Onboarding cannot become Quality Check".
         EXPECTED.put(VehicleState.INDUCTED,
-                EnumSet.of(VehicleState.READY_TO_DEPLOY, VehicleState.UNDER_REPAIR, VehicleState.RETIRED));
+                EnumSet.of(VehicleState.QC_PENDING, VehicleState.READY_TO_DEPLOY, VehicleState.UNDER_REPAIR,
+                        VehicleState.RETIRED));
         EXPECTED.put(VehicleState.READY_TO_DEPLOY,
                 EnumSet.of(VehicleState.DEPLOYED, VehicleState.UNDER_REPAIR, VehicleState.ACCIDENT,
                         VehicleState.RETIRED));

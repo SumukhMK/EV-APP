@@ -36,9 +36,9 @@ class VehicleImportExcelTest extends VehicleTestBase {
     void anExcelUploadPreviewsLikeTheEquivalentCsv() throws Exception {
         byte[] workbook = workbook(sheet -> {
             header(sheet);
-            textRow(sheet, 1, "BLRSS0801", "CH-801", "Eagle 2", "Yuma",
+            textRow(sheet, 1, "BLRSS0801", "SESEAG03202300801", "Eagle 2", "Yuma",
                     "Yuma", "Koramangala", "KA01AA0801", "2026-09-01");
-            textRow(sheet, 2, "BLRSS0802", "CH-802", "Eagle 2", "Yuma",
+            textRow(sheet, 2, "BLRSS0802", "SESEAG03202300802", "Eagle 2", "Yuma",
                     "Yuma", "Koramangala", "KA01AA0802", "2026-09-01");
         });
 
@@ -60,7 +60,7 @@ class VehicleImportExcelTest extends VehicleTestBase {
         byte[] workbook = workbook(sheet -> {
             header(sheet);
             Row row = sheet.createRow(1);
-            String[] text = {"BLRSS0803", "CH-803", "Eagle 2", "Yuma", "Yuma", "Koramangala", "KA01AA0803"};
+            String[] text = {"BLRSS0803", "SESEAG03202300803", "Eagle 2", "Yuma", "Yuma", "Koramangala", "KA01AA0803"};
             for (int c = 0; c < text.length; c++) {
                 row.createCell(c).setCellValue(text[c]);
             }
@@ -84,7 +84,7 @@ class VehicleImportExcelTest extends VehicleTestBase {
     void trailingBlankRowsAreNotCountedAsRows() throws Exception {
         byte[] workbook = workbook(sheet -> {
             header(sheet);
-            textRow(sheet, 1, "BLRSS0804", "CH-804", "Eagle 2", "Yuma",
+            textRow(sheet, 1, "BLRSS0804", "SESEAG03202300804", "Eagle 2", "Yuma",
                     "Yuma", "Koramangala", "KA01AA0804", "2026-09-01");
             sheet.createRow(2);
             sheet.createRow(3).createCell(0).setCellValue("");
@@ -102,7 +102,7 @@ class VehicleImportExcelTest extends VehicleTestBase {
     void anExcelRowMissingARequiredFieldIsAnErrorRow() throws Exception {
         byte[] workbook = workbook(sheet -> {
             header(sheet);
-            textRow(sheet, 1, "BLRSS0805", "CH-805", "", "Yuma",
+            textRow(sheet, 1, "BLRSS0805", "SESEAG03202300805", "", "Yuma",
                     "Yuma", "Koramangala", "KA01AA0805", "2026-09-01");
         });
 
@@ -121,7 +121,7 @@ class VehicleImportExcelTest extends VehicleTestBase {
             for (int c = 0; c < HEADERS.size() - 1; c++) {
                 row.createCell(c).setCellValue(HEADERS.get(c));
             }
-            textRow(sheet, 1, "BLRSS0806", "CH-806", "Eagle 2", "Yuma",
+            textRow(sheet, 1, "BLRSS0806", "SESEAG03202300806", "Eagle 2", "Yuma",
                     "Yuma", "Koramangala", "KA01AA0806");
         });
 

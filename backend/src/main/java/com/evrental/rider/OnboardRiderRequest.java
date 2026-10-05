@@ -63,16 +63,22 @@ public record OnboardRiderRequest(
         String pinCode,
         String locationCoordinates,
 
-        // Optional documents — step 4.
+        // Optional documents — step 4. Blank is fine; a value must look real.
+        @Pattern(regexp = "^\\s*$|^[A-Z]{5}[0-9]{4}[A-Z]$", message = "PAN must look like ABCDE1234F")
         String panNumber,
+        @Pattern(regexp = "^\\s*$|^[A-Z]{2}[0-9]{2}[ -]?[0-9]{4}[0-9]{7}$", message = "Driving licence must look like KA0120201234567")
         String drivingLicence,
 
         // Commercial — step 5.
         @NotBlank(message = "Working platform is required")
         String workingPlatform,
         String platformRiderId,
+        // A contract with no rent is not a contract, and ten lakh a week is a
+        // typo; both were stored. The cap is generous against the ₹1,700–2,000
+        // tiers and exists to catch a slipped zero, not to price anything.
         @NotNull(message = "Weekly plan is required")
-        @PositiveOrZero(message = "The weekly plan cannot be negative")
+        @jakarta.validation.constraints.Positive(message = PLAN_MIN_RULE)
+        @jakarta.validation.constraints.Max(value = PLAN_MAX_PAISE, message = PLAN_MAX_RULE)
         Long planAmount,
         @NotNull(message = "Billing day is required")
         BillingDay billingDay,
@@ -86,6 +92,7 @@ public record OnboardRiderRequest(
         @PositiveOrZero(message = "Deposit paid cannot be negative")
         Long depositPaid,
         @NotNull(message = "Onboarding date is required")
+        @jakarta.validation.constraints.PastOrPresent(message = "Onboarding date cannot be in the future")
         LocalDate onboardedOn,
 
         /** Every flag must be true before the request is allowed to be sent. */
@@ -95,6 +102,11 @@ public record OnboardRiderRequest(
 
         /** The bike handed over at the counter. Assignment is a separate event, so this is ignored. */
         String vehicleId) {
+
+    /** ₹25,000 a week, in paise. Shared with the plan-change endpoint. */
+    public static final long PLAN_MAX_PAISE = 2_500_000L;
+    public static final String PLAN_MIN_RULE = "The weekly plan must be more than zero";
+    public static final String PLAN_MAX_RULE = "A weekly plan above ₹25,000 is not a rent — check the amount";
 
     /** Which of the four identity fields have completed their OTP round-trip. */
     public record RiderVerification(

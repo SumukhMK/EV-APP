@@ -78,8 +78,14 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
   const canWork = canManageService(user.roleKey);
   const [vehicleId, setVehicleId] = useState(params.get('vehicle') ?? '');
   const [source, setSource] = useState<ServiceJobSource>(inspectionMode || params.get('source') === 'INSPECTION' ? 'INSPECTION' : 'WALK_IN');
-  const [category, setCategory] = useState<DamageCategory>('MINOR');
-  const [queue, setQueue] = useState<ServiceQueue>(inspectionMode ? 'ASSESSMENT' : 'MINOR_REPAIR');
+  // A routine check offers one damage level, "No damage" — see
+  // allowedCategories — so it opens on that and on the QC queue it leads
+  // to. It used to open on "Small damage", a value its own picker did not
+  // list, and the summary promised the repair list until the operator
+  // re-picked the only option there was.
+  const inspection = inspectionMode || params.get('source') === 'INSPECTION';
+  const [category, setCategory] = useState<DamageCategory>(inspection ? 'NONE' : 'MINOR');
+  const [queue, setQueue] = useState<ServiceQueue>(inspection ? 'QC_PENDING' : 'MINOR_REPAIR');
   const [notes, setNotes] = useState('');
   const [location, setLocation] = useState('');
   const [reference, setReference] = useState('');

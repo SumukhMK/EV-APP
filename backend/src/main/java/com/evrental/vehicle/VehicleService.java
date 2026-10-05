@@ -82,7 +82,11 @@ public class VehicleService implements VehicleTransitions {
      */
     @Transactional
     public Vehicle create(CreateVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName) {
-        String registryId = request.id().trim();
+        // Capitals, whatever came in. The form only lets capitals through; a
+        // spreadsheet or a direct call may not, and lookups are
+        // case-insensitive, so two spellings of one id would have been one
+        // bike that displays two ways.
+        String registryId = request.id().trim().toUpperCase(java.util.Locale.ROOT);
         String chassisNumber = request.chassisNumber().trim();
 
         // Checked before insert so the caller gets a 409 naming the field the

@@ -41,10 +41,13 @@ class QcInspectionTest extends ServiceJobTestBase {
 
     private org.springframework.test.web.servlet.ResultActions submitQc(String checks, String inspector)
             throws Exception {
+        // A failed sheet needs a reason, so one is supplied whenever a check is
+        // false; the test about that rule posts its own body without one.
+        String notes = checks.contains("false") ? ",\"notes\":\"Found on the bench\"" : "";
         return mvc.perform(post("/api/v1/service/jobs/" + jobId + "/qc")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"checks\":" + checks + ",\"inspector\":\"" + inspector + "\"}"));
+                .content("{\"checks\":" + checks + ",\"inspector\":\"" + inspector + "\"" + notes + "}"));
     }
 
     @Test
@@ -76,6 +79,30 @@ class QcInspectionTest extends ServiceJobTestBase {
     }
 
     /** Review Focus 3: silence is not a pass. */
+    /** A fail with no reason sends a bike back to the bench with nothing to fix. */
+    @Test
+    void aFailedSheetNeedsAReason() throws Exception {
+        String brakesFail = ALL_CHECKS_PASS.replace("\"brakes\":true", "\"brakes\":false");
+
+        mvc.perform(post("/api/v1/service/jobs/" + jobId + "/qc")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"checks\":" + brakesFail + ",\"inspector\":\"Suresh\",\"notes\":\"  \"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("notes"))
+                .andExpect(jsonPath("$.message").value("Say what failed so the workshop knows what to fix"));
+
+        assertThat(stateOf(vehicleId)).isEqualTo(VehicleState.QC_PENDING);
+    }
+
+    /** The decision is timestamped in the response as well as in the row. It came back null. */
+    @Test
+    void theDecisionIsTimestampedInTheResponse() throws Exception {
+        submitQc(ALL_CHECKS_PASS, "Suresh")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.inspectedOn").isNotEmpty());
+    }
+
     @Test
     void refusesASheetWithAnUnansweredCheck() throws Exception {
         String missingRoadTest = ALL_CHECKS_PASS.replace(",\"roadtest\":true", "");
@@ -174,7 +201,7 @@ class QcInspectionTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"checks\":" + ALL_CHECKS_PASS.replace("\"horn\":true", "\"horn\":false")
-                                + ",\"inspector\":\"Suresh\"}"))
+                                + ",\"inspector\":\"Suresh\",\"notes\":\"Horn dead\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.passed").value(false));
 

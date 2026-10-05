@@ -444,6 +444,45 @@ in the audit trail (ChangeLog records plan and role changes only); service
 job ids are shown as raw UUIDs; a DEPLOYED bike with no open assignment
 (87 of the seeded 97) has no way back except through inspection.
 
+**QA pass, round two (2026-10-05).** Sumukh's own test found what the first
+pass missed: a freshly onboarded bike could not be checked in at all —
+`INDUCTED → QC_PENDING` was not an edge in the state machine, and the
+inspection screen's only "no damage" route is the QC queue ("A vehicle that
+is Onboarding cannot become Quality Check"). The edge is in now, WORKSHOP
+roles, with the machine table and an end-to-end test. A probe of every
+endpoint with payloads a screen would never send then found the server
+rules the forms had been standing in for: the chassis number is a
+17-character VIN everywhere now (create, import row, template examples) —
+the API had accepted anything up to the column width, so a short one from
+a spreadsheet was stored; the registry id is upper-cased on the way in; an
+induction date or an assignment start date in the future is a 422 on its
+field. Left as designed: `vehicles.hub` and `model` stay free text (V013
+says the reference tables are "the list offered, not a foreign key"), and
+`batteryType` stays free text for the import.
+
+**QA pass, round three (2026-10-05), against
+`reports/user-stories-common-sense.md`.** Six user stories (bike onboarding
+→ QC → deploy, rider onboarding + assignment, exchange, deboard, payments,
+workshop QC) plus the cross-cutting checklist, each step probed with the
+valid case and every listed invalid one. Fixed: the registry id is letters
+and digits only and the registration number letters/digits/space/hyphen
+(create and import row); the weekly plan is bounded on both sides, more than
+zero and at most ₹25,000, on onboarding and on a plan change; PAN and
+driving licence have a shape when given (blank still means "not given");
+an exchange or a return cannot be dated before the assignment began or in
+the future; a deposit refund larger than the deposit held is refused at the
+desk rather than clamped on approval; a failed QC sheet must say what
+failed; the QC decision is timestamped in the response. Verified already
+right: contradiction rules (NONE with parts, MAJOR with none), retired bikes
+cannot be assigned, two desks assigning the same bike or rider at once lose
+to the partial unique indexes, QC on a bike that is not at the bench is a
+409, ACCIDENT cannot jump to DEPLOYED, negative costs and amounts are 422s,
+every role denial is a 403. Left as designed: overpayment is accepted and
+the balance goes negative (it is a credit, and the test says so), and a
+PAID line can still take money for the same reason. Still open: duplicate
+Aadhaar is not detected — the number is encrypted with a random IV, so
+detection needs a keyed-hash column (V016, `aadhaar_hash` + unique index).
+
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
 job is to render the per-row errors the preview returns.

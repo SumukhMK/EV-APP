@@ -54,6 +54,50 @@ class AssignmentDeboardTest extends AssignmentTestBase {
         org.assertj.core.api.Assertions.assertThat(hasOpenJob(VEHICLE_READY)).isTrue();
     }
 
+    /** Same rule as the exchange: the return happened on a day inside the assignment, not before it or yet to come. */
+    @Test
+    void aReturnDatedOutsideTheAssignmentIs422OnTheDateField() throws Exception {
+        assign(RIDER_A, VEHICLE_READY);  // started 2026-09-28
+
+        for (String[] c : new String[][] {
+                {"2026-09-01", "Return date cannot be before the assignment began"},
+                {"2031-01-01", "Return date cannot be in the future"}}) {
+            mvc.perform(post("/api/v1/assignments/deboard")
+                            .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"riderId":"%s","vehicleId":"%s","returnedOn":"%s",
+                                     "returnCondition":"NONE","reason":"RETURNED",
+                                     "nextVehicleState":"QC_PENDING",
+                                     "outstandingRent":0,"depositRefund":0,
+                                     "damageItems":[]}
+                                    """.formatted(RIDER_A_CODE, VEHICLE_READY, c[0])))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.field").value("returnedOn"))
+                    .andExpect(jsonPath("$.message").value(c[1]));
+        }
+    }
+
+    /** The register holds ₹3,000 for this rider; it cannot give back ₹3,000.01. */
+    @Test
+    void aDepositRefundAboveTheDepositHeldIs422OnTheRefundField() throws Exception {
+        assign(RIDER_A, VEHICLE_READY);
+
+        mvc.perform(post("/api/v1/assignments/deboard")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","returnedOn":"2026-09-28",
+                                 "returnCondition":"NONE","reason":"RETURNED",
+                                 "nextVehicleState":"QC_PENDING",
+                                 "outstandingRent":0,"depositRefund":300001,
+                                 "damageItems":[]}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("depositRefund"))
+                .andExpect(jsonPath("$.message").value("Deposit refund cannot be more than the deposit held"));
+    }
+
     @Test
     void aRiderNotHoldingTheBikeIsA409() throws Exception {
         assign(RIDER_A, VEHICLE_READY);

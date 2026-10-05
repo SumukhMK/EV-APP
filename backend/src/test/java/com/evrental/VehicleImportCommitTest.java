@@ -32,9 +32,9 @@ class VehicleImportCommitTest extends VehicleTestBase {
         // rows, not the one this fixture wants.
         importId = stage("""
                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
-                BLRSS0910,CH-910,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0010,2026-09-01
-                BLRSS0911,CH-911,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0011,2026-09-01
-                BLRSS0912,CH-912,,Yuma,Yuma,Koramangala,KA01AA0012,2026-09-01
+                BLRSS0910,SESEAG03202300910,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0010,2026-09-01
+                BLRSS0911,SESEAG03202300911,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0011,2026-09-01
+                BLRSS0912,SESEAG03202300912,,Yuma,Yuma,Koramangala,KA01AA0012,2026-09-01
                 """);
     }
 
@@ -112,7 +112,7 @@ class VehicleImportCommitTest extends VehicleTestBase {
     void theSweeperExpiresPendingImportsOlderThanADayAndLeavesCommittedOnesAlone() throws Exception {
         String secondImport = stage("""
                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
-                BLRSS0913,CH-913,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0013,2026-09-01
+                BLRSS0913,SESEAG03202300913,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0013,2026-09-01
                 """);
         mvc.perform(post("/api/v1/vehicles/imports/" + secondImport + "/commit")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))

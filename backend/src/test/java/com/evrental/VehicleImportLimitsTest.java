@@ -38,7 +38,7 @@ class VehicleImportLimitsTest extends VehicleTestBase {
     void anOverLongValueIsAnErrorRowInThePreview() throws Exception {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv(HEADER
-                                + "LIMIT001,LCH-001," + "M".repeat(61)
+                                + "LIMIT001,SESEAG03202310001," + "M".repeat(61)
                                 + ",Yuma,Yuma,Koramangala,KA01AA7001,2026-09-01\n"))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -51,12 +51,12 @@ class VehicleImportLimitsTest extends VehicleTestBase {
     @Test
     void everyBoundedFieldIsChecked() throws Exception {
         String body = HEADER
-                + "I".repeat(21) + ",LCH-010,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7010,2026-09-01\n"
+                + "I".repeat(21) + ",SESEAG03202310010,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7010,2026-09-01\n"
                 + "LIMIT011," + "C".repeat(41) + ",Eagle 2,Yuma,Yuma,Koramangala,KA01AA7011,2026-09-01\n"
-                + "LIMIT012,LCH-012,Eagle 2," + "B".repeat(21) + ",Yuma,Koramangala,KA01AA7012,2026-09-01\n"
-                + "LIMIT013,LCH-013,Eagle 2,Yuma," + "V".repeat(41) + ",Koramangala,KA01AA7013,2026-09-01\n"
-                + "LIMIT014,LCH-014,Eagle 2,Yuma,Yuma," + "H".repeat(81) + ",KA01AA7014,2026-09-01\n"
-                + "LIMIT015,LCH-015,Eagle 2,Yuma,Yuma,Koramangala," + "R".repeat(21) + ",2026-09-01\n";
+                + "LIMIT012,SESEAG03202310012,Eagle 2," + "B".repeat(21) + ",Yuma,Koramangala,KA01AA7012,2026-09-01\n"
+                + "LIMIT013,SESEAG03202310013,Eagle 2,Yuma," + "V".repeat(41) + ",Koramangala,KA01AA7013,2026-09-01\n"
+                + "LIMIT014,SESEAG03202310014,Eagle 2,Yuma,Yuma," + "H".repeat(81) + ",KA01AA7014,2026-09-01\n"
+                + "LIMIT015,SESEAG03202310015,Eagle 2,Yuma,Yuma,Koramangala," + "R".repeat(21) + ",2026-09-01\n";
 
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv(body))
@@ -65,7 +65,7 @@ class VehicleImportLimitsTest extends VehicleTestBase {
                 .andExpect(jsonPath("$.totalRows").value(6))
                 .andExpect(jsonPath("$.errorRows").value(6))
                 .andExpect(jsonPath("$.rows[0].error").value("id must be at most 20 characters"))
-                .andExpect(jsonPath("$.rows[1].error").value("chassisNumber must be at most 40 characters"))
+                .andExpect(jsonPath("$.rows[1].error").value("chassisNumber must be exactly 17 letters and digits"))
                 .andExpect(jsonPath("$.rows[2].error").value("batteryType must be at most 20 characters"))
                 .andExpect(jsonPath("$.rows[3].error").value("batteryVendor must be at most 40 characters"))
                 .andExpect(jsonPath("$.rows[4].error").value("hub must be at most 80 characters"))
@@ -77,7 +77,7 @@ class VehicleImportLimitsTest extends VehicleTestBase {
     void aValueExactlyAtTheLimitIsAccepted() throws Exception {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv(HEADER
-                                + "LIMIT020,LCH-020," + "M".repeat(60)
+                                + "LIMIT020,SESEAG03202310020," + "M".repeat(60)
                                 + ",Yuma,Yuma,Koramangala,KA01AA7020,2026-09-01\n"))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -90,8 +90,8 @@ class VehicleImportLimitsTest extends VehicleTestBase {
     void aCleanFileStillCommitsEveryRow() throws Exception {
         MvcResult preview = mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv(HEADER
-                                + "LIMIT030,LCH-030,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7030,2026-09-01\n"
-                                + "LIMIT031,LCH-031,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7031,2026-09-01\n"))
+                                + "LIMIT030,SESEAG03202310030,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7030,2026-09-01\n"
+                                + "LIMIT031,SESEAG03202310031,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7031,2026-09-01\n"))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.validRows").value(2))
@@ -114,15 +114,15 @@ class VehicleImportLimitsTest extends VehicleTestBase {
     void aRowThatGoesStaleBetweenPreviewAndCommitIsReported() throws Exception {
         MvcResult preview = mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv(HEADER
-                                + "LIMIT040,LCH-040,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7040,2026-09-01\n"
-                                + "LIMIT041,LCH-041,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7041,2026-09-01\n"))
+                                + "LIMIT040,SESEAG03202310040,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7040,2026-09-01\n"
+                                + "LIMIT041,SESEAG03202310041,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7041,2026-09-01\n"))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.validRows").value(2))
                 .andReturn();
 
         // Someone else inducts that bike while the preview is on screen.
-        insertVehicle("LIMIT040", "LCH-040", com.evrental.vehicle.VehicleState.INDUCTED);
+        insertVehicle("LIMIT040", "SESEAG03202310040", com.evrental.vehicle.VehicleState.INDUCTED);
 
         mvc.perform(post("/api/v1/vehicles/imports/" + importId(preview) + "/commit")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
@@ -139,8 +139,8 @@ class VehicleImportLimitsTest extends VehicleTestBase {
     void rowsThatFailedThePreviewAreNotCountedAsSkippedAtCommit() throws Exception {
         MvcResult preview = mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv(HEADER
-                                + "LIMIT050,LCH-050,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7050,2026-09-01\n"
-                                + "LIMIT051,LCH-051,,Yuma,Yuma,Koramangala,KA01AA7051,2026-09-01\n"))
+                                + "LIMIT050,SESEAG03202310050,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7050,2026-09-01\n"
+                                + "LIMIT051,SESEAG03202310051,,Yuma,Yuma,Koramangala,KA01AA7051,2026-09-01\n"))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.errorRows").value(1))
@@ -159,7 +159,7 @@ class VehicleImportLimitsTest extends VehicleTestBase {
     void aPaddedValueIsTreatedTheSameAtPreviewAndCommit() throws Exception {
         MvcResult preview = mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv(HEADER
-                                + "  LIMIT060  ,  LCH-060  ,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7060,2026-09-01\n"))
+                                + "  LIMIT060  ,  SESEAG03202310060  ,Eagle 2,Yuma,Yuma,Koramangala,KA01AA7060,2026-09-01\n"))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.validRows").value(1))
