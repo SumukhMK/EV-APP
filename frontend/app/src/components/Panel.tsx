@@ -34,7 +34,7 @@ export function Locked({
   }
   return (
     <Box>
-      <Typography role="note" sx={{ fontSize: 13, color: 'warning.main', mb: 3 }}>
+      <Typography role="note" sx={{ fontSize: 13, color: (theme) => (theme.palette.mode === 'dark' ? 'common.white' : 'warning.main'), mb: 3 }}>
         {locked}
       </Typography>
       <Box
@@ -85,7 +85,7 @@ export function Panel({
               <Typography sx={{ fontSize: 14, color: 'grey.400', mt: '3px' }}>{subtitle}</Typography>
             )}
             {locked && (
-              <Typography role="note" sx={{ fontSize: 13, color: 'warning.main', mt: 1 }}>
+              <Typography role="note" sx={{ fontSize: 13, color: (theme) => (theme.palette.mode === 'dark' ? 'common.white' : 'warning.main'), mt: 1 }}>
                 {locked}
               </Typography>
             )}

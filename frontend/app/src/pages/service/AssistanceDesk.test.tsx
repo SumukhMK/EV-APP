@@ -151,6 +151,11 @@ describe('service workbench stories', () => {
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Send for Quality Check' }));
     await screen.findByRole('radio', { name: /QC passed/ });
+    // A QC sheet is a decision: pass or fail. There is no "save progress",
+    // and until one is picked the button says so rather than saving a no-op.
+    expect(screen.queryByRole('radio', { name: /Save progress/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Pick what to do' })).toBeInTheDocument();
     expect(screen.getByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(riderCharges).toHaveLength(0);
     // Use "Check all" button for QC checks, then approve repair
