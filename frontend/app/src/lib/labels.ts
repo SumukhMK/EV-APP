@@ -23,7 +23,7 @@ export const VEHICLE_STATE_LABEL: Record<VehicleState, string> = {
   INDUCTED: 'Onboarding',
   READY_TO_DEPLOY: 'Ready to Deploy',
   DEPLOYED: 'Active',
-  RETURNED: 'Returned (legacy)',
+  RETURNED: 'Returned',
   RECOVERY: 'Recovery',
   UNDER_REPAIR: 'In Service',
   QC_PENDING: 'Quality Check',

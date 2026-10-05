@@ -10,7 +10,7 @@ export const auditEvents: AuditEvent[] = [
   ev('2026-08-25T16:04:00+05:30', 'Meenakshi Iyer', 'Assignment opened', 'Rider · R44', 'None', 'BLRSS0431'),
   ev('2026-08-25T15:38:00+05:30', 'Ravi Shastri', 'Plan changed', 'Rider · R26', '1700', '1600'),
   ev('2026-08-25T12:19:00+05:30', 'Meenakshi Iyer', 'Vehicles imported', 'Bulk · 94 rows', '137 vehicles', '231 vehicles'),
-  ev('2026-08-24T19:02:00+05:30', 'Abhinandan', 'Inspection recorded', 'Vehicle · BLRSS0407', 'Returned (legacy)', 'In Service'),
+  ev('2026-08-24T19:02:00+05:30', 'Abhinandan', 'Inspection recorded', 'Vehicle · BLRSS0407', 'Returned', 'In Service'),
   ev('2026-08-24T11:44:00+05:30', 'Meenakshi Iyer', 'Rider onboarded', 'Rider · R44', null, 'Bhaskar Nayak'),
   ev('2026-08-24T10:15:00+05:30', 'Priya Menon', 'Role changed', 'User · abhinandan@g1', 'Fleet staff', 'Service manager'),
   ev('2026-08-24T09:03:00+05:30', 'Meenakshi Iyer', 'Payment run opened', 'Period · Mon 24 Aug', null, '58 riders billed'),
