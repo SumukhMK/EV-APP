@@ -31,4 +31,11 @@ public interface RiderPaymentStatusQuery {
      * caller decides what to show for it.
      */
     Map<UUID, String> statusFor(Collection<UUID> riderIds);
+
+    /**
+     * What each rider owes right now, in paise: unpaid rent on every period
+     * plus every open charge. A rider who owes nothing is absent from the
+     * map, so callers read it with {@code getOrDefault(id, 0L)}.
+     */
+    Map<UUID, Long> owedPaiseFor(Collection<UUID> riderIds);
 }

@@ -203,10 +203,18 @@ public class RiderService {
      * is a rule nobody has stated, and guessing "no" would strand every rider
      * the onboarding screen creates. The screen shows the status instead.
      * Holding a bike is the one hard exclusion: one rider, one bike.
+     *
+     * <p>Deboarded riders are on the list. Deboarding means "done with this
+     * bike", not "gone from the company" — the rider's dues and deposit stay
+     * on their ledger, and the next bike is the usual way they come back.
+     * Assigning one puts them back on the register in the same transaction
+     * (AssignmentService.assign). Suspended and blacklisted riders are
+     * decisions about a person and stay off the list.
      */
     public List<Rider> assignable() {
         Set<UUID> holders = assignmentQuery.riderIdsHoldingBikes();
-        return riders.findByStatus(RiderStatus.ACTIVE).stream()
+        return riders.findByStatusIn(List.of(RiderStatus.ACTIVE, RiderStatus.DEBOARDED, RiderStatus.INACTIVE))
+                .stream()
                 .filter(r -> !holders.contains(r.getId()))
                 .toList();
     }
@@ -230,7 +238,8 @@ public class RiderService {
     public RiderResponse toResponse(Rider rider) {
         return RiderResponse.from(rider,
                 assignmentQuery.currentVehicleIdOf(rider.getId()),
-                paymentStatus.statusFor(List.of(rider.getId())).get(rider.getId()));
+                paymentStatus.statusFor(List.of(rider.getId())).get(rider.getId()),
+                paymentStatus.owedPaiseFor(List.of(rider.getId())).getOrDefault(rider.getId(), 0L));
     }
 
     /**
@@ -248,8 +257,10 @@ public class RiderService {
         List<UUID> ids = page.stream().map(Rider::getId).toList();
         Map<UUID, String> vehicles = assignmentQuery.currentVehicleIdsOf(ids);
         Map<UUID, String> statuses = paymentStatus.statusFor(ids);
+        Map<UUID, Long> dues = paymentStatus.owedPaiseFor(ids);
         return page.stream()
-                .map(r -> RiderResponse.from(r, vehicles.get(r.getId()), statuses.get(r.getId())))
+                .map(r -> RiderResponse.from(r, vehicles.get(r.getId()), statuses.get(r.getId()),
+                        dues.getOrDefault(r.getId(), 0L)))
                 .toList();
     }
 

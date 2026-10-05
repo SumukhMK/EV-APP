@@ -511,6 +511,20 @@ V017 closes the clean checks that had already passed before the rule
 existed (with a line in each job's activity log), so the fix holds for
 every bike already in the fleet, not only the next one.
 
+**Deboarded is "done with that bike", not gone (2026-10-05, Sumukh).**
+Three rules on assign, in `AssignmentService.assign`: a deboarded rider is
+on the assign list and the assignment puts them back on the register in the
+same transaction; dues (unpaid rent plus open charges, `duesPaise` on every
+rider response, `RiderPaymentStatusQuery.owedPaiseFor`) never reset and are
+shown and confirmed rather than blocking; and the deposit is the limit — a
+rider who owes more than the deposit held does not get a bike unless a
+fleet admin or super admin sends `overrideDues` with a note, which the
+lifecycle line records word for word. Suspended and blacklisted riders are
+decisions about a person and stay off the list. The explicit "Put back on
+register" stays for a desk that wants a rider active without a bike yet.
+The query client now refetches on mount and on focus with five seconds of
+freshness, so a screen shows what the database holds when you arrive at it.
+
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
 job is to render the per-row errors the preview returns.

@@ -102,6 +102,8 @@ export interface Rider {
   onboardedOn: Iso8601;
   /** Derived from the current period; the list screen colours a chip with it. */
   paymentStatus: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
+  /** Unpaid rent plus open charges, in paise. Weighed against the deposit before a bike goes out. */
+  duesPaise: Paise;
   platform: Platform;
   /** The day this rider says they pay. Captured, not acted on — see PaymentDay. */
   paymentDay: PaymentDay;

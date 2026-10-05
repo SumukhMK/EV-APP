@@ -59,19 +59,28 @@ public class AssignmentService {
     private final VehicleTransitions vehicleTransitions;
     private final ServiceJobFacade serviceJobs;
     private final com.evrental.payment.SettlementLedger settlements;
+    private final com.evrental.rider.RiderPaymentStatusQuery dues;
 
     public AssignmentService(AssignmentRepository assignments,
                              RiderService riders,
                              VehicleRepository vehicles,
                              VehicleTransitions vehicleTransitions,
                              ServiceJobFacade serviceJobs,
-                             com.evrental.payment.SettlementLedger settlements) {
+                             com.evrental.payment.SettlementLedger settlements,
+                             com.evrental.rider.RiderPaymentStatusQuery dues) {
         this.assignments = assignments;
         this.riders = riders;
         this.vehicles = vehicles;
         this.vehicleTransitions = vehicleTransitions;
         this.serviceJobs = serviceJobs;
         this.settlements = settlements;
+        this.dues = dues;
+    }
+
+    /** Assign, as a fleet hand calls it: no say over dues above the deposit. */
+    @Transactional
+    public Rider assign(AssignVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName) {
+        return assign(request, tenantId, actorUserId, actorName, false);
     }
 
     /**
@@ -81,9 +90,27 @@ public class AssignmentService {
      * wins and the second gets a 409 from the index, not from a
      * read-then-write race.
      */
+    /**
+     * A bike goes out to a rider.
+     *
+     * <p>Three rules a desk would expect, settled with Sumukh on 2026-10-05:
+     * a deboarded rider is "done with that bike", not gone, so assigning them
+     * puts them back on the register here, in the same transaction; dues
+     * never reset and are carried on the ledger, so they are shown and
+     * confirmed rather than blocking; and the deposit is the limit — a rider
+     * who owes more than the company holds does not get a bike unless an
+     * admin says so, with a note, and the lifecycle log records both.
+     *
+     * @param canOverrideDues whether the caller's role may approve a bike
+     *                        going out above the deposit (fleet admin or
+     *                        super admin)
+     */
     @Transactional
-    public Rider assign(AssignVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName) {
-        Rider rider = riders.findByRiderCode(request.riderId());
+    public Rider assign(AssignVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName,
+                        boolean canOverrideDues) {
+        Rider found = riders.findByRiderCode(request.riderId());
+        boolean putBack = found.getStatus() == RiderStatus.DEBOARDED || found.getStatus() == RiderStatus.INACTIVE;
+        Rider rider = putBack ? riders.reactivate(found.getId()) : found;
         requireActive(rider);
 
         // Rent starts on this date. One that has not come yet would bill
@@ -105,6 +132,21 @@ public class AssignmentService {
             throw new ConflictException(vehicle.getRegistryId() + " is not Ready to Deploy", "vehicleId");
         }
 
+        long owed = dues.owedPaiseFor(List.of(rider.getId())).getOrDefault(rider.getId(), 0L);
+        boolean overridden = false;
+        if (owed > rider.getDepositHeldPaise()) {
+            boolean asked = Boolean.TRUE.equals(request.overrideDues());
+            if (!asked || !canOverrideDues) {
+                throw new ValidationException("dues", rider.getName() + " owes " + rupees(owed)
+                        + " against a deposit of " + rupees(rider.getDepositHeldPaise())
+                        + " — collect first, or an admin can override with a note");
+            }
+            if (request.note() == null || request.note().isBlank()) {
+                throw new ValidationException("note", "Say why the bike is going out despite the dues");
+            }
+            overridden = true;
+        }
+
         Assignment assignment = new Assignment();
         assignment.setTenantId(tenantId);
         assignment.setRiderId(rider.getId());
@@ -113,10 +155,28 @@ public class AssignmentService {
         assignment.setNote(blankToNull(request.note()));
         saveOrConflict(assignment);
 
+        // The lifecycle line is the audit trail's record of this decision, so
+        // it says everything that was decided: the rider came back on, what
+        // they owed, and who waved it through.
+        StringBuilder note = new StringBuilder("Assigned to ").append(rider.getName());
+        if (putBack) {
+            note.append(" — put back on the register");
+        }
+        if (owed > 0) {
+            note.append(" — owes ").append(rupees(owed));
+        }
+        if (overridden) {
+            note.append("; above the deposit, admin override by ").append(actorName)
+                    .append(": ").append(request.note().trim());
+        }
         vehicleTransitions.transitionState(
-                vehicle.getId(), VehicleState.DEPLOYED, "Assigned to " + rider.getName(),
-                actorUserId, actorName);
+                vehicle.getId(), VehicleState.DEPLOYED, note.toString(), actorUserId, actorName);
         return rider;
+    }
+
+    /** Whole rupees with Indian grouping, as the screens print money: ₹3,00,000. */
+    private static String rupees(long paise) {
+        return "₹" + java.text.NumberFormat.getIntegerInstance(java.util.Locale.of("en", "IN")).format(paise / 100);
     }
 
     /**

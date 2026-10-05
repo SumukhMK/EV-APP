@@ -50,18 +50,22 @@ class RiderAfterDeboardTest extends AssignmentTestBase {
                 .andExpect(status().isOk());
     }
 
+    /**
+     * Deboarding is "done with that bike", not leaving: the rider stays on
+     * the assign list, marked Deboarded, and the explicit reactivate still
+     * works for a desk that wants to put them back without a bike.
+     */
     @Test
-    void aDeboardedRiderIsNotAssignableUntilPutBackOnTheRegister() throws Exception {
+    void aDeboardedRiderStaysOnTheAssignListMarkedDeboarded() throws Exception {
         assign(RIDER_A, VEHICLE_READY);
         deboard(RIDER_A, VEHICLE_READY);
 
-        // Still off the register: deboarding is leaving, not returning a bike.
         mvc.perform(get("/api/v1/riders/assignable")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-        .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(RIDER_A_CODE)).isEmpty());
+                .andExpect(jsonPath("$[?(@.id == '%s')].status".formatted(RIDER_A_CODE)).value("DEBOARDED"));
 
-        // The door back.
+        // The door back, for a desk that wants them active without a bike yet.
         mvc.perform(post("/api/v1/riders/" + RIDER_A_CODE + "/reactivate")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())

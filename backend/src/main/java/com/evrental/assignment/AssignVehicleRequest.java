@@ -15,5 +15,11 @@ public record AssignVehicleRequest(
         @NotBlank String riderId,
         @NotBlank String vehicleId,
         @NotNull LocalDate startedOn,
-        @Size(max = 500) String note) {
+        @Size(max = 500) String note,
+        /**
+         * An admin's say-so that the bike goes out although the rider owes
+         * more than the deposit covers. Needs a note, and only an admin's
+         * token makes it count (AssignmentService.assign).
+         */
+        Boolean overrideDues) {
 }

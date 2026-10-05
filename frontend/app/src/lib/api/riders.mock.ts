@@ -123,7 +123,8 @@ export async function getRider(id: string): Promise<RiderDetail> {
  * person at the desk decide.
  */
 export async function listAssignableRiders(): Promise<Rider[]> {
-  return delay(riders.filter((r) => r.status === 'ACTIVE' && !r.currentVehicleId));
+  // Deboarded riders are offered too: done with a bike, not gone (see the API's RiderService.assignable).
+  return delay(riders.filter((r) => (r.status === 'ACTIVE' || r.status === 'DEBOARDED') && !r.currentVehicleId));
 }
 
 /** Riders an exchange or a deboard can act on: those actually holding a bike. */
@@ -159,6 +160,7 @@ export async function onboardRider(body: OnboardRiderRequest): Promise<Rider> {
     currentVehicleId: null,
     onboardedOn: body.onboardedOn,
     paymentStatus: 'PENDING',
+    duesPaise: 0,
     platform: (body.workingPlatform as Platform) || 'Other',
     paymentDay: body.paymentDay,
     paymentMode: body.paymentMode,

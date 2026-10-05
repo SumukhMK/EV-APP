@@ -29,11 +29,39 @@ import org.springframework.transaction.annotation.Transactional;
 public class RiderPaymentStatus implements RiderPaymentStatusQuery {
 
     private final PaymentPeriodRepository periods;
+    private final RiderChargeRepository charges;
     private final BillingClock clock;
 
-    public RiderPaymentStatus(PaymentPeriodRepository periods, BillingClock clock) {
+    public RiderPaymentStatus(PaymentPeriodRepository periods, RiderChargeRepository charges, BillingClock clock) {
         this.periods = periods;
+        this.charges = charges;
         this.clock = clock;
+    }
+
+    /**
+     * Rent still unpaid on any period, plus every open charge. A period paid
+     * ahead (negative balance) does not offset another period's debt here:
+     * the credit is real, but netting it against a repair charge is a
+     * decision for the desk, not for a number on a picker.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, Long> owedPaiseFor(Collection<UUID> riderIds) {
+        if (riderIds.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = List.copyOf(riderIds);
+        Map<UUID, Long> owed = new LinkedHashMap<>();
+        for (PaymentPeriod row : periods.findByRiderIdInOrderByPeriodStartDesc(ids)) {
+            long balance = row.balancePaise();
+            if (balance > 0) {
+                owed.merge(row.getRiderId(), balance, Long::sum);
+            }
+        }
+        for (RiderCharge charge : charges.findByRiderIdInAndStatus(ids, RiderChargeStatus.OPEN)) {
+            owed.merge(charge.getRiderId(), charge.getAmountPaise(), Long::sum);
+        }
+        return owed;
     }
 
     @Override

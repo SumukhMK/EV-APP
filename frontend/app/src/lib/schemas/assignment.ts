@@ -33,6 +33,7 @@ export const assignVehicleSchema = z.object({
   vehicleId: z.string().min(1, 'Pick a bike'),
   startedOn: z.string().min(1, 'Assignment date is required'),
   note: z.string().trim().max(500, 'Keep the note under 500 characters').optional(),
+  overrideDues: z.boolean().optional(),
 });
 
 export type AssignVehicleValues = z.infer<typeof assignVehicleSchema>;

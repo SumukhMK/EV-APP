@@ -88,6 +88,15 @@ export async function assignVehicle(body: AssignVehicleRequest): Promise<Rider> 
     );
   }
   const vehicle = requireDeployable(body.vehicleId);
+  if (rider.duesPaise > rider.depositHeld && !body.overrideDues) {
+    throw new ApiError(
+      `${rider.name} owes more than the deposit covers — collect first, or an admin can override with a note`,
+      422,
+      'dues',
+    );
+  }
+  // A deboarded rider is put back on the register by the assignment.
+  if (rider.status === 'DEBOARDED') rider.status = 'ACTIVE';
   open(rider, vehicle);
   // `startedOn` and `note` go to the assignment record server-side.
   void body.startedOn;
