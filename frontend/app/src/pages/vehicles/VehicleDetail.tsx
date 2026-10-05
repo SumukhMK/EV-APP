@@ -12,6 +12,7 @@ import { Mono } from '../../components/Mono';
 import { EntityId } from '../../components/EntityId';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
+import { ArrivalNotice } from '../../components/ArrivalNotice';
 import { getVehicle } from '../../lib/api/vehicles';
 import { getVehicleServiceHistory } from '../../lib/api/inspections';
 import { getRider } from '../../lib/api/riders';
@@ -80,6 +81,7 @@ export function VehicleDetail() {
 
   return (
     <>
+      <ArrivalNotice />
       <PageHeader
         section="Fleet / Vehicles"
         backTo="/vehicles"

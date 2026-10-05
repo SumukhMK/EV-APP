@@ -98,8 +98,10 @@ export function OnboardRider() {
 
   const submit = form.handleSubmit(async (values) => {
     setBanner(null);
-    const created = await save.mutateAsync(values);
-    navigate(`/riders/${created.id}`);
+    // Errors are shown by the mutation's onError; see AddVehicle for the same shape.
+    const created = await save.mutateAsync(values).catch(() => null);
+    if (!created) return;
+    navigate(`/riders/${created.id}`, { state: { notice: `${created.name} onboarded as ${created.id}` } });
   });
 
   // The summary reads the live form rather than a second copy of the state,

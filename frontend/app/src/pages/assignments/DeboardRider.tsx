@@ -199,7 +199,7 @@ export function DeboardRider() {
               <Button color="inherit" component={Link} to="/riders">
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending || !confirmed}>
+              <Button type="submit" disabled={save.isPending}>
                 {save.isPending ? 'Saving…' : 'Finish and take the bike back'}
               </Button>
             </>

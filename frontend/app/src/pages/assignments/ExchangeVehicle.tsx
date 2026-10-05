@@ -174,7 +174,7 @@ export function ExchangeVehicle() {
               <Button color="inherit" component={Link} to="/riders">
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending || !confirmed}>
+              <Button type="submit" disabled={save.isPending}>
                 {save.isPending ? 'Saving…' : 'Save the swap'}
               </Button>
             </>

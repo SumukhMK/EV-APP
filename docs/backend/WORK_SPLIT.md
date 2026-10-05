@@ -497,6 +497,17 @@ and `UserResponse.id` (a row key, never shown). The crawl that found this
 — every screen, rendered text scanned for a UUID — is the check to repeat
 after any new list or detail screen.
 
+**A clean first check closes itself (2026-10-05).** Found by running the
+stories through the real screens on a fresh tenant: a new bike's first
+check passed QC, the bike was assigned, and the exchange was refused with
+"already has an open service job". Closing a job is a money decision, so a
+passed inspection stayed open forever and blocked every later return. A
+passed check with no damage and no cost now closes on QC pass (liability
+COMPANY, "nothing to bill"); a repair still waits for the fleet to say who
+pays, and the refusal names the job and says what to do. Every 500 carries
+a short reference that the server log line also carries, because the
+Render log is readable by one person.
+
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
 job is to render the per-row errors the preview returns.

@@ -211,6 +211,68 @@ class QcInspectionTest extends ServiceJobTestBase {
         assertThat(stateOf(clean)).isEqualTo(VehicleState.UNDER_REPAIR);
     }
 
+    /**
+     * The chain Sumukh ran in production: new bike → first check → QC pass →
+     * assign → exchange. The exchange was refused with "already has an open
+     * service job" because the passed check had never been closed.
+     */
+    @Test
+    void aCleanFirstCheckClosesItselfSoTheBikeCanComeBackLater() throws Exception {
+        UUID fresh = insertVehicle(TENANT, "BLRSS0440", "SESEAG03202300440", VehicleState.INDUCTED);
+        String firstCheck = openJob(token, "BLRSS0440", "NONE");
+
+        mvc.perform(post("/api/v1/service/jobs/" + firstCheck + "/qc")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"checks\":" + ALL_CHECKS_PASS + ",\"inspector\":\"Suresh\"}"))
+                .andExpect(status().isCreated());
+
+        assertThat(stateOf(fresh)).isEqualTo(VehicleState.READY_TO_DEPLOY);
+        mvc.perform(get("/api/v1/service/jobs/" + firstCheck).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.queue").value("READY_TO_DEPLOY"))
+                .andExpect(jsonPath("$.totalCostPaise").value(0));
+
+        // The bike's next visit — a return after an assignment — is not refused.
+        mvc.perform(post("/api/v1/service/jobs")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                 {"vehicleId":"BLRSS0440","source":"DEBOARD","damageCategory":"MINOR",
+                                  "damageNotes":"Scuffed on return"}
+                                 """))
+                .andExpect(status().isCreated());
+    }
+
+    /** A repair that passed QC still owes the fleet a money decision, and the message says so. */
+    @Test
+    void aPassedRepairStaysOpenForTheMoneyDecisionAndTheNextVisitSaysWhy() throws Exception {
+        mvc.perform(put("/api/v1/service/jobs/" + jobId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                 {"queue":"QC_PENDING","damageCategory":"MINOR","workSummary":"Panel replaced",
+                                  "technician":"Raju","note":"Costed",
+                                  "items":[{"label":"Left panel","costPaise":85000,"kind":"PART"}]}
+                                 """))
+                .andExpect(status().isOk());
+        submitQc(ALL_CHECKS_PASS, "Suresh").andExpect(status().isCreated());
+
+        mvc.perform(get("/api/v1/service/jobs/" + jobId).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+
+        mvc.perform(post("/api/v1/service/jobs")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                 {"vehicleId":"BLRSS0428","source":"DEBOARD","damageCategory":"MINOR",
+                                  "damageNotes":"Back again"}
+                                 """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("This bike's last job (" + jobId
+                        + ") passed QC but is still waiting to be closed — close it from the help desk first"));
+    }
+
     @Test
     void refusesQcOnAJobThatIsNotThere() throws Exception {
         mvc.perform(post("/api/v1/service/jobs/" + UUID.randomUUID() + "/qc")

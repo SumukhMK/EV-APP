@@ -247,7 +247,7 @@ export function AssignVehicle() {
           setConfirmOpen(false);
           if (!pendingValues) return;
           save.mutateAsync(pendingValues)
-            .then((r) => navigate(`/riders/${r.id}`))
+            .then((r) => navigate(`/riders/${r.id}`, { state: { notice: `${pendingValues.vehicleId} assigned to ${r.name}` } }))
             .catch(() => { /* errors are surfaced by the mutation's onError */ });
         }}
         onCancel={() => setConfirmOpen(false)}

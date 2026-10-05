@@ -159,8 +159,15 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> unexpected(Exception ex) {
-        log.error("Unhandled exception", ex);
-        return body(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong. Please try again.", null);
+        // A short reference the screen shows and the log line carries, so
+        // "it said something went wrong" can be matched to one stack trace
+        // on a server nobody else can read. Eight hex characters: random,
+        // not derived from anything the caller sent.
+        String ref = Long.toHexString(java.util.concurrent.ThreadLocalRandom.current().nextLong() | (1L << 62))
+                .substring(0, 8).toUpperCase(java.util.Locale.ROOT);
+        log.error("Unhandled exception [ref {}]", ref, ex);
+        return body(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Something went wrong. Please try again, and quote ref " + ref + " if it keeps happening.", null);
     }
 
     private ResponseEntity<ApiErrorResponse> body(HttpStatus status, String message, String field) {

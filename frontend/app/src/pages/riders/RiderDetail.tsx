@@ -10,6 +10,7 @@ import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
 import { DefinitionList } from '../../components/DefinitionList';
 import { Mono } from '../../components/Mono';
+import { ArrivalNotice } from '../../components/ArrivalNotice';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
 import { decideKyc, getRider, listRiderPayments, reactivateRider } from '../../lib/api/riders';
@@ -142,6 +143,7 @@ export function RiderDetail() {
 
   return (
     <>
+      <ArrivalNotice />
       <PageHeader
         section="Riders"
         backTo="/riders"

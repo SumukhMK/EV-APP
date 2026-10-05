@@ -65,12 +65,15 @@ export function AddVehicle() {
   const submit = (andAnother: boolean) =>
     form.handleSubmit(async (values) => {
       setBanner(null);
-      const created = await save.mutateAsync(values);
+      // Errors are shown by the mutation's onError (on the field, or as the
+      // banner); the rejection here is the same error and needs no second home.
+      const created = await save.mutateAsync(values).catch(() => null);
+      if (!created) return;
       if (andAnother) {
         form.reset({ ...ADD_VEHICLE_DEFAULTS, hub: values.hub, make: values.make, model: values.model });
         setBanner(`${created.id} added. The form is ready for the next one.`);
       } else {
-        navigate(`/vehicles/${created.id}`);
+        navigate(`/vehicles/${created.id}`, { state: { notice: `${created.id} added to the fleet — it is Onboarding until its first check` } });
       }
     });
 

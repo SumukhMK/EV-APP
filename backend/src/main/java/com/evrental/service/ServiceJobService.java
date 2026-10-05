@@ -143,9 +143,9 @@ public class ServiceJobService implements ServiceJobFacade {
         // in service" tells the operator what to do next; "a vehicle that is
         // In Service cannot be taken into service" only tells them no. The
         // unique index still backs this up for two callers arriving together.
-        if (jobs.findOpenForVehicle(vehicle.getId()).isPresent()) {
-            throw new ConflictException("This bike already has an open service job");
-        }
+        jobs.findOpenForVehicle(vehicle.getId()).ifPresent(existing -> {
+            throw new ConflictException(openJobMessage(existing));
+        });
         if (NOT_OPENABLE_FROM.contains(vehicle.getState())) {
             throw new ConflictException(
                     "A vehicle that is " + vehicle.getState().label() + " cannot be taken into service");
@@ -213,6 +213,20 @@ public class ServiceJobService implements ServiceJobFacade {
      * writing second would be a race however carefully it were written, so the
      * write is attempted and the violation translated.
      */
+    /**
+     * Names the job in the way, and says what to do about it. A job whose
+     * bike has already been released by QC is only waiting for the money
+     * decision, and the operator who meets this message is usually the one
+     * who can make it.
+     */
+    private static String openJobMessage(ServiceJob existing) {
+        if (existing.getQueue() == ServiceQueue.READY_TO_DEPLOY) {
+            return "This bike's last job (" + existing.getJobCode()
+                    + ") passed QC but is still waiting to be closed — close it from the help desk first";
+        }
+        return "This bike already has an open service job (" + existing.getJobCode() + ")";
+    }
+
     private ServiceJob saveOrConflict(ServiceJob job) {
         try {
             return jobs.saveAndFlush(job);
@@ -406,7 +420,22 @@ public class ServiceJobService implements ServiceJobFacade {
         // screens disagree about.
         ServiceQueue nextQueue = passed ? ServiceQueue.READY_TO_DEPLOY : reworkQueueFor(job);
         job.setQueue(nextQueue);
-        job.setStatus(ServiceJobStatus.IN_PROGRESS);
+        // A routine check that found nothing and cost nothing has no money
+        // decision left to make, so it closes itself. Left open, it sat on
+        // the bike as "an open service job" and refused the bike's next
+        // return — a new bike could be checked and assigned, then never
+        // exchanged or deboarded. A repair stays open until the fleet says
+        // who pays, as before.
+        boolean nothingToBill = passed
+                && job.getDamageCategory() == DamageCategory.NONE
+                && job.getTotalCostPaise() == 0;
+        if (nothingToBill) {
+            job.setStatus(ServiceJobStatus.CLOSED);
+            job.setLiability(ServiceLiability.COMPANY);
+            job.setClosedOn(Instant.now());
+        } else {
+            job.setStatus(ServiceJobStatus.IN_PROGRESS);
+        }
         jobs.save(job);
 
         VehicleState state = vehicleTransitions.transitionState(
@@ -414,7 +443,9 @@ public class ServiceJobService implements ServiceJobFacade {
                 passed ? "QC passed" : "QC failed — back for rework",
                 actorUserId, actorName).getState();
 
-        log(job, state, actorName, qcNote(passed, checks));
+        log(job, state, actorName, nothingToBill
+                ? qcNote(passed, checks) + "; nothing to bill, so the check is closed"
+                : qcNote(passed, checks));
         return inspection;
     }
 
