@@ -56,6 +56,33 @@ class AssignmentExchangeTest extends AssignmentTestBase {
         org.assertj.core.api.Assertions.assertThat(hasOpenJob(VEHICLE_READY)).isTrue();
     }
 
+    /**
+     * The swap is dated. A date before the rider ever had the bike, or one
+     * that has not come yet, was accepted and became the new assignment's
+     * start — so rent for the replacement started in the past or the future.
+     */
+    @Test
+    void anExchangeDatedOutsideTheAssignmentIs422OnTheDateField() throws Exception {
+        assign(RIDER_A, VEHICLE_READY);  // started 2026-09-28
+
+        for (String[] c : new String[][] {
+                {"2026-09-01", "Exchange date cannot be before the assignment began"},
+                {"2031-01-01", "Exchange date cannot be in the future"}}) {
+            mvc.perform(post("/api/v1/assignments/exchange")
+                            .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"riderId":"%s","fromVehicleId":"%s","toVehicleId":"%s",
+                                     "occurredOn":"%s","reason":"RIDER_REQUEST",
+                                     "returnCondition":"NONE","nextVehicleState":"QC_PENDING",
+                                     "damageItems":[]}
+                                    """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2, c[0])))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.field").value("occurredOn"))
+                    .andExpect(jsonPath("$.message").value(c[1]));
+        }
+    }
+
     @Test
     void aRiderNotHoldingTheBikeIsA409() throws Exception {
         assign(RIDER_A, VEHICLE_READY);

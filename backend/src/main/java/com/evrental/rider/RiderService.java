@@ -283,8 +283,11 @@ public class RiderService {
      */
     @Transactional
     public Rider changePlan(UUID id, long newPlanPaise, String actorName) {
-        if (newPlanPaise < 0) {
-            throw new ValidationException("planAmount", "A weekly plan cannot be negative");
+        if (newPlanPaise <= 0) {
+            throw new ValidationException("planAmount", OnboardRiderRequest.PLAN_MIN_RULE);
+        }
+        if (newPlanPaise > OnboardRiderRequest.PLAN_MAX_PAISE) {
+            throw new ValidationException("planAmount", OnboardRiderRequest.PLAN_MAX_RULE);
         }
         Rider rider = findById(id);
         changeLog.planChanged(rider.getTenantId(), rider.getId(),

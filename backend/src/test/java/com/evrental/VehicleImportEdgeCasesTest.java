@@ -165,6 +165,18 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
                         .value("inductedOn must be a date like 2026-09-01 or 01/09/2026"));
     }
 
+    /** The same identity rules as the single-add endpoint, as row errors. */
+    @Test
+    void anIdWithSpacesOrARegistrationWithSymbolsIsAnErrorRow() throws Exception {
+        mvc.perform(upload(csv(TEMPLATE_HEADER
+                        + "BLR SS-0963,SESEAG03202300963,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0963,2026-09-01\n"
+                        + "BLRSS0964,SESEAG03202300964,Eagle 2,Yuma,Yuma,Koramangala,KA01#0964,2026-09-01\n")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.errorRows").value(2))
+                .andExpect(jsonPath("$.rows[0].error").value("id must be letters and digits only"))
+                .andExpect(jsonPath("$.rows[1].error").value("registrationNumber must be letters, digits, spaces or hyphens"));
+    }
+
     /** The same 17-character rule the single-add form and endpoint apply, as a row error. */
     @Test
     void aChassisThatIsNotSeventeenCharactersIsAnErrorRow() throws Exception {

@@ -24,8 +24,11 @@ import java.time.LocalDate;
  * the API refuses.
  */
 public record CreateVehicleRequest(
+        // Read off the bike and typed into search boxes: letters and digits,
+        // nothing else. The form enforced this; the API stored "BLR SS-01!".
         @NotBlank(message = "Vehicle id is required")
         @Size(max = ID_MAX, message = "Vehicle id must be at most " + ID_MAX + " characters")
+        @Pattern(regexp = ID_PATTERN, message = ID_RULE)
         String id,
         // A chassis number is the 17-character VIN stamped on the frame, and
         // every bike in the fleet has one. The form said so from the start;
@@ -49,6 +52,7 @@ public record CreateVehicleRequest(
         @Size(max = HUB_MAX, message = "Hub must be at most " + HUB_MAX + " characters")
         String hub,
         @Size(max = REGISTRATION_NUMBER_MAX, message = "Registration number must be at most " + REGISTRATION_NUMBER_MAX + " characters")
+        @Pattern(regexp = REGISTRATION_PATTERN, message = REGISTRATION_RULE)
         String registrationNumber,
         @NotNull(message = "Inducted on is required")
         @PastOrPresent(message = "Induction date cannot be in the future")
@@ -60,6 +64,11 @@ public record CreateVehicleRequest(
     /** Exactly 17 letters and digits — a VIN. Shared with the import's row check. */
     public static final String CHASSIS_PATTERN = "^[A-Za-z0-9]{17}$";
     public static final String CHASSIS_RULE = "Chassis number must be exactly 17 letters and digits";
+    public static final String ID_PATTERN = "^[A-Za-z0-9]+$";
+    public static final String ID_RULE = "Vehicle id must be letters and digits only";
+    /** A number plate as people write it: letters, digits, and the spaces or hyphens between groups. Blank allowed. */
+    public static final String REGISTRATION_PATTERN = "^[A-Za-z0-9 -]*$";
+    public static final String REGISTRATION_RULE = "Registration number must be letters, digits, spaces or hyphens";
     public static final int MODEL_MAX = 60;
     public static final int BATTERY_TYPE_MAX = 20;
     public static final int BATTERY_VENDOR_MAX = 40;

@@ -156,14 +156,31 @@ class SettlementApprovalTest extends AssignmentTestBase {
     @Test
     void aRefundLargerThanTheBalanceDoesNotGoNegative() throws Exception {
         assign(RIDER_A, VEHICLE_READY);
-        deboard(RIDER_A, VEHICLE_READY, 0L, 999999999L);
-
-        mvc.perform(post("/api/v1/assignments/settlements/" + pendingId() + "/approve")
-                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
-                .andExpect(status().isOk());
-
-        Long deposit = superAdmin(jdbc -> jdbc.queryForObject(
+        Long before = superAdmin(jdbc -> jdbc.queryForObject(
                 "SELECT deposit_held_paise FROM riders WHERE id = ?", Long.class, RIDER_A));
-        org.assertj.core.api.Assertions.assertThat(deposit).isZero();
+
+        // Refunding more than is held is a typo, not a settlement: it is
+        // refused at the desk rather than clamped to zero on approval.
+        mvc.perform(post("/api/v1/assignments/deboard")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","returnedOn":"2026-09-29",
+                                 "returnCondition":"NONE","reason":"RETURNED",
+                                 "nextVehicleState":"QC_PENDING",
+                                 "outstandingRent":0,"depositRefund":999999999,
+                                 "damageItems":[]}
+                                """.formatted(riderCode(RIDER_A), VEHICLE_READY)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("depositRefund"))
+                .andExpect(jsonPath("$.message").value("Deposit refund cannot be more than the deposit held"));
+
+        Long after = superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT deposit_held_paise FROM riders WHERE id = ?", Long.class, RIDER_A));
+        org.assertj.core.api.Assertions.assertThat(after).isEqualTo(before);
+        mvc.perform(get("/api/v1/assignments/settlements")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 }

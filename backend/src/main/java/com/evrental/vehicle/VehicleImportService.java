@@ -206,8 +206,15 @@ public class VehicleImportService {
         // The same rule the single-add endpoint applies: a chassis number is
         // a 17-character VIN. Checked before the length table so the message
         // names the rule, not the column.
+        if (!payload.get("id").trim().matches(CreateVehicleRequest.ID_PATTERN)) {
+            return "id must be letters and digits only";
+        }
         if (!payload.get("chassisNumber").trim().matches(CreateVehicleRequest.CHASSIS_PATTERN)) {
             return "chassisNumber must be exactly 17 letters and digits";
+        }
+        String registration = payload.getOrDefault("registrationNumber", "");
+        if (registration != null && !registration.trim().matches(CreateVehicleRequest.REGISTRATION_PATTERN)) {
+            return "registrationNumber must be letters, digits, spaces or hyphens";
         }
         for (Map.Entry<String, Integer> limit : MAX_LENGTHS.entrySet()) {
             String value = payload.get(limit.getKey());

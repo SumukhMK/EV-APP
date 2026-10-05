@@ -60,6 +60,86 @@ class RiderOnboardTest extends RiderTestBase {
                 .andExpect(jsonPath("$.message").value("Deposit paid cannot be more than the deposit plan"));
     }
 
+    /** A contract with no rent is not a contract; a rent of ten lakh a week is a typo. Both were stored. */
+    @Test
+    void aWeeklyPlanOfZeroOrOfTenLakhIs422OnThePlanField() throws Exception {
+        mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ONBOARD_BODY.replace("\"planAmount\":175000", "\"planAmount\":0")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("planAmount"))
+                .andExpect(jsonPath("$.message").value("The weekly plan must be more than zero"));
+
+        mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ONBOARD_BODY.replace("\"planAmount\":175000", "\"planAmount\":100000000")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("planAmount"))
+                .andExpect(jsonPath("$.message").value("A weekly plan above ₹25,000 is not a rent — check the amount"));
+    }
+
+    /** The same plan bounds when the plan is changed later. */
+    @Test
+    void aPlanChangeToZeroOrTenLakhIs422() throws Exception {
+        mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ONBOARD_BODY))
+                .andExpect(status().isCreated());
+        String code = riderCodeOf("9876543210");
+
+        mvc.perform(post("/api/v1/riders/" + code + "/plan")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"planAmount\":0}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("planAmount"))
+                .andExpect(jsonPath("$.message").value("The weekly plan must be more than zero"));
+
+        mvc.perform(post("/api/v1/riders/" + code + "/plan")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"planAmount\":100000000}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("planAmount"))
+                .andExpect(jsonPath("$.message").value("A weekly plan above ₹25,000 is not a rent — check the amount"));
+    }
+
+    private String riderCodeOf(String phone) {
+        return superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT rider_code FROM riders WHERE phone = ? AND tenant_id = ?", String.class, phone, TENANT));
+    }
+
+    /** Documents may be left blank, but one that is given must look like the real thing. */
+    @Test
+    void aPanOrDrivingLicenceInTheWrongShapeIs422OnItsField() throws Exception {
+        mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ONBOARD_BODY.replace("\"panNumber\":null", "\"panNumber\":\"PAN123\"")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("panNumber"))
+                .andExpect(jsonPath("$.message").value("PAN must look like ABCDE1234F"));
+
+        mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ONBOARD_BODY.replace("\"drivingLicence\":null", "\"drivingLicence\":\"abc\"")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("drivingLicence"))
+                .andExpect(jsonPath("$.message").value("Driving licence must look like KA0120201234567"));
+
+        mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ONBOARD_BODY
+                                .replace("\"panNumber\":null", "\"panNumber\":\"ABCDE1234F\"")
+                                .replace("\"drivingLicence\":null", "\"drivingLicence\":\"KA01 20201234567\"")))
+                .andExpect(status().isCreated());
+    }
+
     /** Every other date the API takes refuses the future; onboarding did not. */
     @Test
     void anOnboardingDateInTheFutureIs422OnTheDateField() throws Exception {
@@ -139,7 +219,7 @@ class RiderOnboardTest extends RiderTestBase {
                         .content(body))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.field").value("planAmount"))
-                .andExpect(jsonPath("$.message").value("The weekly plan cannot be negative"));
+                .andExpect(jsonPath("$.message").value("The weekly plan must be more than zero"));
     }
 
     @Test

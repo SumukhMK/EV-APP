@@ -75,6 +75,49 @@ class VehicleCreateTest extends VehicleTestBase {
         }
     }
 
+    /** A registry id is read off the bike and typed into search boxes: letters and digits, nothing else. */
+    @Test
+    void aRegistryIdWithSpacesPunctuationOrEmojiIs422OnTheIdField() throws Exception {
+        for (String bad : java.util.List.of("BLR SS-01!", "BLRSS🚲01", "BLRSS_0001")) {
+            mvc.perform(post("/api/v1/vehicles")
+                            .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"id":"%s","chassisNumber":"SESEAG03202300696","model":"Eagle 2",
+                                     "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01"}
+                                    """.formatted(bad)))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.field").value("id"))
+                    .andExpect(jsonPath("$.message").value("Vehicle id must be letters and digits only"));
+        }
+    }
+
+    /** A number plate: letters, digits, and the spaces or hyphens people put between them. */
+    @Test
+    void aRegistrationNumberWithEmojiIs422OnItsField() throws Exception {
+        mvc.perform(post("/api/v1/vehicles")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"id":"BLRSS0695","chassisNumber":"SESEAG03202300695","model":"Eagle 2",
+                                 "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01",
+                                 "registrationNumber":"KA01🚲1"}
+                                """))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("registrationNumber"))
+                .andExpect(jsonPath("$.message").value("Registration number must be letters, digits, spaces or hyphens"));
+
+        mvc.perform(post("/api/v1/vehicles")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"id":"BLRSS0695","chassisNumber":"SESEAG03202300695","model":"Eagle 2",
+                                 "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01",
+                                 "registrationNumber":"KA 01 AB-1234"}
+                                """))
+                .andExpect(status().isCreated());
+    }
+
     /** The form only lets capitals through; the API stored whatever came. One spelling per bike. */
     @Test
     void aLowercaseRegistryIdIsStoredInCapitals() throws Exception {
