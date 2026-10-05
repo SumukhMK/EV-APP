@@ -226,7 +226,12 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const [technician, setTechnician] = useState(job.technician ?? '');
   const [confirmation, setConfirmation] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const failQueue: ServiceQueue = category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : 'MINOR_REPAIR';
+  // Where the server sends a failed bike (ServiceJobService.reworkQueueFor):
+  // its damage category's repair bench, or — for a bike that arrived
+  // undamaged and still failed — assessment, since nobody has said what is
+  // wrong yet. The screen used to promise "Small repair" and the bike then
+  // landed in "Needs checking".
+  const failQueue: ServiceQueue = category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : category === 'MINOR' ? 'MINOR_REPAIR' : 'ASSESSMENT';
   const queue: ServiceQueue = intent === 'STAY' ? job.queue : intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
   const signature = JSON.stringify({ items, intent, queue, category, findings, note, reference, liability, technician, qcChecks, repairApproved });
   const priced: ServiceJobItem[] = items.map((item) => ({ label: item.label.trim(), costPaise: Math.round(Number(item.cost) * 100), kind: item.kind }));

@@ -236,7 +236,11 @@ public class ServiceJobService implements ServiceJobFacade {
     }
 
     private String openingNote(CreateServiceJobRequest request, ServiceQueue queue) {
-        String tag = request.damageCategory().label() + " damage → " + queue.label();
+        // "Undamaged damage → Quality check" is what the generic form said
+        // for a clean bike; a clean bike has no damage to describe.
+        String tag = (request.damageCategory() == DamageCategory.NONE
+                ? "No damage reported"
+                : request.damageCategory().label() + " damage") + " → " + queue.label();
         return request.damageNotes() == null || request.damageNotes().isBlank()
                 ? tag
                 : tag + ". " + request.damageNotes().trim();
@@ -502,6 +506,16 @@ public class ServiceJobService implements ServiceJobFacade {
         ServiceJob job = jobs.findByIdForUpdate(jobId)
                 .orElseThrow(() -> NotFoundException.of("Service job", jobId));
         if (job.isClosed()) {
+            // A clean check closes itself on the QC pass, and the job screen's
+            // "Pass QC and release" then sends the close it always sent. With
+            // nothing to bill there is no second decision to make, so the
+            // close is answered with the job as it stands — the same answer a
+            // retry after a timeout gets. A close that carries a cost for a
+            // job already closed is still refused: that would be money
+            // nobody decided on.
+            if (carriesNoCost(request)) {
+                return job;
+            }
             throw new ConflictException("This job is already closed");
         }
         // Billing a rider who is not on the bike bills nobody: the charge would
@@ -537,6 +551,11 @@ public class ServiceJobService implements ServiceJobFacade {
                     job.getRiderId(), job.getLiability(), job.getTotalCostPaise()));
         }
         return job;
+    }
+
+    private static boolean carriesNoCost(CloseServiceJobRequest request) {
+        return request.items() == null
+                || request.items().stream().allMatch(item -> item.costPaise() == 0);
     }
 
     /**

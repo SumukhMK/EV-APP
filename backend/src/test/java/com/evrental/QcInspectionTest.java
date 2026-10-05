@@ -233,6 +233,23 @@ class QcInspectionTest extends ServiceJobTestBase {
                 .andExpect(jsonPath("$.queue").value("READY_TO_DEPLOY"))
                 .andExpect(jsonPath("$.totalCostPaise").value(0));
 
+        // The job screen's "Pass QC and release" sends a close after the QC;
+        // with nothing to bill it is answered with the job, not "already closed".
+        mvc.perform(post("/api/v1/service/jobs/" + firstCheck + "/close")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[],\"liability\":\"RIDER\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.liability").value("COMPANY"));
+        // A close that brings money to a closed job is still refused.
+        mvc.perform(post("/api/v1/service/jobs/" + firstCheck + "/close")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"label\":\"Mirror\",\"costPaise\":5000}],\"liability\":\"COMPANY\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("This job is already closed"));
+
         // The bike's next visit — a return after an assignment — is not refused.
         mvc.perform(post("/api/v1/service/jobs")
                         .header("Authorization", "Bearer " + token)

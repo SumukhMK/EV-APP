@@ -507,6 +507,9 @@ COMPANY, "nothing to bill"); a repair still waits for the fleet to say who
 pays, and the refusal names the job and says what to do. Every 500 carries
 a short reference that the server log line also carries, because the
 Render log is readable by one person.
+V017 closes the clean checks that had already passed before the rule
+existed (with a line in each job's activity log), so the fix holds for
+every bike already in the fleet, not only the next one.
 
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
