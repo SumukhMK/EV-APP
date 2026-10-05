@@ -5,7 +5,6 @@ import com.evrental.common.NotFoundException;
 import com.evrental.common.ValidationException;
 import com.evrental.rider.Rider;
 import com.evrental.rider.RiderService;
-import com.evrental.rider.RiderStatus;
 import com.evrental.service.DamageCategory;
 import com.evrental.service.ServiceJobFacade;
 import com.evrental.service.ServiceJobSource;
@@ -108,10 +107,7 @@ public class AssignmentService {
     @Transactional
     public Rider assign(AssignVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName,
                         boolean canOverrideDues) {
-        Rider found = riders.findByRiderCode(request.riderId());
-        boolean putBack = found.getStatus() == RiderStatus.DEBOARDED || found.getStatus() == RiderStatus.INACTIVE;
-        Rider rider = putBack ? riders.reactivate(found.getId()) : found;
-        requireActive(rider);
+        Rider rider = riders.findByRiderCode(request.riderId());
 
         // Rent starts on this date. One that has not come yet would bill
         // for days nobody rode — and "today" is today in IST, where the
@@ -154,14 +150,13 @@ public class AssignmentService {
         assignment.setStartedOn(request.startedOn());
         assignment.setNote(blankToNull(request.note()));
         saveOrConflict(assignment);
+        // Holding a bike is what ACTIVE means; the column follows the fact.
+        Rider active = riders.markActive(rider.getId());
 
         // The lifecycle line is the audit trail's record of this decision, so
-        // it says everything that was decided: the rider came back on, what
-        // they owed, and who waved it through.
-        StringBuilder note = new StringBuilder("Assigned to ").append(rider.getName());
-        if (putBack) {
-            note.append(" — put back on the register");
-        }
+        // it says everything that was decided: what they owed, and who waved
+        // it through.
+        StringBuilder note = new StringBuilder("Assigned to ").append(active.getName());
         if (owed > 0) {
             note.append(" — owes ").append(rupees(owed));
         }
@@ -171,7 +166,7 @@ public class AssignmentService {
         }
         vehicleTransitions.transitionState(
                 vehicle.getId(), VehicleState.DEPLOYED, note.toString(), actorUserId, actorName);
-        return rider;
+        return active;
     }
 
     /**
@@ -206,7 +201,6 @@ public class AssignmentService {
     @Transactional
     public Rider exchange(ExchangeVehicleRequest request, UUID tenantId, UUID actorUserId, String actorName) {
         Rider rider = riders.findByRiderCode(request.riderId());
-        requireActive(rider);
 
         Assignment open = assignments.findOpenByRiderId(rider.getId())
                 .orElseThrow(() -> new ConflictException(
@@ -367,12 +361,6 @@ public class AssignmentService {
     // Shared
     // -----------------------------------------------------------------------
 
-    private void requireActive(Rider rider) {
-        if (rider.getStatus() != RiderStatus.ACTIVE) {
-            throw new ConflictException(rider.getName() + " is " + rider.getStatus().label().toLowerCase()
-                    + " and cannot hold a bike", "riderId");
-        }
-    }
 
     /** Closes the row with the return facts. Flushed, not merely saved — see exchange(). */
     private void close(Assignment open, LocalDate endedOn, String reason, DamageCategory condition,

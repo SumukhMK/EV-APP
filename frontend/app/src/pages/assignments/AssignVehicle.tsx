@@ -123,7 +123,7 @@ export function AssignVehicle() {
         <PageHeader section="Riders" title="Assign vehicle" />
         <EmptyState
           title="No rider is waiting for a bike"
-          description="Every rider on the register, including deboarded ones, already has a bike or is suspended. Onboard a new rider, or use Exchange to move someone onto a different bike."
+          description="Every rider on the register already has a bike. Onboard a new rider, or use Exchange to move someone onto a different bike."
           action={
             <Button component={Link} to="/riders/onboard">
               Onboard rider
@@ -162,7 +162,7 @@ export function AssignVehicle() {
       <Box sx={{ display: 'grid', gap: 5, mt: 5, '& > *': { minWidth: 0 } }}>
         <Panel
           label="Rider"
-          subtitle="Riders who do not have a bike right now, including deboarded riders — assigning puts them back on the register. KYC and dues are shown; dues above the deposit need an admin."
+          subtitle="Riders on the register without a bike right now. KYC and dues are shown; dues above the deposit need an admin."
           sx={{ maxWidth: layout.readingMax }}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
@@ -176,7 +176,6 @@ export function AssignVehicle() {
                 value: r.id,
                 label: [
                   `${r.name} · ${r.id} · ${KYC_STATUS_LABEL[r.kycStatus]}`,
-                  r.status === 'DEBOARDED' ? 'Deboarded' : null,
                   r.duesPaise > 0 ? `owes ${rupeesWithSymbol(r.duesPaise)}` : null,
                 ].filter(Boolean).join(' · '),
               }))}
@@ -251,7 +250,7 @@ export function AssignVehicle() {
               { label: 'Bike becomes', value: 'Active' },
               {
                 label: 'Rider becomes',
-                value: rider?.status === 'DEBOARDED' ? 'Active — back on the register' : 'Active',
+                value: 'Active — holding a bike',
               },
             ]}
           />
@@ -301,7 +300,6 @@ export function AssignVehicle() {
         message="The bike becomes active and rent starts for the rider."
         info={pendingValues ? [
           `${rider?.name ?? pendingValues.riderId} gets ${pendingValues.vehicleId} at ${rupeesWithSymbol(rider?.planAmount ?? 0)} a week.`,
-          rider?.status === 'DEBOARDED' ? 'They were deboarded and go back on the register.' : null,
           rider && rider.duesPaise > 0 ? `They owe ${rupeesWithSymbol(rider.duesPaise)}, which stays on their ledger.` : null,
           pendingValues.overrideDues ? 'You are overriding the deposit limit as an admin.' : null,
           'Rent starts on the assignment date and the bike stays with the rider until it is returned.',

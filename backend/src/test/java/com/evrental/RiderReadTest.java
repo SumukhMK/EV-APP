@@ -54,7 +54,7 @@ class RiderReadTest extends RiderTestBase {
         mvc.perform(get("/api/v1/riders").param("status", "ACTIVE")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(jsonPath("$.totalElements").value(1));
-        mvc.perform(get("/api/v1/riders").param("status", "SUSPENDED")
+        mvc.perform(get("/api/v1/riders").param("status", "INACTIVE")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(jsonPath("$.totalElements").value(0));
         mvc.perform(get("/api/v1/riders").param("platform", "Zomato")

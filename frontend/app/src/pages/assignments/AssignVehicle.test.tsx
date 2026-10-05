@@ -52,13 +52,13 @@ beforeEach(() => {
 });
 
 describe('assign vehicle — deboarded riders and dues', () => {
-  /** Deboarded means "done with that bike", not gone: the rider is offered, marked, with what they owe. */
-  it('offers a deboarded rider, marked Deboarded, with their dues', async () => {
-    riders.mockResolvedValue([{ ...base, status: 'DEBOARDED', duesPaise: 120000 }]);
+  /** Inactive means on the register without a bike: offered, with what they owe. */
+  it('offers an inactive rider with their dues', async () => {
+    riders.mockResolvedValue([{ ...base, status: 'INACTIVE', duesPaise: 120000 }]);
     show();
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Open' }));
-    expect(await screen.findByRole('option', { name: /Abcd Two · R01 · Verified · Deboarded · owes ₹1,200/ })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: /Abcd Two · R01 · Verified · owes ₹1,200/ })).toBeInTheDocument();
   });
 
   /** Above the deposit the server refuses on `dues`; an admin sees the override, a fleet hand sees what to do instead. */

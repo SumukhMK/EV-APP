@@ -90,7 +90,8 @@ public class RiderService {
         rider.setRiderCode(riderCodes.next(tenantId));
         rider.setName(name);
         rider.setPhone(phone);
-        rider.setStatus(RiderStatus.ACTIVE);
+        // On the register, no bike yet. ACTIVE is written by the assignment.
+        rider.setStatus(RiderStatus.INACTIVE);
         rider.setKycStatus(KycStatus.PENDING);
         rider.setPlanAmountPaise(request.planAmount());
         rider.setDepositHeldPaise(request.depositPlan());
@@ -202,19 +203,14 @@ public class RiderService {
      * whether a bike may go out to a rider whose documents are still pending
      * is a rule nobody has stated, and guessing "no" would strand every rider
      * the onboarding screen creates. The screen shows the status instead.
-     * Holding a bike is the one hard exclusion: one rider, one bike.
-     *
-     * <p>Deboarded riders are on the list. Deboarding means "done with this
-     * bike", not "gone from the company" — the rider's dues and deposit stay
-     * on their ledger, and the next bike is the usual way they come back.
-     * Assigning one puts them back on the register in the same transaction
-     * (AssignmentService.assign). Suspended and blacklisted riders are
-     * decisions about a person and stay off the list.
+     * Holding a bike is the one hard exclusion: one rider, one bike — so the
+     * list is every rider on the register without one, which is exactly what
+     * INACTIVE means. A deboarded rider is on it the moment the bike comes
+     * back: deboarding is handing a bike back, not leaving.
      */
     public List<Rider> assignable() {
         Set<UUID> holders = assignmentQuery.riderIdsHoldingBikes();
-        return riders.findByStatusIn(List.of(RiderStatus.ACTIVE, RiderStatus.DEBOARDED, RiderStatus.INACTIVE))
-                .stream()
+        return riders.findAll().stream()
                 .filter(r -> !holders.contains(r.getId()))
                 .toList();
     }
@@ -265,14 +261,22 @@ public class RiderService {
     }
 
     /**
-     * The deboard door: the only code that writes DEBOARDED. Called by the
-     * assignment module inside the deboard transaction, so the rider's status,
-     * the closed assignment and the service job commit together.
+     * The bike came back: the rider is on the register without one. Called by
+     * the assignment module inside the deboard transaction, so the rider's
+     * status, the closed assignment and the service job commit together.
      */
     @Transactional
     public Rider markDeboarded(UUID id) {
         Rider rider = findById(id);
-        rider.setStatus(RiderStatus.DEBOARDED);
+        rider.setStatus(RiderStatus.INACTIVE);
+        return riders.save(rider);
+    }
+
+    /** A bike went out: the rider holds one. Called inside the assign transaction. */
+    @Transactional
+    public Rider markActive(UUID id) {
+        Rider rider = findById(id);
+        rider.setStatus(RiderStatus.ACTIVE);
         return riders.save(rider);
     }
 
@@ -331,35 +335,6 @@ public class RiderService {
         return riders.save(rider);
     }
 
-    /**
-     * The way back onto the active register.
-     *
-     * <p>Without it {@link #markDeboarded} is a one-way door: {@link
-     * #assignable()} filters on ACTIVE, nothing else writes that status, and
-     * the route the deboard's own comment names — "re-activated by the next
-     * onboarding" — cannot happen, because {@link #onboard} rejects a second
-     * rider on the same phone number. A deboarded rider was therefore
-     * permanently unassignable, and the assign screen said "every active rider
-     * already has a bike", which was true and no help at all.
-     *
-     * <p>Reactivating a rider who never left is a no-op rather than an error:
-     * the caller's intent is "this rider should be on the register", and they
-     * already are.
-     *
-     * <p>BLACKLISTED is refused. That status is a decision about a person, not
-     * a step in the bike's journey, and undoing it through the assign flow
-     * would make it meaningless.
-     */
-    @Transactional
-    public Rider reactivate(UUID id) {
-        Rider rider = findById(id);
-        if (rider.getStatus() == RiderStatus.BLACKLISTED) {
-            throw new ConflictException(
-                    rider.getName() + " is blacklisted and cannot be put back on the register", "status");
-        }
-        rider.setStatus(RiderStatus.ACTIVE);
-        return riders.save(rider);
-    }
 
     /** A rider with the bikes they have held, for the profile screen. */
     public RiderDetailResponse toDetailResponse(Rider rider) {

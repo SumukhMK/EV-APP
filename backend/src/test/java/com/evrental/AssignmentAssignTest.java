@@ -64,11 +64,11 @@ class AssignmentAssignTest extends AssignmentTestBase {
     }
 
     /**
-     * Deboarded means "done with that bike", not gone (settled with Sumukh,
-     * 2026-10-05): the assignment itself puts the rider back on the register.
+     * Two statuses only (Sumukh, 2026-10-05): INACTIVE is on the register
+     * without a bike, ACTIVE is holding one. The assignment flips it.
      */
     @Test
-    void aDeboardedRiderIsPutBackOnTheRegisterByTheAssignment() throws Exception {
+    void anInactiveRiderBecomesActiveWhenGivenABike() throws Exception {
         mvc.perform(post("/api/v1/assignments/assign")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -80,24 +80,12 @@ class AssignmentAssignTest extends AssignmentTestBase {
                 .andExpect(jsonPath("$.currentVehicleId").value(VEHICLE_READY));
 
         org.assertj.core.api.Assertions.assertThat(lastLifecycleNote(VEHICLE_READY))
-                .isEqualTo("Assigned to Vinod Naik — put back on the register");
+                .isEqualTo("Assigned to Vinod Naik");
+        String column = superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT status FROM riders WHERE id = ?", String.class, RIDER_DEBOARDED));
+        org.assertj.core.api.Assertions.assertThat(column).isEqualTo("ACTIVE");
     }
 
-    /** A suspension is a decision about a person; the assign flow does not undo it. */
-    @Test
-    void aSuspendedRiderStillCannotHoldABike() throws Exception {
-        superAdmin(jdbc -> jdbc.update("UPDATE riders SET status = 'SUSPENDED' WHERE id = ?", RIDER_A));
-
-        mvc.perform(post("/api/v1/assignments/assign")
-                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("Anil Shetty is suspended and cannot hold a bike"))
-                .andExpect(jsonPath("$.field").value("riderId"));
-    }
 
     /** Dues are carried, not cleared: a rider who owes less than the deposit gets the bike and the log says what they owe. */
     @Test

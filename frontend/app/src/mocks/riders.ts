@@ -90,7 +90,7 @@ const NO_BIKE: ReadonlyArray<
   ['R05', 'Vinod Naik', '9008773412', 1700, 'MONDAY', 'INACTIVE', 'VERIFIED', '2025-11-03', 'Porter', 'SATURDAY', 0],
   ['R28', 'Suresh Pillai', '8123409965', 1750, 'WEDNESDAY', 'INACTIVE', 'VERIFIED', '2026-01-19', 'Dunzo', 'SUNDAY', 0],
   // Off the register for good.
-  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'BLACKLISTED', 'REJECTED', '2025-09-15', 'Ownly', 'MONDAY', 0],
+  ['R33', 'Ramesh Dubey', '7899220148', 1600, 'MONDAY', 'INACTIVE', 'REJECTED', '2025-09-15', 'Ownly', 'MONDAY', 0],
 ];
 
 /** Overdue riders the dashboard counts: 16. Two of them are designed rows. */

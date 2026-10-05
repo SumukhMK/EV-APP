@@ -32,7 +32,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(RIDER_A_CODE))
                 .andExpect(jsonPath("$.currentVehicleId").doesNotExist())
-                .andExpect(jsonPath("$.status").value("DEBOARDED"));
+                .andExpect(jsonPath("$.status").value("INACTIVE"));
 
         // The assignment is closed with the settlement facts; the rider is off
         // the active register; the undamaged bike went to QC; a job was opened.
@@ -48,7 +48,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                 SELECT status FROM riders WHERE id = ?
                 """, String.class, RIDER_A));
         org.assertj.core.api.Assertions.assertThat(closed).isEqualTo(1);
-        org.assertj.core.api.Assertions.assertThat(riderStatus).isEqualTo("DEBOARDED");
+        org.assertj.core.api.Assertions.assertThat(riderStatus).isEqualTo("INACTIVE");
         org.assertj.core.api.Assertions.assertThat(stateOf(VEHICLE_READY))
                 .isEqualTo(com.evrental.vehicle.VehicleState.QC_PENDING);
         org.assertj.core.api.Assertions.assertThat(hasOpenJob(VEHICLE_READY)).isTrue();
@@ -239,7 +239,7 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                                  "outstandingRent":0,"depositRefund":0,"damageItems":[]}
                                 """.formatted(RIDER_A_CODE, VEHICLE_READY)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("DEBOARDED"))
+                .andExpect(jsonPath("$.status").value("INACTIVE"))
                 .andExpect(jsonPath("$.currentVehicleId").doesNotExist());
 
         // One job, not two; the bike stays on the bench; the return is on the job.

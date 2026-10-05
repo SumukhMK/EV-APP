@@ -1,23 +1,18 @@
 package com.evrental.rider;
 
 /**
- * The seven states a rider can be in, matching RIDER_STATUSES in
- * frontend/app/src/types/rider.ts exactly and in the same order.
- *
- * <p>The label is what the UI prints, from lib/labels.ts. It is carried here
- * because a facet chip or an error has to name the state in the words the
- * person on the screen is reading — "Inactive (legacy)" is a register entry;
- * "INACTIVE" is a stack trace.
+ * A rider's status, and there are two: holding a bike, or on the register
+ * without one (Sumukh, 2026-10-05). It is a fact about the open assignment
+ * said in one word — never a decision about the person. A deboard makes a
+ * rider INACTIVE; the next assignment makes them ACTIVE; nothing else
+ * writes it. RiderResponse derives it from the open assignment, so the wire
+ * cannot disagree with the assignments table even if the column drifts.
  */
 public enum RiderStatus {
-    ONBOARDING("Onboarding"),
+    /** Holds a bike right now. */
     ACTIVE("Active"),
-    SUSPENDED("Suspended"),
-    DEBOARDED("Deboarded"),
-    OFFBOARDED("Offboarded"),
-    BLACKLISTED("Blacklisted"),
-    /** @deprecated Use SUSPENDED or DEBOARDED instead. Kept for legacy data. */
-    INACTIVE("Inactive (legacy)");
+    /** On the register, no bike right now — freshly onboarded, or deboarded. */
+    INACTIVE("Inactive");
 
     private final String label;
 

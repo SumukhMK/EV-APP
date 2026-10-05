@@ -98,22 +98,12 @@ export const PAYMENT_STATUS_TONE: Record<PaymentStatus, StatusTone> = {
 };
 
 export const RIDER_STATUS_LABEL: Record<RiderStatus, string> = {
-  ONBOARDING: 'Onboarding',
   ACTIVE: 'Active',
-  SUSPENDED: 'Suspended',
-  DEBOARDED: 'Deboarded',
-  OFFBOARDED: 'Offboarded',
-  BLACKLISTED: 'Blacklisted',
-  INACTIVE: 'Inactive (legacy)',
+  INACTIVE: 'Inactive',
 };
 
 export const RIDER_STATUS_TONE: Record<RiderStatus, StatusTone> = {
-  ONBOARDING: 'neutral',
   ACTIVE: 'good',
-  SUSPENDED: 'bad',
-  DEBOARDED: 'warn',
-  OFFBOARDED: 'neutral',
-  BLACKLISTED: 'bad',
   INACTIVE: 'neutral',
 };
 

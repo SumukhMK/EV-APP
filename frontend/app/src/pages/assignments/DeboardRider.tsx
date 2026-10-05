@@ -406,8 +406,8 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
                 The bike movement and the service job are saved together. The job shows up in Bikes in service straight away.
               </Typography>
               <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-                The rider becomes inactive and the bike is freed up. Onboard them again to bring
-                them back.
+                The rider stays on the register as Inactive and the bike is freed up. Give them another bike from
+                Assign vehicle whenever they are ready.
               </Typography>
               <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm the rider, where the bike goes, and the money." />
             </Panel>

@@ -75,16 +75,6 @@ export async function decideKyc(id: string, decision: 'VERIFIED' | 'REJECTED'): 
   return delay({ ...rider }, 300);
 }
 
-/** Puts a deboarded rider back on the active register. */
-export async function reactivateRider(id: string): Promise<Rider> {
-  const rider = riders.find((r) => r.id === id);
-  if (!rider) throw new ApiError('Rider not found', 404);
-  if (rider.status === 'BLACKLISTED') {
-    throw new ApiError(`${rider.name} is blacklisted and cannot be put back on the register`, 409);
-  }
-  rider.status = 'ACTIVE';
-  return delay({ ...rider }, 300);
-}
 
 export async function getRider(id: string): Promise<RiderDetail> {
   const r = riders.find((x) => x.id === id);
@@ -123,8 +113,8 @@ export async function getRider(id: string): Promise<RiderDetail> {
  * person at the desk decide.
  */
 export async function listAssignableRiders(): Promise<Rider[]> {
-  // Deboarded riders are offered too: done with a bike, not gone (see the API's RiderService.assignable).
-  return delay(riders.filter((r) => (r.status === 'ACTIVE' || r.status === 'DEBOARDED') && !r.currentVehicleId));
+  // Every rider on the register without a bike — which is what INACTIVE means.
+  return delay(riders.filter((r) => !r.currentVehicleId));
 }
 
 /** Riders an exchange or a deboard can act on: those actually holding a bike. */

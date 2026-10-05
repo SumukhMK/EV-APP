@@ -49,7 +49,7 @@ public abstract class AssignmentTestBase extends PostgresTestBase {
     protected static final UUID RIDER_C = UUID.fromString("50000000-0000-0000-0000-0000000000c1");
     /** The user-facing code for RIDER_C. */
     protected static final String RIDER_C_CODE = "R02";
-    /** A DEBOARDED rider — the status the rules refuse to put a bike on. */
+    /** A rider who handed a bike back: INACTIVE, on the register, assignable. */
     protected static final UUID RIDER_DEBOARDED = UUID.fromString("50000000-0000-0000-0000-0000000000d1");
     /** The user-facing code for the deboarded rider. */
     protected static final String RIDER_DEBOARDED_CODE = "R03";
@@ -150,7 +150,7 @@ public abstract class AssignmentTestBase extends PostgresTestBase {
                     "ACTIVE", "VERIFIED", 190000, 300000, "MONDAY", "TUESDAY", "UPI", "Swiggy",
                     "111122224444");
             insertRider(jdbc, RIDER_DEBOARDED, RIDER_DEBOARDED_CODE, TENANT, "Vinod Naik", "9008773412",
-                    "DEBOARDED", "VERIFIED", 170000, 0, "MONDAY", "SATURDAY", "UPI", "Porter",
+                    "INACTIVE", "VERIFIED", 170000, 0, "MONDAY", "SATURDAY", "UPI", "Porter",
                     "111122225555");
             insertRider(jdbc, RIDER_B, RIDER_B_CODE, OTHER_TENANT, "Rival Rider", "9000000002",
                     "ACTIVE", "VERIFIED", 175000, 300000, "MONDAY", "MONDAY", "UPI", "Zomato",

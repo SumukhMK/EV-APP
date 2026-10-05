@@ -541,6 +541,19 @@ operator has picked which. Screens reached from a record (job, bike,
 rider) carry `state.returnTo` and go back there on Cancel and after a
 save (`useReturnTo`).
 
+**Two rider statuses (2026-10-05, Sumukh).** ACTIVE is holding a bike;
+INACTIVE is on the register without one — freshly onboarded or deboarded
+alike. Seven statuses had grown on the column and two of them were the same
+fact; "Put back on register" existed only to move between them. V018 drops
+the other values and recomputes every rider from the open assignments;
+`RiderResponse` derives the status from the open assignment so the wire
+cannot disagree with the assignments table; the assign flow writes ACTIVE,
+the deboard flow writes INACTIVE, nothing else writes it; the reactivate
+endpoint and button are gone. Suspension and blacklisting are not statuses
+any more — when the business needs them they are decisions about a person
+and belong in their own place, not in the word that says whether a rider
+has a bike.
+
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
 job is to render the per-row errors the preview returns.

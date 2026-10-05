@@ -4,14 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SessionContext, type SessionValue } from '../../app/sessionContext';
-import { decideKyc, getRider, listRiderPayments, reactivateRider } from '../../lib/api/riders';
+import { decideKyc, getRider, listRiderPayments } from '../../lib/api/riders';
 import type { RiderDetail as RiderDetailRecord } from '../../types';
 import { RiderDetail } from './RiderDetail';
 
 vi.mock('../../lib/api/riders', () => ({
   getRider: vi.fn(),
   decideKyc: vi.fn(),
-  reactivateRider: vi.fn(),
   listRiderPayments: vi.fn(),
 }));
 vi.mock('../../lib/api/vehicles', () => ({
@@ -71,7 +70,6 @@ beforeEach(() => {
   kyc.mockReset();
   payments.mockReset();
   payments.mockResolvedValue([]);
-  vi.mocked(reactivateRider).mockReset();
 });
 
 /**
