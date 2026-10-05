@@ -193,7 +193,7 @@ export function AssignVehicle() {
           </Box>
         </Panel>
 
-        <Panel label="Available bikes" subtitle="Bikes that passed QC and are ready to go out.">
+        <Panel label="Available bikes" subtitle="Bikes that passed QC and are ready to go out." locked={!rider && 'Pick the rider first'}>
           <Controller
             control={form.control}
             name="vehicleId"
@@ -207,7 +207,7 @@ export function AssignVehicle() {
           />
         </Panel>
 
-        <Panel label="Summary" sx={{ maxWidth: layout.readingMax }}>
+        <Panel label="Summary" sx={{ maxWidth: layout.readingMax }} locked={!rider && 'Pick the rider first'}>
           <DefinitionList
             columns={2}
             items={[

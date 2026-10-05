@@ -256,6 +256,7 @@ export function DeboardRider() {
           <Panel
             label="Why is the bike coming back?"
             subtitle="The condition you pick suggests where the bike should go. You can choose something else, just say why."
+            locked={!rider && 'Pick the rider first'}
           >
             {/* The note sits beside the control it qualifies rather than under
                 it — a lone select in a two-column row left half the panel bare. */}
@@ -310,6 +311,7 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
           <Panel
             label="Money"
             subtitle="Only the rent is settled here. Damage is not priced yet."
+            locked={!rider && 'Pick the rider first'}
           >
             {/* A number input hands back a string unless it is asked not to. */}
             <TextField
@@ -342,6 +344,7 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
             <Panel
               label="Before you finish"
               subtitle="Here is what will happen when you confirm."
+              locked={!rider && 'Pick the rider first'}
             >
               <DefinitionList
                 divider="top"

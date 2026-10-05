@@ -211,6 +211,7 @@ export function ExchangeVehicle() {
             label="The bike coming back"
             subtitle="The condition you pick suggests where the bike should go. If you choose something else, say why."
             sx={{ maxWidth: layout.readingMax }}
+            locked={!rider && 'Pick the rider first'}
           >
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
               <SelectField
@@ -243,7 +244,7 @@ Recovery is not offered here — that is a separate job. For the bike coming bac
             )}
           </Panel>
 
-          <Panel label="The new bike" subtitle="Bikes that passed QC and are ready to go out.">
+          <Panel label="The new bike" subtitle="Bikes that passed QC and are ready to go out." locked={!rider && 'Pick the rider first'}>
             <Controller
               control={form.control}
               name="toVehicleId"
@@ -258,7 +259,7 @@ Recovery is not offered here — that is a separate job. For the bike coming bac
             />
           </Panel>
 
-          <Panel label="Summary" sx={{ maxWidth: layout.readingMax }}>
+          <Panel label="Summary" sx={{ maxWidth: layout.readingMax }} locked={!rider && 'Pick the rider first'}>
             <DefinitionList
               columns={2}
               items={[

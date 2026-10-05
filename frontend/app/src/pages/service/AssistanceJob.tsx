@@ -19,7 +19,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
-import { Panel } from '../../components/Panel';
+import { Locked, Panel } from '../../components/Panel';
 import { RecordSearchSelect } from '../../components/RecordSearchSelect';
 import { StateChip } from '../../components/StateChip';
 import { createServiceJob, getServiceJob, listServiceJobs, updateServiceJob } from '../../lib/api/serviceJobs';
@@ -124,7 +124,7 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
                   This bike is already in the list "{SERVICE_QUEUE_LABEL[existing.queue]}". Carry on with job {existing.id} instead of opening a second one.
                 </Alert>
               ) : (
-                <>
+                <Locked locked={!vehicleId && 'Pick the bike first'} sx={{ display: 'grid', gap: 4 }}>
                   <TextField select label="How did the bike reach us?" value={source} onChange={(e) => {
                     const value = e.target.value;
                     if (value === 'RSA' || value === 'QRT' || value === 'WALK_IN' || value === 'INSPECTION') {
@@ -153,11 +153,11 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
                   </TextField>
                   {requiresReference(queue) && <TextField label={queue === 'PARTS_WAITING' ? 'Which parts, and when are they expected?' : 'Claim number or who to follow up with'} value={reference} onChange={(e) => setReference(e.target.value)} required />}
                   <TextField label="What is wrong with the bike?" multiline minRows={3} required value={notes} onChange={(e) => setNotes(e.target.value)} helperText="Write what the rider reported, which parts look affected, and why you picked this list if it is not the obvious one." />
-                </>
+                </Locked>
               )}
             </Box>
           </Panel>
-          <Panel label="Check and confirm">
+          <Panel label="Check and confirm" locked={!vehicleId && 'Pick the bike first'}>
             <DefinitionList items={[
               { label: 'Bike', value: picked?.id ?? 'Pick a bike' },
               { label: 'Rider', value: picked?.currentRiderName ?? 'No rider on this bike' },
