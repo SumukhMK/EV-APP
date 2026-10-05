@@ -27,6 +27,8 @@ public record RiderDetailResponse(
         String currentVehicleId,
         java.time.LocalDate onboardedOn,
         String paymentStatus,
+        /** Unpaid rent plus open charges, in paise — the same figure the assign picker weighs against the deposit. */
+        long duesPaise,
         String platform,
         PaymentDay paymentDay,
         PaymentMode paymentMode,
@@ -59,7 +61,7 @@ public record RiderDetailResponse(
         return new RiderDetailResponse(
                 r.id(), r.name(), r.phone(), r.status(), r.kycStatus(),
                 r.planAmount(), r.depositHeld(), r.billingDay(), r.currentVehicleId(),
-                r.onboardedOn(), r.paymentStatus(), r.platform(), r.paymentDay(), r.paymentMode(),
+                r.onboardedOn(), r.paymentStatus(), r.duesPaise(), r.platform(), r.paymentDay(), r.paymentMode(),
                 assignments,
                 rider.getPermanentAddress(), rider.getWhatsappNumber(), rider.getAlternateNumber1(),
                 rider.getLocalAddress(), rider.getCity(), rider.getStateName(), rider.getPinCode(),
