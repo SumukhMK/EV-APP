@@ -30,7 +30,7 @@ class ServiceJobCloseTest extends ServiceJobTestBase {
     ApplicationEvents applicationEvents;
 
     private String token;
-    private UUID jobId;
+    private String jobId;
     /** Somebody has to be on the bike, or a RIDER close has nobody to bill. */
     private final UUID riderId = RIDER_ID;
 
@@ -92,7 +92,9 @@ class ServiceJobCloseTest extends ServiceJobTestBase {
         assertThat(closedEvents()).singleElement().satisfies(event -> {
             assertThat(event.liability()).isEqualTo(ServiceLiability.RIDER);
             assertThat(event.totalCostPaise()).isEqualTo(85000);
-            assertThat(event.jobId()).isEqualTo(jobId);
+            // The event carries the row id the ledger stores; the code is the name the API gave us.
+            assertThat(event.jobId()).isEqualTo(superAdmin(jdbc -> jdbc.queryForObject(
+                    "SELECT id FROM service_jobs WHERE tenant_id = ? AND job_code = ?", UUID.class, TENANT, jobId)));
             assertThat(event.tenantId()).isEqualTo(TENANT);
         });
     }
@@ -151,7 +153,7 @@ class ServiceJobCloseTest extends ServiceJobTestBase {
         // A second bike, taken in and never QC'd: closing settles the money but
         // must not declare an unchecked bike roadworthy.
         UUID other = insertVehicle(TENANT, "BLRSS0432", "CHASSIS0432", VehicleState.DEPLOYED);
-        UUID openJobId = openJob(token, "BLRSS0432", "MAJOR", riderId);
+        String openJobId = openJob(token, "BLRSS0432", "MAJOR", riderId);
 
         mvc.perform(post("/api/v1/service/jobs/" + openJobId + "/close")
                         .header("Authorization", "Bearer " + token)

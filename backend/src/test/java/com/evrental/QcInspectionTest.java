@@ -22,7 +22,7 @@ import org.springframework.http.MediaType;
 class QcInspectionTest extends ServiceJobTestBase {
 
     private String token;
-    private UUID jobId;
+    private String jobId;
 
     @BeforeEach
     void openAndRepair() throws Exception {
@@ -195,7 +195,7 @@ class QcInspectionTest extends ServiceJobTestBase {
     @Test
     void anUndamagedBikeThatFailsQcGoesForAssessmentRatherThanAGuessedQueue() throws Exception {
         UUID clean = insertVehicle(TENANT, "BLRSS0431", "CHASSIS0431", VehicleState.DEPLOYED);
-        UUID inspectionJob = openJob(token, "BLRSS0431", "NONE");
+        String inspectionJob = openJob(token, "BLRSS0431", "NONE");
 
         mvc.perform(post("/api/v1/service/jobs/" + inspectionJob + "/qc")
                         .header("Authorization", "Bearer " + token)

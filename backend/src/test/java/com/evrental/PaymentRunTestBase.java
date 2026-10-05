@@ -122,6 +122,7 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
             jdbc.update("DELETE FROM hubs WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_models WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM rider_code_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM job_code_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM tenants WHERE id IN (?, ?)", TENANT, OTHER_TENANT);
 
             jdbc.update("INSERT INTO tenants (id, name, slug, status) "
@@ -241,8 +242,8 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
         return superAdmin(jdbc -> {
             UUID jobId = jdbc.queryForObject(
                     "INSERT INTO service_jobs (tenant_id, vehicle_id, rider_id, source, damage_category, "
-                            + "queue, status, liability, total_cost_paise, closed_on) "
-                            + "VALUES (?, ?, ?, 'DEBOARD', 'MINOR', 'READY_TO_DEPLOY', 'CLOSED', ?, ?, now()) "
+                            + "queue, status, liability, total_cost_paise, closed_on, job_code) "
+                            + "VALUES (?, ?, ?, 'DEBOARD', 'MINOR', 'READY_TO_DEPLOY', 'CLOSED', ?, ?, now(), 'X' || upper(substr(md5(gen_random_uuid()::text), 1, 8))) "
                             + "RETURNING id",
                     UUID.class, tenantId, vehicleId, riderId, liability, amountPaise);
             return jdbc.queryForObject(

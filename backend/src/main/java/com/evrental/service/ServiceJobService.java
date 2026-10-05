@@ -62,6 +62,7 @@ public class ServiceJobService implements ServiceJobFacade {
     private final VehicleTransitions vehicleTransitions;
     private final VehicleStateMachine stateMachine;
     private final ApplicationEventPublisher publisher;
+    private final ServiceJobCodes codes;
 
     public ServiceJobService(ServiceJobRepository jobs,
                              ServiceJobEventRepository events,
@@ -71,7 +72,8 @@ public class ServiceJobService implements ServiceJobFacade {
                              RiderRepository riders,
                              VehicleTransitions vehicleTransitions,
                              VehicleStateMachine stateMachine,
-                             ApplicationEventPublisher publisher) {
+                             ApplicationEventPublisher publisher,
+                             ServiceJobCodes codes) {
         this.jobs = jobs;
         this.events = events;
         this.items = items;
@@ -81,7 +83,30 @@ public class ServiceJobService implements ServiceJobFacade {
         this.vehicleTransitions = vehicleTransitions;
         this.stateMachine = stateMachine;
         this.publisher = publisher;
+        this.codes = codes;
     }
+
+    /**
+     * The row behind the id a caller sent. The API speaks job codes ("J01"),
+     * the same way every screen and URL does; a UUID is still accepted so a
+     * ledger row that stored one before V016 can be followed back to its job.
+     */
+    @Transactional(readOnly = true)
+    public UUID resolve(String id) {
+        String key = id == null ? "" : id.trim();
+        if (key.isEmpty()) {
+            throw NotFoundException.of("Service job", id);
+        }
+        if (UUID_SHAPE.matcher(key).matches()) {
+            return UUID.fromString(key);
+        }
+        return jobs.findByJobCode(key)
+                .map(ServiceJob::getId)
+                .orElseThrow(() -> NotFoundException.of("Service job", key));
+    }
+
+    private static final java.util.regex.Pattern UUID_SHAPE = java.util.regex.Pattern.compile(
+            "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
     // -----------------------------------------------------------------------
     // Opening
@@ -132,6 +157,7 @@ public class ServiceJobService implements ServiceJobFacade {
 
         ServiceJob job = new ServiceJob();
         job.setTenantId(tenantId);
+        job.setJobCode(codes.next(tenantId));
         job.setVehicleId(vehicle.getId());
         job.setRiderId(riderId);
         job.setSource(request.source());

@@ -17,7 +17,7 @@ import org.springframework.http.MediaType;
 class ServiceJobUpdateTest extends ServiceJobTestBase {
 
     private String token;
-    private UUID jobId;
+    private String jobId;
 
     @BeforeEach
     void openOne() throws Exception {

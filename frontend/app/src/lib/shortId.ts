@@ -4,11 +4,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * A row id, shortened to something a person can actually compare.
  *
  * Every id on these screens was designed against the fixtures, where a rider
- * is "R03", a bike is "BLRSS0428" and a job is "SVC-0022" — short, meaningful,
+ * is "R03", a bike is "BLRSS0428" and a job is "J22" — short, meaningful,
  * and sized to the column. A real database id is a 36-character uuid, which
  * needs more than a whole table column on its own. Where one was placed beside
  * a name the name was squeezed to nothing; where it stood alone it overflowed
  * the cell.
+ *
+ * Riders (V015) and jobs (V016) now carry codes on the wire, so a uuid should
+ * no longer reach a screen; this stays as the last line of defence.
  *
  * So a uuid is cut to its first block, which is ample to tell two rows apart,
  * and the full value stays on the element's title for anyone who needs to copy

@@ -26,7 +26,7 @@ import org.springframework.http.MediaType;
 class ServiceJobRulesTest extends ServiceJobTestBase {
 
     private String token;
-    private UUID jobId;
+    private String jobId;
 
     @BeforeEach
     void openOne() throws Exception {
@@ -187,8 +187,7 @@ class ServiceJobRulesTest extends ServiceJobTestBase {
                                  """.formatted(RIDER_CODE)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        UUID withRider = UUID.fromString(
-                new tools.jackson.databind.ObjectMapper().readTree(body).get("id").asString());
+        String withRider = new tools.jackson.databind.ObjectMapper().readTree(body).get("id").asString();
 
         mvc.perform(post("/api/v1/service/jobs/" + withRider + "/close")
                         .header("Authorization", "Bearer " + token)

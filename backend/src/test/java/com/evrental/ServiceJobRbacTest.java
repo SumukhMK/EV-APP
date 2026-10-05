@@ -24,7 +24,7 @@ class ServiceJobRbacTest extends ServiceJobTestBase {
     private String adminToken;
     private String staffToken;
     private String managerToken;
-    private UUID jobId;
+    private String jobId;
 
     @BeforeEach
     void signInAll() throws Exception {

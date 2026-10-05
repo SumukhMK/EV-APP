@@ -77,6 +77,7 @@ class AuthHardeningTest extends PostgresTestBase {
             // Same for the role log and the user it describes.
             jdbc.update("DELETE FROM user_role_changes");
             jdbc.update("DELETE FROM users WHERE tenant_id = ?", TENANT);
+            jdbc.update("DELETE FROM job_code_counters WHERE tenant_id = ?", TENANT);
             jdbc.update("DELETE FROM tenants WHERE id = ?", TENANT);
             jdbc.update(
                     "INSERT INTO tenants (id, name, slug, status) VALUES (?, 'Hardening Co', 'hardening', 'ACTIVE')",
