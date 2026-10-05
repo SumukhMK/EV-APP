@@ -55,8 +55,6 @@ export const onboardRiderSchema = z.object({
   city: z.string().trim().min(2, 'City is required'),
   state: z.string().trim().min(2, 'State is required'),
   pinCode: z.string().trim().regex(/^\d{6}$/, 'PIN must be exactly 6 digits'),
-  /** "12.892425,77.649213" as captured on the phone. Optional. */
-  locationCoordinates: z.string().trim().optional(),
 
   // Documents — step 3, both optional. Empty is fine; a filled one has to be
   // the real shape, because a half-typed PAN or licence is worse than none —
@@ -140,7 +138,6 @@ export const ONBOARD_RIDER_DEFAULTS: OnboardRiderValues = {
   city: '',
   state: '',
   pinCode: '',
-  locationCoordinates: '',
   panNumber: '',
   drivingLicence: '',
   // Empty, not 'Other': the box is freeSolo, and a pre-filled word is what a

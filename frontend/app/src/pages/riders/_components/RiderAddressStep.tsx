@@ -1,6 +1,9 @@
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
-import { useFormContext } from 'react-hook-form';
+import { useEffect } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
+import { SelectField } from '../../../components/form/SelectField';
+import { INDIA_STATES, citiesOf } from '../../../lib/indiaPlaces';
 import { StepSection } from '../../../components/StepSection';
 import { digitsOnly, licenceMask, panMask } from '../../../lib/inputFormat';
 
@@ -13,7 +16,18 @@ import { digitsOnly, licenceMask, panMask } from '../../../lib/inputFormat';
  * parent stays readable at six steps.
  */
 export function RiderAddressStep({ step }: { step: number }) {
-  const { register, formState } = useFormContext();
+  const { register, formState, control, setValue } = useFormContext();
+
+  // State first, then the cities of that state. A city picked for another
+  // state is cleared, so the pair can never disagree.
+  const state = useWatch({ control, name: 'state' }) as string | undefined;
+  const city = useWatch({ control, name: 'city' }) as string | undefined;
+  const cities = citiesOf(state);
+  useEffect(() => {
+    if (city && !cities.includes(city)) {
+      setValue('city', '', { shouldValidate: Boolean(state) });
+    }
+  }, [state, city, cities, setValue]);
 
   const fieldError = (name: string) => {
     const err = formState.errors[name] as { message?: string } | undefined;
@@ -43,21 +57,25 @@ export function RiderAddressStep({ step }: { step: number }) {
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' },
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' },
             gap: 5,
           }}
         >
-          <TextField
-            label="City"
-            {...register('city')}
-            error={fieldError('city').error}
-            helperText={fieldError('city').helperText}
-          />
-          <TextField
+          <SelectField
+            control={control}
+            name="state"
             label="State"
-            {...register('state')}
-            error={fieldError('state').error}
-            helperText={fieldError('state').helperText}
+            searchable
+            placeholder="Type to search"
+            options={INDIA_STATES.map((name) => ({ value: name, label: name }))}
+          />
+          <SelectField
+            control={control}
+            name="city"
+            label="City"
+            searchable
+            placeholder={state ? 'Type to search' : 'Pick the state first'}
+            options={cities.map((name) => ({ value: name, label: name }))}
           />
           <TextField
             label="PIN code"
@@ -70,13 +88,6 @@ export function RiderAddressStep({ step }: { step: number }) {
             })}
             error={fieldError('pinCode').error}
             helperText={fieldError('pinCode').helperText}
-          />
-          <TextField
-            label="Location coordinates"
-            placeholder="12.892425,77.649213"
-            {...register('locationCoordinates')}
-            error={fieldError('locationCoordinates').error}
-            helperText={fieldError('locationCoordinates').helperText}
           />
         </Box>
 

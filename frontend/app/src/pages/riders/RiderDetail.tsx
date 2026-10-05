@@ -314,10 +314,6 @@ export function RiderDetail() {
             { label: 'City', value: r.city || '—' },
             { label: 'State', value: r.state || '—' },
             { label: 'PIN', value: r.pinCode ? <Mono sx={{ fontSize: 13 }}>{r.pinCode}</Mono> : '—' },
-            {
-              label: 'Coordinates',
-              value: r.locationCoordinates ? <Mono sx={{ fontSize: 13 }}>{r.locationCoordinates}</Mono> : '—',
-            },
             { label: 'WhatsApp', value: r.whatsappNumber ? <Mono sx={{ fontSize: 13 }}>{r.whatsappNumber}</Mono> : '—' },
             {
               label: 'Alternate number',
