@@ -45,8 +45,9 @@ class VehicleStateMachineTest {
                         VehicleState.RETIRED));
         EXPECTED.put(VehicleState.UNDER_REPAIR,
                 EnumSet.of(VehicleState.QC_PENDING, VehicleState.ACCIDENT, VehicleState.RETIRED));
+        // DEPLOYED: a QC pass on a bike its rider still holds sends it back to them.
         EXPECTED.put(VehicleState.QC_PENDING,
-                EnumSet.of(VehicleState.READY_TO_DEPLOY, VehicleState.UNDER_REPAIR));
+                EnumSet.of(VehicleState.READY_TO_DEPLOY, VehicleState.DEPLOYED, VehicleState.UNDER_REPAIR));
         EXPECTED.put(VehicleState.ACCIDENT,
                 EnumSet.of(VehicleState.UNDER_REPAIR, VehicleState.RETIRED));
         EXPECTED.put(VehicleState.RETIRED, EnumSet.noneOf(VehicleState.class));
@@ -119,10 +120,11 @@ class VehicleStateMachineTest {
 
     @Test
     void qcDecidesBetweenReleaseAndMoreRepair() {
-        // releaseState() returns READY_TO_DEPLOY on a pass; SERVICE_MANAGEMENT.md
-        // scenario 14 sends a failure back to repair.
+        // A pass releases the bike: into the free pool, or straight back to
+        // the rider who still holds it (ServiceJobService.releaseTarget).
+        // SERVICE_MANAGEMENT.md scenario 14 sends a failure back to repair.
         assertThat(machine.canTransition(VehicleState.QC_PENDING, VehicleState.READY_TO_DEPLOY)).isTrue();
+        assertThat(machine.canTransition(VehicleState.QC_PENDING, VehicleState.DEPLOYED)).isTrue();
         assertThat(machine.canTransition(VehicleState.QC_PENDING, VehicleState.UNDER_REPAIR)).isTrue();
-        assertThat(machine.canTransition(VehicleState.QC_PENDING, VehicleState.DEPLOYED)).isFalse();
     }
 }

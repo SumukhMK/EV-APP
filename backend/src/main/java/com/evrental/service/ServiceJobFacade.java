@@ -30,4 +30,16 @@ public interface ServiceJobFacade {
      */
     ServiceJob openJob(UUID tenantId, String vehicleId, UUID riderId, ServiceJobSource source,
                        DamageCategory damage, String damageNotes, String actor);
+
+    /** The bike's open job, if it is in the workshop right now. */
+    java.util.Optional<ServiceJob> openJobFor(String vehicleId);
+
+    /**
+     * A rider handed back a bike that is already in the workshop. No second
+     * job is opened and the bike stays where it is; the return is written on
+     * the open job's activity log, and the job keeps (or takes) the rider as
+     * the person it concerns.
+     */
+    void recordReturnOnOpenJob(UUID jobId, UUID riderId, ServiceJobSource source,
+                               DamageCategory condition, String damageNotes, String actor);
 }

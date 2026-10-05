@@ -45,6 +45,10 @@ export function queueForDisposition(state: VehicleState, category: DamageCategor
  * generation (in UNDER_REPAIR). Re-assignment happens at RTD, even for the
  * same rider — keeps the lifecycle clean.
  */
-export function releaseState(_assignedRiderId: string | null): VehicleState {
-  return 'READY_TO_DEPLOY';
+/**
+ * Where the bike goes when the workshop releases it: back to the rider who
+ * still holds it, or into the free pool. Mirrors ServiceJobService.releaseTarget.
+ */
+export function releaseState(assignedRiderId: string | null): VehicleState {
+  return assignedRiderId ? 'DEPLOYED' : 'READY_TO_DEPLOY';
 }

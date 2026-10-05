@@ -525,6 +525,22 @@ register" stays for a desk that wants a rider active without a bike yet.
 The query client now refetches on mount and on focus with five seconds of
 freshness, so a screen shows what the database holds when you arrive at it.
 
+**A held bike goes back to its rider; a return while in the workshop lands
+on the open job (2026-10-05).** "Check this bike" on a bike its rider still
+holds, QC pass: the bike went to READY_TO_DEPLOY with the assignment still
+open, and "End assignment" from the job page was refused because the bike
+already had an open job. Now `ServiceJobService.releaseTarget` sends a
+released bike to DEPLOYED when somebody holds it (new edge QC_PENDING →
+DEPLOYED, WORKSHOP roles) and to READY_TO_DEPLOY otherwise; and
+`AssignmentService.returnToWorkshop` writes an exchange or deboard return
+on the bike's open job (`ServiceJobFacade.recordReturnOnOpenJob`) instead
+of opening a second one, leaving the bike where the workshop has it. The
+job screen has no "save progress" or "save my notes" any more: every save
+moves the bike somewhere, and the button says "Pick what to do" until the
+operator has picked which. Screens reached from a record (job, bike,
+rider) carry `state.returnTo` and go back there on Cancel and after a
+save (`useReturnTo`).
+
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
 job is to render the per-row errors the preview returns.

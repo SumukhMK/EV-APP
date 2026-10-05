@@ -4,7 +4,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/sessionContext';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
@@ -54,6 +54,7 @@ export function RiderDetail() {
   const queryClient = useQueryClient();
   const { user } = useSession();
   const { riderId = '' } = useParams();
+  const { pathname: herePath } = useLocation();
 
   /**
    * The way back onto the register.
@@ -160,15 +161,15 @@ export function RiderDetail() {
           // rider is carried in the URL: these screens are reachable directly.
           holdsBike ? (
             <>
-              <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${r.id}`}>
+              <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${r.id}`} state={{ returnTo: herePath }}>
                 Exchange bike
               </Button>
-              <Button color="inherit" component={Link} to={`/assignments/deboard?riderId=${r.id}`}>
+              <Button color="inherit" component={Link} to={`/assignments/deboard?riderId=${r.id}`} state={{ returnTo: herePath }}>
                 Deboard
               </Button>
             </>
           ) : canTakeBike ? (
-            <Button component={Link} to={`/assignments/assign?riderId=${r.id}`}>
+            <Button component={Link} to={`/assignments/assign?riderId=${r.id}`} state={{ returnTo: herePath }}>
               Assign bike
             </Button>
           ) : r.status === 'DEBOARDED' ? (

@@ -106,6 +106,8 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
             // service_jobs now references riders (V008), so riders go after jobs.
             // The change log holds a foreign key to the rider it describes.
             jdbc.update("DELETE FROM rider_plan_changes WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // A held bike's QC test puts an assignment on a rider; it goes before the rider.
+            jdbc.update("DELETE FROM assignments WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_lifecycle_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicles WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);

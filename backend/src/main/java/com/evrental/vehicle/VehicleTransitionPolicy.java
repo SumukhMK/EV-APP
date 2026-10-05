@@ -83,6 +83,7 @@ public class VehicleTransitionPolicy {
 
         allowed.put(VehicleState.QC_PENDING, Map.of(
                 VehicleState.READY_TO_DEPLOY, WORKSHOP,
+                VehicleState.DEPLOYED, WORKSHOP,
                 VehicleState.UNDER_REPAIR, WORKSHOP));
 
         allowed.put(VehicleState.ACCIDENT, Map.of(

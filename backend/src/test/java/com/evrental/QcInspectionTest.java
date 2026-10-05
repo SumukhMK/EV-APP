@@ -290,6 +290,29 @@ class QcInspectionTest extends ServiceJobTestBase {
                         + ") passed QC but is still waiting to be closed — close it from the help desk first"));
     }
 
+    /**
+     * Sumukh's chain: "Check this bike" on a bike its rider still holds, QC
+     * pass — the bike went to Ready to Deploy while the rider kept it on
+     * paper. The workshop releases a held bike back to its rider.
+     */
+    @Test
+    void aHeldBikeThatPassesQcGoesBackToItsRiderNotIntoTheFreePool() throws Exception {
+        superAdmin(jdbc -> jdbc.update(
+                "INSERT INTO assignments (tenant_id, rider_id, vehicle_id, started_on) VALUES (?, ?, ?, DATE '2026-09-01')",
+                TENANT, RIDER_ID, vehicleId));
+
+        submitQc(ALL_CHECKS_PASS, "Suresh").andExpect(status().isCreated());
+
+        assertThat(stateOf(vehicleId)).isEqualTo(VehicleState.DEPLOYED);
+        mvc.perform(get("/api/v1/service/jobs/" + jobId).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.queue").value("READY_TO_DEPLOY"))
+                .andExpect(jsonPath("$.activity[-1:].note").value("QC passed — all nine checks clear"));
+        String lifecycle = superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT note FROM vehicle_lifecycle_events WHERE vehicle_id = ? ORDER BY occurred_on DESC, id DESC LIMIT 1",
+                String.class, vehicleId));
+        assertThat(lifecycle).isEqualTo("QC passed — back with the rider");
+    }
+
     @Test
     void refusesQcOnAJobThatIsNotThere() throws Exception {
         mvc.perform(post("/api/v1/service/jobs/" + UUID.randomUUID() + "/qc")

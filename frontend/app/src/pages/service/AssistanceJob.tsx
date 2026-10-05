@@ -38,7 +38,7 @@ import { CATEGORY_LABEL, LIABILITY_LABEL, SOURCE_LABEL, SERVICE_QUEUE_LABEL } fr
 const deskPath = '/service/assistance';
 const columns = { display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' }, gap: 4, mt: 4, alignItems: 'start' };
 const damageCategories = ['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const;
-type Intent = 'STAY' | 'QC' | 'MOVE' | 'QC_FAIL' | 'RELEASE';
+type Intent = 'QC' | 'MOVE' | 'QC_FAIL' | 'RELEASE';
 type IntentOption = { id: Intent; label: string; hint: string; cta: string; disabled?: boolean };
 const requiresReference = (queue: ServiceQueue) => ['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(queue);
 
@@ -198,6 +198,8 @@ export function AssistanceJob() {
 }
 
 function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: string; onSaved: (job: ServiceJob) => void }) {
+  // Exchange and deboard, reached from here, come back here when done.
+  const { pathname: herePath } = useLocation();
   const { user } = useSession();
   const queryClient = useQueryClient();
   const editable = canManageService(user.roleKey) && job.status !== 'CLOSED';
@@ -211,10 +213,11 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const [repairApproved, setRepairApproved] = useState(false);
   const hasRepairWork = Boolean(job.workSummary?.trim());
   const allQcPassed = QC_CHECKS.every((c) => qcChecks[c.id]) && (!hasRepairWork || repairApproved);
-  // In Quality Check there is no "save progress": a QC sheet is a decision,
-  // pass or fail, and until one is picked the button says so. On the bench
-  // "Still working on it — save my notes" stays the default.
-  const [intent, setIntent] = useState<Intent | null>(inQC ? null : 'STAY');
+  // There is no "save progress" or "save my notes" anywhere: every save moves
+  // the bike somewhere — for QC, to another list, back to the fleet, or back
+  // to the bench — and until the operator has picked which, the button says
+  // so instead of saving a no-op.
+  const [intent, setIntent] = useState<Intent | null>(null);
   const prevAllQcPassed = useRef(allQcPassed);
   useEffect(() => {
     if (inQC && allQcPassed && !prevAllQcPassed.current) setIntent('RELEASE');
@@ -235,7 +238,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   // wrong yet. The screen used to promise "Small repair" and the bike then
   // landed in "Needs checking".
   const failQueue: ServiceQueue = category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : category === 'MINOR' ? 'MINOR_REPAIR' : 'ASSESSMENT';
-  const queue: ServiceQueue = intent === null || intent === 'STAY' ? job.queue : intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
+  const queue: ServiceQueue = intent === null ? job.queue : intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
   const signature = JSON.stringify({ items, intent, queue, category, findings, note, reference, liability, technician, qcChecks, repairApproved });
   const priced: ServiceJobItem[] = items.map((item) => ({ label: item.label.trim(), costPaise: Math.round(Number(item.cost) * 100), kind: item.kind }));
   const valid = items.every((item, i) => item.label.trim() && /^\d+(\.\d{1,2})?$/.test(item.cost) && Number.isSafeInteger(priced[i].costPaise) && priced[i].costPaise >= 0);
@@ -249,7 +252,6 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
     { id: 'RELEASE', label: 'QC passed — move to Ready to Deploy', hint: allQcPassed ? releaseHint : 'Complete all checks first.', cta: 'Pass QC and release', disabled: !canRelease || !allQcPassed },
     { id: 'QC_FAIL', label: `QC failed — send back for repair`, hint: 'The bike goes back to the repair queue.', cta: `Send back to ${SERVICE_QUEUE_LABEL[failQueue]}` },
   ] : [
-    { id: 'STAY', label: 'Still working on it — save my notes', hint: `The bike stays in ${SERVICE_QUEUE_LABEL[job.queue]}.`, cta: 'Save my notes' },
     { id: 'QC', label: 'Work is done — send it for Quality Check', hint: 'QC is mandatory before the bike can go back on the road.', cta: 'Send for Quality Check' },
     { id: 'MOVE', label: 'Move it to a different list', hint: 'Use this when you are waiting on parts, a warranty or an insurance claim.', cta: `Move to ${SERVICE_QUEUE_LABEL[moveQueue]}` },
   ];
@@ -329,8 +331,8 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
             {editable && vehicle.data?.currentRiderId && <Box sx={{ mt: 3 }}>
               <Typography variant="body2" color="text.secondary">The rider still has this bike on their name. Give them a different bike, or end the assignment.</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
-                <Button component={Link} to={`/assignments/exchange?riderId=${vehicle.data.currentRiderId}`}>Give another bike</Button>
-                <Button component={Link} to={`/assignments/deboard?riderId=${vehicle.data.currentRiderId}`} color="inherit">End assignment</Button>
+                <Button component={Link} to={`/assignments/exchange?riderId=${vehicle.data.currentRiderId}`} state={{ returnTo: herePath }}>Give another bike</Button>
+                <Button component={Link} to={`/assignments/deboard?riderId=${vehicle.data.currentRiderId}`} state={{ returnTo: herePath }} color="inherit">End assignment</Button>
               </Box>
             </Box>}
           </Panel>
@@ -485,7 +487,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
                 </TextField>
               ) : <Alert severity="info">You can write down what you found and move the bike between lists. Fleet and admin roles decide who pays and send the bike back out.</Alert>}
               <Typography variant="body2" color="text.secondary">{job.riderId ? 'The rider is charged only when the bike finally goes back out, not when you save or send it for QC.' : 'No rider on this bike, so the company covers the cost.'}</Typography>
-              <TextField label={inQC ? 'Notes (optional)' : intent === 'STAY' ? 'What did you do just now?' : 'Why are you making this change?'} required={!inQC} multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} helperText={inQC ? 'Anything extra you noticed. Leave blank if nothing.' : 'A line or two.'} />
+              <TextField label={inQC ? 'Notes (optional)' : 'Why are you making this change?'} required={!inQC} multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} helperText={inQC ? 'Anything extra you noticed. Leave blank if nothing.' : 'A line or two.'} />
               {!valid && <Alert severity="warning">Every line needs a short description and an amount of ₹0 or more, up to two decimals.</Alert>}
               <FormControlLabel control={<Checkbox checked={confirmation === signature} onChange={(e) => setConfirmation(e.target.checked ? signature : '')} />} label={releasing ? 'I approve this work, the cost, and sending the bike back out.' : 'I confirm these details and where the bike is going.'} />
               {save.isError && <Alert severity="error">{save.error.message}</Alert>}

@@ -217,6 +217,62 @@ class AssignmentDeboardTest extends AssignmentTestBase {
                 .andExpect(status().isUnprocessableEntity());
     }
 
+    /**
+     * "End assignment" from the job page of a check that is still open. It
+     * used to be refused ("already has an open service job"); now the return
+     * is written on that job and the bike stays where the workshop has it.
+     */
+    @Test
+    void aRiderCanHandBackABikeThatIsAlreadyInTheWorkshop() throws Exception {
+        assign(RIDER_A, VEHICLE_READY);
+        String jobId = openCheck(VEHICLE_READY);
+        org.assertj.core.api.Assertions.assertThat(stateOf(VEHICLE_READY))
+                .isEqualTo(com.evrental.vehicle.VehicleState.QC_PENDING);
+
+        mvc.perform(post("/api/v1/assignments/deboard")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","returnedOn":"2026-09-28",
+                                 "returnCondition":"NONE","reason":"RETURNED",
+                                 "nextVehicleState":"QC_PENDING",
+                                 "outstandingRent":0,"depositRefund":0,"damageItems":[]}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DEBOARDED"))
+                .andExpect(jsonPath("$.currentVehicleId").doesNotExist());
+
+        // One job, not two; the bike stays on the bench; the return is on the job.
+        Integer openJobs = superAdmin(jdbc -> jdbc.queryForObject("""
+                SELECT count(*) FROM service_jobs sj JOIN vehicles v ON v.id = sj.vehicle_id
+                WHERE v.registry_id = ? AND sj.status <> 'CLOSED'
+                """, Integer.class, VEHICLE_READY));
+        org.assertj.core.api.Assertions.assertThat(openJobs).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(stateOf(VEHICLE_READY))
+                .isEqualTo(com.evrental.vehicle.VehicleState.QC_PENDING);
+        String body = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/service/jobs/" + jobId)
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
+                .andExpect(jsonPath("$.riderId").value(RIDER_A_CODE))
+                .andReturn().getResponse().getContentAsString();
+        java.util.List<String> notes = com.jayway.jsonpath.JsonPath.read(body, "$.activity[*].note");
+        org.assertj.core.api.Assertions.assertThat(notes.get(notes.size() - 1))
+                .startsWith("Rider handed the bike back while the bike was in the workshop — undamaged");
+    }
+
+    /** Opens a routine check on a held bike, as "Check this bike" does, and returns the job code. */
+    private String openCheck(String registryId) throws Exception {
+        String body = mvc.perform(post("/api/v1/service/jobs")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"vehicleId":"%s","source":"INSPECTION","damageCategory":"NONE","queue":"QC_PENDING"}
+                                """.formatted(registryId)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return com.jayway.jsonpath.JsonPath.read(body, "$.id");
+    }
+
     private void assign(UUID riderId, String vehicleId) throws Exception {
         mvc.perform(post("/api/v1/assignments/assign")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))

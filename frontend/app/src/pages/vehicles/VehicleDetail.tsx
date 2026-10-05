@@ -3,7 +3,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StateChip } from '../../components/StateChip';
@@ -34,6 +34,7 @@ import { SERVICE_QUEUE_LABEL, SOURCE_LABEL } from '../../lib/serviceJobLabels';
 export function VehicleDetail() {
   const { vehicleId = '' } = useParams();
   const { user } = useSession();
+  const { pathname: herePath } = useLocation();
 
   const vehicle = useQuery({
     queryKey: ['vehicle', vehicleId],
@@ -99,7 +100,7 @@ export function VehicleDetail() {
                 Edit
               </Button>
             )}
-            {v.currentRiderId && canManageAssignments(user.roleKey) && <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${v.currentRiderId}`}>
+            {v.currentRiderId && canManageAssignments(user.roleKey) && <Button color="inherit" component={Link} to={`/assignments/exchange?riderId=${v.currentRiderId}`} state={{ returnTo: herePath }}>
               Exchange
             </Button>}
             <Button color="inherit" component={Link} to={activeService ? `/service/assistance/${activeService.id}` : `/service/inspection?vehicle=${v.id}`}>

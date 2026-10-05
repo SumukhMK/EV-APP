@@ -174,6 +174,24 @@ public class AssignmentService {
         return rider;
     }
 
+    /**
+     * The returned bike goes to the workshop. If it is already there — the
+     * rider is ending the assignment from the job screen of a check that is
+     * still open — no second job is opened and the bike stays where it is;
+     * the return is written on the open job instead. Opening a second job
+     * used to be refused ("already has an open service job"), which left the
+     * operator with no way to end the assignment until the check was over.
+     */
+    private void returnToWorkshop(UUID tenantId, String registryId, UUID riderId, ServiceJobSource source,
+                                  DamageCategory condition, String note, String actorName) {
+        var open = serviceJobs.openJobFor(registryId);
+        if (open.isPresent()) {
+            serviceJobs.recordReturnOnOpenJob(open.get().getId(), riderId, source, condition, note, actorName);
+            return;
+        }
+        serviceJobs.openJob(tenantId, registryId, riderId, source, condition, note, actorName);
+    }
+
     /** Whole rupees with Indian grouping, as the screens print money: ₹3,00,000. */
     private static String rupees(long paise) {
         return "₹" + java.text.NumberFormat.getIntegerInstance(java.util.Locale.of("en", "IN")).format(paise / 100);
@@ -226,7 +244,7 @@ public class AssignmentService {
         next.setStartedOn(request.occurredOn());
         saveOrConflict(next);
 
-        serviceJobs.openJob(tenantId, from.getRegistryId(), rider.getId(), ServiceJobSource.EXCHANGE,
+        returnToWorkshop(tenantId, from.getRegistryId(), rider.getId(), ServiceJobSource.EXCHANGE,
                 request.returnCondition(), jobNote(request.reason().name(), damageNotes, request.note()), actorName);
         vehicleTransitions.transitionState(
                 to.getId(), VehicleState.DEPLOYED, "Assigned to " + rider.getName(), actorUserId, actorName);
@@ -266,7 +284,7 @@ public class AssignmentService {
                 request.nextVehicleState(), damageNotes,
                 request.outstandingRent(), request.depositRefund(), actorName);
 
-        serviceJobs.openJob(tenantId, vehicle.getRegistryId(), rider.getId(), ServiceJobSource.DEBOARD,
+        returnToWorkshop(tenantId, vehicle.getRegistryId(), rider.getId(), ServiceJobSource.DEBOARD,
                 request.returnCondition(), jobNote(request.reason().name(), damageNotes, request.note()), actorName);
         riders.markDeboarded(rider.getId());
         return rider;

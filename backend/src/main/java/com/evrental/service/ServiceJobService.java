@@ -63,6 +63,7 @@ public class ServiceJobService implements ServiceJobFacade {
     private final VehicleStateMachine stateMachine;
     private final ApplicationEventPublisher publisher;
     private final ServiceJobCodes codes;
+    private final com.evrental.assignment.AssignmentQuery holders;
 
     public ServiceJobService(ServiceJobRepository jobs,
                              ServiceJobEventRepository events,
@@ -73,7 +74,8 @@ public class ServiceJobService implements ServiceJobFacade {
                              VehicleTransitions vehicleTransitions,
                              VehicleStateMachine stateMachine,
                              ApplicationEventPublisher publisher,
-                             ServiceJobCodes codes) {
+                             ServiceJobCodes codes,
+                             com.evrental.assignment.AssignmentQuery holders) {
         this.jobs = jobs;
         this.events = events;
         this.items = items;
@@ -84,6 +86,17 @@ public class ServiceJobService implements ServiceJobFacade {
         this.stateMachine = stateMachine;
         this.publisher = publisher;
         this.codes = codes;
+        this.holders = holders;
+    }
+
+    /**
+     * Where a bike goes when the workshop is done with it: back to the rider
+     * who still holds it, or into the free pool if nobody does. A bike that
+     * passed QC while a rider was on its name used to land in READY_TO_DEPLOY
+     * with the assignment still open — two screens disagreeing about one bike.
+     */
+    private VehicleState releaseTarget(UUID vehicleId) {
+        return holders.riderIdHolding(vehicleId).isPresent() ? VehicleState.DEPLOYED : VehicleState.READY_TO_DEPLOY;
     }
 
     /**
@@ -442,9 +455,12 @@ public class ServiceJobService implements ServiceJobFacade {
         }
         jobs.save(job);
 
+        VehicleState target = passed ? releaseTarget(job.getVehicleId()) : nextQueue.vehicleState();
         VehicleState state = vehicleTransitions.transitionState(
-                job.getVehicleId(), nextQueue.vehicleState(),
-                passed ? "QC passed" : "QC failed — back for rework",
+                job.getVehicleId(), target,
+                passed
+                        ? (target == VehicleState.DEPLOYED ? "QC passed — back with the rider" : "QC passed")
+                        : "QC failed — back for rework",
                 actorUserId, actorName).getState();
 
         log(job, state, actorName, nothingToBill
@@ -576,12 +592,14 @@ public class ServiceJobService implements ServiceJobFacade {
     private VehicleState releaseIfRoadworthy(ServiceJob job, UUID actorUserId, String actorName) {
         Vehicle vehicle = vehicles.findById(job.getVehicleId())
                 .orElseThrow(() -> NotFoundException.of("Vehicle", job.getVehicleId()));
-        VehicleState target = ServiceQueue.READY_TO_DEPLOY.vehicleState();
+        VehicleState target = releaseTarget(job.getVehicleId());
         if (!stateMachine.canTransition(vehicle.getState(), target)) {
             return vehicle.getState();
         }
         return vehicleTransitions
-                .transitionState(job.getVehicleId(), target, "Released from service", actorUserId, actorName)
+                .transitionState(job.getVehicleId(), target,
+                        target == VehicleState.DEPLOYED ? "Released from service — back with the rider" : "Released from service",
+                        actorUserId, actorName)
                 .getState();
     }
 
@@ -606,6 +624,34 @@ public class ServiceJobService implements ServiceJobFacade {
         return open(new CreateServiceJobRequest(
                 vehicleId, null, source, damage, damageNotes, null, null, null),
                 riderId, tenantId, null, actor);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<ServiceJob> openJobFor(String vehicleId) {
+        return vehicles.findByRegistryId(vehicleId.trim())
+                .flatMap(vehicle -> jobs.findOpenForVehicle(vehicle.getId()));
+    }
+
+    @Override
+    @Transactional
+    public void recordReturnOnOpenJob(UUID jobId, UUID riderId, ServiceJobSource source,
+                                      DamageCategory condition, String damageNotes, String actor) {
+        ServiceJob job = openJobForWrite(jobId);
+        if (job.getRiderId() == null) {
+            job.setRiderId(riderId);
+        }
+        // The worse of the two assessments stands: a bike taken in for a
+        // routine check and handed back with a cracked panel is a repair.
+        if (condition.ordinal() > job.getDamageCategory().ordinal()) {
+            job.setDamageCategory(condition);
+        }
+        jobs.save(job);
+        String what = source == ServiceJobSource.EXCHANGE ? "swapped onto another bike" : "handed the bike back";
+        Vehicle vehicle = vehicles.findById(job.getVehicleId())
+                .orElseThrow(() -> NotFoundException.of("Vehicle", job.getVehicleId()));
+        log(job, vehicle.getState(), actor, "Rider " + what + " while the bike was in the workshop — "
+                + condition.label().toLowerCase() + (damageNotes == null || damageNotes.isBlank() ? "" : ". " + damageNotes.trim()));
     }
 
     // -----------------------------------------------------------------------

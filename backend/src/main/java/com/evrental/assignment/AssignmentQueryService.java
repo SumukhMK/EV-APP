@@ -139,6 +139,11 @@ public class AssignmentQueryService implements AssignmentQuery {
     }
 
     @Override
+    public java.util.Optional<UUID> riderIdHolding(UUID vehicleId) {
+        return assignments.findOpenByVehicleId(vehicleId).map(Assignment::getRiderId);
+    }
+
+    @Override
     public Set<UUID> riderIdsHoldingBikes() {
         return assignments.findByEndedOnIsNull().stream()
                 .map(Assignment::getRiderId)

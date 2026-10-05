@@ -30,6 +30,7 @@ import {
 } from '../../lib/schemas/assignment';
 import { KYC_STATUS_LABEL, KYC_STATUS_TONE } from '../../lib/labels';
 import { useSession } from '../../app/sessionContext';
+import { useReturnTo } from '../../app/useReturnTo';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import { rupeesWithSymbol } from '../../lib/format';
@@ -56,6 +57,7 @@ export function AssignVehicle() {
   const [duesBlock, setDuesBlock] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { user } = useSession();
+  const { returnTo, cameFromElsewhere, backLabel } = useReturnTo('/riders');
   const canOverrideDues = user.roleKey === 'SUPER_ADMIN' || user.roleKey === 'FLEET_ADMIN';
   const [pendingValues, setPendingValues] = useState<AssignVehicleValues | null>(null);
 
@@ -137,9 +139,11 @@ export function AssignVehicle() {
       <PageHeader
         section="Riders"
         title="Assign vehicle"
+        backTo={cameFromElsewhere ? returnTo : undefined}
+        backLabel={backLabel}
         actions={
           <>
-            <Button color="inherit" component={Link} to="/riders">
+            <Button color="inherit" component={Link} to={returnTo}>
               Cancel
             </Button>
             <Button type="submit" disabled={save.isPending}>
@@ -310,7 +314,7 @@ export function AssignVehicle() {
           setConfirmOpen(false);
           if (!pendingValues) return;
           save.mutateAsync(pendingValues)
-            .then((r) => navigate(`/riders/${r.id}`, { state: { notice: `${pendingValues.vehicleId} assigned to ${r.name}` } }))
+            .then((r) => navigate(cameFromElsewhere ? returnTo : `/riders/${r.id}`, { state: { notice: `${pendingValues.vehicleId} assigned to ${r.name}` } }))
             .catch(() => { /* errors are surfaced by the mutation's onError */ });
         }}
         onCancel={() => setConfirmOpen(false)}

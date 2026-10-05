@@ -11,6 +11,8 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useReturnTo } from '../../app/useReturnTo';
+import { getVehicle } from '../../lib/api/vehicles';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -63,8 +65,11 @@ const CONDITIONS = (['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const).map((c) => 
  * written down. The screen shows the deposit, the outstanding rent and the
  * refund side by side and lets them settle it, rather than inventing a formula.
  */
+const IN_WORKSHOP = new Set(['UNDER_REPAIR', 'QC_PENDING', 'ACCIDENT']);
+
 export function DeboardRider() {
   const navigate = useNavigate();
+  const { returnTo, cameFromElsewhere, backLabel } = useReturnTo('/riders');
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
@@ -108,6 +113,13 @@ export function DeboardRider() {
     }
   }, [rider, picked.vehicleId, form]);
 
+  // The bike the rider holds, for one question: is it already in the workshop?
+  const bike = useQuery({
+    queryKey: ['vehicle', rider?.currentVehicleId],
+    queryFn: () => getVehicle(rider!.currentVehicleId!),
+    enabled: Boolean(rider?.currentVehicleId),
+  });
+
   // What the record says is owed this period — shown in the summary, typed
   // again in the settlement, because the settlement is what the desk agrees.
   const payments = useQuery({
@@ -138,7 +150,9 @@ export function DeboardRider() {
     onSuccess: (updated) => {
       invalidateAssignments(queryClient);
       invalidateServiceJobs(queryClient);
-      navigate(`/riders/${updated.id}`);
+      navigate(cameFromElsewhere ? returnTo : `/riders/${updated.id}`, {
+        state: { notice: `${updated.name} deboarded — the bike is back with the workshop` },
+      });
     },
     onError: (error) => {
       if (error instanceof ApiError && error.field) {
@@ -194,9 +208,11 @@ export function DeboardRider() {
         <PageHeader
           section="Riders"
           title="Deboard rider"
+          backTo={cameFromElsewhere ? returnTo : undefined}
+          backLabel={backLabel}
           actions={
             <>
-              <Button color="inherit" component={Link} to="/riders">
+              <Button color="inherit" component={Link} to={returnTo}>
                 Cancel
               </Button>
               <Button type="submit" disabled={save.isPending}>
@@ -250,6 +266,12 @@ export function DeboardRider() {
               <Typography sx={{ fontSize: 13, color: 'error.main', mt: 3 }}>
                 {form.formState.errors.vehicleId.message}
               </Typography>
+            )}
+            {bike.data && IN_WORKSHOP.has(bike.data.state) && (
+              <Alert severity="info" sx={{ mt: 4 }}>
+                {bike.data.id} is already in the workshop. The return is written on its open job and the bike stays
+                where it is — the destination below does not move it.
+              </Alert>
             )}
           </Panel>
 
