@@ -554,6 +554,20 @@ any more — when the business needs them they are decisions about a person
 and belong in their own place, not in the word that says whether a rider
 has a bike.
 
+**The demo seed is the whole fleet, not just the bikes (2026-10-05).**
+`DevFleetSeeder` loads a tenant that reads like a fleet a few months in:
+137 bikes (two retired), 24 riders with codes, addresses, PAN and licence,
+every plan, billing day, payment mode and KYC state; 18 on bikes and 6
+without, three of them with a closed history and one with a settlement
+waiting; a job on every bike the CSV puts in the workshop across every
+queue, six closed jobs behind open and settled charges, a failed QC
+attempt; eight weeks of billing with paid, partial, overdue and pending
+weeks and numbered receipts; plan and role changes in the trail. Still
+gated on `app.bootstrap.seed-fleet` (local only) and skipped when the
+tenant has bikes. `APP_RESEED=true` on one boot wipes the demo tenant's
+operational rows (and the platform tenant's) and reloads, moving the
+platform admin into the demo tenant so she sees it. Never leave it on.
+
 **Validation is server-side and stays there.** The endpoint is reachable
 without the UI, and the duplicate checks need the database. The frontend's
 job is to render the per-row errors the preview returns.

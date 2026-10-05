@@ -52,6 +52,11 @@ app:
     # frontend fixtures (`npm run seed:export`). Local only: a real deployment
     # leaves this false and imports its own fleet.
     seed-fleet: true
+    # Wipes the demo tenant's operational rows and loads the seed fresh. Meant
+    # for one run from the command line — `APP_RESEED=true java -jar …` or
+    # `--app.bootstrap.reseed=true` — never left on, or every restart would
+    # throw away whatever a tester had just reproduced.
+    reseed: ${APP_RESEED:false}
 
 logging:
   level:
