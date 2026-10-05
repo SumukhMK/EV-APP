@@ -42,6 +42,38 @@ class RiderOnboardTest extends RiderTestBase {
                 .andExpect(jsonPath("$.aadhaarNumber").doesNotExist());
     }
 
+    /**
+     * The screen derives "deposit pending" from plan minus paid and will not
+     * show a negative; the API took the figures as sent and stored a rider
+     * who had paid more deposit than the plan asked for.
+     */
+    @Test
+    void aDepositPaidAboveThePlanIs422OnTheDepositPaidField() throws Exception {
+        String body = ONBOARD_BODY.replace("\"depositPaid\":300000", "\"depositPaid\":999999");
+
+        mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("depositPaid"))
+                .andExpect(jsonPath("$.message").value("Deposit paid cannot be more than the deposit plan"));
+    }
+
+    /** Every other date the API takes refuses the future; onboarding did not. */
+    @Test
+    void anOnboardingDateInTheFutureIs422OnTheDateField() throws Exception {
+        String body = ONBOARD_BODY.replace("\"onboardedOn\":\"2026-09-26\"", "\"onboardedOn\":\"2031-01-01\"");
+
+        mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("onboardedOn"))
+                .andExpect(jsonPath("$.message").value("Onboarding date cannot be in the future"));
+    }
+
     @Test
     void aDuplicatePhoneIsA409NamingTheField() throws Exception {
         // RIDER_A already holds 9845012277 on this tenant's register.

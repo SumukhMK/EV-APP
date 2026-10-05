@@ -43,7 +43,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     void aHubsOwnExportPreviewsCleanly() throws Exception {
         String file = "﻿Fleet export - Koramangala\n\n"
                 + "Vehicle ID,Chassis Number,Model,Battery Type,Battery Vendor,Hub,Registration Number,Induction Date\n"
-                + "BLRSS0950,CH-950,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0950,01/09/2026\n";
+                + "BLRSS0950,SESEAG03202300950,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0950,01/09/2026\n";
 
         mvc.perform(upload(csv(file)))
                 .andExpect(status().isOk())
@@ -56,7 +56,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     @Test
     void missingColumnsAre422WithTheDetailsTheScreenLaysOut() throws Exception {
         String file = "Vehicle ID,Chassis Number,Model,Battery Type,Battery Vendor,Depot,Registration Number,Notes\n"
-                + "BLRSS0951,CH-951,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0951,-\n";
+                + "BLRSS0951,SESEAG03202300951,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0951,-\n";
 
         mvc.perform(upload(csv(file)))
                 .andExpect(status().isUnprocessableContent())
@@ -72,7 +72,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     @Test
     void aSemicolonSeparatedCsvIsRead() throws Exception {
         String file = TEMPLATE_HEADER.replace(',', ';')
-                + "BLRSS0952;CH-952;Eagle 2;Yuma;Yuma;Koramangala;KA01AA0952;2026-09-01\n";
+                + "BLRSS0952;SESEAG03202300952;Eagle 2;Yuma;Yuma;Koramangala;KA01AA0952;2026-09-01\n";
 
         mvc.perform(upload(csv(file)))
                 .andExpect(status().isOk())
@@ -83,7 +83,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     void anOldBinaryXlsIsAccepted() throws Exception {
         byte[] bytes = workbook(new HSSFWorkbook(), "Vehicles", sheet -> {
             row(sheet, 0, TEMPLATE_HEADER.trim().split(","));
-            row(sheet, 1, "BLRSS0953", "CH-953", "Eagle 2", "Yuma", "Yuma", "Koramangala", "KA01AA0953", "2026-09-01");
+            row(sheet, 1, "BLRSS0953", "SESEAG03202300953", "Eagle 2", "Yuma", "Yuma", "Koramangala", "KA01AA0953", "2026-09-01");
         });
 
         mvc.perform(upload(new MockMultipartFile("file", "fleet.xls", "application/vnd.ms-excel", bytes)))
@@ -98,7 +98,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
         byte[] bytes = workbook(new XSSFWorkbook(), "Fleet", sheet -> {
             row(sheet, 0, "id", "chassisNumber", "model", "batteryType", "batteryVendor",
                     "hub", "registrationNumber", "inductedOn", "Notes", "Colour");
-            row(sheet, 1, "BLRSS0954", "CH-954", "Eagle 2", "Yuma", "Yuma", "Koramangala",
+            row(sheet, 1, "BLRSS0954", "SESEAG03202300954", "Eagle 2", "Yuma", "Yuma", "Koramangala",
                     "KA01AA0954", "2026-09-01", "second-hand", "red");
         });
 
@@ -112,7 +112,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     @Test
     void aCsvHasNoSheetName() throws Exception {
         mvc.perform(upload(csv(TEMPLATE_HEADER
-                        + "BLRSS0955,CH-955,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0955,2026-09-01\n")))
+                        + "BLRSS0955,SESEAG03202300955,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0955,2026-09-01\n")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sheetName").doesNotExist())
                 .andExpect(jsonPath("$.ignoredColumns").isEmpty());
@@ -123,7 +123,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     @Test
     void aDayFirstDateIsImportedAsThatDate() throws Exception {
         String importId = stage(TEMPLATE_HEADER
-                + "BLRSS0956,CH-956,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0956,01/09/2026\n");
+                + "BLRSS0956,SESEAG03202300956,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0956,01/09/2026\n");
 
         mvc.perform(post("/api/v1/vehicles/imports/" + importId + "/commit")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
@@ -140,7 +140,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
         LocalDate nextMonth = LocalDate.now(BillingClock.ZONE).plusMonths(1);
 
         mvc.perform(upload(csv(TEMPLATE_HEADER
-                        + "BLRSS0957,CH-957,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0957," + nextMonth + "\n")))
+                        + "BLRSS0957,SESEAG03202300957,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0957," + nextMonth + "\n")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.errorRows").value(1))
                 .andExpect(jsonPath("$.rows[0].error").value("inductedOn cannot be in the future"));
@@ -151,7 +151,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
         LocalDate today = LocalDate.now(BillingClock.ZONE);
 
         mvc.perform(upload(csv(TEMPLATE_HEADER
-                        + "BLRSS0958,CH-958,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0958," + today + "\n")))
+                        + "BLRSS0958,SESEAG03202300958,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0958," + today + "\n")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.validRows").value(1));
     }
@@ -159,10 +159,20 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     @Test
     void anUnreadableDateNamesTheShapesThatWork() throws Exception {
         mvc.perform(upload(csv(TEMPLATE_HEADER
-                        + "BLRSS0959,CH-959,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0959,Sept 1st\n")))
+                        + "BLRSS0959,SESEAG03202300959,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0959,Sept 1st\n")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows[0].error")
                         .value("inductedOn must be a date like 2026-09-01 or 01/09/2026"));
+    }
+
+    /** The same 17-character rule the single-add form and endpoint apply, as a row error. */
+    @Test
+    void aChassisThatIsNotSeventeenCharactersIsAnErrorRow() throws Exception {
+        mvc.perform(upload(csv(TEMPLATE_HEADER
+                        + "BLRSS0962,SHORT962,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0962,2026-09-01\n")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.errorRows").value(1))
+                .andExpect(jsonPath("$.rows[0].error").value("chassisNumber must be exactly 17 letters and digits"));
     }
 
     // --- size --------------------------------------------------------------------
@@ -204,7 +214,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
             for (int c = 0; c < 16_384; c++) {
                 h.createCell(c).setCellValue(c < header.length ? header[c] : "extra" + c);
             }
-            String[] values = {"BLRSS0961", "CH-961", "Eagle 2", "Yuma", "Yuma", "Koramangala", "KA01AA0961", "2026-09-01"};
+            String[] values = {"BLRSS0961", "SESEAG03202300961", "Eagle 2", "Yuma", "Yuma", "Koramangala", "KA01AA0961", "2026-09-01"};
             Row r = sheet.createRow(1);
             for (int c = 0; c < 16_384; c++) {
                 r.createCell(c).setCellValue(c < values.length ? values[c] : "x");
@@ -233,7 +243,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     @Test
     void aPreviewOlderThanADayCannotBeCommittedEvenBeforeTheSweepRuns() throws Exception {
         String importId = stage(TEMPLATE_HEADER
-                + "BLRSS0960,CH-960,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0960,2026-09-01\n");
+                + "BLRSS0960,SESEAG03202300960,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0960,2026-09-01\n");
         superAdmin(jdbc -> jdbc.update(
                 "UPDATE vehicle_imports SET uploaded_on = now() - interval '25 hours' WHERE id = ?::uuid", importId));
 
@@ -266,7 +276,7 @@ class VehicleImportEdgeCasesTest extends VehicleTestBase {
     private static String rows(int count) {
         StringBuilder sb = new StringBuilder(TEMPLATE_HEADER);
         for (int i = 1; i <= count; i++) {
-            sb.append(String.format("BULK%05d,BCH-%05d,Eagle 2,Yuma,Yuma,Koramangala,KA01BK%04d,2026-09-01%n",
+            sb.append(String.format("BULK%05d,SESEAG032023%05d,Eagle 2,Yuma,Yuma,Koramangala,KA01BK%04d,2026-09-01%n",
                     i, i, i % 10000));
         }
         return sb.toString();

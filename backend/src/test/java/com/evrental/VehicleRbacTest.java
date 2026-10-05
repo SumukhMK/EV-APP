@@ -23,8 +23,8 @@ class VehicleRbacTest extends VehicleTestBase {
 
     @BeforeEach
     void seedVehicle() {
-        insertVehicle("BLRSS0820", "CH-820", VehicleState.READY_TO_DEPLOY);
-        insertVehicle("BLRSS0823", "CH-823", VehicleState.QC_PENDING);
+        insertVehicle("BLRSS0820", "SESEAG03202300820", VehicleState.READY_TO_DEPLOY);
+        insertVehicle("BLRSS0823", "SESEAG03202300823", VehicleState.QC_PENDING);
     }
 
     @Test
@@ -39,7 +39,7 @@ class VehicleRbacTest extends VehicleTestBase {
                         .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"id":"BLRSS0821","chassisNumber":"CH-821","model":"Eagle 2",
+                                {"id":"BLRSS0821","chassisNumber":"SESEAG03202300821","model":"Eagle 2",
                                  "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01"}
                                 """))
                 .andExpect(status().isCreated());
@@ -75,7 +75,7 @@ class VehicleRbacTest extends VehicleTestBase {
                         .header("Authorization", "Bearer " + tokenFor(SERVICE_MANAGER_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"id":"BLRSS0824","chassisNumber":"CH-824","model":"Eagle 2",
+                                {"id":"BLRSS0824","chassisNumber":"SESEAG03202300824","model":"Eagle 2",
                                  "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01"}
                                 """))
                 .andExpect(status().isForbidden());
@@ -106,7 +106,7 @@ class VehicleRbacTest extends VehicleTestBase {
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"id":"BLRSS0822","chassisNumber":"CH-822","model":"Eagle 2",
+                                {"id":"BLRSS0822","chassisNumber":"SESEAG03202300822","model":"Eagle 2",
                                  "batteryType":"Yuma","hub":"Koramangala","inductedOn":"2026-09-01"}
                                 """))
                 .andExpect(status().isCreated());

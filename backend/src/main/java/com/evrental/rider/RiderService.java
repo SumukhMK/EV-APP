@@ -78,6 +78,12 @@ public class RiderService {
             throw new ConflictException(
                     "A rider with this phone number is already on the register", "phone");
         });
+        // The screen derives "deposit pending" as plan minus paid and will not
+        // show a negative; the figures arrive separately here, so the same
+        // rule has to hold on this side.
+        if (request.depositPaid() != null && request.depositPaid() > request.depositPlan()) {
+            throw new ValidationException("depositPaid", "Deposit paid cannot be more than the deposit plan");
+        }
 
         Rider rider = new Rider();
         rider.setTenantId(tenantId);

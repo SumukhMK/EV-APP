@@ -86,6 +86,13 @@ public class AssignmentService {
         Rider rider = riders.findByRiderCode(request.riderId());
         requireActive(rider);
 
+        // Rent starts on this date. One that has not come yet would bill
+        // for days nobody rode — and "today" is today in IST, where the
+        // fleet is, not in the UTC the container runs in.
+        if (request.startedOn().isAfter(java.time.LocalDate.now(com.evrental.payment.BillingClock.ZONE))) {
+            throw new com.evrental.common.ValidationException("startedOn", "Assignment date cannot be in the future");
+        }
+
         assignments.findOpenByRiderId(rider.getId()).ifPresent(open -> {
             throw new ConflictException(rider.getName() + " already holds " + registryIdOf(open.getVehicleId())
                     + ". Use Exchange vehicle instead.", "riderId");

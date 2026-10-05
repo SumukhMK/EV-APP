@@ -47,6 +47,8 @@ public class VehicleTransitionPolicy {
         Map<VehicleState, Map<VehicleState, Set<UserRole>>> allowed = new EnumMap<>(VehicleState.class);
 
         allowed.put(VehicleState.INDUCTED, Map.of(
+                // The workshop runs first checks as well as the fleet desk.
+                VehicleState.QC_PENDING, WORKSHOP,
                 VehicleState.READY_TO_DEPLOY, FLEET,
                 VehicleState.UNDER_REPAIR, FLEET,
                 VehicleState.RETIRED, ADMIN));

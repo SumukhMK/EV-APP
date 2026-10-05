@@ -35,9 +35,9 @@ public class VehicleImportTemplate {
 
     /** Two rows, so the shape of a real value is obvious without a legend. */
     private static final List<List<String>> EXAMPLES = List.of(
-            List.of("BLRSS0001", "CH-0001", "Eagle 2", "Yuma", "Yuma",
+            List.of("BLRSS0001", "SESEAG03202300001", "Eagle 2", "Yuma", "Yuma",
                     "Koramangala", "KA01AA0001", "2026-09-01"),
-            List.of("BLRSS0002", "CH-0002", "Eagle 2", "Lithium", "Exide",
+            List.of("BLRSS0002", "SESEAG03202300002", "Eagle 2", "Lithium", "Exide",
                     "Indiranagar", "KA01AA0002", "2026-09-15"));
 
     private static final List<String> NOTES = List.of(
@@ -49,7 +49,7 @@ public class VehicleImportTemplate {
             "3. batteryVendor and registrationNumber may be left blank, but keep the columns.",
             "4. inductedOn is the date the bike joined the fleet, written as YYYY-MM-DD.",
             "5. id is the registry id an operator reads off the bike, such as BLRSS0001. It must be unique.",
-            "6. chassisNumber must also be unique.",
+            "6. chassisNumber is the 17-character chassis (VIN) stamped on the frame — letters and digits only. It must also be unique.",
             "7. Save as .xlsx or .csv and upload it on the Bulk upload screen.",
             "",
             "Every bike is created in the INDUCTED state. Move it on from the vehicle screen.",

@@ -38,6 +38,20 @@ class AssignmentAssignTest extends AssignmentTestBase {
         org.assertj.core.api.Assertions.assertThat(openAssignments).isEqualTo(1);
     }
 
+    /** Rent starts on the assignment date; a date that has not come yet would bill for days nobody rode. */
+    @Test
+    void aStartDateInTheFutureIs422() throws Exception {
+        mvc.perform(post("/api/v1/assignments/assign")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","vehicleId":"%s","startedOn":"2031-01-01"}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("startedOn"))
+                .andExpect(jsonPath("$.message").value("Assignment date cannot be in the future"));
+    }
+
     @Test
     void anUnknownRiderIsA404() throws Exception {
         mvc.perform(post("/api/v1/assignments/assign")

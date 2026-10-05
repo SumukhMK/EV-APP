@@ -86,6 +86,7 @@ public record OnboardRiderRequest(
         @PositiveOrZero(message = "Deposit paid cannot be negative")
         Long depositPaid,
         @NotNull(message = "Onboarding date is required")
+        @jakarta.validation.constraints.PastOrPresent(message = "Onboarding date cannot be in the future")
         LocalDate onboardedOn,
 
         /** Every flag must be true before the request is allowed to be sent. */

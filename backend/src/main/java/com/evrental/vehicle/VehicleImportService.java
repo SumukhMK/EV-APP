@@ -203,6 +203,12 @@ public class VehicleImportService {
                 return header + " is required";
             }
         }
+        // The same rule the single-add endpoint applies: a chassis number is
+        // a 17-character VIN. Checked before the length table so the message
+        // names the rule, not the column.
+        if (!payload.get("chassisNumber").trim().matches(CreateVehicleRequest.CHASSIS_PATTERN)) {
+            return "chassisNumber must be exactly 17 letters and digits";
+        }
         for (Map.Entry<String, Integer> limit : MAX_LENGTHS.entrySet()) {
             String value = payload.get(limit.getKey());
             // Trimmed, because create() trims before it inserts: a cell padded

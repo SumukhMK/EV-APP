@@ -212,6 +212,20 @@ describe('service workbench stories', () => {
     expect(await screen.findByRole('textbox', { name: 'What did you find, and what did you do?' })).toBeInTheDocument();
   });
 
+  /**
+   * A routine check offers one damage level, "No damage", yet the form opened
+   * on "Small damage" — a value its own picker did not list (MUI warned about
+   * it on every render) — and the summary promised "Needs checking / In
+   * Service" until the operator re-picked the only option there was.
+   */
+  it('a routine check opens on No damage and the QC queue, the only choice it offers', async () => {
+    const fresh = vehicles.find((v) => v.state === 'READY_TO_DEPLOY' && !serviceJobs.some((j) => j.vehicleId === v.id))!;
+    show(`/service/inspection?vehicle=${fresh.id}`);
+
+    expect(await screen.findByRole('combobox', { name: 'How bad is the damage?' })).toHaveTextContent('No damage');
+    expect(screen.getByRole('combobox', { name: 'Which list should it go to?' })).toHaveTextContent('Quality Check');
+  });
+
   it('scopes QC to awaiting work and does not offer misleading global Closed filters', async () => {
     const repair = seed();
     const qc = seed('NONE');

@@ -23,9 +23,9 @@ class VehicleImportPreviewTest extends VehicleTestBase {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", """
                                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
-                                BLRSS0901,CH-901,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01
-                                BLRSS0902,CH-902,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0002,2026-09-01
-                                BLRSS0903,CH-903,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0003,2026-09-01
+                                BLRSS0901,SESEAG03202300901,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01
+                                BLRSS0902,SESEAG03202300902,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0002,2026-09-01
+                                BLRSS0903,SESEAG03202300903,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0003,2026-09-01
                                 """))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -42,9 +42,9 @@ class VehicleImportPreviewTest extends VehicleTestBase {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", """
                                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
-                                BLRSS0901,CH-901,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01
-                                BLRSS0902,CH-902,,Yuma,Yuma,Koramangala,KA01AA0002,2026-09-01
-                                BLRSS0903,CH-903,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0003,2026-09-01
+                                BLRSS0901,SESEAG03202300901,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01
+                                BLRSS0902,SESEAG03202300902,,Yuma,Yuma,Koramangala,KA01AA0002,2026-09-01
+                                BLRSS0903,SESEAG03202300903,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0003,2026-09-01
                                 """))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -54,13 +54,13 @@ class VehicleImportPreviewTest extends VehicleTestBase {
 
     @Test
     void aRowDuplicatingAnExistingRegistryIdIsAnErrorRow() throws Exception {
-        insertVehicle("BLRSS0900", "CH-900", VehicleState.INDUCTED);
+        insertVehicle("BLRSS0900", "SESEAG03202300900", VehicleState.INDUCTED);
 
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", """
                                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
-                                BLRSS0900,CH-901,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01
-                                BLRSS0902,CH-902,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0002,2026-09-01
+                                BLRSS0900,SESEAG03202300901,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01
+                                BLRSS0902,SESEAG03202300902,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0002,2026-09-01
                                 """))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -72,8 +72,8 @@ class VehicleImportPreviewTest extends VehicleTestBase {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", """
                                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
-                                BLRSS0904,CH-904,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01
-                                BLRSS0904,CH-905,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0002,2026-09-01
+                                BLRSS0904,SESEAG03202300904,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0001,2026-09-01
+                                BLRSS0904,SESEAG03202300905,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0002,2026-09-01
                                 """))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -86,7 +86,7 @@ class VehicleImportPreviewTest extends VehicleTestBase {
         MvcResult result = mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", """
                                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
-                                BLRSS0906,CH-906,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0006,2026-09-01
+                                BLRSS0906,SESEAG03202300906,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0006,2026-09-01
                                 """))
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -117,7 +117,7 @@ class VehicleImportPreviewTest extends VehicleTestBase {
         mvc.perform(multipart("/api/v1/vehicles/imports")
                         .file(csv("vehicles.csv", """
                                 id,chassisNumber,model,batteryType,batteryVendor,hub,registrationNumber,inductedOn
-                                BLRSS0907,CH-907,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0007,2026-09-01
+                                BLRSS0907,SESEAG03202300907,Eagle 2,Yuma,Yuma,Koramangala,KA01AA0007,2026-09-01
                                 """))
                         .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL)))
                 .andExpect(status().isOk())

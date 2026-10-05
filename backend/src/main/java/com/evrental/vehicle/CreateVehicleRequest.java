@@ -2,6 +2,8 @@ package com.evrental.vehicle;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
@@ -25,8 +27,12 @@ public record CreateVehicleRequest(
         @NotBlank(message = "Vehicle id is required")
         @Size(max = ID_MAX, message = "Vehicle id must be at most " + ID_MAX + " characters")
         String id,
+        // A chassis number is the 17-character VIN stamped on the frame, and
+        // every bike in the fleet has one. The form said so from the start;
+        // the API accepted anything up to the column width, so a short one
+        // from a spreadsheet or a direct call was stored.
         @NotBlank(message = "Chassis number is required")
-        @Size(max = CHASSIS_NUMBER_MAX, message = "Chassis number must be at most " + CHASSIS_NUMBER_MAX + " characters")
+        @Pattern(regexp = CHASSIS_PATTERN, message = CHASSIS_RULE)
         String chassisNumber,
         @NotBlank(message = "Model is required")
         @Size(max = MODEL_MAX, message = "Model must be at most " + MODEL_MAX + " characters")
@@ -45,10 +51,15 @@ public record CreateVehicleRequest(
         @Size(max = REGISTRATION_NUMBER_MAX, message = "Registration number must be at most " + REGISTRATION_NUMBER_MAX + " characters")
         String registrationNumber,
         @NotNull(message = "Inducted on is required")
+        @PastOrPresent(message = "Induction date cannot be in the future")
         LocalDate inductedOn) {
 
     public static final int ID_MAX = 20;
+    /** The column width. The rule is {@link #CHASSIS_PATTERN}; this bounds what the import stages. */
     public static final int CHASSIS_NUMBER_MAX = 40;
+    /** Exactly 17 letters and digits — a VIN. Shared with the import's row check. */
+    public static final String CHASSIS_PATTERN = "^[A-Za-z0-9]{17}$";
+    public static final String CHASSIS_RULE = "Chassis number must be exactly 17 letters and digits";
     public static final int MODEL_MAX = 60;
     public static final int BATTERY_TYPE_MAX = 20;
     public static final int BATTERY_VENDOR_MAX = 40;
