@@ -244,6 +244,33 @@ describe('service workbench stories', () => {
     expect(screen.getByRole('link', { name: 'QC check' })).toHaveAttribute('href', `/service/assistance/${qc.id}`);
   });
 
+  /**
+   * The QC page's tab bar offers "All open" beside "Quality Check", and the
+   * README calls the three service screens "views of the same jobs". The tab
+   * was inert: the queue was clamped to QC_PENDING whatever the address bar
+   * said, so clicking changed the URL and nothing else — and `allOpenActive`
+   * could never be true, so the tab never lit up either.
+   */
+  it('widens the QC queue to every open job from the All open tab, and narrows back', async () => {
+    const repair = seed();      // MINOR → the Minor repair queue
+    const qc = seed('NONE');    // NONE  → Quality Check
+    const user = userEvent.setup();
+    show('/service/qc');
+    expect(await screen.findByRole('link', { name: qc.id })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: repair.id })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Quality Check/ })).toHaveClass('MuiButton-contained');
+
+    await user.click(screen.getByRole('button', { name: /^All open/ }));
+    expect(await screen.findByRole('link', { name: repair.id })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: qc.id })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^All open/ })).toHaveClass('MuiButton-contained');
+    expect(screen.getByRole('button', { name: /^Quality Check/ })).not.toHaveClass('MuiButton-contained');
+
+    await user.click(screen.getByRole('button', { name: /^Quality Check/ }));
+    expect(await screen.findByRole('link', { name: qc.id })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: repair.id })).not.toBeInTheDocument();
+  });
+
   it('prevents duplicate intake with a direct existing-job link', async () => {
     const job = seed();
     show(`/service/assistance/new?vehicle=${job.vehicleId}`);
@@ -329,5 +356,58 @@ describe('service workbench stories', () => {
     expect(await screen.findByText('Could not save job')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'What did you find, and what did you do?' })).toHaveValue('Mirror repaired and road tested');
     expect(job.workSummary).toBe('');
+  });
+});
+
+/**
+ * The QC queue is capped at twelve per page like every other list. One open
+ * job per bike, so a page of thirteen needs thirteen bikes.
+ */
+function seedQcJobs(count: number) {
+  const bikes = vehicles
+    .filter((v) => v.state === 'DEPLOYED' && !serviceJobs.some((j) => j.vehicleId === v.id))
+    .slice(0, count);
+  return bikes.map((v) => createServiceJob({
+    vehicleId: v.id, riderId: v.currentRiderId, source: 'RSA', damageCategory: 'NONE', damageNotes: 'Replace mirror',
+  }));
+}
+
+describe('QC queue pagination', () => {
+  it('shows twelve jobs per page and pages through the rest', async () => {
+    const jobs = seedQcJobs(13);
+    const user = userEvent.setup();
+    show('/service/qc');
+
+    // The list is newest first, so page 1 holds the last twelve created.
+    expect(await screen.findByRole('link', { name: jobs[12].id })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: jobs[1].id })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: jobs[0].id })).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 1–12 of 13')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByRole('link', { name: jobs[0].id })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: jobs[12].id })).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 13–13 of 13')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(await screen.findByRole('link', { name: jobs[12].id })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: jobs[0].id })).not.toBeInTheDocument();
+  });
+
+  it('starts at the first page when a filter changes', async () => {
+    const jobs = seedQcJobs(13);
+    const user = userEvent.setup();
+    show('/service/qc?page=1');
+    expect(await screen.findByRole('link', { name: jobs[0].id })).toBeInTheDocument();
+
+    // A search that matches nothing lands on the empty state, not a blank page.
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'no-such-job');
+    expect(await screen.findByText('No jobs match')).toBeInTheDocument();
+
+    // Clearing it returns to page 1 — the old page number is gone from the URL.
+    await user.clear(screen.getByRole('textbox', { name: 'Search' }));
+    expect(await screen.findByRole('link', { name: jobs[12].id })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: jobs[0].id })).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 1–12 of 13')).toBeInTheDocument();
   });
 });

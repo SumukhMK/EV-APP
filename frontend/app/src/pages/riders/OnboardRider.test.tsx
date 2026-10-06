@@ -29,8 +29,11 @@ describe('onboard rider — the form answers a refused submit', () => {
     show();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Onboard rider' }));
-    expect(await screen.findByText(/fields need attention — the first is marked below/)).toBeInTheDocument();
+    // The shake class is added synchronously on submit and removed 600ms
+    // later. Assert it before any await: under full-suite load the findByText
+    // wait below can outlast the removal timer and the class is already gone.
     expect(document.getElementById('step-1')?.classList.contains('shake-field')).toBe(true);
+    expect(await screen.findByText(/fields need attention — the first is marked below/)).toBeInTheDocument();
     expect(onboardRider).not.toHaveBeenCalled();
   });
 

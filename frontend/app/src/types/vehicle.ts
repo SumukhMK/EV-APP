@@ -63,6 +63,15 @@ export interface AssignmentHistoryRow {
   endedOn: Iso8601 | null;
   days: number;
   closedBy: string | null;
+  /**
+   * Why the bike came back, and in what condition.
+   *
+   * Only the rider's panel reads these — the bike's own history table has no
+   * column for them and the API row for it never carried them — so they are
+   * optional and absent on the rows written before V012.
+   */
+  reason?: string | null;
+  returnCondition?: string | null;
 }
 
 export interface VehicleDetail extends Vehicle {

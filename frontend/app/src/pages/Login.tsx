@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import VisibilityOffOutlined from '@mui/icons-material/VisibilityOffOutlined';
+import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -35,6 +39,22 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [pending, setPending] = useState(false);
+  // The eye shows the password for two seconds and hides it again — long
+  // enough to check a mistyped character, short enough that a shoulder-surfer
+  // cannot read the whole thing off the screen.
+  const [reveal, setReveal] = useState(false);
+  const revealTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(revealTimer.current), []);
+
+  const toggleReveal = () => {
+    window.clearTimeout(revealTimer.current);
+    if (reveal) {
+      setReveal(false);
+    } else {
+      setReveal(true);
+      revealTimer.current = window.setTimeout(() => setReveal(false), 2000);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +127,7 @@ export function Login() {
           />
           <TextField
             label="Password"
-            type="password"
+            type={reveal ? 'text' : 'password'}
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
@@ -116,6 +136,25 @@ export function Login() {
             autoComplete="current-password"
             error={Boolean(fieldErrors.password)}
             helperText={fieldErrors.password}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      aria-label={reveal ? 'Hide password' : 'Show password'}
+                      onClick={toggleReveal}
+                    >
+                      {reveal ? (
+                        <VisibilityOffOutlined sx={{ fontSize: 18 }} />
+                      ) : (
+                        <VisibilityOutlined sx={{ fontSize: 18 }} />
+                      )}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
           <Button type="submit" fullWidth disabled={pending} sx={{ mt: 1 }}>
             {pending ? 'Signing in…' : 'Sign in'}

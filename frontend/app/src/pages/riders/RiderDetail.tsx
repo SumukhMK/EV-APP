@@ -315,35 +315,56 @@ export function RiderDetail() {
             This rider has never held a bike.
           </Typography>
         ) : (
-          <SimpleTable
-            rows={r.assignments ?? []}
-            getRowKey={(a) => `${a.vehicleId}-${a.startedOn}`}
-            columns={[
-              { key: 'vehicle', header: 'Bike', width: 130, render: (a) => <Mono>{a.vehicleId}</Mono> },
-              { key: 'from', header: 'From', width: 130, render: (a) => <Mono>{formatDate(a.startedOn)}</Mono> },
-              {
-                key: 'to',
-                header: 'To',
-                width: 130,
-                // An open assignment has no return date. Saying so beats an
-                // empty cell, which reads as missing data rather than current.
-                render: (a) =>
-                  a.endedOn ? (
-                    <Mono>{formatDate(a.endedOn)}</Mono>
-                  ) : (
-                    <Box component="span" sx={{ fontSize: 13, color: tones.accent.fg }}>On this bike now</Box>
-                  ),
-              },
-              { key: 'days', header: 'Days', align: 'right', width: 70, render: (a) => <Mono>{a.days}</Mono> },
-              {
-                key: 'reason',
-                header: 'Why it came back',
-                width: 170,
-                render: (a) => (a.reason ? RETURN_REASON_LABEL[a.reason] ?? a.reason : '—'),
-              },
-              { key: 'closedBy', header: 'Closed by', width: 150, render: (a) => a.closedBy ?? '—' },
-            ]}
-          />
+          <Box
+            component="ul"
+            aria-label="Bikes this rider has held"
+            sx={{ listStyle: 'none', m: 0, p: 0, mt: 2 }}
+          >
+            {(r.assignments ?? []).map((a, i) => {
+              const last = i === (r.assignments ?? []).length - 1;
+              return (
+                <Box component="li" key={`${a.vehicleId}-${a.startedOn}`} sx={{ display: 'flex', gap: 2.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        mt: '6px',
+                        // Open rows are the rider's current bike; closed rows
+                        // are the past. The border is the panel's own paper
+                        // colour, so the dot reads as a ring on the rail.
+                        background: a.endedOn ? neutral[600] : tones.accent.fg,
+                        border: '2px solid',
+                        borderColor: 'background.default',
+                      }}
+                    />
+                    {!last && <Box sx={{ width: 2, flex: 1, minHeight: 40, background: neutral[800], my: 1 }} />}
+                  </Box>
+                  <Box sx={{ pb: last ? 1 : 4, flex: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, flexWrap: 'wrap' }}>
+                      <Mono sx={{ fontSize: 15 }}>{a.vehicleId}</Mono>
+                      {a.endedOn ? (
+                        <Typography sx={{ fontSize: 13, color: neutral[500] }}>
+                          From {formatDate(a.startedOn)} → {formatDate(a.endedOn)} · {a.days} days
+                        </Typography>
+                      ) : (
+                        <Typography sx={{ fontSize: 13, color: tones.accent.fg }}>
+                          From {formatDate(a.startedOn)} · On this bike now · {a.days} days
+                        </Typography>
+                      )}
+                    </Box>
+                    {a.endedOn && (
+                      <Typography sx={{ fontSize: 13, color: neutral[400], mt: '3px' }}>
+                        {a.reason ? `Why it came back: ${RETURN_REASON_LABEL[a.reason] ?? a.reason}` : 'Why it came back: —'}
+                        {a.closedBy ? ` · Closed by ${a.closedBy}` : ''}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
         )}
       </Panel>
 
