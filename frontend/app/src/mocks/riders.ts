@@ -1,6 +1,6 @@
 import type { BillingDay, PaymentDay, PaymentMode, Platform, Rider } from '../types';
 import { FIRST_NAMES, LAST_NAMES, STAFF, mulberry32, pick } from './seed';
-import { vehicles } from './vehicles';
+import { vehicles, seedAssignmentHistory } from './vehicles';
 
 const PLATFORMS: readonly Platform[] = [
   'Zomato', 'Swiggy', 'Swiggy Instamart', 'Zepto', 'Blinkit',
@@ -235,5 +235,10 @@ function buildRiders(): Rider[] {
 }
 
 export const riders: Rider[] = buildRiders();
+
+// The register exists now, so seed each rider's bike history from it. The
+// rows live keyed by bike in mocks/vehicles.ts; this is the one place a
+// rider-to-bike pairing is decided, so the history is built here too.
+seedAssignmentHistory(riders);
 
 export const staff = STAFF;

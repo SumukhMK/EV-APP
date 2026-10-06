@@ -91,14 +91,14 @@ export async function getRider(id: string): Promise<RiderDetail> {
           startedOn: a.startedOn,
           endedOn: a.endedOn,
           days: a.days,
-          reason: null,
-          returnCondition: null,
+          // Artboard 04's rows predate these fields and carry none, so the
+          // screen renders a dash — the same as a rider onboarded before V012.
+          reason: a.reason ?? null,
+          returnCondition: a.returnCondition ?? null,
           closedBy: a.closedBy,
         })),
     )
     .sort((a, b) => b.startedOn.localeCompare(a.startedOn));
-  // The fixture predates these fields, so a mock rider has none. The screen
-  // renders a dash, which is what a rider onboarded before V012 shows live.
   return delay({ ...r, assignments });
 }
 

@@ -7,7 +7,7 @@ import type {
   VehicleState,
 } from '../../types';
 import { riders } from '../../mocks/riders';
-import { vehicles } from '../../mocks/vehicles';
+import { recordAssignmentClose, recordAssignmentStart, vehicles } from '../../mocks/vehicles';
 import { ApiError, delay } from './client';
 import { recordServiceReturn } from '../../mocks/serviceJobs';
 import { CONDITION_DEFAULT_STATE } from '../labels';
@@ -98,8 +98,9 @@ export async function assignVehicle(body: AssignVehicleRequest): Promise<Rider> 
   // Holding a bike is what ACTIVE means.
   rider.status = 'ACTIVE';
   open(rider, vehicle);
-  // `startedOn` and `note` go to the assignment record server-side.
-  void body.startedOn;
+  // The row is written here, not "server-side" as this used to claim: the
+  // rider profile's history panel reads nothing but it.
+  recordAssignmentStart(vehicle.id, rider, body.startedOn);
   void body.note;
   return delay(rider, 420);
 }
@@ -127,7 +128,9 @@ export async function exchangeVehicle(body: ExchangeVehicleRequest): Promise<Rid
   const note = returnNote(body);
   recordServiceReturn(from, { riderId: rider.id, source: 'EXCHANGE', category: body.returnCondition, nextState: body.nextVehicleState, note, date: body.occurredOn });
   close(rider, from, body.nextVehicleState);
+  recordAssignmentClose(from.id, rider.id, body.occurredOn, body.reason, body.returnCondition);
   open(rider, to);
+  recordAssignmentStart(to.id, rider, body.occurredOn);
   return delay(rider, 460);
 }
 
@@ -147,6 +150,9 @@ export async function deboardRider(body: DeboardRiderRequest): Promise<Rider> {
   const note = returnNote(body);
   recordServiceReturn(vehicle, { riderId: rider.id, source: 'DEBOARD', category: body.returnCondition, nextState: body.nextVehicleState, note, date: body.returnedOn });
   close(rider, vehicle, body.nextVehicleState);
+  // The row stays on the rider's history with a return date, reason and
+  // condition — which is the whole point of the panel on the profile.
+  recordAssignmentClose(vehicle.id, rider.id, body.returnedOn, body.reason, body.returnCondition);
   rider.status = 'INACTIVE';
   void body.outstandingRent;
   void body.depositRefund;

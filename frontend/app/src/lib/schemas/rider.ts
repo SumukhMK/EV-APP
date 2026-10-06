@@ -29,7 +29,8 @@ export const onboardRiderSchema = z.object({
   permanentAddress: z
     .string()
     .trim()
-    .min(5, 'Permanent address is required')
+    .min(1, 'Permanent address is required')
+    .min(5, 'Min 5 characters required')
     .max(200, 'Address is too long'),
 
   // Contact — step 2. One spare number beside the rider's own.
