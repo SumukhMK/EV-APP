@@ -308,6 +308,8 @@ export function RiderDetail() {
       <Panel
         label="Bike history"
         subtitle="Every bike this rider has held, newest first. The open one has no return date."
+        collapsible
+        defaultOpen={false}
         sx={{ mt: 5 }}
       >
         {(r.assignments ?? []).length === 0 ? (
@@ -373,6 +375,8 @@ export function RiderDetail() {
         subtitle={
           holdsBike ? 'The eight most recent billing periods, newest first.' : undefined
         }
+        collapsible
+        defaultOpen={false}
         sx={{ mt: 5 }}
       >
         {payments.isLoading ? (

@@ -8,6 +8,7 @@ import {
 } from 'react-hook-form';
 import { SelectField, type SelectOption } from '../../../components/form/SelectField';
 import { DateField } from '../../../components/form/DateField';
+import { InfoTip } from '../../../components/InfoTip';
 import {
   CONDITION_DEFAULT_STATE,
   VEHICLE_STATE_LABEL,
@@ -83,13 +84,9 @@ export function DispositionFields<T extends FieldValues>({
       <SelectField
         control={control}
         name={nextStateName}
-        label="Where does the bike go next?"
+        label={<>Where does the bike go next? <InfoTip title={`Recovery is not offered here — that is a separate job. Choose Quality Check, In Service, or Accident. We suggest: ${condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'Quality Check'}. You can override — if you do, say why in the notes before you confirm.`} /></>}
         options={nextStateOptions}
       />
-      <Box sx={{ color: 'text.secondary', fontSize: 13 }}>
-        We suggest: {condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'Quality Check'}.
-        You can override — if you do, say why in the notes before you confirm.
-      </Box>
     </Box>
   );
 }

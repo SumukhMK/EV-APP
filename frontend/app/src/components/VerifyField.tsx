@@ -1,11 +1,13 @@
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import type { ReactNode } from 'react';
+import { InfoTip } from './InfoTip';
 
 export type VerificationState = 'UNVERIFIED' | 'CODE_SENT' | 'VERIFYING' | 'VERIFIED' | 'FAILED';
 
 export interface VerifyFieldProps {
-  label: string;
+  label: ReactNode;
   value: string;
   onValueChange: (next: string) => void;
   code: string;
@@ -58,7 +60,10 @@ export function VerifyField({
         gap: 3,
       }}
     >
-      <Typography variant="overline">{label}</Typography>
+      <Typography variant="overline">
+        {label}
+        {note && <InfoTip title={note} />}
+      </Typography>
 
       <TextField
         value={value}
@@ -81,7 +86,6 @@ export function VerifyField({
         The props stay on this component so the step files are untouched and
         the OTP flow is a re-render away once a provider exists.
       */}
-      {note && <Typography sx={{ fontSize: 12, color: 'grey.500' }}>{note}</Typography>}
     </Box>
   );
 }
