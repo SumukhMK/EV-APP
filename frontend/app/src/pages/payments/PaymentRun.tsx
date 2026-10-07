@@ -23,6 +23,7 @@ import { StateChip } from '../../components/StateChip';
 import { EmptyState } from '../../components/EmptyState';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
+import { TableFooter } from '../../components/TableFooter';
 import { RecordPaymentDialog, type CollectTarget } from './RecordPaymentDialog';
 import { getCurrentPaymentRun } from '../../lib/api/payments';
 import { PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../../lib/labels';
@@ -35,6 +36,9 @@ import type { BillingDay, PaymentPeriodRow } from '../../types';
 // A due amount above this is flagged for a second look before it's collected
 // — the same ₹5,000 line the assistance desk uses for a service job.
 const REVIEW_THRESHOLD = 5000;
+
+/** A page of twelve, like every other list in the app. */
+const PAGE_SIZE = 12;
 
 /**
  * The weekly billing run (artboard 15): every rider due in the current period,
@@ -61,6 +65,8 @@ export function PaymentRun() {
   // Both cycles are billed; the screen shows one at a time so the totals on it
   // always describe a single period rather than a blend of two.
   const [cycle, setCycle] = useState<BillingDay>('MONDAY');
+  // The table paginates; the totals above always describe the whole run.
+  const [page, setPage] = useState(0);
 
   const run = useQuery({
     queryKey: ['payments', 'run', cycle],
@@ -73,6 +79,7 @@ export function PaymentRun() {
   const collected = rows.reduce((t, r) => t + r.amountPaid, 0);
   const outstanding = billed - collected;
   const settled = rows.filter((r) => r.status === 'PAID').length;
+  const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const period = run.data
     ? `${formatDate(run.data.periodStart)} — ${formatDate(run.data.periodEnd)}`
@@ -128,7 +135,13 @@ export function PaymentRun() {
             exclusive
             size="small"
             value={cycle}
-            onChange={(_, next: BillingDay | null) => next && setCycle(next)}
+            onChange={(_, next: BillingDay | null) => {
+              if (next) {
+                setCycle(next);
+                // A new cycle is a new result set — start at its first page.
+                setPage(0);
+              }
+            }}
           >
             <ToggleButton value="MONDAY">Monday cycle</ToggleButton>
             <ToggleButton value="WEDNESDAY">Wednesday cycle</ToggleButton>
@@ -144,7 +157,7 @@ export function PaymentRun() {
           />
         ) : stacked ? (
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-            {rows.map((r) => (
+            {pageRows.map((r) => (
               <Box
                 key={r.riderId}
                 onClick={() => navigate(`/payments/run/${r.riderId}`)}
@@ -194,7 +207,7 @@ export function PaymentRun() {
           </Box>
         ) : (
           <SimpleTable
-            rows={rows}
+            rows={pageRows}
             getRowKey={(r) => r.riderId}
             rowSx={() => ({ cursor: 'pointer', '&:hover td': { background: neutral[900] } })}
             /**
@@ -349,6 +362,10 @@ export function PaymentRun() {
               },
             ]}
           />
+        )}
+
+        {rows.length > 0 && (
+          <TableFooter page={page} pageSize={PAGE_SIZE} total={rows.length} onPageChange={setPage} noun="riders" />
         )}
       </Panel>
 
