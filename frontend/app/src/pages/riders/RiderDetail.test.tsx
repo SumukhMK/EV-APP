@@ -99,6 +99,9 @@ describe('KYC decision', () => {
  * row on top, and every closed row below it says why the bike came back and
  * who closed it. The current-bike panel above also prints the bike id, so
  * these queries stay inside the list.
+ *
+ * The panel starts collapsed — the page is long enough without two full
+ * tables — so each test opens it first, the way a person would.
  */
 describe('Bike history timeline', () => {
   const withHistory: RiderDetailRecord = {
@@ -110,9 +113,25 @@ describe('Bike history timeline', () => {
     ],
   } as unknown as RiderDetailRecord;
 
+  it('starts collapsed and expands on clicking the title', async () => {
+    rider.mockResolvedValue(withHistory);
+    show();
+    const user = userEvent.setup();
+
+    const toggle = await screen.findByRole('button', { name: /Bike history/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('list', { name: 'Bikes this rider has held' })).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(await screen.findByRole('list', { name: 'Bikes this rider has held' })).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('renders the bikes newest first, the open one marked', async () => {
     rider.mockResolvedValue(withHistory);
     show();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Bike history/ }));
 
     const list = await screen.findByRole('list', { name: 'Bikes this rider has held' });
     const items = within(list).getAllByRole('listitem');
@@ -127,8 +146,28 @@ describe('Bike history timeline', () => {
   it('keeps the empty state for a rider who never held a bike', async () => {
     rider.mockResolvedValue(pending);
     show();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Bike history/ }));
 
     expect(await screen.findByText('This rider has never held a bike.')).toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'Bikes this rider has held' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Payment history panel', () => {
+  it('starts collapsed and expands to show the empty state', async () => {
+    rider.mockResolvedValue(pending);
+    show();
+    const user = userEvent.setup();
+
+    const toggle = await screen.findByRole('button', { name: /Payment history/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('No open plan. Rent is billed for as long as a bike is assigned.')).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(
+      await screen.findByText('No open plan. Rent is billed for as long as a bike is assigned.'),
+    ).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
   });
 });

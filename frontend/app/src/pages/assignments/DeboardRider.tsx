@@ -19,7 +19,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
-import { InfoStrip } from '../../components/InfoStrip';
+import { InfoTip } from '../../components/InfoTip';
 import { DerivedField } from '../../components/DerivedField';
 import { SelectField } from '../../components/form/SelectField';
 import { RiderSearchSelect } from './_components/RiderSearchSelect';
@@ -276,8 +276,7 @@ export function DeboardRider() {
           </Panel>
 
           <Panel
-            label="Why is the bike coming back?"
-            subtitle="The condition you pick suggests where the bike should go. You can choose something else, just say why."
+            label={<>Why is the bike coming back? <InfoTip title="The condition you pick suggests where the bike should go. You can choose something else, just say why." /></>}
             locked={!rider && 'Pick the rider first'}
           >
             {/* The note sits beside the control it qualifies rather than under
@@ -296,9 +295,6 @@ export function DeboardRider() {
                 label="What condition is the bike in?"
                 options={CONDITIONS}
               />
-              <InfoStrip>
-Recovery is not offered here — that is a separate job. Choose Quality Check, In Service, or Accident.
-              </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
               <DispositionFields
@@ -331,8 +327,7 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
           </Panel>
 
           <Panel
-            label="Money"
-            subtitle="Only the rent is settled here. Damage is not priced yet."
+            label={<>Money <InfoTip title="Only the rent is settled here — damage is not priced yet. Do not guess a damage deduction: the bike has to be checked first. Whatever the repair costs is decided on the service job, and if it is set to come out of the deposit, it is taken off then. The rider is refunded after that." /></>}
             locked={!rider && 'Pick the rider first'}
           >
             {/* A number input hands back a string unless it is asked not to. */}
@@ -348,14 +343,9 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
               <DerivedField
                 label="Deposit left after rent owed"
                 value={netLabel}
-                derivation="Deposit held − rent still owed. Negative means the rent owed is more than the deposit covers."
+                info="Deposit held − rent still owed. Negative means the rent owed is more than the deposit covers."
               />
             </Box>
-            <Alert severity="info" sx={{ mt: 4 }}>
-              Do not guess a damage deduction here. The bike has to be checked first. Whatever the repair
-              costs is decided on the service job, and if it is set to come out of the deposit, it is taken
-              off then. The rider is refunded after that.
-            </Alert>
           </Panel>
           </Box>
 
@@ -364,8 +354,7 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
               the form, then check what it is about to do. */}
           <Box sx={{ position: { lg: 'sticky' }, top: 16, minWidth: 0 }}>
             <Panel
-              label="Before you finish"
-              subtitle="Here is what will happen when you confirm."
+              label={<>Before you finish <InfoTip title="Here is what will happen when you confirm: the bike movement and the service job are saved together, and the job shows up in Bikes in service straight away. The rider stays on the register as Inactive and the bike is freed up — give them another bike from Assign vehicle whenever they are ready." /></>}
               locked={!rider && 'Pick the rider first'}
             >
               <DefinitionList
@@ -402,13 +391,6 @@ Recovery is not offered here — that is a separate job. Choose Quality Check, I
                   { label: 'Rider becomes', value: 'Inactive' },
                 ]}
               />
-              <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 3 }}>
-                The bike movement and the service job are saved together. The job shows up in Bikes in service straight away.
-              </Typography>
-              <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-                The rider stays on the register as Inactive and the bike is freed up. Give them another bike from
-                Assign vehicle whenever they are ready.
-              </Typography>
               <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm the rider, where the bike goes, and the money." />
             </Panel>
           </Box>

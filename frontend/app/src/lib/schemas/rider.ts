@@ -51,7 +51,8 @@ export const onboardRiderSchema = z.object({
   localAddress: z
     .string()
     .trim()
-    .min(5, 'Local address is required')
+    .min(1, 'Local address is required')
+    .min(5, 'Min 5 characters required')
     .max(200, 'Address is too long'),
   city: z.string().trim().min(2, 'City is required'),
   state: z.string().trim().min(2, 'State is required'),

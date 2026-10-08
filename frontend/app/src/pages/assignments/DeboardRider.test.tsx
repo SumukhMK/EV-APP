@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { DeboardRider } from './DeboardRider';
@@ -29,9 +30,13 @@ describe('deboard settlement', () => {
 
   it('settles the rent but never asks the desk to guess a damage deduction', async () => {
     show();
+    const user = userEvent.setup();
     expect(await screen.findByRole('spinbutton', { name: 'Rent still owed (₹)' })).toBeInTheDocument();
     expect(screen.queryByRole('spinbutton', { name: 'Deposit being returned (₹)' })).not.toBeInTheDocument();
     expect(screen.getAllByText('Deposit left after rent owed').length).toBeGreaterThan(0);
-    expect(screen.getByText(/decided on the service job/)).toBeInTheDocument();
+    // The damage guidance lives behind the (i) on the Money panel now.
+    const moneyLabel = screen.getByText('Money', { selector: '.MuiTypography-overline' });
+    await user.hover(within(moneyLabel).getByRole('img', { name: /Only the rent is settled here/ }));
+    expect(await screen.findByText(/decided on the service job/)).toBeInTheDocument();
   });
 });

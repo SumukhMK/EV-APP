@@ -4,6 +4,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import { useFormContext } from 'react-hook-form';
 import { StepSection } from '../../../components/StepSection';
 import { VerifyField } from '../../../components/VerifyField';
+import { MandatoryLabel } from '../../../components/form/MandatoryLabel';
 import { digitsOnly } from '../../../lib/inputFormat';
 import type { VerifiableField, useRiderVerification } from './useRiderVerification';
 
@@ -55,7 +56,7 @@ export function RiderContactStep({ step, verification }: Props) {
     <StepSection
       step={step}
       title="Contact numbers"
-      subtitle="All three must be verified before the rider can be deployed."
+      info="All three must be verified before the rider can be deployed."
     >
       <Box
         sx={{
@@ -83,7 +84,7 @@ export function RiderContactStep({ step, verification }: Props) {
           return (
             <Box key={key}>
               <VerifyField
-                label={label}
+                label={<>{label} <MandatoryLabel /></>}
                 value={value}
                 onValueChange={handleChange}
                 code={verification.codeOf(key)}

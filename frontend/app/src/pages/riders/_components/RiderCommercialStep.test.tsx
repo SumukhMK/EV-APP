@@ -25,7 +25,7 @@ function Harness({ onValues }: { onValues: (v: OnboardRiderValues) => void }) {
 describe('working platform', () => {
   it('starts empty rather than pre-filled with "Other"', () => {
     render(<Harness onValues={() => {}} />);
-    expect(screen.getByRole('combobox', { name: 'Working platform' })).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: /Working platform/ })).toHaveValue('');
   });
 
   it('keeps a platform that was typed and never picked from the list', async () => {
@@ -33,7 +33,7 @@ describe('working platform', () => {
     render(<Harness onValues={(v) => { values = v; }} />);
     const user = userEvent.setup();
 
-    await user.type(screen.getByRole('combobox', { name: 'Working platform' }), 'Zepto Now');
+    await user.type(screen.getByRole('combobox', { name: /Working platform/ }), 'Zepto Now');
     await user.tab();
     await user.click(screen.getByRole('button', { name: 'read' }));
 
@@ -45,7 +45,7 @@ describe('working platform', () => {
     render(<Harness onValues={(v) => { values = v; }} />);
     const user = userEvent.setup();
 
-    await user.type(screen.getByRole('combobox', { name: 'Working platform' }), 'Zom');
+    await user.type(screen.getByRole('combobox', { name: /Working platform/ }), 'Zom');
     await user.click(await screen.findByRole('option', { name: 'Zomato' }));
     await user.click(screen.getByRole('button', { name: 'read' }));
 

@@ -24,7 +24,7 @@ describe('return destinations', () => {
   it.each(['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const)('shows all three operational destinations for %s', async (condition) => {
     const user = userEvent.setup();
     render(<ReturnForm condition={condition} />);
-    await user.click(screen.getByRole('combobox', { name: 'Where does the bike go next?' }));
+    await user.click(screen.getByRole('combobox', { name: /Where does the bike go next/ }));
     for (const label of ['Quality Check', 'In Service', 'Accident']) {
       expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
     }
@@ -42,7 +42,7 @@ describe('return destinations', () => {
     const user = userEvent.setup();
     const { rerender } = render(<ReturnForm condition="NONE" />);
     // Default for NONE is QC_PENDING. Override to In Service.
-    await user.click(screen.getByRole('combobox', { name: 'Where does the bike go next?' }));
+    await user.click(screen.getByRole('combobox', { name: /Where does the bike go next/ }));
     await user.click(screen.getByRole('option', { name: 'In Service' }));
     rerender(<ReturnForm condition="ACCIDENT" />);
     expect(screen.getByRole('status')).toHaveTextContent('UNDER_REPAIR');
