@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { base, neutral, status, type StatusTone } from '../theme/tokens';
 import { hoverLift, riseIn } from '../theme/motion';
 import { Mono } from './Mono';
+import { TOUR_ANCHORS, tourAnchor } from '../tour/anchors';
 
 export interface StatTile {
   label: string;
@@ -30,6 +31,7 @@ export interface StatTile {
 export function StatTiles({ tiles }: { tiles: StatTile[] }) {
   return (
     <Box
+      {...tourAnchor(TOUR_ANCHORS.statTiles)}
       sx={{
         display: 'grid',
         // The strip reflows rather than scrolls: seven tiles across on a wide

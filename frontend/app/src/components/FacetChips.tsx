@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import { base, fonts, neutral } from '../theme/tokens';
+import { TOUR_ANCHORS, tourAnchor } from '../tour/anchors';
 
 export interface FacetOption<V extends string> {
   value: V;
@@ -23,7 +24,7 @@ export function FacetChips<V extends string>({
   onChange: (next: V) => void;
 }) {
   return (
-    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+    <Box {...tourAnchor(TOUR_ANCHORS.facets)} sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
       {options.map((o) => {
         const selected = o.value === value;
         return (

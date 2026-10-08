@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 import { accent, base } from '../theme/tokens';
+import { TOUR_ANCHORS, tourAnchor } from '../tour/anchors';
 
 /**
  * A numbered section of a long form.
@@ -26,6 +27,7 @@ export function StepSection({
     <Box
       component="section"
       id={`step-${step}`}
+      {...(step === 1 ? tourAnchor(TOUR_ANCHORS.firstStep) : {})}
       sx={{
         background: base.surface,
         borderRadius: 2,

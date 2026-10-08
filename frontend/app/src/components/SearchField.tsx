@@ -1,6 +1,7 @@
 import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/SearchOutlined';
 import TextField from '@mui/material/TextField';
+import { TOUR_ANCHORS, tourAnchor } from '../tour/anchors';
 
 /** The one search box. Uncontrolled debouncing is the caller's business. */
 export function SearchField({
@@ -19,6 +20,7 @@ export function SearchField({
 }) {
   return (
     <TextField
+      {...tourAnchor(TOUR_ANCHORS.search)}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
