@@ -1,13 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Popper from '@mui/material/Popper';
 import Typography from '@mui/material/Typography';
 import { useAnchor } from './useAnchor';
 import { useTour } from './tourContext';
-import { base, neutral, radius } from '../theme/tokens';
+import { base, mix, neutral, radius } from '../theme/tokens';
 import { fadeIn } from '../theme/motion';
 import { BUBBLE_WIDTH, placementFor } from './placement';
+import { useTargetRect, type TargetRect } from './useTargetRect';
 import { Mono } from '../components/Mono';
 
 /**
@@ -40,7 +41,20 @@ export function TourStage() {
   const tour = useTour();
   const step = tour.active ? tour.active.steps[tour.active.index] : null;
   const anchor = useAnchor(step?.anchor ?? null, GRACE_MS[step?.onMissing ?? 'skip']);
+  /**
+   * Followed every frame rather than measured once. The ring used to be written
+   * out as fixed coordinates taken during render, so a smooth scroll left it
+   * behind — ringing "Sign out" while the bubble explained Money.
+   */
+  const targetRect = useTargetRect(anchor.status === 'found' ? anchor.element : null);
   const bubble = useRef<HTMLDivElement>(null);
+  /**
+   * State, not a ref: Popper's arrow modifier needs the node *during render* to
+   * position it, and reading `ref.current` there is exactly the thing React
+   * warns about. Holding it in state makes the first render without the caret
+   * and the second with it, which is what the modifier expects.
+   */
+  const [caret, setCaret] = useState<HTMLElement | null>(null);
 
   const { active, next, skip } = tour;
 
@@ -150,7 +164,7 @@ export function TourStage() {
           zIndex: 1300,
           display: 'grid',
           placeItems: 'center',
-          background: 'rgba(0,0,0,0.55)',
+          background: 'rgba(0,0,0,0.72)',
         }}
       >
         {card}
@@ -160,22 +174,49 @@ export function TourStage() {
 
   return (
     <>
-      <Spotlight element={anchor.element} />
+      {targetRect && <Spotlight rect={targetRect} />}
       <Popper
         open
         anchorEl={anchor.element}
         // Beside a narrow target, underneath a wide one. `flip` alone cannot
         // save a target that spans the window, because flipping needs a side
         // with room on it — see `placement.ts`.
-        placement={placementFor(anchor.element.getBoundingClientRect(), window.innerWidth)}
+        placement={placementFor(
+          targetRect
+            ? { left: targetRect.left, right: targetRect.left + targetRect.width, width: targetRect.width }
+            : anchor.element.getBoundingClientRect(),
+          window.innerWidth,
+        )}
         modifiers={[
-          { name: 'offset', options: { offset: [0, 14] } },
+          { name: 'offset', options: { offset: [0, 18] } },
           { name: 'preventOverflow', options: { padding: 12 } },
           { name: 'flip', options: { padding: 12 } },
+          { name: 'arrow', options: { element: caret, padding: 12 } },
         ]}
         sx={{ zIndex: 1301 }}
       >
-        {card}
+        <Box sx={{ position: 'relative' }}>
+          {/* Without this the words and the ring are two unrelated things on a
+              dark screen, and the reader has to guess which of them the bubble
+              is about. */}
+          <Box
+            ref={setCaret}
+            sx={{
+              position: 'absolute',
+              width: 10,
+              height: 10,
+              background: base.raised,
+              borderTop: `1px solid ${neutral[800]}`,
+              borderLeft: `1px solid ${neutral[800]}`,
+              '&[data-popper-arrow]': { zIndex: 1 },
+              '[data-popper-placement^="right"] &': { left: -6, transform: 'rotate(-45deg)' },
+              '[data-popper-placement^="left"] &': { right: -6, transform: 'rotate(135deg)' },
+              '[data-popper-placement^="bottom"] &': { top: -6, transform: 'rotate(45deg)' },
+              '[data-popper-placement^="top"] &': { bottom: -6, transform: 'rotate(-135deg)' },
+            }}
+          />
+          {card}
+        </Box>
       </Popper>
     </>
   );
@@ -188,10 +229,18 @@ export function TourStage() {
  * *except* the target, which is cheaper and sharper than masking the page and
  * keeps the target's own rounding. `pointerEvents: none` so the highlight never
  * eats a click meant for the thing underneath it.
+ *
+ * Takes a rect rather than an element on purpose: the rect arrives from
+ * `useTargetRect` and changes as the target moves, where reading it from the
+ * element here would freeze it at whatever it was on the render that drew the
+ * ring. That freezing was the bug.
+ *
+ * The treatment is louder than it was. A 1px line and a 0.55 dim is too polite
+ * on a UI that is already dark — the ring has to be findable at a glance, which
+ * is the whole job.
  */
-function Spotlight({ element }: { element: HTMLElement }) {
-  const rect = element.getBoundingClientRect();
-  const pad = 4;
+function Spotlight({ rect }: { rect: TargetRect }) {
+  const pad = 6;
 
   return (
     <Box
@@ -205,8 +254,8 @@ function Spotlight({ element }: { element: HTMLElement }) {
         width: rect.width + pad * 2,
         height: rect.height + pad * 2,
         borderRadius: radius.sm,
-        boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-        border: `1px solid ${base.accent}`,
+        boxShadow: `0 0 0 9999px rgba(0,0,0,0.72), 0 0 0 4px ${mix(base.accent, 28)}`,
+        border: `2px solid ${base.accent}`,
         ...fadeIn,
       }}
     />

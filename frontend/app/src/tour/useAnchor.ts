@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { anchorSelector } from './anchors';
+import { needsScroll, viewportFor } from './scroll';
 
 /**
  * Resolving a step's target, including the case where it is not there yet.
@@ -145,13 +146,22 @@ function isLaidOut(element: HTMLElement): boolean {
 }
 
 /**
- * Brings the target on screen before it is pointed at.
+ * Brings the target on screen before it is pointed at — but only if it is not
+ * already comfortably there.
  *
- * The rail scrolls, and Admin is the last section in it: on a short window it
- * sits below the fold, so without this the tour highlights a region nobody can
- * see and places the bubble off-screen beside it. `nearest` rather than
- * `center` so a target already in view is not nudged for no reason.
+ * `block: 'nearest'` on every step was the old behaviour and it did two unkind
+ * things: it nudged targets that were already in plain view, and the ones it
+ * did move it parked flush against the edge they came in from, leaving no room
+ * beside them for the bubble meant to explain them. `scroll.ts` holds the rule;
+ * this just obeys it.
  */
 function reveal(element: HTMLElement): void {
-  element.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  if (!element.scrollIntoView) return;
+  const rect = element.getBoundingClientRect();
+  // jsdom reports zeroes for everything, so the rule cannot be evaluated there;
+  // scrolling unconditionally keeps the hook's existing tests honest about the
+  // one thing they can observe, which is that it was asked to scroll at all.
+  const measurable = rect.height > 0 || rect.width > 0;
+  if (measurable && !needsScroll(rect, viewportFor(element))) return;
+  element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
 }
