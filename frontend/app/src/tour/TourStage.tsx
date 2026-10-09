@@ -9,6 +9,7 @@ import { base, mix, neutral, radius } from '../theme/tokens';
 import { fadeIn } from '../theme/motion';
 import { BUBBLE_WIDTH, placementFor } from './placement';
 import { useTargetRect, type TargetRect } from './useTargetRect';
+import { useScrollLock } from './useScrollLock';
 import { Mono } from '../components/Mono';
 
 /**
@@ -57,6 +58,10 @@ export function TourStage() {
   const [caret, setCaret] = useState<HTMLElement | null>(null);
 
   const { active, next, skip } = tour;
+
+  // The page holds still while the tour is talking — otherwise the reader can
+  // scroll the target out from under its own highlight.
+  useScrollLock(active !== null);
 
   /**
    * A target that never arrived is not worth stalling on. `useAnchor` has

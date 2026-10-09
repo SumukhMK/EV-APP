@@ -139,7 +139,180 @@ const tours: Record<string, TourStep[]> = {
       body: 'These move as you record each payment.',
     },
   ],
+  // ── Fleet ────────────────────────────────────────────────────────────────
+  '/vehicles/new': [
+    {
+      id: 'vehicles/new:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Add vehicle',
+      body: 'Induct one bike. For a whole spreadsheet, use bulk upload.',
+    },
+  ],
+
+  '/vehicles/bulk-upload': [
+    {
+      id: 'vehicles/bulk-upload:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Bulk upload',
+      body: 'Bring in a spreadsheet of bikes. You see a preview before anything saves.',
+    },
+  ],
+
+  '/vehicles/:vehicleId/edit': [
+    {
+      id: 'vehicles/edit:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Edit vehicle',
+      body: "Correct a bike's record. Its history cannot be edited.",
+    },
+  ],
+
+  // ── Service management ───────────────────────────────────────────────────
+  '/service/queues': [
+    {
+      id: 'service/queues:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Bikes in service',
+      body: 'Every bike off the road, and the stage it has reached.',
+    },
+  ],
+
+  '/service/qc': [
+    {
+      id: 'service/qc:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'QC queue',
+      body: 'Bikes waiting to be signed off before they go out again.',
+    },
+  ],
+
+  '/service/inspection': [
+    {
+      id: 'service/inspection:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Inspection',
+      body: 'Record what you found on a bike, point by point.',
+    },
+  ],
+
+  '/service/assistance': [
+    {
+      id: 'service/assistance:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Help desk',
+      body: 'Riders who called for help. Open jobs sit at the top.',
+    },
+  ],
+
+  '/service/assistance/new': [
+    {
+      id: 'service/assistance/new:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'New help job',
+      body: "Log a rider's problem and who is going out to it.",
+    },
+  ],
+
+  '/service/assistance/:jobId': [
+    {
+      id: 'service/assistance/detail:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'One help job',
+      body: 'What was reported, what was done, and where it stands.',
+    },
+  ],
+
+  // ── Riders ───────────────────────────────────────────────────────────────
+  '/assignments/exchange': [
+    {
+      id: 'assignments/exchange:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Exchange vehicle',
+      body: 'Move a rider onto a different bike. The old one comes back.',
+    },
+  ],
+
+  '/assignments/deboard': [
+    {
+      id: 'assignments/deboard:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Deboard rider',
+      body: "Take the bike back and close the rider's time on it.",
+    },
+  ],
+
+  // ── Money ────────────────────────────────────────────────────────────────
+  '/payments/run/:riderId': [
+    {
+      id: 'payments/receipt:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Receipt',
+      body: "One rider's week: what was due, and what came in.",
+    },
+  ],
+
+  '/payments/overdue': [
+    {
+      id: 'payments/overdue:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Overdue riders',
+      body: 'Who is behind on rent, and by how much.',
+    },
+    {
+      id: 'payments/overdue:tiles',
+      anchor: TOUR_ANCHORS.statTiles,
+      title: 'The damage',
+      body: 'What is outstanding in total, before you open anyone.',
+    },
+  ],
+
+  '/recovery': [
+    {
+      id: 'recovery:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Recovery',
+      body: 'Money chased after a rider left, and what came back.',
+    },
+  ],
+
+  // ── Admin ────────────────────────────────────────────────────────────────
+  '/users': [
+    {
+      id: 'users:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Users & roles',
+      body: 'Who can sign in, and what each of them is allowed to do.',
+    },
+  ],
+
+  '/audit': [
+    {
+      id: 'audit:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Audit log',
+      body: 'Every change anyone made, with their name against it.',
+    },
+  ],
+
+  '/design-tokens': [
+    {
+      id: 'design-tokens:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Design tokens',
+      body: 'The colours and type the app is built from. Tooling, not product.',
+    },
+  ],
+
+  '/flows': [
+    {
+      id: 'flows:what',
+      anchor: TOUR_ANCHORS.pageTitle,
+      title: 'Flows',
+      body: 'How a bike moves from one state to the next, drawn out.',
+    },
+  ],
 };
+
 
 export const PAGE_TOURS = tours;
 

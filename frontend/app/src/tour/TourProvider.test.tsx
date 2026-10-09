@@ -48,7 +48,7 @@ function Menu() {
       <button onClick={tour.replayPage}>replay page</button>
       <button onClick={tour.unmute}>unmute</button>
       <Link to="/vehicles">go to vehicles</Link>
-      <Link to="/design-tokens">go to design tokens</Link>
+      <Link to="/qc">go to nowhere</Link>
     </div>
   );
 }
@@ -89,7 +89,7 @@ describe('TourProvider', () => {
     it('stays out of the way once the platform tour has been seen', () => {
       markPlatformSeen(EMAIL);
 
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       expect(screen.getByText('idle')).toBeInTheDocument();
     });
@@ -97,7 +97,7 @@ describe('TourProvider', () => {
     it('stays out of the way for someone who asked not to be shown things', () => {
       setMuted(EMAIL, true);
 
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       expect(screen.getByText('idle')).toBeInTheDocument();
     });
@@ -143,7 +143,7 @@ describe('TourProvider', () => {
     });
 
     it('ends after the last step, and remembers it was seen', async () => {
-      renderTour('/design-tokens', 'SERVICE_MANAGER');
+      renderTour('/qc', 'SERVICE_MANAGER');
       for (let i = 0; i < 6; i++) await userEvent.click(screen.getByText('next'));
 
       expect(screen.getByText('idle')).toBeInTheDocument();
@@ -151,7 +151,7 @@ describe('TourProvider', () => {
     });
 
     it('skipping counts as seen, so it does not reappear next login', async () => {
-      renderTour('/design-tokens');
+      renderTour('/qc');
       await userEvent.click(screen.getByText('skip'));
 
       expect(screen.getByText('idle')).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe('TourProvider', () => {
     });
 
     it('muting stops the tour and everything after it', async () => {
-      renderTour('/design-tokens');
+      renderTour('/qc');
       await userEvent.click(screen.getByText('mute'));
 
       expect(screen.getByText('idle')).toBeInTheDocument();
@@ -193,10 +193,10 @@ describe('TourProvider', () => {
       expect(screen.getByText('idle')).toBeInTheDocument();
     });
 
-    it('shows nothing on a screen nobody has written a sentence for', () => {
+    it('shows nothing on a legacy path that only redirects', () => {
       markPlatformSeen(EMAIL);
 
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       expect(screen.getByText('idle')).toBeInTheDocument();
     });
@@ -211,7 +211,7 @@ describe('TourProvider', () => {
       renderTour('/dashboard');
       expect(screen.getByTestId('step-id')).toHaveTextContent('dashboard:what');
 
-      await userEvent.click(screen.getByText('go to design tokens'));
+      await userEvent.click(screen.getByText('go to nowhere'));
 
       expect(screen.getByText('idle')).toBeInTheDocument();
     });
@@ -229,7 +229,7 @@ describe('TourProvider', () => {
       markPlatformSeen(EMAIL);
       renderTour('/dashboard');
 
-      await userEvent.click(screen.getByText('go to design tokens'));
+      await userEvent.click(screen.getByText('go to nowhere'));
 
       expect(readProgress(EMAIL).pagesSeen).toContain('/dashboard');
     });
@@ -257,7 +257,7 @@ describe('TourProvider', () => {
   describe('replaying from the ? menu', () => {
     it('replays the platform tour even though it has been seen', async () => {
       markPlatformSeen(EMAIL);
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       await userEvent.click(screen.getByText('replay platform'));
 
@@ -277,16 +277,16 @@ describe('TourProvider', () => {
 
     it('replays on request even for someone who muted, so muting is not a one-way door', async () => {
       setMuted(EMAIL, true);
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       await userEvent.click(screen.getByText('replay platform'));
 
       expect(screen.getByTestId('step-id')).toHaveTextContent('welcome');
     });
 
-    it('does nothing when asked to replay a screen that has no tour', async () => {
+    it('does nothing when asked to replay a path that has no tour', async () => {
       markPlatformSeen(EMAIL);
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       await userEvent.click(screen.getByText('replay page'));
 
@@ -304,13 +304,13 @@ describe('TourProvider', () => {
     it('tells the menu when this screen has no tour to offer', () => {
       markPlatformSeen(EMAIL);
 
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       expect(screen.getByTestId('menu')).toHaveTextContent('no page tour');
     });
 
     it('tells the menu the user is muted, so it can offer to unmute', async () => {
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       await userEvent.click(screen.getByText('mute'));
 
@@ -319,7 +319,7 @@ describe('TourProvider', () => {
 
     it('unmutes, and the choice sticks', async () => {
       setMuted(EMAIL, true);
-      renderTour('/design-tokens');
+      renderTour('/qc');
 
       await userEvent.click(screen.getByText('unmute'));
 
