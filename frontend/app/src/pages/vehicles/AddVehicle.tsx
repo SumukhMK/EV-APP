@@ -13,11 +13,13 @@ import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { SelectField } from '../../components/form/SelectField';
 import { DateField } from '../../components/form/DateField';
+import { MandatoryLabel } from '../../components/form/MandatoryLabel';
 import { createVehicle } from '../../lib/api/vehicles';
 import { ApiError } from '../../lib/api/client';
 import { ADD_VEHICLE_DEFAULTS, addVehicleSchema, type AddVehicleValues } from '../../lib/schemas/vehicle';
 import { useFormOptions } from '../../lib/useFormOptions';
 import { layout } from '../../theme/tokens';
+import { shakeStyles } from '../../hooks/useShakeValidation';
 
 /**
  * A new bike enters as INDUCTED, never as READY_TO_DEPLOY — it has to pass
@@ -30,7 +32,7 @@ export function AddVehicle() {
   // The tenant's hubs and models, not the seed's. A hub added through the
   // API never appeared here while the lists were constants.
   const reference = useFormOptions();
-  const [banner, setBanner] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ message: string; severity: 'error' | 'success' } | null>(null);
 
   const form = useForm<AddVehicleValues>({
     resolver: zodResolver(addVehicleSchema),
@@ -57,25 +59,57 @@ export function AddVehicle() {
       if (error instanceof ApiError && error.field) {
         form.setError(error.field as keyof AddVehicleValues, { message: error.message });
       } else {
-        setBanner(error instanceof Error ? error.message : 'Could not save the vehicle');
+        setBanner({ message: error instanceof Error ? error.message : 'Could not save the vehicle', severity: 'error' });
       }
     },
   });
 
+  /**
+   * Take the operator to the first thing that is wrong. A refused submit that
+   * only reddened a field below the fold looked like nothing happened. Scrolls
+   * the first red field into view, shakes it, and puts the cursor in it — the
+   * same guidance the onboard rider form gives.
+   */
+  const goToProblem = () => {
+    // The error props land on the fields after the submit handler returns, so
+    // the first red field is looked up on the next tick.
+    setTimeout(() => {
+      const invalid = document.querySelector<HTMLElement>('form [aria-invalid="true"]');
+      const target = invalid?.closest('.MuiFormControl-root') ?? invalid;
+      if (!target) return;
+      target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      target.classList.add('shake-field');
+      setTimeout(() => target.classList.remove('shake-field'), 600);
+      invalid?.focus?.();
+    }, 0);
+  };
+
   const submit = (andAnother: boolean) =>
-    form.handleSubmit(async (values) => {
-      setBanner(null);
-      // Errors are shown by the mutation's onError (on the field, or as the
-      // banner); the rejection here is the same error and needs no second home.
-      const created = await save.mutateAsync(values).catch(() => null);
-      if (!created) return;
-      if (andAnother) {
-        form.reset({ ...ADD_VEHICLE_DEFAULTS, hub: values.hub, make: values.make, model: values.model });
-        setBanner(`${created.id} added. The form is ready for the next one.`);
-      } else {
-        navigate(`/vehicles/${created.id}`, { state: { notice: `${created.id} added to the fleet — it is Onboarding until its first check` } });
-      }
-    });
+    form.handleSubmit(
+      async (values) => {
+        setBanner(null);
+        // Errors are shown by the mutation's onError (on the field, or as the
+        // banner); the rejection here is the same error and needs no second home.
+        const created = await save.mutateAsync(values).catch(() => null);
+        if (!created) return;
+        if (andAnother) {
+          form.reset({ ...ADD_VEHICLE_DEFAULTS, hub: values.hub, make: values.make, model: values.model });
+          setBanner({ message: `${created.id} added. The form is ready for the next one.`, severity: 'success' });
+        } else {
+          navigate(`/vehicles/${created.id}`, { state: { notice: `${created.id} added to the fleet — it is Onboarding until its first check` } });
+        }
+      },
+      (errors) => {
+        const count = Object.keys(errors).length;
+        setBanner({
+          message: count === 1
+            ? 'One field needs attention — it is marked below.'
+            : `${count} fields need attention — the first is marked below.`,
+          severity: 'error',
+        });
+        goToProblem();
+      },
+    );
 
   const field = (name: keyof AddVehicleValues) => ({
     ...form.register(name),
@@ -84,7 +118,7 @@ export function AddVehicle() {
   });
 
   return (
-    <Box component="form" onSubmit={submit(false)} noValidate>
+    <Box component="form" onSubmit={submit(false)} noValidate sx={shakeStyles}>
       <PageHeader
         section="Fleet / Vehicles"
         title="Add vehicle"
@@ -105,16 +139,16 @@ export function AddVehicle() {
       />
 
       {banner && (
-        <Alert severity={save.isError ? 'error' : 'success'} variant="outlined" sx={{ mt: 5 }}>
-          {banner}
+        <Alert severity={banner.severity} variant="outlined" sx={{ mt: 5 }}>
+          {banner.message}
         </Alert>
       )}
 
       <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: layout.readingMax }}>
         <Panel label="Identity">
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-            <TextField label="Vehicle id" placeholder="BLRSS0451" {...field('id')} />
-            <TextField label="Chassis number" placeholder="17 characters" {...field('chassisNumber')} />
+            <TextField label={<>Vehicle id <MandatoryLabel /></>} placeholder="BLRSS0451" {...field('id')} />
+            <TextField label={<>Chassis number <MandatoryLabel /></>} placeholder="17 characters" {...field('chassisNumber')} />
             <SelectField
               control={form.control}
               name="hub"
@@ -126,7 +160,8 @@ export function AddVehicle() {
               name="purchaseDate"
               render={({ field: f, fieldState }) => (
                 <DateField
-                  label="Purchase date"
+                  label={<>Purchase date <MandatoryLabel /></>}
+                  labelText="Purchase date"
                   value={f.value ?? ''}
                   onChange={f.onChange}
                   error={Boolean(fieldState.error)}
@@ -139,11 +174,11 @@ export function AddVehicle() {
 
         <Panel label="Specification">
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-            <TextField label="Make" placeholder="e-Connects" {...field('make')} />
+            <TextField label={<>Make <MandatoryLabel /></>} placeholder="e-Connects" {...field('make')} />
             <SelectField
               control={form.control}
               name="model"
-              label="Model"
+              label={<>Model <MandatoryLabel /></>}
               options={reference.including(reference.models, modelValue)}
             />
             <SelectField

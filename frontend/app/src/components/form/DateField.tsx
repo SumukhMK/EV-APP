@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -28,13 +29,16 @@ function dateMask(value: string): string {
  */
 export function DateField({
   label,
+  labelText,
   value,
   onChange,
   error,
   helperText,
   fullWidth = true,
 }: {
-  label: string;
+  label: ReactNode;
+  /** Plain-text name for the calendar button; falls back to a string label. */
+  labelText?: string;
   value: string;
   onChange: (next: string) => void;
   error?: boolean;
@@ -42,6 +46,7 @@ export function DateField({
   fullWidth?: boolean;
 }) {
   const picker = useRef<HTMLInputElement>(null);
+  const pickName = labelText ?? (typeof label === 'string' ? label : 'date');
 
   return (
     <Box sx={{ position: 'relative', width: fullWidth ? '100%' : undefined }}>
@@ -60,7 +65,7 @@ export function DateField({
               <InputAdornment position="end">
                 <IconButton
                   size="small"
-                  aria-label={`Pick ${label.toLowerCase()}`}
+                  aria-label={`Pick ${pickName.toLowerCase()}`}
                   onClick={() => {
                     const el = picker.current;
                     if (!el) return;
