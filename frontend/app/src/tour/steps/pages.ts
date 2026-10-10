@@ -22,7 +22,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'dashboard:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Dashboard',
-      body: 'The fleet at a glance. Where the bikes are, right now.',
+      wide: true,
+      body:
+        "The fleet at a glance: how many bikes you own, how many are out earning, and how many are off the road. Below the counts, deployments month by month and a service and inventory summary. It is a read — nothing here changes anything.",
     },
     {
       id: 'dashboard:tiles',
@@ -37,7 +39,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'operations/today:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: "Today's operations",
-      body: 'Everything due today, in one list. Work top to bottom.',
+      wide: true,
+      body:
+        "What needs doing today, in one place: where the bikes are now, how they have moved, how they came in for service, and how busy each hub is. Click any number to see exactly which bikes it counts.",
     },
     {
       id: 'operations/today:tiles',
@@ -52,7 +56,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'vehicles:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Vehicles',
-      body: 'Every bike you own, and who is on it.',
+      wide: true,
+      body:
+        "Every bike you own, one row each, with its registration, model, hub, state and the rider holding it. Search or filter to find one, then open a row for its full record. New bikes are added from here too, singly or from a spreadsheet.",
     },
     {
       id: 'vehicles:search',
@@ -73,7 +79,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'vehicles/detail:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'One bike',
-      body: 'Its whole life: riders, services, payments, history.',
+      wide: true,
+      body:
+        "One bike's whole life: its specification, every rider who has held it, every service it has been through, and the lifecycle events that moved it between states. Nothing here is editable — this is the record, and corrections are made on the edit screen.",
     },
   ],
 
@@ -82,7 +90,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'riders:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Riders',
-      body: 'Everyone on your register. Active riders are holding a bike.',
+      wide: true,
+      body:
+        "Everyone on your register. Active riders are holding a bike right now; inactive riders are on the books without one. Search by name or phone, filter by status, and open anyone for their full record.",
     },
     {
       id: 'riders:facets',
@@ -97,7 +107,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'riders/detail:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'One rider',
-      body: 'Their bike, their payments, and everything they have done.',
+      wide: true,
+      body:
+        "One rider's record: who they are and how to reach them, the bike they hold, what they have paid and what they owe, and every assignment, exchange and deboarding they have been through.",
     },
   ],
 
@@ -106,7 +118,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'riders/onboard:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Onboard rider',
-      body: 'Put someone new on the register. It does not assign a bike.',
+      wide: true,
+      body:
+        "Put a new rider on the register: who they are, how to reach them, where they live, and the commercial terms agreed. The sections can be filled in any order, so take them as the rider gives them. This does not hand over a bike — assign one afterwards.",
     },
     {
       id: 'riders/onboard:order',
@@ -121,7 +135,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'assignments/assign:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Assign vehicle',
-      body: 'Hand a bike to a rider. One rider, one bike.',
+      wide: true,
+      body:
+        "Hand a bike to a rider who does not have one. Pick the rider, pick an available bike, confirm. A rider holds one bike at a time, so only riders who are waiting and bikes that are ready to deploy appear here.",
     },
   ],
 
@@ -130,7 +146,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'payments/run:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Weekly payment run',
-      body: "This week's collections, rider by rider. Record what came in.",
+      wide: true,
+      body:
+        "This week's collections, rider by rider: what each one owes and what has come in. Record payments as they are taken and the totals at the top move with you. Open a rider for the receipt behind their line.",
     },
     {
       id: 'payments/run:tiles',
@@ -145,7 +163,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'vehicles/new:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Add vehicle',
-      body: 'Induct one bike. For a whole spreadsheet, use bulk upload.',
+      wide: true,
+      body:
+        "Induct one bike into the fleet: its identity and chassis number, make and model, battery, the devices fitted to it, and the hub it belongs to. For a whole spreadsheet of bikes at once, use bulk upload instead.",
     },
   ],
 
@@ -154,7 +174,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'vehicles/bulk-upload:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Bulk upload',
-      body: 'Bring in a spreadsheet of bikes. You see a preview before anything saves.',
+      wide: true,
+      body:
+        "Bring a spreadsheet of bikes in at once. The file is checked first — you see which columns were recognised, which are missing, and a row-by-row preview of what will be created. Nothing is saved until you confirm, and only clean rows are imported.",
     },
   ],
 
@@ -163,7 +185,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'vehicles/edit:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Edit vehicle',
-      body: "Correct a bike's record. Its history cannot be edited.",
+      wide: true,
+      body:
+        "Correct a bike's record: make, model, battery, devices, hub. Only the fields that describe the bike can be changed. Its services, its assignments and its history are a record of what happened and cannot be edited here.",
     },
   ],
 
@@ -173,7 +197,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'service/queues:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Bikes in service',
-      body: 'Every bike off the road, and the stage it has reached.',
+      wide: true,
+      body:
+        "Every bike that is off the road, and the stage it has reached. Filter by queue, status or hub to look at one part of the workshop at a time. Open a job to see what was reported and what has been done to it.",
     },
   ],
 
@@ -182,7 +208,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'service/qc:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'QC queue',
-      body: 'Bikes waiting to be signed off before they go out again.',
+      wide: true,
+      body:
+        "Bikes that have been worked on and are waiting to be signed off before they go back out. This is the last gate: a bike passes and returns to the fleet, or it fails and goes back to the workshop.",
     },
   ],
 
@@ -191,7 +219,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'service/inspection:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Inspection',
-      body: 'Record what you found on a bike, point by point.',
+      wide: true,
+      body:
+        "Record what you found on a bike, point by point. The result decides which queue the bike goes to next, so it is worth filling in from the bike in front of you rather than from memory.",
     },
   ],
 
@@ -200,7 +230,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'service/assistance:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Help desk',
-      body: 'Riders who called for help. Open jobs sit at the top.',
+      wide: true,
+      body:
+        "Riders who called for help, with what was reported, how the bike reached you, and where each job has got to. Filter by status, source or hub to narrow it down, or start a new job from here.",
     },
   ],
 
@@ -209,7 +241,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'service/assistance/new:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'New help job',
-      body: "Log a rider's problem and who is going out to it.",
+      wide: true,
+      body:
+        "Log a rider's problem and get it moving: what happened, which bike, how bad the damage is, and how the bike reached you. Those answers decide which queue the job lands in, so they are worth getting right.",
     },
   ],
 
@@ -218,7 +252,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'service/assistance/detail:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'One help job',
-      body: 'What was reported, what was done, and where it stands.',
+      wide: true,
+      body:
+        "One help job end to end: what the rider reported, how the bike came in, everything done to it so far, and the quality check that closes it. The job is moved to its next stage from here.",
     },
   ],
 
@@ -228,7 +264,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'assignments/exchange:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Exchange vehicle',
-      body: 'Move a rider onto a different bike. The old one comes back.',
+      wide: true,
+      body:
+        "Move a rider from the bike they hold onto a different one — a swap, not a second bike. The old bike comes back into the fleet and goes wherever its condition sends it. Only riders currently holding a bike appear here.",
     },
   ],
 
@@ -237,7 +275,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'assignments/deboard:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Deboard rider',
-      body: "Take the bike back and close the rider's time on it.",
+      wide: true,
+      body:
+        "Take the bike back and close a rider's time on it. The bike returns to the fleet; the rider stays on the register as inactive, so their history is kept. Only riders currently holding a bike appear here.",
     },
   ],
 
@@ -247,7 +287,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'payments/receipt:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Receipt',
-      body: "One rider's week: what was due, and what came in.",
+      wide: true,
+      body:
+        "One rider's week in detail: who they are, what they were charged and why, and the payment recorded against it. This is the receipt sitting behind a single line in the weekly payment run.",
     },
   ],
 
@@ -256,7 +298,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'payments/overdue:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Overdue riders',
-      body: 'Who is behind on rent, and by how much.',
+      wide: true,
+      body:
+        "Who is behind on rent and by how much, worst first. The totals at the top say how much is outstanding across the whole fleet before you open anyone. Use it to decide who to chase today.",
     },
     {
       id: 'payments/overdue:tiles',
@@ -271,7 +315,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'recovery:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Recovery',
-      body: 'Money chased after a rider left, and what came back.',
+      wide: true,
+      body:
+        "Money and bikes chased after a rider has gone: what still needs recovering, what has come back, and which vehicles are missing. The tail end of a rental, kept visible so it does not get forgotten.",
     },
   ],
 
@@ -281,7 +327,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'users:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Users & roles',
-      body: 'Who can sign in, and what each of them is allowed to do.',
+      wide: true,
+      body:
+        "Everyone who can sign in to FleeTech and what each of them is allowed to do. Add an account, change a role, or disable someone who has left. The roles panel explains what each role can reach — worth reading before handing one out.",
     },
   ],
 
@@ -290,7 +338,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'audit:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Audit log',
-      body: 'Every change anyone made, with their name against it.',
+      wide: true,
+      body:
+        "Every change anyone has made, newest first, with their name against it: who did what, to which record, and when. Nothing here can be edited or removed, which is rather the point of keeping it.",
     },
   ],
 
@@ -299,7 +349,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'design-tokens:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Design tokens',
-      body: 'The colours and type the app is built from. Tooling, not product.',
+      wide: true,
+      body:
+        "The colours, type and spacing the whole app is built from, shown in both light and dark. Tooling rather than product: it exists so a change to the palette can be judged in one place instead of screen by screen.",
     },
   ],
 
@@ -308,7 +360,9 @@ const tours: Record<string, TourStep[]> = {
       id: 'flows:what',
       anchor: TOUR_ANCHORS.pageTitle,
       title: 'Flows',
-      body: 'How a bike moves from one state to the next, drawn out.',
+      wide: true,
+      body:
+        "How a bike moves from one state to the next — deployed, under repair, quality check, ready to deploy, retired. A map of the rules the rest of the app enforces, drawn out so the whole path is visible at once.",
     },
   ],
 };

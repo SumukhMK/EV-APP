@@ -7,7 +7,7 @@ import { useAnchor } from './useAnchor';
 import { useTour } from './tourContext';
 import { base, mix, neutral, radius } from '../theme/tokens';
 import { fadeIn } from '../theme/motion';
-import { BUBBLE_WIDTH, placementFor } from './placement';
+import { BUBBLE_WIDTH, WIDE_BUBBLE_WIDTH, placementFor } from './placement';
 import { useTargetRect, type TargetRect } from './useTargetRect';
 import { useScrollLock } from './useScrollLock';
 import { Mono } from '../components/Mono';
@@ -116,7 +116,7 @@ export function TourStage() {
       aria-labelledby="tour-title"
       aria-describedby="tour-body"
       sx={{
-        width: { xs: 'min(88vw, 320px)', sm: BUBBLE_WIDTH },
+        width: { xs: 'min(92vw, 360px)', sm: step.wide ? WIDE_BUBBLE_WIDTH : BUBBLE_WIDTH },
         p: 5,
         borderRadius: radius.md,
         background: base.raised,
@@ -131,7 +131,15 @@ export function TourStage() {
           {step.title}
         </Typography>
       )}
-      <Typography id="tour-body" sx={{ fontSize: 13.5, lineHeight: 1.5, color: neutral[400] }}>
+      <Typography
+        id="tour-body"
+        sx={{
+          fontSize: step.wide ? 13 : 13.5,
+          // A paragraph needs more air between lines than a caption does.
+          lineHeight: step.wide ? 1.65 : 1.5,
+          color: neutral[400],
+        }}
+      >
         {step.body}
       </Typography>
 
@@ -191,6 +199,7 @@ export function TourStage() {
             ? { left: targetRect.left, right: targetRect.left + targetRect.width, width: targetRect.width }
             : anchor.element.getBoundingClientRect(),
           window.innerWidth,
+          step.wide ? WIDE_BUBBLE_WIDTH : BUBBLE_WIDTH,
         )}
         modifiers={[
           { name: 'offset', options: { offset: [0, 18] } },

@@ -95,9 +95,28 @@ describe('page tours', () => {
     }
   });
 
-  it('keeps every line short enough to read at a glance', () => {
+  /**
+   * Two kinds of step, two budgets.
+   *
+   * The first step of a screen is its *about*: it has to say what the screen
+   * is, what is on it and what you do here, so a dozen words cannot carry it.
+   * Everything after it points at one control and should stay a caption. The
+   * cap on the about is still a cap — a screen needing more than sixty words
+   * has a tour that has turned into a manual.
+   */
+  it('gives every screen an about step that actually describes it', () => {
     for (const [pattern, steps] of Object.entries(PAGE_TOURS)) {
-      for (const step of steps) {
+      const about = steps[0];
+      expect(about.wide, `${pattern} — the about step must be given room`).toBe(true);
+      const words = about.body.split(/\s+/).length;
+      expect(words, `${pattern} — about is too thin to be a description`).toBeGreaterThanOrEqual(20);
+      expect(words, `${pattern} — about has become a manual`).toBeLessThanOrEqual(60);
+    }
+  });
+
+  it('keeps the pointing steps short enough to read at a glance', () => {
+    for (const [pattern, steps] of Object.entries(PAGE_TOURS)) {
+      for (const step of steps.slice(1)) {
         expect(step.body.split(/\s+/).length, `${pattern} — ${step.id}`).toBeLessThanOrEqual(14);
       }
     }

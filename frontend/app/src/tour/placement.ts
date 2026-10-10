@@ -18,8 +18,10 @@
  * only ever be checked by eye in a browser.
  */
 
-/** Matches the `sm` width in `TourStage`; the rule needs to know what it is placing. */
+/** Matches the `sm` widths in `TourStage`; the rule needs to know what it is placing. */
 export const BUBBLE_WIDTH = 340;
+/** An *about* step carries a paragraph, so it gets a wider card — and the rule has to allow for it. */
+export const WIDE_BUBBLE_WIDTH = 460;
 
 /** Breathing room between the bubble and the window edge. */
 const GUTTER = 16;
@@ -29,8 +31,9 @@ export type Placement = 'right-start' | 'left-start' | 'bottom-start';
 export function placementFor(
   rect: { left: number; right: number; width: number },
   viewportWidth: number,
+  bubbleWidth: number = BUBBLE_WIDTH,
 ): Placement {
-  const needed = BUBBLE_WIDTH + GUTTER * 2;
+  const needed = bubbleWidth + GUTTER * 2;
 
   // A target that takes up half the window or more has no usable side, however
   // much room the window has in total.

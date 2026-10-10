@@ -38,6 +38,13 @@ export interface TourStep {
    * its welcome card.
    */
   onMissing?: 'skip' | 'card';
+  /**
+   * Give this step room: a wider card, for a step carrying a paragraph rather
+   * than a caption. The *about* step of every screen sets it, because a
+   * description of what a screen is, what is on it and what you do there does
+   * not read in a 340px tooltip.
+   */
+  wide?: boolean;
 }
 
 /** One step per nav section, in rail order, so a new section gets a step for free. */
