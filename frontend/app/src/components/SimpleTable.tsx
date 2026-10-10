@@ -4,7 +4,14 @@ import { neutral } from '../theme/tokens';
 
 export interface Column<R> {
   key: string;
-  header: string;
+  header: ReactNode;
+  /**
+   * The plain name for the column when `header` is not a bare string — e.g. a
+   * header carrying an (i) tip. Without it the tip's own text would join the
+   * column's accessible name, so a screen reader would read the whole
+   * explanation as the column title.
+   */
+  headerLabel?: string;
   align?: 'left' | 'center' | 'right';
   /**
    * A width *weight*, not a hard size. Columns are laid out as percentages of
@@ -101,6 +108,7 @@ export function SimpleTable<R>({
               <Box
                 component="th"
                 key={c.key}
+                aria-label={c.headerLabel}
                 sx={{
                   textAlign: c.align ?? 'left',
                   fontSize: 10.5,

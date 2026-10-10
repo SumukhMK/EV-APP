@@ -29,9 +29,12 @@ export function InfoTip({
   const open = Boolean(anchorEl);
 
   const toggle = (event: MouseEvent<SVGSVGElement>) => {
-    // The (i) often sits inside a field label; stop the tap from also
-    // focusing the field, which would pop the keyboard open on mobile.
+    // The (i) often sits inside a field label or a link. stopPropagation keeps
+    // the parent's own handler out; preventDefault cancels the label's focus
+    // (which would pop the keyboard open on mobile) and the anchor's
+    // navigation, so a tap on the (i) only opens the popover.
     event.stopPropagation();
+    event.preventDefault();
     // A click while hovering would otherwise leave the tooltip open next to
     // the popover; the popover is the click's answer, so drop the hover state.
     setHovered(false);

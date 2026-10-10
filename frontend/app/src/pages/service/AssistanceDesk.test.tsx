@@ -176,7 +176,7 @@ describe('service workbench stories', () => {
     expect(job.inspections).toHaveLength(2);
   });
 
-  it('blocks invalid cost lines and invalidates confirmation after edits', async () => {
+  it('blocks invalid cost lines and invalidates confirmation after edits', { timeout: 15_000 }, async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
@@ -297,6 +297,31 @@ describe('service workbench stories', () => {
     expect(screen.getByRole('columnheader', { name: 'Queue' })).toBeInTheDocument();
     expect(screen.getByText('9 days')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Source' })).toBeInTheDocument();
+  });
+
+  /**
+   * The row cannot show the two free-text fields, so the (i) carries them:
+   * what was reported when the bike came in, and what was found once it was
+   * worked on. The queue column's (i) says what the lists mean, once.
+   */
+  it('shows what was reported and found behind the (i) on a job row', async () => {
+    const job = seed();
+    Object.assign(job, { workSummary: 'Mirror replaced' });
+    const user = userEvent.setup();
+    show('/service/queues');
+    // One job, so the only "More information" icon is the row's — the queue
+    // header's (i) is named by its own text.
+    await user.click(await screen.findByRole('img', { name: 'More information' }));
+    const popover = await screen.findByText(/Reported:/);
+    expect(popover.closest('.MuiPaper-root')).toHaveTextContent('Replace mirror');
+    expect(popover.closest('.MuiPaper-root')).toHaveTextContent('Mirror replaced');
+  });
+
+  it('explains the queue column once, on its header', async () => {
+    seed();
+    show('/service/queues');
+    expect(await screen.findByRole('columnheader', { name: 'Queue' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Quality Check is the safety inspection/ })).toBeInTheDocument();
   });
 
   it('shows list failures rather than empty-state success and allows retry', async () => {

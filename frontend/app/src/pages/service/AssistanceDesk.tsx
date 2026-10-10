@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import SupportAgentIcon from '@mui/icons-material/SupportAgentOutlined';
 import AddIcon from '@mui/icons-material/AddOutlined';
 import Alert from '@mui/material/Alert';
@@ -15,6 +16,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { Mono } from '../../components/Mono';
 import { EntityId } from '../../components/EntityId';
+import { InfoTip } from '../../components/InfoTip';
 import { SimpleTable } from '../../components/SimpleTable';
 import { StateChip } from '../../components/StateChip';
 import { TableFooter } from '../../components/TableFooter';
@@ -22,13 +24,34 @@ import { listServiceJobs } from '../../lib/api/serviceJobs';
 import { daysSince, preciseRupeesWithSymbol as rupeesWithSymbol } from '../../lib/format';
 import { canManageService } from '../../lib/roles';
 import { CATEGORY_LABEL, CATEGORY_TONE, SOURCE_LABEL, SERVICE_QUEUE_LABEL } from '../../lib/serviceJobLabels';
-import { SERVICE_QUEUES, type ServiceJobSource } from '../../types';
+import { SERVICE_QUEUES, type ServiceJob, type ServiceJobSource } from '../../types';
 import { isServiceQueue, needsDamageAssessment, QUEUE_STATE } from '../../lib/serviceWorkflow';
 
 function waitingLabel(createdOn: string) {
   const days = daysSince(createdOn);
   return days === 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`;
 }
+
+/**
+ * The (i) on a job row: the two free-text fields the row cannot show — what
+ * was reported when the bike came in, and what was found once it was worked
+ * on. Reading them here saves opening every job just to triage it.
+ */
+function jobInfo(job: ServiceJob): ReactNode {
+  const reported = job.damageNotes?.trim();
+  const found = job.workSummary?.trim();
+  if (!reported && !found) return 'Nothing was written down when the bike came in.';
+  return (
+    <>
+      {reported && <><strong>Reported:</strong> {reported}</>}
+      {reported && found && <br />}
+      {found && <><strong>Found:</strong> {found}</>}
+    </>
+  );
+}
+
+/** What the queue column means, said once instead of on every row. */
+const QUEUE_INFO = 'The list the bike is in right now. Quality Check is the safety inspection every bike passes before it goes back out. The repair lists are the benches it waits on. Waiting for parts, Warranty and Insurance are holds while something outside the workshop is sorted.';
 
 /** The QC queue is capped at a page of twelve, like every other list. */
 const PAGE_SIZE = 12;
@@ -145,8 +168,14 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
             {pageRows.map((j) => (
               <Box key={j.id} component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} sx={{ display: 'block', borderTop: 1, borderColor: 'divider', pt: 2, color: 'inherit', textDecoration: 'none' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                  <Mono sx={{ fontSize: 13 }}>{j.id} · {j.vehicleId}</Mono>
-                  <StateChip label={SERVICE_QUEUE_LABEL[j.queue]} tone={CATEGORY_TONE[j.damageCategory]} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                    <Mono sx={{ fontSize: 13 }}>{j.id} · {j.vehicleId}</Mono>
+                    <InfoTip title={jobInfo(j)} />
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <StateChip label={SERVICE_QUEUE_LABEL[j.queue]} tone={CATEGORY_TONE[j.damageCategory]} />
+                    <InfoTip title={QUEUE_INFO} />
+                  </Box>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, fontSize: 13, color: 'text.secondary' }}>
                   <span>{SOURCE_LABEL[j.source]}</span>
@@ -171,19 +200,22 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
               { key: 'job', header: 'Bike / job', width: 160, render: (j) => (
                 <Box sx={{ minWidth: 0 }}>
                   <Mono sx={{ display: 'block' }}>{j.vehicleId}</Mono>
-                  <Button
-                    component={Link}
-                    to={`/service/assistance/${j.id}`}
-                    state={{ returnTo }}
-                    color="inherit"
-                    sx={{ px: 0, minWidth: 0, fontSize: 12, color: 'text.secondary' }}
-                  >
-                    <EntityId id={j.id} sx={{ fontSize: 12 }} />
-                  </Button>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                    <Button
+                      component={Link}
+                      to={`/service/assistance/${j.id}`}
+                      state={{ returnTo }}
+                      color="inherit"
+                      sx={{ px: 0, minWidth: 0, fontSize: 12, color: 'text.secondary' }}
+                    >
+                      <EntityId id={j.id} sx={{ fontSize: 12 }} />
+                    </Button>
+                    <InfoTip title={jobInfo(j)} />
+                  </Box>
                 </Box>
               ) },
               { key: 'source', header: 'Source', width: 130, render: (j) => SOURCE_LABEL[j.source] },
-              { key: 'queue', header: 'Queue', width: 130, render: (j) => SERVICE_QUEUE_LABEL[j.queue] },
+              { key: 'queue', header: <>Queue <InfoTip title={QUEUE_INFO} /></>, headerLabel: 'Queue', width: 130, render: (j) => SERVICE_QUEUE_LABEL[j.queue] },
               { key: 'damage', header: 'Damage', width: 100, render: (j) => <StateChip label={needsDamageAssessment(j) ? 'Unchecked' : CATEGORY_LABEL[j.damageCategory]} tone={CATEGORY_TONE[j.damageCategory]} /> },
               { key: 'status', header: 'Status', width: 100, render: (j) => <StateChip label={j.status === 'CLOSED' ? 'Closed' : j.status === 'IN_PROGRESS' ? 'In progress' : 'Open'} tone={j.status === 'CLOSED' ? 'good' : 'neutral'} /> },
               { key: 'waiting', header: 'Waiting', width: 90, render: (j) => (
