@@ -3,7 +3,7 @@ import Collapse from '@mui/material/Collapse';
 import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { useId, useState, type ReactNode } from 'react';
+import { Children, Fragment, isValidElement, useId, useState, type ReactNode } from 'react';
 import { panelAnchor, tourAnchor } from '../tour/anchors';
 
 /**
@@ -51,6 +51,34 @@ export function Locked({
   );
 }
 
+/**
+ * The words in a label, for use as a key.
+ *
+ * A label is a `ReactNode`, and ten panels title themselves
+ * `<>Money <InfoTip …/></>` so a tip can sit beside the words. Keying only off
+ * plain strings dropped every one of those from its screen's tour — the assign,
+ * exchange and deboard flows lost every card they had — even though the words
+ * were sitting right there in the label.
+ *
+ * Only the label's own direct text counts. Anything nested is somebody else's
+ * content, and an info tip's sentence has no business becoming a card's name.
+ */
+function labelText(label: ReactNode): string | null {
+  if (typeof label === 'string') return label.trim() || null;
+  // `<>Money <InfoTip/></>` arrives as one fragment element; its text is a
+  // child of that fragment, not of the label, so it has to be opened first.
+  const nodes =
+    isValidElement(label) && label.type === Fragment
+      ? (label.props as { children?: ReactNode }).children
+      : label;
+  const words = Children.toArray(nodes)
+    .filter((child) => !isValidElement(child))
+    .map((child) => (typeof child === 'string' || typeof child === 'number' ? String(child) : ''))
+    .join('')
+    .trim();
+  return words || null;
+}
+
 export function Panel({
   label,
   subtitle,
@@ -85,13 +113,12 @@ export function Panel({
    * a card and the words written about it cannot drift apart without the step
    * simply failing to match.
    *
-   * Only a plain-text label can be a key. A few panels title themselves with an
-   * element (a chip, a formatted date), and there is no sensible string to hang
-   * a description on, so those are not tour targets. A collapsed panel still is
-   * one: the card and its title are on screen, and being pointed at a section
-   * worth opening is the useful outcome.
+   * A collapsed panel is still a target: the card and its title are on screen
+   * either way, and being pointed at a section worth opening is the useful
+   * outcome.
    */
-  const anchor = typeof label === 'string' ? tourAnchor(panelAnchor(label)) : {};
+  const key = labelText(label);
+  const anchor = key ? tourAnchor(panelAnchor(key)) : {};
 
   const header = (
     <Box>
