@@ -20,6 +20,23 @@ export function navAnchor(heading: string): string {
   return `nav:${heading}`;
 }
 
+/**
+ * A card's anchor, derived from the label the card already shows.
+ *
+ * `Panel` spreads this itself, so every titled card in the app is a tour target
+ * without a single page file knowing it — the same leverage `PageHeader` gave
+ * for page titles. The label is the key as well as the anchor, which means the
+ * description in `steps/pages.ts` is written against the words an operator can
+ * actually see on the card.
+ *
+ * Rename a card and its step stops matching; the step is then skipped rather
+ * than pointing somewhere wrong, and the missing coverage shows up in the
+ * tests that require every described card to exist.
+ */
+export function panelAnchor(label: string): string {
+  return `panel:${label}`;
+}
+
 export const TOUR_ANCHORS = {
   /** The navigation rail as a whole. */
   rail: 'rail',

@@ -20,6 +20,7 @@ function renderStage(overrides: Partial<TourValue> = {}, index = 0) {
     next: vi.fn(),
     back: vi.fn(),
     skip: vi.fn(),
+    dropCurrent: vi.fn(),
     mute: vi.fn(),
     unmute: vi.fn(),
     replayPlatform: vi.fn(),
@@ -115,11 +116,11 @@ describe('TourStage', () => {
     expect(skip).toHaveBeenCalledOnce();
   });
 
-  it('skips a step whose target never arrives, rather than pointing at nothing', async () => {
-    const next = vi.fn();
-    renderStage({ next }, 1); // 'rail', never mounted
+  it('drops a step whose target never arrives, rather than pointing at nothing', async () => {
+    const dropCurrent = vi.fn();
+    renderStage({ dropCurrent }, 1); // 'rail', never mounted
 
-    await waitFor(() => expect(next).toHaveBeenCalledOnce(), { timeout: 3000 });
+    await waitFor(() => expect(dropCurrent).toHaveBeenCalledOnce(), { timeout: 3000 });
   });
 
   /**
@@ -142,6 +143,7 @@ describe('TourStage', () => {
           next,
           back: vi.fn(),
           skip: vi.fn(),
+          dropCurrent: vi.fn(),
           mute: vi.fn(),
           unmute: vi.fn(),
           replayPlatform: vi.fn(),
@@ -177,6 +179,7 @@ describe('TourStage', () => {
           next: vi.fn(),
           back: vi.fn(),
           skip: vi.fn(),
+          dropCurrent: vi.fn(),
           mute: vi.fn(),
           unmute: vi.fn(),
           replayPlatform: vi.fn(),
@@ -194,6 +197,45 @@ describe('TourStage', () => {
     renderStage({}, 1); // 'rail', not mounted yet
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  /**
+   * A card that is not on screen should be stepped past quickly, not waited on.
+   *
+   * The long wait exists for a route chunk still in flight — the shell is up,
+   * the screen is not. A card step is in a different position entirely: the
+   * about step has been on screen for however long it took to read, so the page
+   * and its queries have long since settled. A panel that is not there now is
+   * conditional and is not coming. Waiting the full period for each one put a
+   * second and a half of blank screen between every card on the bulk upload
+   * screen, which has four conditional panels.
+   */
+  it('drops an absent card quickly rather than waiting out a route chunk', async () => {
+    const dropCurrent = vi.fn();
+    const steps: TourStep[] = [
+      { id: 'card', anchor: 'panel:Preview', wide: true, title: 'Preview', body: 'Not on screen yet.' },
+    ];
+    render(
+      <TourContext.Provider
+        value={{
+          active: { kind: 'page', steps, index: 0 },
+          muted: false,
+          hasPageTour: true,
+          next: vi.fn(),
+          back: vi.fn(),
+          skip: vi.fn(),
+          dropCurrent,
+          mute: vi.fn(),
+          unmute: vi.fn(),
+          replayPlatform: vi.fn(),
+          replayPage: vi.fn(),
+        }}
+      >
+        <TourStage />
+      </TourContext.Provider>,
+    );
+
+    await waitFor(() => expect(dropCurrent).toHaveBeenCalledOnce(), { timeout: 900 });
   });
 
   it('has no accessibility violations', async () => {

@@ -24,6 +24,24 @@ export function needsScroll(target: Span, view: Span): boolean {
 }
 
 /**
+ * Where a target should come to rest once it is being scrolled to.
+ *
+ * Centring suits a card that fits. For one taller than the window — an accounts
+ * table, a long list of available bikes — centring pushes the card's *top* off
+ * the screen, and the bubble aligns to that top, so the words explaining the
+ * card land somewhere nobody can read them. Those get their top aligned
+ * instead, which is the end you need to see anyway: the heading, and the first
+ * rows under it.
+ */
+export function revealBlock(target: Span, view: Span): 'center' | 'start' {
+  const height = target.bottom - target.top;
+  const room = view.bottom - view.top;
+  // `- MARGIN` so a card that only just fits is treated as one that does not;
+  // centring it would leave no room for the bubble beside it either.
+  return height >= room - MARGIN ? 'start' : 'center';
+}
+
+/**
  * The box a target has to be visible *inside*.
  *
  * Not always the window: the rail is its own scrolling column, so a section can

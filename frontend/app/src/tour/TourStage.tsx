@@ -4,6 +4,7 @@ import Button from '@mui/material/Button';
 import Popper from '@mui/material/Popper';
 import Typography from '@mui/material/Typography';
 import { useAnchor } from './useAnchor';
+import { TOUR_ANCHORS } from './anchors';
 import { useTour } from './tourContext';
 import { base, mix, neutral, radius } from '../theme/tokens';
 import { fadeIn } from '../theme/motion';
@@ -30,18 +31,43 @@ import { Mono } from '../components/Mono';
 /**
  * How long to wait for a target before giving up on it.
  *
- * A step that would be *dropped* gets the full patience, because dropping it is
- * destructive and a route chunk on a slow connection deserves the benefit of
- * the doubt. A step that falls back to a card has nothing to lose, and on a
- * phone every rail step is in exactly that position — nine of them, each
- * waiting a second and a half on a blank screen, is a tour that looks broken.
+ * Three cases, because they are genuinely different waits.
+ *
+ * `skip` is the full patience: the step would be *dropped*, dropping is
+ * destructive, and a route chunk on a slow connection deserves the benefit of
+ * the doubt.
+ *
+ * `card` has nothing to lose — it falls back to a centred card either way. On a
+ * phone every rail step is in that position, and nine of them each waiting a
+ * second and a half on a blank screen is a tour that looks broken.
+ *
+ * `onPage` is a card step on a screen that is already up. The about step has
+ * been on display for however long it took to read, so the page and its queries
+ * have long since settled; a panel that is absent now is conditional and is not
+ * coming. Bulk upload has four such panels, and at full patience that was six
+ * seconds of blank screen spread through one short tour.
  */
-const GRACE_MS = { skip: 1500, card: 250 };
+const GRACE_MS = { skip: 1500, card: 250, onPage: 400 };
+
+/**
+ * Whether this step points at something on the screen itself rather than at the
+ * shell — a card or the tile strip, both of which are rendered by the route and
+ * are therefore either present by now or conditional.
+ */
+function isOnPageTarget(anchor: string | null): boolean {
+  return anchor !== null && (anchor.startsWith('panel:') || anchor === TOUR_ANCHORS.statTiles);
+}
 
 export function TourStage() {
   const tour = useTour();
   const step = tour.active ? tour.active.steps[tour.active.index] : null;
-  const anchor = useAnchor(step?.anchor ?? null, GRACE_MS[step?.onMissing ?? 'skip']);
+  const grace =
+    step?.onMissing === 'card'
+      ? GRACE_MS.card
+      : isOnPageTarget(step?.anchor ?? null)
+        ? GRACE_MS.onPage
+        : GRACE_MS.skip;
+  const anchor = useAnchor(step?.anchor ?? null, grace);
   /**
    * Followed every frame rather than measured once. The ring used to be written
    * out as fixed coordinates taken during render, so a smooth scroll left it
@@ -57,7 +83,7 @@ export function TourStage() {
    */
   const [caret, setCaret] = useState<HTMLElement | null>(null);
 
-  const { active, next, skip } = tour;
+  const { active, dropCurrent, skip } = tour;
 
   // The page holds still while the tour is talking — otherwise the reader can
   // scroll the target out from under its own highlight.
@@ -75,8 +101,8 @@ export function TourStage() {
     if (import.meta.env.DEV) {
       console.warn(`[tour] nothing carries data-tour="${step?.anchor}"; dropping step "${step?.id}".`);
     }
-    next();
-  }, [anchor.status, strandedIsCard, next, step?.anchor, step?.id]);
+    dropCurrent();
+  }, [anchor.status, strandedIsCard, dropCurrent, step?.anchor, step?.id]);
 
   // Escape leaves, from anywhere. The `?` menu is how it comes back, which is
   // what makes leaving safe to offer.
@@ -203,7 +229,12 @@ export function TourStage() {
         )}
         modifiers={[
           { name: 'offset', options: { offset: [0, 18] } },
-          { name: 'preventOverflow', options: { padding: 12 } },
+          // `altAxis` keeps the bubble on screen vertically as well as
+          // horizontally, and without `tether` it is allowed to slide away from
+          // a target taller than the window rather than being dragged off with
+          // it — which is how five cards ended up explaining themselves below
+          // the fold.
+          { name: 'preventOverflow', options: { padding: 12, altAxis: true, tether: false } },
           { name: 'flip', options: { padding: 12 } },
           { name: 'arrow', options: { element: caret, padding: 12 } },
         ]}

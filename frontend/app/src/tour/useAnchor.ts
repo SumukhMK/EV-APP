@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { anchorSelector } from './anchors';
-import { needsScroll, viewportFor } from './scroll';
+import { needsScroll, revealBlock, viewportFor } from './scroll';
 
 /**
  * Resolving a step's target, including the case where it is not there yet.
@@ -162,6 +162,11 @@ function reveal(element: HTMLElement): void {
   // scrolling unconditionally keeps the hook's existing tests honest about the
   // one thing they can observe, which is that it was asked to scroll at all.
   const measurable = rect.height > 0 || rect.width > 0;
-  if (measurable && !needsScroll(rect, viewportFor(element))) return;
-  element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+  const view = viewportFor(element);
+  if (measurable && !needsScroll(rect, view)) return;
+  element.scrollIntoView({
+    block: measurable ? revealBlock(rect, view) : 'center',
+    inline: 'nearest',
+    behavior: 'smooth',
+  });
 }

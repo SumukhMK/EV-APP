@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TOUR_ANCHORS } from '../anchors';
+import { TOUR_ANCHORS, panelAnchor } from '../anchors';
 import { router } from '../../app/router';
 import { PAGE_TOURS, pageTourFor } from './pages';
 
@@ -88,10 +88,55 @@ describe('page tours', () => {
     }
   });
 
-  it('never runs longer than three steps on any screen', () => {
+  /**
+   * A screen's tour walks what is actually on the screen: the about, the tile
+   * strip where there is one, and then a step for each card. Twelve is a long
+   * walk and still a cap — a screen with more cards than that has a layout
+   * problem, not a tour problem.
+   */
+  it('never runs longer than twelve steps on any screen', () => {
     for (const [pattern, steps] of Object.entries(PAGE_TOURS)) {
-      expect(steps.length, pattern).toBeLessThanOrEqual(3);
+      expect(steps.length, pattern).toBeLessThanOrEqual(12);
       expect(steps.length, pattern).toBeGreaterThan(0);
+    }
+  });
+
+  it('walks the cards on a screen, not just the screen itself', () => {
+    const steps = pageTourFor('/dashboard');
+
+    expect(steps?.map((s) => s.title)).toEqual([
+      'Dashboard',
+      'The counts',
+      'Deployments per month',
+      'Service & inventory',
+    ]);
+  });
+
+  it('points a card step at that card, by the label the card already carries', () => {
+    const steps = pageTourFor('/dashboard') ?? [];
+    const card = steps.find((s) => s.title === 'Service & inventory');
+
+    expect(card?.anchor).toBe(panelAnchor('Service & inventory'));
+  });
+
+  /**
+   * A card that is only on screen sometimes — the bulk upload preview before a
+   * file is chosen, a rider's bike when they hold one — must not strand the
+   * tour on a target that is not there.
+   */
+  it('lets a card step be skipped when its card is not on screen', () => {
+    for (const [pattern, steps] of Object.entries(PAGE_TOURS)) {
+      for (const step of steps.filter((s) => s.anchor?.startsWith('panel:'))) {
+        expect(step.onMissing ?? 'skip', `${pattern} — ${step.id}`).toBe('skip');
+      }
+    }
+  });
+
+  it('describes every card it names', () => {
+    for (const [pattern, steps] of Object.entries(PAGE_TOURS)) {
+      for (const step of steps) {
+        expect(step.body.trim().length, `${pattern} — ${step.id}`).toBeGreaterThan(20);
+      }
     }
   });
 
@@ -114,10 +159,18 @@ describe('page tours', () => {
     }
   });
 
-  it('keeps the pointing steps short enough to read at a glance', () => {
+  /**
+   * Every step on a screen now describes something — the screen, the tiles, or
+   * one card — so they share one budget. Sixty words is still a cap: past that
+   * a step has stopped describing a card and started documenting it.
+   */
+  it('keeps every step inside one readable paragraph', () => {
     for (const [pattern, steps] of Object.entries(PAGE_TOURS)) {
-      for (const step of steps.slice(1)) {
-        expect(step.body.split(/\s+/).length, `${pattern} — ${step.id}`).toBeLessThanOrEqual(14);
+      for (const step of steps) {
+        const words = step.body.split(/\s+/).length;
+        expect(words, `${pattern} — ${step.id} is too thin`).toBeGreaterThanOrEqual(15);
+        expect(words, `${pattern} — ${step.id} has become a manual`).toBeLessThanOrEqual(60);
+        expect(step.wide, `${pattern} — ${step.id} needs room`).toBe(true);
       }
     }
   });
@@ -128,6 +181,9 @@ describe('page tours', () => {
     for (const [pattern, steps] of Object.entries(PAGE_TOURS)) {
       for (const step of steps) {
         if (step.anchor === null) continue;
+        // A card's anchor is derived from its own label by `Panel`, so it is
+        // declared by construction rather than listed.
+        if (step.anchor.startsWith('panel:')) continue;
         expect(declared, `${pattern} — ${step.id}`).toContain(step.anchor);
       }
     }
@@ -162,6 +218,6 @@ describe('page tours', () => {
   });
 
   it('still serves a real bike id the record tour', () => {
-    expect(pageTourFor('/vehicles/BLRSS0428')?.[0].id).toBe('vehicles/detail:what');
+    expect(pageTourFor('/vehicles/BLRSS0428')?.[0].id).toBe('vehicles/:vehicleId:what');
   });
 });

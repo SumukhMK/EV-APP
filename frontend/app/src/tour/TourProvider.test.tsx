@@ -25,6 +25,7 @@ function Probe() {
       </span>
       <span data-testid="step-id">{tour.active.steps[tour.active.index].id}</span>
       <button onClick={tour.next}>next</button>
+      <button onClick={tour.dropCurrent}>drop</button>
       <button onClick={tour.back}>back</button>
       <button onClick={tour.skip}>skip</button>
       <button onClick={tour.mute}>mute</button>
@@ -254,6 +255,59 @@ describe('TourProvider', () => {
    * Everything the `?` menu offers has to work from a standing start, including
    * after the user has muted — otherwise muting is a one-way door.
    */
+  /**
+   * A page's step list is written against every card the screen *can* show, and
+   * several are conditional — the bulk upload preview before a file is read, a
+   * rider's bike when they hold one. Stepping past an absent card left the
+   * counter reading "1 of 6" then "3 of 6" and ending there, a tour that
+   * visibly never finishes. Dropping the step instead keeps the sequence
+   * contiguous and lands on "n of n".
+   */
+  describe('cards that are not on the screen', () => {
+    it('shrinks the total rather than leaving a gap in the count', async () => {
+      markPlatformSeen(EMAIL);
+      renderTour('/dashboard');
+      expect(screen.getByText('page 1 of 4')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByText('drop'));
+
+      // The dropped step is gone and the one after it takes its place.
+      expect(screen.getByText('page 1 of 3')).toBeInTheDocument();
+    });
+
+    it('stays on the same position, so the next card is shown at once', async () => {
+      markPlatformSeen(EMAIL);
+      renderTour('/dashboard');
+
+      await userEvent.click(screen.getByText('drop'));
+
+      expect(screen.getByTestId('step-id')).toHaveTextContent('dashboard:tiles');
+    });
+
+    it('ends the tour when the last remaining step is dropped', async () => {
+      markPlatformSeen(EMAIL);
+      renderTour('/audit'); // one step only
+      expect(screen.getByText('page 1 of 1')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByText('drop'));
+
+      expect(screen.getByText('idle')).toBeInTheDocument();
+    });
+
+    it('steps back from the end when the last step is dropped', async () => {
+      markPlatformSeen(EMAIL);
+      renderTour('/dashboard');
+      await userEvent.click(screen.getByText('next'));
+      await userEvent.click(screen.getByText('next'));
+      await userEvent.click(screen.getByText('next'));
+      expect(screen.getByText('page 4 of 4')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByText('drop'));
+
+      expect(screen.getByText('page 3 of 3')).toBeInTheDocument();
+    });
+  });
+
   describe('replaying from the ? menu', () => {
     it('replays the platform tour even though it has been seen', async () => {
       markPlatformSeen(EMAIL);

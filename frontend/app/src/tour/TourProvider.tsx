@@ -129,6 +129,32 @@ export function TourProvider({ children }: { children: ReactNode }) {
     });
   }, [close]);
 
+  /**
+   * Removes the current step instead of stepping past it.
+   *
+   * A page's steps are written against every card the screen *can* show, and
+   * several are conditional — the bulk-upload preview before a file is read, a
+   * rider's bike only when they hold one. Advancing past an absent card left
+   * the counter reading "1 of 6" then "3 of 6" and ending there: a tour that
+   * visibly never finishes. Dropping the step keeps the sequence contiguous and
+   * lands on "n of n", and the total simply tells the truth about this screen
+   * as it stands right now.
+   *
+   * The index does not move, because the step that followed has taken this
+   * one's place — except at the end of the list, where it steps back.
+   */
+  const dropCurrent = useCallback(() => {
+    setActive((current) => {
+      if (!current) return null;
+      const steps = current.steps.filter((_, i) => i !== current.index);
+      if (steps.length === 0) {
+        close(current);
+        return null;
+      }
+      return { ...current, steps, index: Math.min(current.index, steps.length - 1) };
+    });
+  }, [close]);
+
   const back = useCallback(() => {
     setActive((current) => (current ? { ...current, index: Math.max(0, current.index - 1) } : null));
   }, []);
@@ -180,12 +206,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
       next,
       back,
       skip,
+      dropCurrent,
       mute,
       unmute,
       replayPlatform,
       replayPage,
     }),
-    [active, progress.muted, pathname, next, back, skip, mute, unmute, replayPlatform, replayPage],
+    [active, progress.muted, pathname, next, back, skip, dropCurrent, mute, unmute, replayPlatform, replayPage],
   );
 
   return <TourContext.Provider value={value}>{children}</TourContext.Provider>;

@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
+import { panelAnchor, tourAnchor } from '../tour/anchors';
 
 /**
  * A titled surface. The label is the same tracked-out `overline` as PageHeader.
@@ -64,8 +65,15 @@ export function Panel({
   /** When set, the body is inert and dimmed, and this sentence says why. */
   locked?: string | false | null;
 }) {
+  // Every titled card is a tour target, declared once here rather than forty
+  // times across the pages. The label is both the anchor and the key the
+  // description is written against, so a card and the words about it cannot
+  // drift apart without the step simply failing to match.
   return (
-    <Paper sx={[{ p: { xs: '16px 14px 14px', sm: '18px 20px 16px' } }, ...(Array.isArray(sx) ? sx : [sx])]}>
+    <Paper
+      {...(label ? tourAnchor(panelAnchor(label)) : {})}
+      sx={[{ p: { xs: '16px 14px 14px', sm: '18px 20px 16px' } }, ...(Array.isArray(sx) ? sx : [sx])]}
+    >
       {(label || action) && (
         <Box
           sx={{

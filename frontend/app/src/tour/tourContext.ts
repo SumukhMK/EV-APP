@@ -34,6 +34,11 @@ export interface TourValue {
   back: () => void;
   /** Leave early. Counts as seen. */
   skip: () => void;
+  /**
+   * Drop the step on screen, because what it points at is not on this screen.
+   * Keeps the count contiguous where advancing past it would leave a gap.
+   */
+  dropCurrent: () => void;
   mute: () => void;
   /** Turns auto-firing back on, without replaying anything already seen. */
   unmute: () => void;

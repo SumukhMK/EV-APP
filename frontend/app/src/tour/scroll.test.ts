@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { needsScroll } from './scroll';
+import { needsScroll, revealBlock } from './scroll';
 
 const box = (top: number, height: number) => ({ top, bottom: top + height });
 
@@ -42,5 +42,34 @@ describe('needsScroll', () => {
 
   it('moves a target taller than the view, so its top is at least reachable', () => {
     expect(needsScroll(box(-50, 1200), view)).toBe(true);
+  });
+});
+
+/**
+ * Where a target should come to rest once it is being scrolled to.
+ *
+ * Centring is right for a card that fits. For one taller than the window —
+ * an accounts table, a long list of available bikes — centring pushes its top
+ * off the screen, and the bubble aligns to that top, so the words about the
+ * card land somewhere nobody can read them. Those get their top aligned
+ * instead, which is the part you actually need to see.
+ */
+describe('revealBlock', () => {
+  const view = { top: 0, bottom: 800 };
+
+  it('centres a card that comfortably fits', () => {
+    expect(revealBlock({ top: 900, bottom: 1100 }, view)).toBe('center');
+  });
+
+  it('aligns the top of a card taller than the window', () => {
+    expect(revealBlock({ top: 100, bottom: 1600 }, view)).toBe('start');
+  });
+
+  it('aligns the top of a card that is almost exactly the window height', () => {
+    expect(revealBlock({ top: 0, bottom: 790 }, view)).toBe('start');
+  });
+
+  it('still centres a short card near the bottom', () => {
+    expect(revealBlock({ top: 760, bottom: 820 }, view)).toBe('center');
   });
 });
