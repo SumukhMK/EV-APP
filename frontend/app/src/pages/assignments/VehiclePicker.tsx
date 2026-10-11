@@ -12,9 +12,14 @@ import { FacetChips } from '../../components/FacetChips';
 import { SearchField } from '../../components/SearchField';
 import { EmptyState } from '../../components/EmptyState';
 import { Mono } from '../../components/Mono';
+import { TableFooter } from '../../components/TableFooter';
 import { listVehicles } from '../../lib/api/vehicles';
 import { VEHICLE_STATE_LABEL, VEHICLE_STATE_TONE } from '../../lib/labels';
 import { neutral } from '../../theme/tokens';
+import type { Vehicle } from '../../types';
+
+/** A page of twelve, like every other list in the app. */
+const PAGE_SIZE = 12;
 
 /**
  * The bikes an assignment or an exchange can pick from, and the pick itself.
@@ -40,9 +45,21 @@ export function VehiclePicker({
 }) {
   const vehicles = useQuery({
     queryKey: ['vehicles', 'ready-to-deploy'],
-    // A yard rarely holds more than a couple of dozen ready bikes; asking for
-    // 50 keeps the whole choice on one screen instead of paginating a picker.
-    queryFn: () => listVehicles({ state: 'READY_TO_DEPLOY', size: 50 }),
+    // The picker filters by hub and search locally, so it needs the whole
+    // ready yard, not one page of it — a hub filter must not silently miss
+    // bikes the first page did not carry. Loop the pages like the other
+    // list screens do; the table below paginates the filtered result.
+    queryFn: async () => {
+      const all: Vehicle[] = [];
+      let page = 0;
+      for (;;) {
+        const chunk = await listVehicles({ state: 'READY_TO_DEPLOY', page, size: 50 });
+        all.push(...chunk.content);
+        if (all.length >= chunk.totalElements || chunk.content.length === 0) break;
+        page += 1;
+      }
+      return all;
+    },
   });
 
   // Whoever assigns a bike is matching it to where the rider actually rides, so
@@ -50,6 +67,9 @@ export function VehiclePicker({
   // scroll otherwise. The id search is for when they already know the bike.
   const [hub, setHub] = useState<string>('ALL');
   const [search, setSearch] = useState('');
+  // A new filter starts at the first page — page 2 of the old result set means
+  // nothing in the new one.
+  const [page, setPage] = useState(0);
 
   if (vehicles.isLoading) {
     return (
@@ -59,7 +79,7 @@ export function VehiclePicker({
     );
   }
 
-  const ready = (vehicles.data?.content ?? []).filter((v) => v.id !== excludeId);
+  const ready = (vehicles.data ?? []).filter((v) => v.id !== excludeId);
 
   if (ready.length === 0) {
     return (
@@ -91,6 +111,12 @@ export function VehiclePicker({
       (q === '' || v.id.toLowerCase().includes(q) || v.model.toLowerCase().includes(q)),
   );
 
+  // A stale page clamps to the last real one rather than painting a half-empty
+  // page — the same guard the other paginated lists use.
+  const lastPage = Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1);
+  const safePage = Math.min(page, lastPage);
+  const pageRows = rows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
   return (
     <>
       <Box
@@ -103,9 +129,24 @@ export function VehiclePicker({
           mb: 3.5,
         }}
       >
-        <FacetChips options={hubFacets} value={hub} onChange={setHub} />
+        <FacetChips
+          options={hubFacets}
+          value={hub}
+          onChange={(h) => {
+            setHub(h);
+            setPage(0);
+          }}
+        />
         <Box sx={{ width: { xs: '100%', md: 'auto' } }}>
-          <SearchField value={search} onChange={setSearch} placeholder="Search bike id or model" fullWidth />
+          <SearchField
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              setPage(0);
+            }}
+            placeholder="Search bike id or model"
+            fullWidth
+          />
         </Box>
       </Box>
 
@@ -116,7 +157,7 @@ export function VehiclePicker({
         />
       ) : (
         <SimpleTable
-        rows={rows}
+        rows={pageRows}
         getRowKey={(v) => v.id}
         scrollable
         rowSx={(v) => (v.id === value ? { background: neutral[900] } : undefined)}
@@ -162,6 +203,9 @@ export function VehiclePicker({
           },
         ]}
       />
+      )}
+      {rows.length > 0 && (
+        <TableFooter page={safePage} pageSize={PAGE_SIZE} total={rows.length} onPageChange={setPage} noun="bikes" />
       )}
       {error && <FormHelperText error sx={{ mt: 2 }}>{error}</FormHelperText>}
     </>

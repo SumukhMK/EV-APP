@@ -6,7 +6,8 @@ import { StepSection } from '../../../components/StepSection';
 import { DerivedField } from '../../../components/DerivedField';
 import { DateField } from '../../../components/form/DateField';
 import { SelectField } from '../../../components/form/SelectField';
-import { InfoStrip } from '../../../components/InfoStrip';
+import { MandatoryLabel } from '../../../components/form/MandatoryLabel';
+import { InfoTip } from '../../../components/InfoTip';
 import {
   DEPOSIT_TIERS,
   PAYMENT_DAY_LABEL,
@@ -87,7 +88,7 @@ export function RiderCommercialStep({ step }: { step: number }) {
     <StepSection
       step={step}
       title="Commercial"
-      subtitle="The plan, the platform and the deposit. Money is in rupees."
+      info="The plan, the platform and the deposit. Money is in rupees."
     >
       <Box sx={{ display: 'grid', gap: 5 }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
@@ -109,7 +110,7 @@ export function RiderCommercialStep({ step }: { step: number }) {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Working platform"
+                    label={<>Working platform <MandatoryLabel /></>}
                     placeholder="Type or pick a platform"
                   />
                 )}
@@ -135,22 +136,19 @@ export function RiderCommercialStep({ step }: { step: number }) {
             ]}
           />
 
-          <SelectField control={control} name="paymentDay" label="Payment day" options={paymentDayOptions} />
-          <InfoStrip>
-            The weekly run is fixed Wednesday to Tuesday. This is recorded for the collections team
-            and drives no calculation.
-          </InfoStrip>
+          <SelectField
+            control={control}
+            name="paymentDay"
+            label={<>Payment day <InfoTip title="The weekly run is fixed Wednesday to Tuesday. This is recorded for the collections team and drives no calculation." /></>}
+            options={paymentDayOptions}
+          />
 
           <SelectField
             control={control}
             name="paymentMode"
-            label="Mode of payment"
+            label={<>Mode of payment <InfoTip title="The standing arrangement, shown on the register. Each collection still records how that week's money actually arrived, so a UPI rider paying cash once stays a UPI rider." /></>}
             options={paymentModeOptions}
           />
-          <InfoStrip>
-            The standing arrangement, shown on the register. Each collection still records how that
-            week's money actually arrived, so a UPI rider paying cash once stays a UPI rider.
-          </InfoStrip>
 
           {moneyCombobox('depositRupees', DEPOSIT_TIERS)}
           <TextField

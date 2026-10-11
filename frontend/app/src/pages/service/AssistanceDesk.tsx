@@ -17,6 +17,7 @@ import { Mono } from '../../components/Mono';
 import { EntityId } from '../../components/EntityId';
 import { SimpleTable } from '../../components/SimpleTable';
 import { StateChip } from '../../components/StateChip';
+import { TableFooter } from '../../components/TableFooter';
 import { listServiceJobs } from '../../lib/api/serviceJobs';
 import { daysSince, preciseRupeesWithSymbol as rupeesWithSymbol } from '../../lib/format';
 import { canManageService } from '../../lib/roles';
@@ -29,6 +30,9 @@ function waitingLabel(createdOn: string) {
   return days === 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`;
 }
 
+/** The QC queue is capped at a page of twelve, like every other list. */
+const PAGE_SIZE = 12;
+
 export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues' | 'qc' }) {
   const { user } = useSession();
   const mobile = useMediaQuery(useTheme().breakpoints.down('sm'));
@@ -38,7 +42,12 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
   const rawStatus = params.get('status') ?? 'OPEN';
   const status = mode === 'qc' ? 'OPEN' : ['OPEN', 'CLOSED', 'ALL'].includes(rawStatus) ? rawStatus : 'ALL';
   const rawQueue = params.get('queue') ?? '';
-  const queue = mode === 'qc' ? 'QC_PENDING' : isServiceQueue(rawQueue) ? rawQueue : 'ALL';
+  /**
+   * On the QC page Quality Check is the default, not a clamp. "All open" sits
+   * beside it in the same tab bar and has to be able to widen the list, so an
+   * explicit queue=ALL survives; anything else still lands on QC_PENDING.
+   */
+  const queue = mode === 'qc' ? (rawQueue === 'ALL' ? 'ALL' : 'QC_PENDING') : isServiceQueue(rawQueue) ? rawQueue : 'ALL';
   const rawSource = params.get('source') ?? 'ALL';
   const source = Object.hasOwn(SOURCE_LABEL, rawSource) ? rawSource : 'ALL';
   const repairOnly = mode !== 'qc' && params.get('state') === 'UNDER_REPAIR';
@@ -53,13 +62,30 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
     (!repairOnly || QUEUE_STATE[j.queue] === 'UNDER_REPAIR') &&
     `${j.id} ${j.vehicleId} ${j.damageNotes ?? ''} ${SOURCE_LABEL[j.source]}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
+  // The page lives in the URL like every other filter, so a link to page 3 of
+  // the QC queue opens there. A stale page clamps to the last real one rather
+  // than painting "No jobs match".
+  const rawPage = Number(params.get('page') ?? '0');
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 0;
+  const lastPage = Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1);
+  const safePage = Math.min(page, lastPage);
+  const pageRows = rows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
   const basePath = mode === 'queues' ? '/service/queues' : mode === 'qc' ? '/service/qc' : '/service/assistance';
   const returnTo = `${basePath}${params.size ? `?${params}` : ''}`;
   const updateFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
+    // A new filter starts at the first page — page 4 of the old result set
+    // would otherwise show a half-empty page of the new one.
+    next.delete('page');
     setParams(next, { replace: true });
+  };
+  const setPage = (next: number) => {
+    const p = new URLSearchParams(params);
+    if (next > 0) p.set('page', String(next));
+    else p.delete('page');
+    setParams(p, { replace: true });
   };
 
   const title = mode === 'queues' ? 'Bikes in service' : mode === 'qc' ? 'QC queue' : 'Help desk';
@@ -78,7 +104,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
       {/* Queue filter chips — queues and qc modes */}
       {mode !== 'intake' && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 3 }}>
-          <Button size="small" color={allOpenActive ? 'primary' : 'inherit'} variant={allOpenActive ? 'contained' : 'outlined'} onClick={() => setParams({ status: 'OPEN' }, { replace: true })}>
+          <Button size="small" color={allOpenActive ? 'primary' : 'inherit'} variant={allOpenActive ? 'contained' : 'outlined'} onClick={() => setParams({ status: 'OPEN', queue: 'ALL' }, { replace: true })}>
             All open{jobs.data ? ` (${openCount})` : ''}
           </Button>
           {SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY' && (mode !== 'qc' || q === 'QC_PENDING')).map((q) => (
@@ -116,7 +142,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
           />
         ) : mobile ? (
           <Box sx={{ display: 'grid', gap: 2 }}>
-            {rows.map((j) => (
+            {pageRows.map((j) => (
               <Box key={j.id} component={Link} to={`/service/assistance/${j.id}`} state={{ returnTo }} sx={{ display: 'block', borderTop: 1, borderColor: 'divider', pt: 2, color: 'inherit', textDecoration: 'none' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                   <Mono sx={{ fontSize: 13 }}>{j.id} · {j.vehicleId}</Mono>
@@ -132,7 +158,7 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
         ) : (
           <SimpleTable
             scrollable
-            rows={rows}
+            rows={pageRows}
             getRowKey={(j) => j.id}
             columns={[
               /**
@@ -172,11 +198,10 @@ export function AssistanceDesk({ mode = 'intake' }: { mode?: 'intake' | 'queues'
         )}
       </Box>
 
-      {/* Counts footer */}
+      {/* Pagination — the same footer every list uses, so the QC queue reads
+          the same way as the register. */}
       {jobs.data && rows.length > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-          {rows.length} job{rows.length !== 1 ? 's' : ''} shown
-        </Typography>
+        <TableFooter page={safePage} pageSize={PAGE_SIZE} total={rows.length} onPageChange={setPage} noun="jobs" />
       )}
     </>
   );

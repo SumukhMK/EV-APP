@@ -3,6 +3,7 @@ import TextField from '@mui/material/TextField';
 import { useFormContext } from 'react-hook-form';
 import { StepSection } from '../../../components/StepSection';
 import { VerifyField } from '../../../components/VerifyField';
+import { MandatoryLabel } from '../../../components/form/MandatoryLabel';
 import { digitsOnly } from '../../../lib/inputFormat';
 import type { useRiderVerification } from './useRiderVerification';
 
@@ -39,10 +40,10 @@ export function RiderIdentityStep({ step, verification }: Props) {
   };
 
   return (
-    <StepSection step={step} title="Identity" subtitle="Aadhaar is the primary identity record.">
+    <StepSection step={step} title="Identity" info="Aadhaar is the primary identity record.">
       <Box sx={{ display: 'grid', gap: 5 }}>
         <VerifyField
-          label="01. Aadhaar number"
+          label={<>01. Aadhaar number <MandatoryLabel /></>}
           value={aadhaarValue}
           onValueChange={handleAadhaarChange}
           code={verification.codeOf('aadhaar')}
@@ -59,7 +60,7 @@ export function RiderIdentityStep({ step, verification }: Props) {
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
           <TextField
-            label="Full name"
+            label={<>Full name <MandatoryLabel /></>}
             placeholder="As on Aadhaar"
             {...register('name')}
             error={fieldError('name').error}
@@ -67,7 +68,7 @@ export function RiderIdentityStep({ step, verification }: Props) {
           />
 
           <TextField
-            label="Permanent address"
+            label={<>Permanent address <MandatoryLabel /></>}
             placeholder="Address as per Aadhaar"
             {...register('permanentAddress')}
             error={fieldError('permanentAddress').error}

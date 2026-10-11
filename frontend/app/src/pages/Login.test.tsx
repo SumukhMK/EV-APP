@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { Login } from './Login';
@@ -33,8 +33,8 @@ describe('Login', () => {
 
     await userEvent.clear(screen.getByLabelText(/email/i));
     await userEvent.type(screen.getByLabelText(/email/i), 'dhananjay@g1mobility.in');
-    await userEvent.clear(screen.getByLabelText(/password/i));
-    await userEvent.type(screen.getByLabelText(/password/i), 'hunter2');
+    await userEvent.clear(screen.getByLabelText('Password'));
+    await userEvent.type(screen.getByLabelText('Password'), 'hunter2');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     expect(signIn).toHaveBeenCalledWith('dhananjay@g1mobility.in', 'hunter2');
@@ -88,5 +88,44 @@ describe('Login', () => {
     await userEvent.click(button);
     await waitFor(() => expect(button).toBeDisabled());
     expect(signIn).toHaveBeenCalledOnce();
+  });
+
+  /**
+   * The eye shows the password for two seconds and hides it again — the
+   * field must actually change type, not just swap the icon, or the reveal
+   * is a lie. fireEvent keeps the timer assertions synchronous.
+   */
+  describe('password reveal', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('shows the password for two seconds and hides it again', () => {
+      vi.useFakeTimers();
+      renderLogin(vi.fn().mockResolvedValue(undefined));
+
+      const field = screen.getByLabelText('Password');
+      expect(field).toHaveAttribute('type', 'password');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+      expect(field).toHaveAttribute('type', 'text');
+
+      // act flushes the re-render the timer's state update queues.
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(field).toHaveAttribute('type', 'password');
+      expect(screen.getByRole('button', { name: 'Show password' })).toBeInTheDocument();
+    });
+
+    it('hides the password immediately when the eye is clicked again', () => {
+      vi.useFakeTimers();
+      renderLogin(vi.fn().mockResolvedValue(undefined));
+
+      const field = screen.getByLabelText('Password');
+      fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+      expect(field).toHaveAttribute('type', 'text');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+      expect(field).toHaveAttribute('type', 'password');
+    });
   });
 });

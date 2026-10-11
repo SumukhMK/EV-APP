@@ -1,12 +1,14 @@
 import type {
   AssignmentHistoryRow,
   BatteryType,
+  Iso8601,
   QcQueueItem,
+  Rider,
   Vehicle,
   VehicleLifecycleEvent,
   VehicleState,
 } from '../types';
-import { FIRST_NAMES, LAST_NAMES, MODELS, mulberry32, pick } from './seed';
+import { FIRST_NAMES, LAST_NAMES, MODELS, STAFF, mulberry32, pick } from './seed';
 
 /**
  * Fleet composition is pinned to the dashboard tiles in artboard 02:
@@ -188,14 +190,185 @@ export const deviceNumbers: Record<string, { motor: string; controller: string; 
   BLRSS0428: { motor: 'MTR-EG-88213', controller: 'CTL-49-201774', rfid: '0004 7712 9930', iot: 'IOT-428-001' },
 };
 
-/** Assignment history for artboard 04, verbatim. */
+/**
+ * Assignment history for artboard 04, verbatim.
+ *
+ * The two closed rows name riders who have left the register, so their ids
+ * (R900/R901) deliberately collide with nobody on it — the register's ids run
+ * R02 to the mid-R100s. The names, dates and plans are the artboard's own.
+ */
 export const assignmentsByVehicle: Record<string, AssignmentHistoryRow[]> = {
   BLRSS0428: [
     { riderId: 'R03', riderName: 'Dulan Hajong', planAmount: 175000, startedOn: '2026-04-08', endedOn: null, days: 139, closedBy: null },
-    { riderId: 'R11', riderName: 'Sandeep Rathore', planAmount: 170000, startedOn: '2025-12-02', endedOn: '2026-03-27', days: 115, closedBy: 'Meenakshi Iyer' },
-    { riderId: 'R07', riderName: 'Faizal Rahman', planAmount: 165000, startedOn: '2025-06-16', endedOn: '2025-11-21', days: 158, closedBy: 'Meenakshi Iyer' },
+    { riderId: 'R900', riderName: 'Sandeep Rathore', planAmount: 170000, startedOn: '2025-12-02', endedOn: '2026-03-27', days: 115, closedBy: 'Meenakshi Iyer' },
+    { riderId: 'R901', riderName: 'Faizal Rahman', planAmount: 165000, startedOn: '2025-06-16', endedOn: '2025-11-21', days: 158, closedBy: 'Meenakshi Iyer' },
   ],
 };
+
+/** Days between two ISO dates, rounded — the count the rider panel prints. */
+function daysBetween(from: Iso8601, to: Iso8601) {
+  return Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000));
+}
+
+/** An ISO date shifted by whole days. UTC throughout, like daysBetween. */
+function addDays(iso: Iso8601, days: number): Iso8601 {
+  const d = new Date(iso);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Opens a row the moment a bike goes out.
+ *
+ * <p>The three assignment events used to move only the flags on the rider and
+ * the bike, so nothing ever reached this table and the rider profile's "Bike
+ * history" panel — which reads nothing else — stayed empty for everyone
+ * assigned during a session. Only artboard 04's bike has fixture rows, so a
+ * deboarded rider read "This rider has never held a bike" no matter what had
+ * just happened to them.
+ */
+export function recordAssignmentStart(vehicleId: string, rider: Rider, startedOn: Iso8601) {
+  const rows = (assignmentsByVehicle[vehicleId] ??= []);
+  // One open row per rider, the way the partial unique index enforces it.
+  if (rows.some((a) => a.riderId === rider.id && a.endedOn === null)) return;
+  rows.unshift({
+    riderId: rider.id,
+    riderName: rider.name,
+    planAmount: rider.planAmount,
+    startedOn,
+    endedOn: null,
+    days: daysBetween(startedOn, new Date().toISOString().slice(0, 10)),
+    closedBy: null,
+  });
+}
+
+/**
+ * Closes the open row. The row is never deleted — the panel exists to show the
+ * bikes that have gone back, and a deboarded rider's past is the reason it is
+ * worth looking at.
+ *
+ * The mock has no actor identity to sign with, so it signs "Fleet desk" exactly
+ * as the service-job mock does.
+ */
+export function recordAssignmentClose(
+  vehicleId: string,
+  riderId: string,
+  endedOn: Iso8601,
+  reason: string | null,
+  returnCondition: string | null,
+) {
+  const row = (assignmentsByVehicle[vehicleId] ?? []).find((a) => a.riderId === riderId && a.endedOn === null);
+  if (!row) return;
+  row.endedOn = endedOn;
+  row.days = daysBetween(row.startedOn, endedOn);
+  row.reason = reason;
+  row.returnCondition = returnCondition;
+  row.closedBy = 'Fleet desk';
+}
+
+/** Why a past bike came back — a mix of the exchange and deboard enums. */
+const PAST_REASONS = [
+  'BREAKDOWN', 'BATTERY_ISSUE', 'SERVICE_REQUIRED', 'RIDER_REQUEST', 'UPGRADE',
+  'WENT_HOME', 'PAYMENT_ISSUE', 'RETURNED', 'OTHER',
+] as const;
+
+/** Weighted toward a clean return, the way the counter actually sees them. */
+const PAST_CONDITIONS = ['NONE', 'NONE', 'NONE', 'MINOR', 'MAJOR'] as const;
+
+/**
+ * Seeds assignment history for the whole fleet, so the rider profile's "Bike
+ * history" panel has something to draw for everyone — not just artboard 04's
+ * bike. Three passes, each coherent on its own:
+ *
+ *  1. Every rider holding a bike gets an open row on it, dated from their
+ *     onboarding. The current bike is the first row of its own history.
+ *  2. The deboarded riders get a closed row on an idle bike — their history
+ *     is the whole point of the panel.
+ *  3. A deterministic subset of riders holding a bike get one past bike from
+ *     the idle pool, so a timeline shows more than a single entry. Windows
+ *     never overlap on a bike, and a rider's past bike always ends before
+ *     their current one starts.
+ *
+ * Called from mocks/riders.ts once the register exists — the rows need the
+ * rider's plan and onboarding date, which the vehicle fixture does not carry.
+ */
+export function seedAssignmentHistory(riders: Rider[]) {
+  const rng = mulberry32(20261006);
+  const today = new Date().toISOString().slice(0, 10);
+  const idleBikes = vehicles.filter((v) => v.state === 'READY_TO_DEPLOY' && !v.currentRiderId);
+  const usedRiders = new Set<string>();
+
+  // 1. The open row every holder gets.
+  for (const r of riders) {
+    if (!r.currentVehicleId) continue;
+    const rows = (assignmentsByVehicle[r.currentVehicleId] ??= []);
+    // One open row per rider — the partial unique index's rule. Artboard 04's
+    // rows already cover R03, so they are left alone.
+    if (rows.some((a) => a.riderId === r.id && a.endedOn === null)) continue;
+    rows.unshift({
+      riderId: r.id,
+      riderName: r.name,
+      planAmount: r.planAmount,
+      startedOn: r.onboardedOn,
+      endedOn: null,
+      days: daysBetween(r.onboardedOn, today),
+      closedBy: null,
+    });
+  }
+
+  // 2. Deboarded riders: a closed row on an idle bike, ending after they
+  //    joined and before today.
+  const deboarded = riders.filter((r) => r.status === 'INACTIVE');
+  for (let i = 0; i < deboarded.length; i += 1) {
+    const r = deboarded[i];
+    const start = addDays(r.onboardedOn, 3 + Math.floor(rng() * 20));
+    const end = addDays(start, 30 + Math.floor(rng() * 150));
+    if (end >= today) continue; // joined too recently to have a past bike
+    (assignmentsByVehicle[idleBikes[i % idleBikes.length].id] ??= []).push({
+      riderId: r.id,
+      riderName: r.name,
+      planAmount: r.planAmount,
+      startedOn: start,
+      endedOn: end,
+      days: daysBetween(start, end),
+      reason: pick(rng, PAST_REASONS),
+      returnCondition: pick(rng, PAST_CONDITIONS),
+      closedBy: pick(rng, STAFF),
+    });
+    usedRiders.add(r.id);
+  }
+
+  // 3. Past bikes for a subset of holders, on the idle bikes the deboarded
+  //    riders did not take. Newest window first keeps the rows newest-first.
+  const holders = riders.filter((r) => r.currentVehicleId);
+  for (const bike of idleBikes) {
+    if (assignmentsByVehicle[bike.id]?.length) continue; // taken by a deboarded rider
+    const roll = rng();
+    const count = roll < 0.3 ? 0 : roll < 0.85 ? 1 : 2;
+    let cursor = today;
+    for (let i = 0; i < count; i += 1) {
+      const end = addDays(cursor, -(20 + Math.floor(rng() * 200)));
+      const start = addDays(end, -(30 + Math.floor(rng() * 150)));
+      // The rider's current bike started at onboarding, so a past bike must
+      // have ended before it.
+      const rider = holders.find((h) => !usedRiders.has(h.id) && h.onboardedOn > end);
+      if (!rider) break;
+      usedRiders.add(rider.id);
+      (assignmentsByVehicle[bike.id] ??= []).push({
+        riderId: rider.id,
+        riderName: rider.name,
+        planAmount: rider.planAmount,
+        startedOn: start,
+        endedOn: end,
+        days: daysBetween(start, end),
+        reason: pick(rng, PAST_REASONS),
+        returnCondition: pick(rng, PAST_CONDITIONS),
+        closedBy: pick(rng, STAFF),
+      });
+      cursor = start;
+    }
+  }
+}
 
 /**
  * The repair write-ups from artboard 14, verbatim — but keyed by vehicle

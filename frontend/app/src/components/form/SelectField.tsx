@@ -1,6 +1,7 @@
 import Autocomplete from '@mui/material/Autocomplete';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import type { ReactNode } from 'react';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 
 export interface SelectOption {
@@ -35,7 +36,7 @@ export function SelectField<T extends FieldValues>({
 }: {
   control: Control<T>;
   name: Path<T>;
-  label: string;
+  label: ReactNode;
   options: readonly SelectOption[];
   /** Force the search box on or off. Defaults to on past `SEARCHABLE_FROM`. */
   searchable?: boolean;

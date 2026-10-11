@@ -17,11 +17,15 @@ import { StateChip } from '../../components/StateChip';
 import { EmptyState } from '../../components/EmptyState';
 import { Mono } from '../../components/Mono';
 import { SimpleTable } from '../../components/SimpleTable';
+import { TableFooter } from '../../components/TableFooter';
 import { listOverdueRiders } from '../../lib/api/payments';
 import { DUNNING_LABEL, DUNNING_TONE } from '../../lib/labels';
 import { rupees } from '../../lib/format';
 import { accent, fonts, neutral, status as tones } from '../../theme/tokens';
 import type { OverdueRider } from '../../types';
+
+/** A page of twelve, like every other list in the app. */
+const PAGE_SIZE = 12;
 
 /**
  * Everyone behind on rent (artboard 17), worst first. The list is derived from
@@ -38,10 +42,14 @@ export function OverdueRiders() {
   const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
   const [reminded, setReminded] = useState<Set<string>>(() => new Set());
+  // The table paginates; the tiles and the "Remind all" action above always
+  // describe the whole list.
+  const [page, setPage] = useState(0);
 
   const overdue = useQuery({ queryKey: ['payments', 'overdue'], queryFn: listOverdueRiders });
 
   const rows = overdue.data ?? [];
+  const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalDue = rows.reduce((t, o) => t + o.amountDue, 0);
   const repossession = rows.filter((o) => o.stage === 'REPOSSESSION_DUE').length;
   const pending = rows.filter((o) => !reminded.has(o.riderId)).length;
@@ -105,7 +113,7 @@ export function OverdueRiders() {
           <EmptyState title="Nobody is behind" description="Every rider has paid their rent." />
         ) : (
           <SimpleTable
-            rows={rows}
+            rows={pageRows}
             getRowKey={(o) => o.riderId}
             scrollable
             columns={[
@@ -216,6 +224,10 @@ export function OverdueRiders() {
               },
             ]}
           />
+        )}
+
+        {rows.length > 0 && (
+          <TableFooter page={page} pageSize={PAGE_SIZE} total={rows.length} onPageChange={setPage} noun="riders" />
         )}
       </Panel>
 

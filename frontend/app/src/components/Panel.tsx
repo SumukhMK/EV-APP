@@ -1,7 +1,9 @@
 import Box from '@mui/material/Box';
+import Collapse from '@mui/material/Collapse';
+import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import type { ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { panelAnchor, tourAnchor } from '../tour/anchors';
 
 /**
@@ -56,22 +58,58 @@ export function Panel({
   children,
   sx,
   locked,
+  collapsible,
+  defaultOpen = true,
 }: {
-  label?: string;
+  label?: ReactNode;
   subtitle?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   sx?: React.ComponentProps<typeof Paper>['sx'];
   /** When set, the body is inert and dimmed, and this sentence says why. */
   locked?: string | false | null;
+  /**
+   * When set, the title toggles the body open and closed. The title stays
+   * visible either way, so a collapsed section still says what it holds.
+   */
+  collapsible?: boolean;
+  /** Where a collapsible panel starts. Defaults to open, so existing screens read the same. */
+  defaultOpen?: boolean;
 }) {
-  // Every titled card is a tour target, declared once here rather than forty
-  // times across the pages. The label is both the anchor and the key the
-  // description is written against, so a card and the words about it cannot
-  // drift apart without the step simply failing to match.
+  const [open, setOpen] = useState(defaultOpen);
+  const bodyId = useId();
+
+  /**
+   * Every titled card is a tour target, declared once here rather than forty
+   * times across the pages, and keyed by the label the card already shows — so
+   * a card and the words written about it cannot drift apart without the step
+   * simply failing to match.
+   *
+   * Only a plain-text label can be a key. A few panels title themselves with an
+   * element (a chip, a formatted date), and there is no sensible string to hang
+   * a description on, so those are not tour targets. A collapsed panel still is
+   * one: the card and its title are on screen, and being pointed at a section
+   * worth opening is the useful outcome.
+   */
+  const anchor = typeof label === 'string' ? tourAnchor(panelAnchor(label)) : {};
+
+  const header = (
+    <Box>
+      {label && <Typography variant="overline">{label}</Typography>}
+      {subtitle && (
+        <Typography sx={{ fontSize: 14, color: 'grey.400', mt: '3px' }}>{subtitle}</Typography>
+      )}
+      {locked && (
+        <Typography role="note" sx={{ fontSize: 13, color: (theme) => (theme.palette.mode === 'dark' ? 'common.white' : 'warning.main'), mt: 1 }}>
+          {locked}
+        </Typography>
+      )}
+    </Box>
+  );
+
   return (
     <Paper
-      {...(label ? tourAnchor(panelAnchor(label)) : {})}
+      {...anchor}
       sx={[{ p: { xs: '16px 14px 14px', sm: '18px 20px 16px' } }, ...(Array.isArray(sx) ? sx : [sx])]}
     >
       {(label || action) && (
@@ -84,27 +122,57 @@ export function Panel({
             alignItems: { xs: 'flex-start', sm: 'flex-end' },
             justifyContent: 'space-between',
             gap: { xs: 2, sm: 4 },
-            mb: subtitle ? 4 : 3,
+            mb: !open ? 2 : subtitle ? 4 : 3,
           }}
         >
-          <Box>
-            {label && <Typography variant="overline">{label}</Typography>}
-            {subtitle && (
-              <Typography sx={{ fontSize: 14, color: 'grey.400', mt: '3px' }}>{subtitle}</Typography>
-            )}
-            {locked && (
-              <Typography role="note" sx={{ fontSize: 13, color: (theme) => (theme.palette.mode === 'dark' ? 'common.white' : 'warning.main'), mt: 1 }}>
-                {locked}
-              </Typography>
-            )}
-          </Box>
+          {collapsible ? (
+            <Box
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpen((o) => !o)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setOpen((o) => !o);
+                }
+              }}
+              aria-expanded={open}
+              aria-controls={bodyId}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                cursor: 'pointer',
+                '&:hover .panel-chevron': { color: 'text.primary' },
+              }}
+            >
+              {header}
+              <ExpandMoreOutlined
+                className="panel-chevron"
+                sx={{
+                  fontSize: 20,
+                  color: 'grey.500',
+                  transform: open ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 200ms ease',
+                }}
+              />
+            </Box>
+          ) : (
+            header
+          )}
           {action}
         </Box>
       )}
       {locked ? (
-        <Box inert aria-disabled sx={{ opacity: 0.45, filter: 'grayscale(0.4)', pointerEvents: 'none', userSelect: 'none' }}>
+        <Collapse in={open} id={bodyId}>
+          <Box inert aria-disabled sx={{ opacity: 0.45, filter: 'grayscale(0.4)', pointerEvents: 'none', userSelect: 'none' }}>
+            {children}
+          </Box>
+        </Collapse>
+      ) : collapsible ? (
+        <Collapse in={open} id={bodyId}>
           {children}
-        </Box>
+        </Collapse>
       ) : (
         children
       )}

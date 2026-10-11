@@ -3,6 +3,8 @@ import TextField from '@mui/material/TextField';
 import { useEffect } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { SelectField } from '../../../components/form/SelectField';
+import { MandatoryLabel } from '../../../components/form/MandatoryLabel';
+import { InfoTip } from '../../../components/InfoTip';
 import { INDIA_STATES, citiesOf } from '../../../lib/indiaPlaces';
 import { StepSection } from '../../../components/StepSection';
 import { digitsOnly, licenceMask, panMask } from '../../../lib/inputFormat';
@@ -41,11 +43,11 @@ export function RiderAddressStep({ step }: { step: number }) {
     <StepSection
       step={step}
       title="Address"
-      subtitle="Where the rider lives, and where a bike can be recovered from."
+      info="Where the rider lives, and where a bike can be recovered from."
     >
       <Box sx={{ display: 'grid', gap: 5 }}>
         <TextField
-          label="Local address"
+          label={<>Local address <MandatoryLabel /></>}
           placeholder="House, street, area"
           multiline
           minRows={2}
@@ -64,7 +66,7 @@ export function RiderAddressStep({ step }: { step: number }) {
           <SelectField
             control={control}
             name="state"
-            label="State"
+            label={<>State <MandatoryLabel /></>}
             searchable
             placeholder="Type to search"
             options={INDIA_STATES.map((name) => ({ value: name, label: name }))}
@@ -72,13 +74,13 @@ export function RiderAddressStep({ step }: { step: number }) {
           <SelectField
             control={control}
             name="city"
-            label="City"
+            label={<>City <MandatoryLabel /></>}
             searchable
             placeholder={state ? 'Type to search' : 'Pick the state first'}
             options={cities.map((name) => ({ value: name, label: name }))}
           />
           <TextField
-            label="PIN code"
+            label={<>PIN code <MandatoryLabel /></>}
             inputMode="numeric"
             slotProps={{ htmlInput: { maxLength: 6 } }}
             {...register('pinCode', {
@@ -93,7 +95,7 @@ export function RiderAddressStep({ step }: { step: number }) {
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
           <TextField
-            label="PAN number (optional)"
+            label={<>PAN number (optional) <InfoTip title="Five letters, four digits, one letter" /></>}
             placeholder="ABCDE1234F"
             // Each position only takes the kind of character that belongs
             // there — five letters, four digits, one letter.
@@ -103,10 +105,10 @@ export function RiderAddressStep({ step }: { step: number }) {
               },
             })}
             error={fieldError('panNumber').error}
-            helperText={fieldError('panNumber').helperText ?? 'Five letters, four digits, one letter'}
+            helperText={fieldError('panNumber').helperText}
           />
           <TextField
-            label="Driving licence (optional)"
+            label={<>Driving licence (optional) <InfoTip title="State code, RTO, year, then the serial" /></>}
             placeholder="KA0120239876543"
             {...register('drivingLicence', {
               onChange: (e) => {
@@ -114,9 +116,7 @@ export function RiderAddressStep({ step }: { step: number }) {
               },
             })}
             error={fieldError('drivingLicence').error}
-            helperText={
-              fieldError('drivingLicence').helperText ?? 'State code, RTO, year, then the serial'
-            }
+            helperText={fieldError('drivingLicence').helperText}
           />
         </Box>
       </Box>

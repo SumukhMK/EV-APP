@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,7 +12,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
-import { InfoStrip } from '../../components/InfoStrip';
+import { InfoTip } from '../../components/InfoTip';
 import { StateChip } from '../../components/StateChip';
 import { onboardRider } from '../../lib/api/riders';
 import { ApiError } from '../../lib/api/client';
@@ -55,6 +56,10 @@ export function OnboardRider() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [banner, setBanner] = useState<string | null>(null);
+  // The confirmation the operator sees on this screen before it routes to the
+  // new rider's record. Held here, not passed as navigation state, so the
+  // message is on screen before the route changes.
+  const [success, setSuccess] = useState<{ message: string; riderId: string } | null>(null);
   const verification = useRiderVerification();
 
   const form = useForm<OnboardRiderValues>({
@@ -111,17 +116,28 @@ export function OnboardRider() {
   /**
    * Take the operator to the first thing that is wrong. The form is four
    * sections long; a refused submit that only reddened a field below the
-   * fold looked like nothing happened. Scrolls the section into view,
-   * shakes it, and puts the cursor in the field.
+   * fold looked like nothing happened. Scrolls the first red field into
+   * view, shakes it, and puts the cursor in it. The section is the target
+   * only when nothing is red — the verification gate has no field of its own.
    */
-  const goToProblem = (field: keyof OnboardRiderValues | null, step: number) => {
-    const section = document.getElementById(`step-${step}`);
-    section?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-    section?.classList.add('shake-field');
-    setTimeout(() => section?.classList.remove('shake-field'), 600);
-    if (field) {
-      setTimeout(() => form.setFocus(field), 350);
-    }
+  const goToProblem = (step: number) => {
+    // The error props land on the fields after the submit handler returns,
+    // so the first red field is looked up on the next tick.
+    setTimeout(() => {
+      const invalid = document.querySelector<HTMLElement>('form [aria-invalid="true"]');
+      const target = invalid?.closest('.MuiFormControl-root') ?? invalid;
+      if (target) {
+        target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        target.classList.add('shake-field');
+        setTimeout(() => target.classList.remove('shake-field'), 600);
+        invalid?.focus?.();
+        return;
+      }
+      const section = document.getElementById(`step-${step}`);
+      section?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+      section?.classList.add('shake-field');
+      setTimeout(() => section?.classList.remove('shake-field'), 600);
+    }, 0);
   };
 
   const submit = form.handleSubmit(
@@ -131,13 +147,14 @@ export function OnboardRider() {
         // Aadhaar is step 1, the three numbers are step 2.
         const first = verification.outstanding[0];
         setBanner('Verify the Aadhaar number and all three mobile numbers before onboarding.');
-        goToProblem(null, first === 'aadhaar' ? 1 : 2);
+        goToProblem(first === 'aadhaar' ? 1 : 2);
         return;
       }
       // Errors are shown by the mutation's onError; see AddVehicle for the same shape.
       const created = await save.mutateAsync(values).catch(() => null);
       if (!created) return;
-      navigate(`/riders/${created.id}`, { state: { notice: `${created.name} onboarded as ${created.id}` } });
+      // Confirm on this screen first; the Snackbar's close routes to the record.
+      setSuccess({ message: `${created.name} onboarded as ${created.id}`, riderId: created.id });
     },
     (errors) => {
       const first = STEP_ORDER.find((name) => name in errors) ?? null;
@@ -146,7 +163,7 @@ export function OnboardRider() {
       setBanner(count === 1
         ? 'One field needs attention — it is marked below.'
         : `${count} fields need attention — the first is marked below.`);
-      goToProblem(first, step);
+      goToProblem(step);
     },
   );
 
@@ -182,7 +199,7 @@ export function OnboardRider() {
               <Button color="inherit" component={Link} to="/riders">
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending || Boolean(success)}>
                 {save.isPending ? 'Onboarding…' : 'Onboard rider'}
               </Button>
             </>
@@ -195,12 +212,20 @@ export function OnboardRider() {
           </Alert>
         )}
 
-        <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
-          <InfoStrip>
-            The rider id is generated on deployment. A rider joins the register with no bike — a
-            bike is assigned from their record afterwards.
-          </InfoStrip>
+        {/* The confirmation the operator sees before the screen routes to the
+            new rider's record. Closing it — by timeout or by hand — is what
+            moves on, so the message is never skipped. */}
+        <Snackbar
+          open={Boolean(success)}
+          autoHideDuration={1600}
+          onClose={() => {
+            if (success) navigate(`/riders/${success.riderId}`);
+          }}
+          message={success?.message}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        />
 
+        <Box sx={{ display: 'grid', gap: 5, mt: 5 }}>
           {/* Form column + sticky review sidebar — same split as the detail pages. */}
           <Box
             sx={{
@@ -229,7 +254,9 @@ export function OnboardRider() {
             {/* Review sidebar — sticky, so the operator sees the result of
                 every keystroke without scrolling back up. */}
             <Box sx={{ position: { lg: 'sticky' }, top: { lg: 5 }, display: 'grid', gap: 5 }}>
-              <Panel label="Summary">
+              <Panel
+                label={<>Summary <InfoTip title="The rider id is generated on deployment. A rider joins the register with no bike and KYC pending — a bike is assigned from their record afterwards, and a pending KYC does not block the assignment." /></>}
+              >
                 <DefinitionList
                   columns={2}
                   items={[
@@ -280,10 +307,6 @@ export function OnboardRider() {
                     { label: 'Bike', value: 'Assigned separately' },
                   ]}
                 />
-                <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-                  The rider joins the register with no bike and KYC pending. Assign a bike from their
-                  record — a pending KYC is shown there, but it does not block the assignment.
-                </Typography>
               </Panel>
 
               <Panel label="Verification">

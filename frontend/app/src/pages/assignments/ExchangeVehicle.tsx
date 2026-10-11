@@ -17,7 +17,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
-import { InfoStrip } from '../../components/InfoStrip';
+import { InfoTip } from '../../components/InfoTip';
 import { SelectField } from '../../components/form/SelectField';
 import { VehiclePicker } from './VehiclePicker';
 import { RiderSearchSelect } from './_components/RiderSearchSelect';
@@ -197,8 +197,7 @@ export function ExchangeVehicle() {
 
         <Box sx={{ display: 'grid', gap: 5, mt: 5, '& > *': { minWidth: 0 } }}>
           <Panel
-            label="Who is swapping?"
-            subtitle="Only riders who have a bike right now."
+            label={<>Who is swapping? <InfoTip title="Only riders who have a bike right now." /></>}
             sx={{ maxWidth: layout.readingMax }}
           >
             <RiderSearchSelect
@@ -222,8 +221,7 @@ export function ExchangeVehicle() {
           </Panel>
 
           <Panel
-            label="The bike coming back"
-            subtitle="The condition you pick suggests where the bike should go. If you choose something else, say why."
+            label={<>The bike coming back <InfoTip title="The condition you pick suggests where the bike should go. If you choose something else, say why." /></>}
             sx={{ maxWidth: layout.readingMax }}
             locked={!rider && 'Pick the rider first'}
           >
@@ -234,12 +232,6 @@ export function ExchangeVehicle() {
                 label="What condition is the bike in?"
                 options={CONDITIONS}
               />
-            </Box>
-            <Box sx={{ mt: 4 }}>
-              <InfoStrip>
-Recovery is not offered here — that is a separate job. For the bike coming back,
-                choose Quality Check, In Service, or Accident.
-              </InfoStrip>
             </Box>
             <Box sx={{ mt: 5 }}>
               <DispositionFields
@@ -258,7 +250,7 @@ Recovery is not offered here — that is a separate job. For the bike coming bac
             )}
           </Panel>
 
-          <Panel label="The new bike" subtitle="Bikes that passed QC and are ready to go out." locked={!rider && 'Pick the rider first'}>
+          <Panel label={<>The new bike <InfoTip title="Bikes that passed QC and are ready to go out." /></>} locked={!rider && 'Pick the rider first'}>
             <Controller
               control={form.control}
               name="toVehicleId"

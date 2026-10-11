@@ -16,6 +16,7 @@ import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { StateChip } from '../../components/StateChip';
 import { EmptyState } from '../../components/EmptyState';
+import { InfoTip } from '../../components/InfoTip';
 import { SelectField } from '../../components/form/SelectField';
 import { DateField } from '../../components/form/DateField';
 import { VehiclePicker } from './VehiclePicker';
@@ -161,8 +162,7 @@ export function AssignVehicle() {
 
       <Box sx={{ display: 'grid', gap: 5, mt: 5, '& > *': { minWidth: 0 } }}>
         <Panel
-          label="Rider"
-          subtitle="Riders on the register without a bike right now. KYC and dues are shown; dues above the deposit need an admin."
+          label={<>Rider <InfoTip title="Riders on the register without a bike right now. KYC and dues are shown; dues above the deposit need an admin." /></>}
           sx={{ maxWidth: layout.readingMax }}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
@@ -196,7 +196,7 @@ export function AssignVehicle() {
           </Box>
         </Panel>
 
-        <Panel label="Available bikes" subtitle="Bikes that passed QC and are ready to go out." locked={!rider && 'Pick the rider first'}>
+        <Panel label={<>Available bikes <InfoTip title="Bikes that passed QC and are ready to go out." /></>} locked={!rider && 'Pick the rider first'}>
           <Controller
             control={form.control}
             name="vehicleId"
@@ -210,7 +210,7 @@ export function AssignVehicle() {
           />
         </Panel>
 
-        <Panel label="Summary" sx={{ maxWidth: layout.readingMax }} locked={!rider && 'Pick the rider first'}>
+        <Panel label={<>Summary <InfoTip title="Rent starts on the assignment date. The bike stays with this rider until it is returned." /></>} sx={{ maxWidth: layout.readingMax }} locked={!rider && 'Pick the rider first'}>
           <DefinitionList
             columns={2}
             items={[
@@ -288,10 +288,6 @@ export function AssignVehicle() {
             error={Boolean(form.formState.errors.note)}
             helperText={form.formState.errors.note?.message}
           />
-          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 4 }}>
-            Rent starts on the assignment date. The bike stays with this rider until it is
-            returned.
-          </Typography>
         </Panel>
       </Box>
       <ConfirmDialog

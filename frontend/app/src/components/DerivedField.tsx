@@ -1,4 +1,5 @@
 import TextField from '@mui/material/TextField';
+import { InfoTip } from './InfoTip';
 
 /**
  * A field the operator reads rather than fills.
@@ -13,14 +14,17 @@ export function DerivedField({
   label,
   value,
   derivation,
+  info,
 }: {
   label: string;
   value: string;
   derivation?: string;
+  /** Static explanation, shown as an (i) next to the label instead of helper text. */
+  info?: string;
 }) {
   return (
     <TextField
-      label={label}
+      label={info ? <>{label} <InfoTip title={info} /></> : label}
       value={value}
       helperText={derivation}
       slotProps={{ input: { readOnly: true } }}
