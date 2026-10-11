@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
@@ -12,6 +12,26 @@ import { RouteFallback } from '../components/RouteFallback';
 import { RequireRole } from '../app/RequireRole';
 import { base, layout, neutral } from '../theme/tokens';
 import { railCollapse, riseIn } from '../theme/motion';
+import { TourProvider } from '../tour/TourProvider';
+import { HelpMenu } from '../tour/HelpMenu';
+
+/**
+ * The tour's drawing half, fetched only if a tour actually runs.
+ *
+ * `TourProvider` above is state and one localStorage read; everything with
+ * weight — the spotlight, the Popper, the bubble — lives behind this boundary.
+ * The shell's budget is why, and it was measured rather than assumed:
+ *
+ *   before the tour                    199.7 KB
+ *   provider + the ? button in shell   203.2 KB
+ *   budget                             220.0 KB
+ *
+ * So the orientation layer costs 3.5 KB of first paint and the rest arrives
+ * only for the sessions that start a tour. Splitting the stage is what kept
+ * that true — unsplit, it drags MUI's Popper and backdrop into the shell for
+ * the benefit of a screen most mornings never show.
+ */
+const TourStage = lazy(() => import('../tour/TourStage').then((m) => ({ default: m.TourStage })));
 
 /** Where the rail's open/closed choice is remembered. */
 const NAV_KEY = 'fleetech-nav';
@@ -53,6 +73,7 @@ export function AppLayout() {
     });
 
   return (
+    <TourProvider>
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       <Box
         sx={{
@@ -102,6 +123,7 @@ export function AppLayout() {
             FleeTech <Box component="span" sx={{ color: base.accent }}>OS</Box>
           </Typography>
           <Box sx={{ flex: 1 }} />
+          <HelpMenu />
           <ModeToggle />
         </Box>
 
@@ -119,6 +141,7 @@ export function AppLayout() {
             pt: 4,
           }}
         >
+          <HelpMenu />
           <ModeToggle />
         </Box>
 
@@ -152,6 +175,13 @@ export function AppLayout() {
           </Box>
         </Box>
       </Box>
+
+      {/* Outside the content column: the spotlight is fixed-position and must
+          not be clipped by the column's padding or its rise-in transform. */}
+      <Suspense fallback={null}>
+        <TourStage />
+      </Suspense>
     </Box>
+    </TourProvider>
   );
 }

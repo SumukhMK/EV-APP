@@ -6,6 +6,7 @@ import type { SvgIconComponent } from '@mui/icons-material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import { Link } from 'react-router-dom';
 import { accent, layout, neutral } from '../theme/tokens';
+import { TOUR_ANCHORS, tourAnchor } from '../tour/anchors';
 
 /**
  * The header band every screen opens with: a tracked-out section label, the
@@ -91,7 +92,7 @@ export function PageHeader({
             <Icon />
           </Box>
         )}
-        <Box>
+        <Box {...tourAnchor(TOUR_ANCHORS.pageTitle)}>
           <Typography variant="overline">{section}</Typography>
           <Typography variant="h3" sx={{ mt: '2px', fontSize: { xs: 22, sm: 25, xl: 28 } }}>
             {title}
@@ -99,7 +100,10 @@ export function PageHeader({
         </Box>
       </Box>
       {(actions || backTo || meta) && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', alignSelf: { xs: 'flex-end', sm: 'auto' } }}>
+        <Box
+          {...tourAnchor(TOUR_ANCHORS.pageActions)}
+          sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', alignSelf: { xs: 'flex-end', sm: 'auto' } }}
+        >
           {meta}
           {backTo && (
             <Button color="inherit" component={Link} to={backTo} startIcon={<ArrowBackIcon sx={{ fontSize: 16 }} />}>

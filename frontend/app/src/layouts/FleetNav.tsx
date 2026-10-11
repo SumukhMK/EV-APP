@@ -11,6 +11,7 @@ import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { navForRole } from '../app/nav';
+import { TOUR_ANCHORS, navAnchor, tourAnchor } from '../tour/anchors';
 import { USER_ROLE_LABEL } from '../lib/labels';
 import { base, layout, mix, neutral, radius } from '../theme/tokens';
 import { railCollapse, railLabel } from '../theme/motion';
@@ -67,6 +68,7 @@ export function FleetNav({
   return (
     <Box
       component="nav"
+      {...tourAnchor(TOUR_ANCHORS.rail)}
       sx={{
         width: collapsed ? layout.navWidthCollapsed : layout.navWidth,
         minHeight: '100vh',
@@ -137,7 +139,7 @@ export function FleetNav({
         }}
       >
         {sections.map((section) => (
-          <Box key={section.heading}>
+          <Box key={section.heading} {...tourAnchor(navAnchor(section.heading))}>
             {/* The heading is what a collapsed rail cannot keep — an icon
                 column has no room for a word, and truncating it to three
                 letters reads as a bug. The grouping survives as spacing. */}

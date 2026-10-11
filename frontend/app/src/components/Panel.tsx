@@ -3,7 +3,8 @@ import Collapse from '@mui/material/Collapse';
 import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { useId, useState, type ReactNode } from 'react';
+import { Children, Fragment, isValidElement, useId, useState, type ReactNode } from 'react';
+import { panelAnchor, tourAnchor } from '../tour/anchors';
 
 /**
  * A titled surface. The label is the same tracked-out `overline` as PageHeader.
@@ -50,6 +51,34 @@ export function Locked({
   );
 }
 
+/**
+ * The words in a label, for use as a key.
+ *
+ * A label is a `ReactNode`, and ten panels title themselves
+ * `<>Money <InfoTip …/></>` so a tip can sit beside the words. Keying only off
+ * plain strings dropped every one of those from its screen's tour — the assign,
+ * exchange and deboard flows lost every card they had — even though the words
+ * were sitting right there in the label.
+ *
+ * Only the label's own direct text counts. Anything nested is somebody else's
+ * content, and an info tip's sentence has no business becoming a card's name.
+ */
+function labelText(label: ReactNode): string | null {
+  if (typeof label === 'string') return label.trim() || null;
+  // `<>Money <InfoTip/></>` arrives as one fragment element; its text is a
+  // child of that fragment, not of the label, so it has to be opened first.
+  const nodes =
+    isValidElement(label) && label.type === Fragment
+      ? (label.props as { children?: ReactNode }).children
+      : label;
+  const words = Children.toArray(nodes)
+    .filter((child) => !isValidElement(child))
+    .map((child) => (typeof child === 'string' || typeof child === 'number' ? String(child) : ''))
+    .join('')
+    .trim();
+  return words || null;
+}
+
 export function Panel({
   label,
   subtitle,
@@ -78,6 +107,19 @@ export function Panel({
   const [open, setOpen] = useState(defaultOpen);
   const bodyId = useId();
 
+  /**
+   * Every titled card is a tour target, declared once here rather than forty
+   * times across the pages, and keyed by the label the card already shows — so
+   * a card and the words written about it cannot drift apart without the step
+   * simply failing to match.
+   *
+   * A collapsed panel is still a target: the card and its title are on screen
+   * either way, and being pointed at a section worth opening is the useful
+   * outcome.
+   */
+  const key = labelText(label);
+  const anchor = key ? tourAnchor(panelAnchor(key)) : {};
+
   const header = (
     <Box>
       {label && <Typography variant="overline">{label}</Typography>}
@@ -93,7 +135,10 @@ export function Panel({
   );
 
   return (
-    <Paper sx={[{ p: { xs: '16px 14px 14px', sm: '18px 20px 16px' } }, ...(Array.isArray(sx) ? sx : [sx])]}>
+    <Paper
+      {...anchor}
+      sx={[{ p: { xs: '16px 14px 14px', sm: '18px 20px 16px' } }, ...(Array.isArray(sx) ? sx : [sx])]}
+    >
       {(label || action) && (
         <Box
           sx={{
