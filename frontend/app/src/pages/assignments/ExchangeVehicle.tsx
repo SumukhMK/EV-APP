@@ -3,14 +3,13 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useReturnTo } from '../../app/useReturnTo';
+import { shakeStyles, useShakeValidation } from '../../hooks/useShakeValidation';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -70,7 +69,7 @@ export function ExchangeVehicle() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
-  const [confirmedValues, setConfirmedValues] = useState('');
+  const { containerRef, shake } = useShakeValidation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingValues, setPendingValues] = useState<ExchangeVehicleValues | null>(null);
 
@@ -96,8 +95,6 @@ export function ExchangeVehicle() {
   });
 
   const picked = useWatch({ control: form.control });
-  const confirmationKey = JSON.stringify(picked);
-  const confirmed = confirmedValues === confirmationKey;
   const rider = riders.data?.find((r) => r.id === picked.riderId);
 
   // The bike being handed back is not a choice — it is whichever one the rider
@@ -139,10 +136,10 @@ export function ExchangeVehicle() {
 
   const submit = form.handleSubmit((values) => {
     setBanner(null);
-    if (!confirmed) { setBanner('Confirm both vehicles and the return destination before exchanging.'); return; }
     setPendingValues(values);
     setConfirmOpen(true);
-  });
+    // On a refusal the error props land after this returns, so shake on the next tick.
+  }, () => setTimeout(shake, 0));
 
   if (riders.isLoading) {
     return (
@@ -171,7 +168,7 @@ export function ExchangeVehicle() {
 
   return (
     <FormProvider {...form}>
-      <Box component="form" onSubmit={submit} noValidate>
+      <Box component="form" ref={containerRef} onSubmit={submit} noValidate sx={shakeStyles}>
         <PageHeader
           section="Riders"
           title="Exchange vehicle"
@@ -302,7 +299,6 @@ export function ExchangeVehicle() {
               error={Boolean(form.formState.errors.note)}
               helperText={form.formState.errors.note?.message}
             />
-            <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm both bikes and where the old one goes." />
           </Panel>
         </Box>
       </Box>
@@ -312,7 +308,6 @@ export function ExchangeVehicle() {
         message="The rider's bike changes and the returned bike enters service."
         info={pendingValues ? `${rider?.name ?? rider?.id ?? 'The rider'} swaps ${pendingValues.fromVehicleId} for ${pendingValues.toVehicleId}. The returned bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.` : undefined}
         confirmLabel="Save the swap"
-        tone="bad"
         dismissible={false}
         pending={save.isPending}
         onConfirm={() => { setConfirmOpen(false); if (pendingValues) save.mutate(pendingValues); }}

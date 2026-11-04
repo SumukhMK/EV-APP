@@ -31,6 +31,7 @@ import {
 } from '../../lib/schemas/assignment';
 import { KYC_STATUS_LABEL, KYC_STATUS_TONE } from '../../lib/labels';
 import { useSession } from '../../app/sessionContext';
+import { canOverrideDues } from '../../lib/roles';
 import { useReturnTo } from '../../app/useReturnTo';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -59,7 +60,7 @@ export function AssignVehicle() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { user } = useSession();
   const { returnTo, cameFromElsewhere, backLabel } = useReturnTo('/riders');
-  const canOverrideDues = user.roleKey === 'SUPER_ADMIN' || user.roleKey === 'FLEET_ADMIN';
+  const mayOverrideDues = canOverrideDues(user.roleKey);
   const [pendingValues, setPendingValues] = useState<AssignVehicleValues | null>(null);
 
   const riders = useQuery({
@@ -97,7 +98,7 @@ export function AssignVehicle() {
 
   const submit = form.handleSubmit((values) => {
     setBanner(null);
-    if (duesBlock && values.overrideDues && !values.note?.trim()) {
+    if (values.overrideDues && !values.note?.trim()) {
       form.setError('note', { message: 'Say why the bike is going out despite the dues' });
       return;
     }
@@ -107,6 +108,9 @@ export function AssignVehicle() {
 
   const picked = useWatch({ control: form.control });
   const rider = riders.data?.find((r) => r.id === picked.riderId);
+  // Dues above the deposit are refused by the server; say so before the submit, not after.
+  const overDeposit = Boolean(rider && rider.duesPaise > rider.depositHeld);
+  const showDues = Boolean(duesBlock) || overDeposit;
 
   if (riders.isLoading) {
     return (
@@ -254,10 +258,10 @@ export function AssignVehicle() {
               },
             ]}
           />
-          {duesBlock && (
+          {showDues && (
             <Alert severity="warning" variant="outlined" sx={{ mt: 5 }}>
-              {duesBlock}
-              {canOverrideDues ? (
+              {duesBlock ?? (rider && `${rider.name} owes ${rupeesWithSymbol(rider.duesPaise)}, more than the ${rupeesWithSymbol(rider.depositHeld)} deposit. The bike cannot go out until this is paid or an admin overrides.`)}
+              {mayOverrideDues ? (
                 <FormControlLabel
                   sx={{ display: 'flex', mt: 2 }}
                   control={
@@ -273,13 +277,13 @@ export function AssignVehicle() {
                 />
               ) : (
                 <Typography sx={{ fontSize: 13, mt: 2 }}>
-                  Collect the dues first, or ask a fleet admin to override.
+                  Ask a fleet admin to record the payment or approve an override.
                 </Typography>
               )}
             </Alert>
           )}
           <TextField
-            label={duesBlock ? 'Note (required for an override)' : 'Note (optional)'}
+            label={showDues && mayOverrideDues ? 'Note (required for an override)' : 'Note (optional)'}
             multiline
             minRows={2}
             fullWidth

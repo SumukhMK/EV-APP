@@ -3,7 +3,6 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Snackbar from '@mui/material/Snackbar';
-import Typography from '@mui/material/Typography';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +12,6 @@ import { Panel } from '../../components/Panel';
 import { Mono } from '../../components/Mono';
 import { DefinitionList } from '../../components/DefinitionList';
 import { InfoTip } from '../../components/InfoTip';
-import { StateChip } from '../../components/StateChip';
 import { onboardRider } from '../../lib/api/riders';
 import { ApiError } from '../../lib/api/client';
 import { invalidateRiders } from '../../lib/invalidate';
@@ -24,9 +22,7 @@ import {
 } from '../../lib/schemas/rider';
 import { rupeesWithSymbol } from '../../lib/format';
 import { PAYMENT_METHOD_LABEL } from '../../lib/labels';
-import type { StatusTone } from '../../theme/tokens';
-import type { VerificationState } from '../../components/VerifyField';
-import { useRiderVerification, type VerifiableField } from './_components/useRiderVerification';
+import { useRiderVerification } from './_components/useRiderVerification';
 import { RiderIdentityStep } from './_components/RiderIdentityStep';
 import { RiderContactStep } from './_components/RiderContactStep';
 import { RiderAddressStep } from './_components/RiderAddressStep';
@@ -95,7 +91,8 @@ export function OnboardRider() {
         // Rupees at the desk, paise on the wire. Converted once, here.
         planAmount: values.planRupees * 100,
         billingDay: values.billingDay,
-        paymentDay: values.paymentDay,
+        // Not asked any more — it drove no calculation. Sent as the cycle day so the API contract holds.
+        paymentDay: values.billingDay,
         paymentMode: values.paymentMode,
         depositPlan: values.depositRupees * 100,
         depositPaid: values.depositPaidRupees * 100,
@@ -171,23 +168,6 @@ export function OnboardRider() {
   // so it cannot disagree with the fields above it.
   const preview = useWatch({ control: form.control });
 
-  const verifiedCount = 4 - verification.outstanding.length;
-
-  const verificationFields: { field: VerifiableField; label: string }[] = [
-    { field: 'aadhaar', label: 'Aadhaar number' },
-    { field: 'primary', label: 'Primary mobile' },
-    { field: 'whatsapp', label: 'WhatsApp number' },
-    { field: 'alt1', label: 'Alternate number' },
-  ];
-
-  const verificationChip: Record<VerificationState, { label: string; tone: StatusTone }> = {
-    UNVERIFIED: { label: 'Pending', tone: 'neutral' },
-    CODE_SENT: { label: 'Code sent', tone: 'caution' },
-    VERIFYING: { label: 'Checking…', tone: 'caution' },
-    VERIFIED: { label: 'Verified', tone: 'good' },
-    FAILED: { label: 'Failed', tone: 'bad' },
-  };
-
   return (
     <FormProvider {...form}>
       <Box component="form" onSubmit={submit} noValidate sx={shakeStyles}>
@@ -247,7 +227,7 @@ export function OnboardRider() {
               {/* Step 3: Address — local address, city/state/PIN, documents */}
               <RiderAddressStep step={3} />
 
-              {/* Step 4: Commercial — platform, plan, payment day, deposit */}
+              {/* Step 4: Commercial — platform, plan, rent cycle, deposit */}
               <RiderCommercialStep step={4} />
             </Box>
 
@@ -281,8 +261,8 @@ export function OnboardRider() {
                       ),
                     },
                     {
-                      label: 'Billing day',
-                      value: preview.billingDay === 'WEDNESDAY' ? 'Wednesday' : 'Monday',
+                      label: 'Rent cycle',
+                      value: preview.billingDay === 'WEDNESDAY' ? 'Wednesday cycle' : 'Monday cycle',
                     },
                     {
                       label: 'Deposit',
@@ -302,48 +282,14 @@ export function OnboardRider() {
                     },
                     {
                       label: 'KYC',
-                      value: verification.allVerified ? 'All fields verified' : 'Pending — complete the verification steps above',
+                      // Nothing is verified at onboarding; KYC is decided later on the rider record.
+                      value: 'Pending',
                     },
                     { label: 'Bike', value: 'Assigned separately' },
                   ]}
                 />
               </Panel>
 
-              <Panel label="Verification">
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 2,
-                    mb: 3,
-                  }}
-                >
-                  <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-                    {verifiedCount} of 4 fields verified
-                  </Typography>
-                  <StateChip
-                    label={verification.allVerified ? 'Ready to onboard' : 'Pending'}
-                    tone={verification.allVerified ? 'good' : 'warn'}
-                  />
-                </Box>
-                <Box sx={{ display: 'grid', gap: 2 }}>
-                  {verificationFields.map(({ field, label }) => (
-                    <Box
-                      key={field}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 2,
-                      }}
-                    >
-                      <Typography sx={{ fontSize: 13 }}>{label}</Typography>
-                      <StateChip {...verificationChip[verification.stateOf(field)]} />
-                    </Box>
-                  ))}
-                </Box>
-              </Panel>
             </Box>
           </Box>
         </Box>

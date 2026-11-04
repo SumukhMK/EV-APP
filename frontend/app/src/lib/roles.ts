@@ -28,10 +28,19 @@ export function canManageAssignments(role: UserRole): boolean {
   return role === 'SUPER_ADMIN' || role === 'FLEET_ADMIN' || role === 'FLEET_STAFF';
 }
 
-/** Only the roles the Money nav section is already shown to may collect a
- *  payment — a service manager or fleet hand looking at a run reads it, but
- *  cannot record a collection against it. */
+/** Only the roles the Money nav section is shown to may collect a payment;
+ *  the service manager and fleet staff cannot open the payment run at all. */
 export function canCollectPayments(role: UserRole): boolean {
+  return role === 'SUPER_ADMIN' || role === 'FLEET_ADMIN';
+}
+
+/** Approving or rejecting a rider's KYC is an admin decision. */
+export function canDecideKyc(role: UserRole): boolean {
+  return role === 'SUPER_ADMIN' || role === 'FLEET_ADMIN';
+}
+
+/** Only an admin may hand over a bike while the rider owes more than the deposit. */
+export function canOverrideDues(role: UserRole): boolean {
   return role === 'SUPER_ADMIN' || role === 'FLEET_ADMIN';
 }
 

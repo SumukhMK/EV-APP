@@ -26,6 +26,11 @@ public record ServiceJobResponse(
         String riderId,
         String riderName,
         ServiceJobSource source,
+        /** Which board this card belongs to. Derived from the source, never sent by a client. */
+        ServiceJobCategory category,
+        RepairType repairType,
+        /** "Ticket Created By (Executive)". Null on a job a deboard or exchange opened. */
+        String createdBy,
         DamageCategory damageCategory,
         ServiceQueue queue,
         String location,
@@ -36,6 +41,8 @@ public record ServiceJobResponse(
         String damageNotes,
         List<ServiceJobItemResponse> items,
         long totalCostPaise,
+        /** Spare-parts money taken at the counter; the rest of the parts bill is the rider's. */
+        long partsPaidPaise,
         ServiceLiability liability,
         ServiceJobStatus status,
         String technician,
@@ -60,6 +67,9 @@ public record ServiceJobResponse(
                 rider == null ? null : rider.getRiderCode(),
                 rider == null ? null : rider.getName(),
                 job.getSource(),
+                job.getCategory(),
+                job.getRepairType(),
+                job.getCreatedBy(),
                 job.getDamageCategory(),
                 job.getQueue(),
                 job.getLocation(),
@@ -70,6 +80,7 @@ public record ServiceJobResponse(
                 job.getDamageNotes(),
                 items.stream().map(ServiceJobItemResponse::from).toList(),
                 job.getTotalCostPaise(),
+                job.getPartsPaidPaise(),
                 job.getLiability(),
                 job.getStatus(),
                 job.getTechnician(),

@@ -1,21 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import AddIcon from '@mui/icons-material/AddOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/sessionContext';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { DefinitionList } from '../../components/DefinitionList';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
@@ -29,17 +30,16 @@ import { formatDateTime, preciseRupeesWithSymbol as rupeesWithSymbol } from '../
 import { invalidateServiceJobs } from '../../lib/invalidate';
 import { VEHICLE_STATE_LABEL } from '../../lib/labels';
 import { canCloseServiceJob, canManageService } from '../../lib/roles';
-import { hasServiceNote, isServiceQueue, needsDamageAssessment, QUEUE_STATE, queueForCondition, releaseState } from '../../lib/serviceWorkflow';
+import { isServiceQueue, JOB_STAGE_LABEL, JOB_STAGE_TONE, jobStage, needsDamageAssessment, QUEUE_STATE, queueForCondition, releaseState, walkInRiderCharge } from '../../lib/serviceWorkflow';
 import { useShakeValidation, shakeStyles } from '../../hooks/useShakeValidation';
 import { HUBS } from '../../mocks/seed';
 import { SERVICE_QUEUES, type DamageCategory, type ServiceJob, type ServiceJobItem, type ServiceJobSource, type ServiceLiability, type ServiceQueue } from '../../types';
-import { CATEGORY_LABEL, LIABILITY_LABEL, SOURCE_LABEL, SERVICE_QUEUE_LABEL } from '../../lib/serviceJobLabels';
+import { CATEGORY_LABEL, LIABILITY_LABEL, REPAIR_TYPE_LABEL, SERVICE_CATEGORY_LABEL, SOURCE_LABEL, SERVICE_QUEUE_LABEL } from '../../lib/serviceJobLabels';
 
 const deskPath = '/service/assistance';
 const columns = { display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' }, gap: 4, mt: 4, alignItems: 'start' };
 const damageCategories = ['NONE', 'MINOR', 'MAJOR', 'ACCIDENT'] as const;
 type Intent = 'QC' | 'MOVE' | 'QC_FAIL' | 'RELEASE';
-type IntentOption = { id: Intent; label: string; hint: string; cta: string; disabled?: boolean };
 const requiresReference = (queue: ServiceQueue) => ['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(queue);
 
 /** Mandatory QC safety checks. */
@@ -193,9 +193,12 @@ export function AssistanceJob() {
   );
   return <>
     {saved && job.data.status !== 'CLOSED' && <Alert severity="success" sx={{ mb: 3 }}>{saved}</Alert>}
-    <JobRecord key={`${job.data.id}:${job.data.updatedOn}`} job={job.data} returnTo={returnTo} onSaved={(updated) => setSaved(`Saved. The bike is now in "${SERVICE_QUEUE_LABEL[updated.queue]}". Nothing has been charged yet.`)} />
+    <JobRecord key={`${job.data.id}:${job.data.updatedOn}`} job={job.data} returnTo={returnTo} onSaved={(updated) => setSaved(`Saved. The job is now ${JOB_STAGE_LABEL[jobStage(updated)]}. Nothing has been charged yet.`)} />
   </>;
 }
+
+/** Which pop-up is open: record the work and send it to QC, move it to another list, or run the QC itself. */
+type JobDialog = 'QC' | 'MOVE' | 'QC_RUN';
 
 function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: string; onSaved: (job: ServiceJob) => void }) {
   // Exchange and deboard, reached from here, come back here when done.
@@ -207,22 +210,12 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const vehicle = useQuery({ queryKey: ['vehicle', job.vehicleId], queryFn: () => getVehicle(job.vehicleId) });
   const [items, setItems] = useState(() => job.items.map((item) => ({ label: item.label, cost: (item.costPaise / 100).toFixed(2), kind: item.kind ?? 'PART' })));
   const inQC = job.queue === 'QC_PENDING';
-  const [qcChecks, setQcChecks] = useState<Record<QcCheckId, boolean>>(() =>
-    Object.fromEntries(QC_CHECKS.map((c) => [c.id, false])) as Record<QcCheckId, boolean>,
-  );
+  const noChecks = () => Object.fromEntries(QC_CHECKS.map((c) => [c.id, false])) as Record<QcCheckId, boolean>;
+  const [qcChecks, setQcChecks] = useState<Record<QcCheckId, boolean>>(noChecks);
   const [repairApproved, setRepairApproved] = useState(false);
   const hasRepairWork = Boolean(job.workSummary?.trim());
-  const allQcPassed = QC_CHECKS.every((c) => qcChecks[c.id]) && (!hasRepairWork || repairApproved);
-  // There is no "save progress" or "save my notes" anywhere: every save moves
-  // the bike somewhere — for QC, to another list, back to the fleet, or back
-  // to the bench — and until the operator has picked which, the button says
-  // so instead of saving a no-op.
-  const [intent, setIntent] = useState<Intent | null>(null);
-  const prevAllQcPassed = useRef(allQcPassed);
-  useEffect(() => {
-    if (inQC && allQcPassed && !prevAllQcPassed.current) setIntent('RELEASE');
-    prevAllQcPassed.current = allQcPassed;
-  }, [allQcPassed, inQC]);
+  const checksDone = QC_CHECKS.every((c) => qcChecks[c.id]) && (!hasRepairWork || repairApproved);
+  const [dialog, setDialog] = useState<JobDialog | null>(null);
   const [moveQueue, setMoveQueue] = useState<ServiceQueue>(job.queue === 'MINOR_REPAIR' ? 'PARTS_WAITING' : 'MINOR_REPAIR');
   const [category, setCategory] = useState<DamageCategory | ''>(needsDamageAssessment(job) ? '' : job.damageCategory);
   const [findings, setFindings] = useState(job.workSummary);
@@ -230,52 +223,46 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const [reference, setReference] = useState(job.reference ?? '');
   const [liability, setLiability] = useState<ServiceLiability>(job.liability ?? (job.riderId ? 'RIDER' : 'COMPANY'));
   const [technician, setTechnician] = useState(job.technician ?? '');
-  const [confirmation, setConfirmation] = useState('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  // A walk-in or RSA card is a counter transaction: the rider pays for parts
+  // there and then, and only what is left over reaches their weekly payment.
+  const walkIn = job.category === 'WALK_IN_RSA';
+  const [partsPaid, setPartsPaid] = useState(((job.partsPaidPaise ?? 0) / 100).toFixed(2));
   // Where the server sends a failed bike (ServiceJobService.reworkQueueFor):
   // its damage category's repair bench, or — for a bike that arrived
-  // undamaged and still failed — assessment, since nobody has said what is
-  // wrong yet. The screen used to promise "Small repair" and the bike then
-  // landed in "Needs checking".
+  // undamaged and still failed — assessment, since nobody has said what is wrong yet.
   const failQueue: ServiceQueue = category === 'MAJOR' || category === 'ACCIDENT' ? 'MAJOR_REPAIR' : category === 'MINOR' ? 'MINOR_REPAIR' : 'ASSESSMENT';
-  const queue: ServiceQueue = intent === null ? job.queue : intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
-  const signature = JSON.stringify({ items, intent, queue, category, findings, note, reference, liability, technician, qcChecks, repairApproved });
+  const queueFor = (intent: Intent): ServiceQueue => intent === 'QC' ? 'QC_PENDING' : intent === 'MOVE' ? moveQueue : intent === 'QC_FAIL' ? failQueue : 'READY_TO_DEPLOY';
   const priced: ServiceJobItem[] = items.map((item) => ({ label: item.label.trim(), costPaise: Math.round(Number(item.cost) * 100), kind: item.kind }));
   const valid = items.every((item, i) => item.label.trim() && /^\d+(\.\d{1,2})?$/.test(item.cost) && Number.isSafeInteger(priced[i].costPaise) && priced[i].costPaise >= 0);
   const total = priced.reduce((sum, item) => sum + (Number.isFinite(item.costPaise) && item.costPaise >= 0 ? item.costPaise : 0), 0);
-  const releasing = queue === 'READY_TO_DEPLOY';
-  const targetState = releasing ? releaseState(vehicle.data?.currentRiderId ?? null) : QUEUE_STATE[queue];
-  const releaseHint = canRelease
-    ? 'The bike becomes Ready to Deploy. Any repair cost is finalised and the receipt is generated.'
-    : 'Only fleet and admin roles can do this.';
-  const options: IntentOption[] = inQC ? [
-    { id: 'RELEASE', label: 'QC passed — move to Ready to Deploy', hint: allQcPassed ? releaseHint : 'Complete all checks first.', cta: 'Pass QC and release', disabled: !canRelease || !allQcPassed },
-    { id: 'QC_FAIL', label: `QC failed — send back for repair`, hint: 'The bike goes back to the repair queue.', cta: `Send back to ${SERVICE_QUEUE_LABEL[failQueue]}` },
-  ] : [
-    { id: 'QC', label: 'Work is done — send it for Quality Check', hint: 'QC is mandatory before the bike can go back on the road.', cta: 'Send for Quality Check' },
-    { id: 'MOVE', label: 'Move it to a different list', hint: 'Use this when you are waiting on parts, a warranty or an insurance claim.', cta: `Move to ${SERVICE_QUEUE_LABEL[moveQueue]}` },
-  ];
-  // Undefined until the operator has picked something the screen offers —
-  // in QC mode that is pass or fail, nothing else.
-  const chosen = options.find((option) => option.id === intent);
-  const cta = chosen ? chosen.cta : 'Pick what to do';
-  // In QC mode, auto-fill findings and technician from the checklist instead of free text.
-  const qcFindings = inQC
-    ? `QC checklist: ${QC_CHECKS.filter((c) => qcChecks[c.id]).map((c) => c.label).join(', ')}${hasRepairWork && repairApproved ? '. Repair approved.' : ''}`
-    : '';
-  const effectiveFindings = inQC ? (qcFindings || findings) : findings;
-  const effectiveTechnician = inQC ? (user.name || technician) : technician;
+  const partsTotal = priced.reduce((sum, item) => sum + (item.kind === 'PART' && item.costPaise >= 0 ? item.costPaise : 0), 0);
+  const partsPaidPaise = Math.round(Number(partsPaid) * 100);
+  const partsPaidValid = !walkIn || (/^\d+(\.\d{1,2})?$/.test(partsPaid) && Number.isSafeInteger(partsPaidPaise) && partsPaidPaise <= partsTotal);
+  const riderCharge = walkInRiderCharge(priced, partsPaidValid ? partsPaidPaise : 0);
+  // Spare parts have to exist before a card opened for them can be closed.
+  const partsMissing = job.repairType !== 'REPAIR_ONLY' && !priced.some((item) => item.kind === 'PART');
+  const releaseState_ = releaseState(vehicle.data?.currentRiderId ?? null);
+  const qcFindings = `QC checklist: ${QC_CHECKS.filter((c) => qcChecks[c.id]).map((c) => c.label).join(', ')}${hasRepairWork && repairApproved ? '. Repair approved.' : ''}`;
+  // The QC inspector is whoever is signed in; the job's technician stays the person who did the repair.
+  const inspector = inQC ? (user.name || technician) : technician;
+
   const save = useMutation({
-    mutationFn: () => {
-      if (!editable || !category || confirmation !== signature || !valid || (!inQC && !hasServiceNote(note))) throw new Error('Fill in the details and tick the confirm box.');
+    mutationFn: (intent: Intent) => {
+      const queue = queueFor(intent);
+      const releasing = queue === 'READY_TO_DEPLOY';
+      if (!editable || !category || !valid) throw new Error('Fill in the details first.');
       if (releasing && !canRelease) throw new Error('Only fleet and admin roles can release the bike.');
-      if (releasing && inQC && !allQcPassed) throw new Error('Complete all QC checks before releasing.');
-      const effectiveNote = note.trim() || (inQC ? 'QC completed' : '');
+      if (releasing && !checksDone) throw new Error('Complete all QC checks before releasing.');
+      const workSummary = inQC ? qcFindings : findings;
+      const fallbackNote = intent === 'QC' ? 'Work done, sent for Quality Check'
+        : intent === 'MOVE' ? `Moved to ${SERVICE_QUEUE_LABEL[queue]}`
+        : intent === 'QC_FAIL' ? 'QC failed' : 'QC completed';
       return updateServiceJob({
-        jobId: job.id, queue, damageCategory: category, workSummary: effectiveFindings, items: priced,
-        technician: effectiveTechnician.trim() || null, liability: canRelease ? liability : job.liability, reference: reference.trim() || null, note: effectiveNote,
+        jobId: job.id, queue, damageCategory: category, workSummary, items: priced,
+        technician: technician.trim() || null, liability: canRelease ? liability : job.liability, reference: reference.trim() || null, note: note.trim() || fallbackNote,
         actor: user.name,
-        inspection: { vehicleId: job.vehicleId, category, notes: effectiveFindings || note, items: priced, technician: effectiveTechnician.trim() || null, estimatedCostPaise: total, nextState: targetState },
+        partsPaidPaise: walkIn ? partsPaidPaise : undefined,
+        inspection: { vehicleId: job.vehicleId, category, notes: workSummary || note, items: priced, technician: inspector.trim() || null, estimatedCostPaise: total, nextState: releasing ? releaseState_ : QUEUE_STATE[queue] },
         // Only in QC does the screen have anything to feed /service/jobs/{id}/qc.
         qcChecks: inQC ? qcChecks : undefined,
       });
@@ -287,43 +274,73 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
     },
   });
   const patchItem = (index: number, patch: Partial<(typeof items)[number]>) => setItems(items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  const { containerRef: dialogRef, shake } = useShakeValidation();
 
-  const { containerRef: formRef, shake: shakeField } = useShakeValidation();
-  const blocker = !chosen ? 'Pick what to do above.'
-    : !category ? 'Pick how bad the damage is.'
-    : !valid ? 'Fix the cost lines.'
-    : !inQC && (releasing || queue === 'QC_PENDING') && !findings.trim() ? 'Write what you found.'
-    : !inQC && (releasing || queue === 'QC_PENDING') && !technician.trim() ? 'Say who did the work.'
-    : inQC && releasing && !allQcPassed ? 'Complete all QC checks.'
-    : requiresReference(queue) && !reference.trim() ? 'Add the parts or claim details.'
-    : !inQC && !hasServiceNote(note) ? 'Write a note.'
-    : releasing && !canRelease ? 'Only fleet and admin roles can release.'
-    : confirmation !== signature ? 'Tick the confirm box.'
-    : '';
-  const ready = Boolean(chosen) && Boolean(category) && valid && Number.isSafeInteger(total) && (inQC || hasServiceNote(note)) && confirmation === signature &&
-    (!requiresReference(queue) || reference.trim()) &&
-    (!inQC && (!(releasing || queue === 'QC_PENDING') || (technician.trim() && findings.trim())) || inQC) &&
-    (!releasing || canRelease) &&
-    (!(releasing && inQC) || allQcPassed);
+  /** Why a pop-up's main button cannot go yet; empty when it can. The button shakes instead of greying out. */
+  const blockerFor = (intent: Intent) => {
+    const queue = queueFor(intent);
+    const releasing = queue === 'READY_TO_DEPLOY';
+    return !category ? 'Pick how bad the damage is.'
+      : !valid ? 'Every cost line needs a description and an amount of ₹0 or more.'
+      : intent === 'QC' && !findings.trim() ? 'Write what you found.'
+      : intent === 'QC' && !technician.trim() ? 'Say who did the work.'
+      : requiresReference(queue) && !reference.trim() ? 'Add the parts or claim details.'
+      : releasing && !vehicle.data ? 'Still loading the bike — try again in a moment.'
+      : releasing && !checksDone ? 'Tick every check first.'
+      : releasing && partsMissing ? 'This job card is for spare parts. Add at least one part line before closing it.'
+      : releasing && !partsPaidValid ? 'Spare parts paid must be ₹0 or more, and no more than the spare parts total.'
+      : '';
+  };
+  const submit = (intent: Intent) => {
+    if (blockerFor(intent)) { shake(); return; }
+    save.mutate(intent);
+  };
+  const close = () => { if (!save.isPending) { setDialog(null); save.reset(); } };
+  const ctaFor: Record<Intent, string> = {
+    QC: 'Send for Quality Check',
+    MOVE: `Move to ${SERVICE_QUEUE_LABEL[moveQueue]}`,
+    QC_FAIL: `Fail — send back to ${SERVICE_QUEUE_LABEL[failQueue]}`,
+    RELEASE: 'Pass QC and release',
+  };
+  const dialogIntent: Intent = dialog === 'MOVE' ? 'MOVE' : dialog === 'QC_RUN' ? 'RELEASE' : 'QC';
+  const blocker = dialog ? blockerFor(dialogIntent) : '';
+  const damagePicker = (
+    <TextField select label="How bad is the damage?" value={category} helperText={!category ? 'Nobody has noted this yet. Look at the bike and pick one.' : undefined}
+      onChange={(e) => { const next = damageCategories.find((c) => c === e.target.value); if (next) setCategory(next); }}>
+      {damageCategories.map((c) => <MenuItem key={c} value={c}>{CATEGORY_LABEL[c]}</MenuItem>)}
+    </TextField>
+  );
+  const noteField = <TextField label="Note (optional)" multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} />;
+  const allChecked = QC_CHECKS.every((c) => qcChecks[c.id]) && (!hasRepairWork || repairApproved);
+  const setAllChecks = (on: boolean) => {
+    setQcChecks(Object.fromEntries(QC_CHECKS.map((c) => [c.id, on])) as Record<QcCheckId, boolean>);
+    setRepairApproved(on);
+  };
+  const chargeLine = job.riderId
+    ? `Rider ${job.riderId} is charged ${rupeesWithSymbol(liability === 'COMPANY' ? 0 : walkIn ? riderCharge : total)}${liability === 'DEPOSIT' ? ' from their deposit' : liability === 'COMPANY' ? ' — the company covers it' : walkIn ? ' in Weekly Payments' : ''}.`
+    : 'No rider on this bike, so the company covers the cost.';
 
   return (
     <>
       <PageHeader section="Service management / Job" title={`${job.vehicleId} · ${job.id}`} backTo={returnTo} backLabel="Back to jobs"
-        actions={<StateChip label={job.status === 'CLOSED' ? 'Finished' : SERVICE_QUEUE_LABEL[job.queue]} tone={job.status === 'CLOSED' ? 'good' : 'neutral'} />}
+        actions={<Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+          {/* One status, in the same words the boards use. */}
+          <StateChip label={JOB_STAGE_LABEL[jobStage(job)]} tone={JOB_STAGE_TONE[jobStage(job)]} />
+        </Box>}
       />
       <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>Came in as: {SOURCE_LABEL[job.source]} · {formatDateTime(job.createdOn)}</Typography>
       {job.status === 'CLOSED' && <Alert severity="success" sx={{ mt: 3 }}>This job is finished. The bike went back out and the charge, if any, was added once.</Alert>}
-      <Box ref={formRef} sx={{ ...columns, ...shakeStyles }}>
+      <Box sx={columns}>
         <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
           <Panel label="What was reported">
             <DefinitionList items={[
               { label: 'Bike', value: <Link to={`/vehicles/${job.vehicleId}`}>{job.vehicleId}</Link> },
-              // Name and code, linked by code — riderId is the code the rider
-              // routes take. It used to be the row's UUID, printed raw, linking
-              // to a page that no longer existed.
               { label: 'Rider', value: job.riderId ? <Link to={`/riders/${job.riderId}`}>{job.riderName ? `${job.riderName} · ${job.riderId}` : job.riderId}</Link> : 'No rider on this bike' },
               { label: 'Bike shows as', value: vehicle.data ? VEHICLE_STATE_LABEL[vehicle.data.state] : 'Loading…' },
               { label: 'Where it is', value: job.location ?? vehicle.data?.hub ?? 'Not noted' },
+              { label: 'Category', value: SERVICE_CATEGORY_LABEL[job.category] },
+              { label: 'Repair type', value: REPAIR_TYPE_LABEL[job.repairType] },
+              { label: 'Ticket created by', value: job.createdBy || job.activity[0]?.actor || 'Not noted' },
             ]} />
             {vehicle.isError && <Alert severity="error">{vehicle.error.message}</Alert>}
             <Typography sx={{ mt: 3, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{job.damageNotes || 'Nothing was written down when the bike came in.'}</Typography>
@@ -336,105 +353,17 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
               </Box>
             </Box>}
           </Panel>
-          {inQC && editable ? (
-            /* ── QC checklist mode ── */
-            <Panel label="Quality Check" subtitle="Inspect every item. Tick each one.">
-              {/* Check all / uncheck all — left on mobile, right from sm up */}
-              <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, mb: 1 }}>
-                {QC_CHECKS.every((c) => qcChecks[c.id])
-                  ? <Button size="small" color="inherit" onClick={() => setQcChecks(Object.fromEntries(QC_CHECKS.map((c) => [c.id, false])) as Record<QcCheckId, boolean>)}>Uncheck all</Button>
-                  : <Button size="small" onClick={() => setQcChecks(Object.fromEntries(QC_CHECKS.map((c) => [c.id, true])) as Record<QcCheckId, boolean>)}>Check all</Button>
-                }
-              </Box>
-              {/* Safety checklist — single column */}
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 1 }}>
-                {QC_CHECKS.map((check) => (
-                  <FormControlLabel
-                    key={check.id}
-                    sx={{
-                      border: 1, borderColor: qcChecks[check.id] ? 'success.main' : 'divider',
-                      borderRadius: 1.5, m: 0, px: 1.5, py: 1, minWidth: 0,
-                      bgcolor: qcChecks[check.id] ? 'success.main' : 'transparent',
-                      '& .MuiTypography-root': { color: qcChecks[check.id] ? 'success.contrastText' : 'text.primary', minWidth: 0 },
-                      transition: 'all 0.15s',
-                    }}
-                    control={<Checkbox size="small" checked={qcChecks[check.id]} onChange={(e) => setQcChecks({ ...qcChecks, [check.id]: e.target.checked })} sx={{ color: qcChecks[check.id] ? 'success.contrastText' : undefined, '&.Mui-checked': { color: 'success.contrastText' } }} />}
-                    label={<Typography variant="body2" sx={{ fontSize: 13 }}>{check.label}</Typography>}
-                  />
-                ))}
-              </Box>
-
-              {/* Repair verification tile — below the grid */}
-              {hasRepairWork ? (
-                <Box sx={{ border: 1, borderColor: repairApproved ? 'success.main' : 'divider', borderRadius: 2, p: 2.5, mt: 2.5, transition: 'border-color 0.15s' }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Repair done</Typography>
-                  <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{job.workSummary}</Typography>
-                  {job.items.length > 0 && (
-                    <Box sx={{ mt: 1.5 }}>
-                      {(job.items ?? []).map((item, i) => (
-                        <Typography key={i} variant="body2" color="text.secondary">{item.label} — {rupeesWithSymbol(item.costPaise)}</Typography>
-                      ))}
-                      <Typography variant="body2" sx={{ fontWeight: 600, mt: 1 }}>Total: {rupeesWithSymbol(job.totalCostPaise)}</Typography>
-                    </Box>
-                  )}
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>By: {job.technician || 'Not noted'}</Typography>
-                  <FormControlLabel
-                    sx={{ mt: 1.5 }}
-                    control={<Checkbox checked={repairApproved} onChange={(e) => setRepairApproved(e.target.checked)} />}
-                    label={<Typography variant="body2">Repair verified and approved</Typography>}
-                  />
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>No repair — routine check only.</Typography>
-              )}
-
-              {allQcPassed ? (
-                <Alert severity="success" sx={{ mt: 2 }}>All checks passed. Ready to release.</Alert>
-              ) : (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-                  {QC_CHECKS.filter((c) => !qcChecks[c.id]).length} check{QC_CHECKS.filter((c) => !qcChecks[c.id]).length !== 1 ? 's' : ''} remaining{hasRepairWork && !repairApproved ? ' + repair approval' : ''}
-                </Typography>
-              )}
-            </Panel>
-          ) : (
-            /* ── Repair / closed mode ── */
-            <Panel label="What you found, and what it costs" subtitle={editable ? 'Write it down as you go. When the work is done, send the bike for Quality Check.' : undefined}>
-              {editable ? (
-                <Box component="fieldset" disabled={save.isPending} sx={{ border: 0, p: 0, m: 0, minWidth: 0, display: 'grid', gap: 3 }}>
-                  <TextField select label="How bad is the damage?" value={category} helperText={!category ? 'Nobody has noted this yet. Look at the bike and pick one before saving.' : undefined} onChange={(e) => { const next = damageCategories.find((c) => c === e.target.value); if (next) setCategory(next); }}>
-                    {damageCategories.map((c) => <MenuItem key={c} value={c}>{CATEGORY_LABEL[c]}</MenuItem>)}
-                  </TextField>
-                  <TextField label="What did you find, and what did you do?" multiline minRows={3} value={findings} onChange={(e) => setFindings(e.target.value)} helperText="Which parts, what was wrong, what you fixed." />
-                  <TextField label="Who did the work?" value={technician} onChange={(e) => setTechnician(e.target.value)} helperText="Needed before the bike can go for QC." />
-                  {items.map((item, index) => (
-                    <Box key={index} sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr) 40px', sm: '100px minmax(0, 1fr) 110px 40px' }, gap: 2 }}>
-                      <TextField select label="Type" value={item.kind} onChange={(e) => { const kind = e.target.value; if (kind === 'PART' || kind === 'LABOUR' || kind === 'OTHER') patchItem(index, { kind }); }} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
-                        <MenuItem value="PART">Part</MenuItem><MenuItem value="LABOUR">Labour</MenuItem><MenuItem value="OTHER">Something else</MenuItem>
-                      </TextField>
-                      <TextField label={`Item ${index + 1}`} value={item.label} onChange={(e) => patchItem(index, { label: e.target.value })} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }} />
-                      <TextField label={`Cost ${index + 1} (₹)`} value={item.cost} onChange={(e) => patchItem(index, { cost: e.target.value })} slotProps={{ htmlInput: { inputMode: 'decimal' } }} error={Boolean(item.cost) && (!/^\d+(\.\d{1,2})?$/.test(item.cost) || Number(item.cost) < 0)} />
-                      <IconButton aria-label={`Remove line ${index + 1}`} onClick={() => setItems(items.filter((_, i) => i !== index))} sx={{ alignSelf: 'start' }}><DeleteIcon /></IconButton>
-                    </Box>
-                  ))}
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                    <Button startIcon={<AddIcon />} onClick={() => setItems([...items, { label: '', cost: '', kind: 'PART' }])}>Add a cost line</Button>
-                    {items.length > 0 && <Typography variant="body2" sx={{ fontWeight: 600 }}>Total: {rupeesWithSymbol(total)}</Typography>}
-                  </Box>
-                  {!items.length && <Typography color="text.secondary" variant="body2">Nothing to charge. Write what you found.</Typography>}
-                </Box>
-              ) : (
-                <Box sx={{ display: 'grid', gap: 3 }}>
-                  <Typography sx={{ whiteSpace: 'pre-wrap' }}>{job.workSummary || 'Nothing written down yet.'}</Typography>
-                  {(job.items ?? []).map((item, i) => <Box key={i} sx={{ display: 'flex', gap: 3, justifyContent: 'space-between' }}><Typography>{item.kind ?? 'Part'} · {item.label}</Typography><Typography>{rupeesWithSymbol(item.costPaise)}</Typography></Box>)}
-                  <Typography color="text.secondary">Done by: {job.technician || 'Not noted'}</Typography>
-                </Box>
-              )}
-            </Panel>
-          )}
+          <Panel label="What you found, and what it costs">
+            <Box sx={{ display: 'grid', gap: 3 }}>
+              <Typography sx={{ whiteSpace: 'pre-wrap' }}>{job.workSummary || 'Nothing written down yet.'}</Typography>
+              {job.items.map((item, i) => <Box key={i} sx={{ display: 'flex', gap: 3, justifyContent: 'space-between' }}><Typography>{item.kind ?? 'Part'} · {item.label}</Typography><Typography>{rupeesWithSymbol(item.costPaise)}</Typography></Box>)}
+              <Typography color="text.secondary">Done by: {job.technician || 'Not noted'}</Typography>
+            </Box>
+          </Panel>
           <Panel label="What happened so far">
             {job.activity.length === 0 ? <Typography color="text.secondary">Nothing has been added yet. What we already knew is shown above.</Typography> : [...job.activity].reverse().map((event, i) => (
               <Box key={i} sx={{ py: 3, borderBottom: 1, borderColor: 'divider' }}>
-                <Typography variant="body2">{SERVICE_QUEUE_LABEL[event.queue]} · {VEHICLE_STATE_LABEL[event.vehicleState]}</Typography>
+                <Typography variant="body2">{JOB_STAGE_LABEL[jobStage({ queue: event.queue, status: 'IN_PROGRESS' })]}</Typography>
                 <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 1 }}>{event.note}</Typography>
                 <Typography variant="caption" color="text.secondary">{event.actor} · {formatDateTime(event.occurredOn)}</Typography>
               </Box>
@@ -460,39 +389,16 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
         </Box>
         <Panel label={editable ? 'What happens next' : 'How it ended'}>
           <Typography color="text.secondary" variant="body2">{job.status === 'CLOSED' ? 'Final cost' : 'Cost so far'}</Typography>
-          <Typography sx={{ fontSize: 28, fontWeight: 600, mt: 1, mb: 3 }}>{rupeesWithSymbol(job.status === 'CLOSED' ? job.totalCostPaise : total)}</Typography>
-          {total > 500000 && <Alert severity="warning" sx={{ mb: 3 }}>This is over ₹5,000. Check the amounts and who pays before the bike goes back out.</Alert>}
+          <Typography sx={{ fontSize: 28, fontWeight: 600, mt: 1, mb: 3 }}>{rupeesWithSymbol(job.totalCostPaise)}</Typography>
           {editable ? (
-            <Box sx={{ display: 'grid', gap: 3 }}>
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>What do you want to do?</Typography>
-                <Typography variant="caption" color="text.secondary">Pick one. The button at the bottom does exactly what you pick.</Typography>
-                <RadioGroup value={intent ?? ''} onChange={(e) => { setIntent(e.target.value as Intent); setConfirmation(''); }} sx={{ mt: 1 }}>
-                  {options.map((option) => (
-                    <FormControlLabel key={option.id} value={option.id} disabled={option.disabled || save.isPending} control={<Radio size="small" />} sx={{ alignItems: 'flex-start', mb: 1, '& .MuiRadio-root': { pt: 0 } }}
-                      label={<Box sx={{ pt: '2px' }}><Typography variant="body2">{option.label}</Typography><Typography variant="caption" color="text.secondary">{option.hint}</Typography></Box>} />
-                  ))}
-                </RadioGroup>
-              </Box>
-              {intent === 'MOVE' && (
-                <TextField select label="Which list?" value={moveQueue} onChange={(e) => { if (isServiceQueue(e.target.value)) setMoveQueue(e.target.value); }}>
-                  {SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY' && q !== 'QC_PENDING').map((q) => <MenuItem key={q} value={q}>{SERVICE_QUEUE_LABEL[q]}</MenuItem>)}
-                </TextField>
-              )}
-              <Typography variant="body2">After you save, the bike will show as <strong>{VEHICLE_STATE_LABEL[targetState]}</strong> and sit in <strong>{releasing ? 'no list — it is out of service management' : SERVICE_QUEUE_LABEL[queue]}</strong>.</Typography>
-              {requiresReference(queue) && <TextField label={queue === 'PARTS_WAITING' ? 'Which parts, and when are they expected?' : 'Claim number or who to follow up with'} value={reference} onChange={(e) => setReference(e.target.value)} required />}
-              {canRelease ? (
-                <TextField select label="Who pays?" value={liability} onChange={(e) => { const next = e.target.value; if (next === 'RIDER' || next === 'DEPOSIT' || next === 'COMPANY') setLiability(next); }}>
-                  {(['RIDER', 'DEPOSIT', 'COMPANY'] as const).map((value) => <MenuItem key={value} value={value} disabled={!job.riderId && value !== 'COMPANY'}>{LIABILITY_LABEL[value]}</MenuItem>)}
-                </TextField>
-              ) : <Alert severity="info">You can write down what you found and move the bike between lists. Fleet and admin roles decide who pays and send the bike back out.</Alert>}
-              <Typography variant="body2" color="text.secondary">{job.riderId ? 'The rider is charged only when the bike finally goes back out, not when you save or send it for QC.' : 'No rider on this bike, so the company covers the cost.'}</Typography>
-              <TextField label={inQC ? 'Notes (optional)' : 'Why are you making this change?'} required={!inQC} multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} helperText={inQC ? 'Anything extra you noticed. Leave blank if nothing.' : 'A line or two.'} />
-              {!valid && <Alert severity="warning">Every line needs a short description and an amount of ₹0 or more, up to two decimals.</Alert>}
-              <FormControlLabel control={<Checkbox checked={confirmation === signature} onChange={(e) => setConfirmation(e.target.checked ? signature : '')} />} label={releasing ? 'I approve this work, the cost, and sending the bike back out.' : 'I confirm these details and where the bike is going.'} />
-              {save.isError && <Alert severity="error">{save.error.message}</Alert>}
-              <Button onClick={() => { if (!ready) { shakeField(); return; } if (releasing) { setConfirmOpen(true); return; } save.mutate(); }} disabled={save.isPending || vehicle.isPending || vehicle.isError}>{save.isPending ? 'Saving...' : cta}</Button>
-              {blocker && <Typography variant="caption" color="text.secondary" sx={{ mt: -2 }}>{blocker}</Typography>}
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              {inQC ? (
+                <Button variant="contained" onClick={() => setDialog('QC_RUN')}>Do the Quality Check</Button>
+              ) : <>
+                <Button variant="contained" onClick={() => setDialog('QC')}>Work done — send for Quality Check</Button>
+                <Button onClick={() => setDialog('MOVE')}>Waiting on parts or a claim</Button>
+              </>}
+              <Typography variant="body2" color="text.secondary">{job.riderId ? 'The rider is charged only when the bike goes back out.' : 'No rider on this bike, so the company covers the cost.'}</Typography>
             </Box>
           ) : <DefinitionList items={[
             { label: 'Who paid', value: job.liability ? LIABILITY_LABEL[job.liability] : 'Nobody was charged' },
@@ -501,18 +407,87 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
           ]} />}
         </Panel>
       </Box>
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Release the bike?"
-        message="The bike leaves service management and the rider is charged."
-        info={`${job.riderId ? `Rider ${job.riderId} is charged ${rupeesWithSymbol(total)}${liability === 'DEPOSIT' ? ' from their deposit' : liability === 'COMPANY' ? ' — the company covers it' : ''}.` : 'No rider on this bike — the company covers the cost.'} The bike moves to ${VEHICLE_STATE_LABEL[targetState]}.`}
-        confirmLabel={cta}
-        tone="bad"
-        dismissible={false}
-        pending={save.isPending}
-        onConfirm={() => { setConfirmOpen(false); save.mutate(); }}
-        onCancel={() => setConfirmOpen(false)}
-      />
+
+      <Dialog open={dialog !== null} onClose={close} fullWidth maxWidth="sm">
+        <DialogTitle>{dialog === 'QC' ? 'Send for Quality Check' : dialog === 'MOVE' ? 'Move to another list' : 'Quality Check'}</DialogTitle>
+        <DialogContent>
+          <Box ref={dialogRef} component="fieldset" disabled={save.isPending} sx={{ border: 0, p: 0, pt: 1.5, m: 0, minWidth: 0, display: 'grid', gap: 3, ...shakeStyles }}>
+            {dialog === 'QC' && <>
+              {damagePicker}
+              <TextField label="What did you find, and what did you do?" multiline minRows={3} value={findings} onChange={(e) => setFindings(e.target.value)} required />
+              <TextField label="Ticket Resolved By (Technician)" value={technician} onChange={(e) => setTechnician(e.target.value)} required />
+              {items.map((item, index) => (
+                <Box key={index} sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr) 40px', sm: '100px minmax(0, 1fr) 110px 40px' }, gap: 2 }}>
+                  <TextField select label="Type" value={item.kind} onChange={(e) => { const kind = e.target.value; if (kind === 'PART' || kind === 'LABOUR' || kind === 'OTHER') patchItem(index, { kind }); }} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+                    <MenuItem value="PART">Part</MenuItem><MenuItem value="LABOUR">Labour</MenuItem><MenuItem value="OTHER">Something else</MenuItem>
+                  </TextField>
+                  <TextField label={`Item ${index + 1}`} value={item.label} onChange={(e) => patchItem(index, { label: e.target.value })} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }} />
+                  <TextField label={`Cost ${index + 1} (₹)`} value={item.cost} onChange={(e) => patchItem(index, { cost: e.target.value })} slotProps={{ htmlInput: { inputMode: 'decimal' } }} error={Boolean(item.cost) && (!/^\d+(\.\d{1,2})?$/.test(item.cost) || Number(item.cost) < 0)} />
+                  <IconButton aria-label={`Remove line ${index + 1}`} onClick={() => setItems(items.filter((_, i) => i !== index))} sx={{ alignSelf: 'start' }}><DeleteIcon /></IconButton>
+                </Box>
+              ))}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                <Button startIcon={<AddIcon />} onClick={() => setItems([...items, { label: '', cost: '', kind: 'PART' }])}>Add a cost line</Button>
+                {items.length > 0 && <Typography variant="body2" sx={{ fontWeight: 600 }}>Total: {rupeesWithSymbol(total)}</Typography>}
+              </Box>
+              {total > 500000 && <Alert severity="warning">This is over ₹5,000. Check the amounts before the bike goes to QC.</Alert>}
+              {noteField}
+            </>}
+
+            {dialog === 'MOVE' && <>
+              <TextField select label="Which list?" value={moveQueue} onChange={(e) => { if (isServiceQueue(e.target.value)) setMoveQueue(e.target.value); }}>
+                {SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY' && q !== 'QC_PENDING').map((q) => <MenuItem key={q} value={q}>{SERVICE_QUEUE_LABEL[q]}</MenuItem>)}
+              </TextField>
+              {requiresReference(moveQueue) && <TextField label={moveQueue === 'PARTS_WAITING' ? 'Which parts, and when are they expected?' : 'Claim number or who to follow up with'} value={reference} onChange={(e) => setReference(e.target.value)} required />}
+              {!category && damagePicker}
+              {noteField}
+            </>}
+
+            {dialog === 'QC_RUN' && <>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary">Inspect every item. Tick each one.</Typography>
+                <Button size="small" color={allChecked ? 'inherit' : 'primary'} onClick={() => setAllChecks(!allChecked)}>{allChecked ? 'Uncheck all' : 'Check all'}</Button>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1, mt: -1 }}>
+                {QC_CHECKS.map((check) => (
+                  <FormControlLabel key={check.id} sx={{ border: 1, borderColor: qcChecks[check.id] ? 'success.main' : 'divider', borderRadius: 1.5, m: 0, px: 1, minWidth: 0 }}
+                    control={<Checkbox size="small" checked={qcChecks[check.id]} onChange={(e) => setQcChecks({ ...qcChecks, [check.id]: e.target.checked })} />}
+                    label={<Typography variant="body2">{check.label}</Typography>} />
+                ))}
+              </Box>
+              {hasRepairWork ? (
+                <Box sx={{ border: 1, borderColor: repairApproved ? 'success.main' : 'divider', borderRadius: 2, p: 2 }}>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{job.workSummary}</Typography>
+                  <Typography variant="caption" color="text.secondary">By: {job.technician || 'Not noted'}</Typography>
+                  <FormControlLabel sx={{ display: 'flex', mt: 1 }} control={<Checkbox checked={repairApproved} onChange={(e) => setRepairApproved(e.target.checked)} />} label={<Typography variant="body2">Repair verified and approved</Typography>} />
+                </Box>
+              ) : <Typography variant="body2" color="text.secondary">No repair — routine check only.</Typography>}
+              {canRelease ? <>
+                <TextField select label="Who pays?" value={liability} onChange={(e) => { const next = e.target.value; if (next === 'RIDER' || next === 'DEPOSIT' || next === 'COMPANY') setLiability(next); }}>
+                  {/* A walk-in is paid at the counter or by the company — the deposit is for a bike that came back. */}
+                  {(walkIn ? ['RIDER', 'COMPANY'] as const : ['RIDER', 'DEPOSIT', 'COMPANY'] as const).map((value) => <MenuItem key={value} value={value} disabled={!job.riderId && value !== 'COMPANY'}>{LIABILITY_LABEL[value]}</MenuItem>)}
+                </TextField>
+                {walkIn && <TextField label="Spare parts paid now (₹)" value={partsPaid} onChange={(e) => setPartsPaid(e.target.value)} slotProps={{ htmlInput: { inputMode: 'decimal' } }} error={!partsPaidValid}
+                  helperText={`Spare parts on this job card: ${rupeesWithSymbol(partsTotal)}. Labour is never charged to the rider.`} />}
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>If it passes: {chargeLine} The bike becomes {VEHICLE_STATE_LABEL[releaseState_]}.</Typography>
+              </> : <Alert severity="info">You can fail the bike back to the workshop. Fleet and admin roles pass it and send it back out.</Alert>}
+              {noteField}
+            </>}
+
+            {save.isError && <Alert severity="error">{save.error.message}</Alert>}
+            {blocker && <Typography variant="caption" color="text.secondary">{blocker}</Typography>}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 3, flexWrap: 'wrap', gap: 1 }}>
+          <Button color="inherit" onClick={close} disabled={save.isPending}>Cancel</Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {dialog === 'QC_RUN' && <Button color="inherit" onClick={() => submit('QC_FAIL')} disabled={save.isPending}>{ctaFor.QC_FAIL}</Button>}
+            {!(dialog === 'QC_RUN' && !canRelease) && (
+              <Button variant="contained" onClick={() => submit(dialogIntent)} disabled={save.isPending}>{save.isPending ? 'Saving…' : ctaFor[dialogIntent]}</Button>
+            )}
+          </Box>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

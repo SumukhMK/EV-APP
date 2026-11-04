@@ -20,9 +20,9 @@ import type {
  */
 
 export const VEHICLE_STATE_LABEL: Record<VehicleState, string> = {
-  INDUCTED: 'Onboarding',
+  INDUCTED: 'New bike',
   READY_TO_DEPLOY: 'Ready to Deploy',
-  DEPLOYED: 'Active',
+  DEPLOYED: 'With rider',
   RETURNED: 'Returned',
   RECOVERY: 'Recovery',
   UNDER_REPAIR: 'In Service',
@@ -65,9 +65,9 @@ export const VEHICLE_STATE_GATE: Record<VehicleState, VehicleGate> = {
 };
 
 export const VEHICLE_GATE_LABEL: Record<VehicleGate, string> = {
-  ONBOARDING: 'Onboarding',
+  ONBOARDING: 'New bike',
   QC: 'Quality Check',
-  ACTIVE: 'Active',
+  ACTIVE: 'Out in the field', // with a rider, being recovered, or in an accident — not all of them have a rider
   SERVICE: 'Service',
   RTD: 'Ready to Deploy',
   RETIRED: 'Retired',

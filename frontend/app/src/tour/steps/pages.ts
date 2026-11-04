@@ -144,15 +144,15 @@ const PAGES: Record<string, PageAbout> = {
   },
 
   '/service/queues': {
-    title: "Bikes in service",
+    title: "Job Card Management",
     about:
-      "Every bike that is off the road, and the stage it has reached. Filter by queue, status or hub to look at one part of the workshop at a time. Open a job to see what was reported and what has been done to it.",
-  },
-
-  '/service/qc': {
-    title: "QC queue",
-    about:
-      "Bikes that have been worked on and are waiting to be signed off before they go back out. This is the last gate: a bike passes and returns to the fleet, or it fails and goes back to the workshop.",
+      "Every job card, split into the two kinds of work. Walk-in & RSA is a bike a rider still holds, where only unpaid spare parts reach their weekly payment. Hub Service is a bike nobody is riding, worked through repair, parts, QC and ready to deploy.",
+    cards: {
+      "CATEGORY 01":
+        "Walk-in and RSA cards. Pick the rider and the bike follows, because the card is always about the bike that rider is holding. Move a card to In Progress here; closing one needs the technician and the parts, so it opens the card itself.",
+      "CATEGORY 02":
+        "Hub Service cards, for vehicles returned by riders or recovered from them. There is no rider on these, so no rider pays. Set the stage — Under Repair, Parts Waiting, QC Pending — from the board; RFD is earned by passing quality check.",
+    },
   },
 
   '/service/inspection': {
@@ -161,28 +161,10 @@ const PAGES: Record<string, PageAbout> = {
       "Record what you found on a bike, point by point. The result decides which queue the bike goes to next, so it is worth filling in from the bike in front of you rather than from memory.",
   },
 
-  '/service/assistance': {
-    title: "Help desk",
-    about:
-      "Riders who called for help, with what was reported, how the bike reached you, and where each job has got to. Filter by status, source or hub to narrow it down, or start a new job from here.",
-  },
-
-  '/service/assistance/new': {
-    title: "New help job",
-    about:
-      "Log a rider's problem and get it moving: what happened, which bike, how bad the damage is, and how the bike reached you. Those answers decide which queue the job lands in, so they are worth getting right.",
-    cards: {
-      "Bike and problem":
-        "Which bike, and what the rider says is wrong with it. Pick the bike first — the problem fields stay locked until you do, so a report cannot be attached to the wrong vehicle.",
-      "Find or start a check":
-        "Search for a check already open on this bike, or begin a new one if there is none. Starting a second check on the same bike is what this prevents.",
-    },
-  },
-
   '/service/assistance/:jobId': {
-    title: "One help job",
+    title: "One job card",
     about:
-      "One help job end to end: what the rider reported, how the bike came in, everything done to it so far, and the quality check that closes it. The job is moved to its next stage from here.",
+      "One job card end to end: what the rider reported, how the bike came in, everything done to it so far, and the quality check that closes it. The job is moved to its next stage from here.",
     cards: {
       "What was reported":
         "The rider's account and how the bike reached you, as logged when the job opened. It does not change as the job moves.",
@@ -319,16 +301,10 @@ const PAGES: Record<string, PageAbout> = {
       "How much is outstanding across the fleet, and how many riders it is spread across. The size of the problem before you open any one rider.",
   },
 
-  '/recovery': {
-    title: "Recovery",
-    about:
-      "Money and bikes chased after a rider has gone: what still needs recovering, what has come back, and which vehicles are missing. The tail end of a rental, kept visible so it does not get forgotten.",
-  },
-
   '/users': {
     title: "Users & roles",
     about:
-      "Everyone who can sign in to FleeTech and what each of them is allowed to do. Add an account, change a role, or disable someone who has left. The roles panel explains what each role can reach — worth reading before handing one out.",
+      "Everyone who can sign in to FleeTech and what each of them is allowed to do. Change someone's role, or disable someone who has left. The roles panel explains what each role can reach — worth reading before handing one out.",
     cards: {
       "Accounts":
         "Everyone who can sign in: their name, email, role and whether the account is active. Change a role or disable someone from here.",

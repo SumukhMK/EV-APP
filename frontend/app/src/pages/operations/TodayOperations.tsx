@@ -109,7 +109,7 @@ export function TodayOperations() {
               value: n(f?.underRepair),
               tone: 'warn',
               icon: BuildIcon,
-              to: '/service/queues?state=UNDER_REPAIR',
+              to: '/service/assistance?state=UNDER_REPAIR',
             },
             {
               label: 'Quality Check',
@@ -123,7 +123,7 @@ export function TodayOperations() {
               value: n(f?.accident),
               tone: 'bad',
               icon: CarCrashIcon,
-              to: '/service/queues?queue=ACCIDENT',
+              to: '/service/assistance?queue=ACCIDENT',
             },
           ]}
         />

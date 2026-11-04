@@ -12,7 +12,17 @@ import type { DamageCategory, InspectionRequest, VehicleState } from './vehicle'
  * mirroring `CONDITION_DEFAULT_STATE` in lib/labels.ts, which the deboard form
  * already uses to default `nextVehicleState`.
  */
-export type ServiceJobSource = 'DEBOARD' | 'EXCHANGE' | 'RSA' | 'QRT' | 'WALK_IN' | 'INSPECTION' | 'REGISTRY';
+export type ServiceJobSource = 'DEBOARD' | 'EXCHANGE' | 'RSA' | 'QRT' | 'WALK_IN' | 'INSPECTION' | 'REGISTRY' | 'RECOVERY';
+
+/**
+ * Which board owns the job. Derived from the source by the server (see
+ * `categoryOf` in lib/serviceWorkflow.ts) and never sent by a client:
+ * WALK_IN/RSA are an active rider's bike, everything else is hub work on a
+ * bike the rider has given back.
+ */
+export type ServiceJobCategory = 'WALK_IN_RSA' | 'HUB';
+
+export type RepairType = 'REPAIR_ONLY' | 'SPARE_PARTS' | 'REPAIR_AND_SPARE_PARTS';
 
 export const SERVICE_QUEUES = [
   'ASSESSMENT', 'MINOR_REPAIR', 'MAJOR_REPAIR', 'ACCIDENT', 'WARRANTY',
@@ -68,6 +78,12 @@ export interface ServiceJob {
   /** Their name, so the job screen reads "Prakash Bhandari · R01", not an id. */
   riderName: string | null;
   source: ServiceJobSource;
+  category: ServiceJobCategory;
+  repairType: RepairType;
+  /** "Ticket Created By (Executive)". Null on older rows and on deboard jobs. */
+  createdBy: string | null;
+  /** Spare-parts money taken at the counter when a Walk-in & RSA job closes. */
+  partsPaidPaise: Paise;
   damageCategory: DamageCategory;
   queue: ServiceQueue;
   location: string | null;
@@ -106,6 +122,9 @@ export interface CreateServiceJobRequest {
   reference?: string | null;
   actor?: string;
   occurredOn?: Iso8601;
+  repairType?: RepairType;
+  createdBy?: string | null;
+  technician?: string | null;
 }
 
 /** What the assistance desk sends when it closes a job. */
@@ -116,6 +135,8 @@ export interface CloseServiceJobRequest {
   technician: string | null;
   note?: string;
   actor?: string;
+  /** Walk-in & RSA only: spare-parts money collected at the counter. */
+  partsPaidPaise?: Paise;
 }
 
 export interface UpdateServiceJobRequest {
@@ -129,6 +150,8 @@ export interface UpdateServiceJobRequest {
   reference: string | null;
   note: string;
   actor: string;
+  /** Walk-in & RSA only, and only on the save that closes the job. */
+  partsPaidPaise?: Paise;
   inspection?: InspectionRequest;
   /**
    * The nine safety checks (screen's QC_CHECKS, matching QcChecks.REQUIRED on

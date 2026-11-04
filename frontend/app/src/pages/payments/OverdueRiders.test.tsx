@@ -55,7 +55,7 @@ describe('overdue riders pagination', () => {
 
     // The header action and the tiles still describe the whole list.
     expect(await screen.findByText('Showing 1–12 of 16')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Remind all due (16)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark all as reminded (16)' })).toBeInTheDocument();
     expect(screen.getByText('Rider 01')).toBeInTheDocument();
     expect(screen.queryByText('Rider 13')).not.toBeInTheDocument();
 

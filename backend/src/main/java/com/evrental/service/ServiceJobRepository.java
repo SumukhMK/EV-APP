@@ -45,11 +45,13 @@ public interface ServiceJobRepository extends JpaRepository<ServiceJob, UUID> {
            where (:status is null or j.status = :status)
              and (:queue is null or j.queue = :queue)
              and (:source is null or j.source = :source)
+             and (:category is null or j.category = :category)
              and (:vehicleId is null or j.vehicleId = :vehicleId)
            """)
     Page<ServiceJob> search(@Param("status") ServiceJobStatus status,
                             @Param("queue") ServiceQueue queue,
                             @Param("source") ServiceJobSource source,
+                            @Param("category") ServiceJobCategory category,
                             @Param("vehicleId") UUID vehicleId,
                             Pageable pageable);
 

@@ -57,6 +57,23 @@ public class ServiceJob {
     @Column(nullable = false)
     private ServiceJobSource source;
 
+    /** Which board owns this card. Derived from the source when the job opens. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ServiceJobCategory category;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "repair_type", nullable = false)
+    private RepairType repairType = RepairType.REPAIR_ONLY;
+
+    /** "Ticket Created By (Executive)". Null on a job a deboard or exchange opened. */
+    @Column(name = "created_by")
+    private String createdBy;
+
+    /** Spare-parts money taken at the counter when a Walk-in & RSA job closes. */
+    @Column(name = "parts_paid_paise", nullable = false)
+    private long partsPaidPaise;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "damage_category", nullable = false)
     private DamageCategory damageCategory;
@@ -151,6 +168,38 @@ public class ServiceJob {
 
     public void setSource(ServiceJobSource source) {
         this.source = source;
+    }
+
+    public ServiceJobCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(ServiceJobCategory category) {
+        this.category = category;
+    }
+
+    public RepairType getRepairType() {
+        return repairType;
+    }
+
+    public void setRepairType(RepairType repairType) {
+        this.repairType = repairType;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public long getPartsPaidPaise() {
+        return partsPaidPaise;
+    }
+
+    public void setPartsPaidPaise(long partsPaidPaise) {
+        this.partsPaidPaise = partsPaidPaise;
     }
 
     public DamageCategory getDamageCategory() {

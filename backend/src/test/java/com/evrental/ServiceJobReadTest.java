@@ -74,7 +74,7 @@ class ServiceJobReadTest extends ServiceJobTestBase {
 
     @Test
     void filtersBySource() throws Exception {
-        list("?source=DEBOARD").andExpect(jsonPath("$.totalElements").value(3));
+        list("?source=QRT").andExpect(jsonPath("$.totalElements").value(3));
         list("?source=RSA").andExpect(jsonPath("$.totalElements").value(0));
     }
 

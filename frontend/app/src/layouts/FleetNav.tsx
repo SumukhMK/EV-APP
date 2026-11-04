@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeftOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRightOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, matchPath, useLocation, useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { navForRole } from '../app/nav';
 import { TOUR_ANCHORS, navAnchor, tourAnchor } from '../tour/anchors';
@@ -55,6 +55,11 @@ export function FleetNav({
   const { user, tenant, personas, switchPersona, signOut } = useSession();
   const navigate = useNavigate();
   const sections = navForRole(user.roleKey);
+  // A job card opened from a list keeps that list lit, not whichever menu item its URL happens to start with.
+  const { pathname, state } = useLocation();
+  const cameFrom: unknown = state?.returnTo;
+  const owner = typeof cameFrom === 'string' && sections.some((s) => s.items.some((i) => i.path === cameFrom.split('?')[0])) ? cameFrom.split('?')[0] : null;
+  const isActive = (path: string) => owner ? owner === path : Boolean(matchPath({ path, end: path === '/riders' }, pathname));
   const [signOutOpen, setSignOutOpen] = useState(false);
 
   // The rail button only opens the gate; the session ends on the dialog's
@@ -157,9 +162,10 @@ export function FleetNav({
                 const link = (
                   <Box
                     key={item.path}
-                    component={NavLink}
+                    component={Link}
                     to={item.path}
-                    end={item.path === '/riders'}
+                    className={isActive(item.path) ? 'active' : undefined}
+                    aria-current={isActive(item.path) ? 'page' : undefined}
                     onClick={onNavigate}
                     sx={{
                       display: 'flex',

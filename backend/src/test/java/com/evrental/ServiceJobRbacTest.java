@@ -39,7 +39,7 @@ class ServiceJobRbacTest extends ServiceJobTestBase {
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                         {"items":[],"liability":"COMPANY"}
+                         {"items":[],"liability":"COMPANY","technician":"Raju"}
                          """));
     }
 

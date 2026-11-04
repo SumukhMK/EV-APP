@@ -250,12 +250,12 @@ class QcInspectionTest extends ServiceJobTestBase {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("This job is already closed"));
 
-        // The bike's next visit — a return after an assignment — is not refused.
+        // The bike's next visit — a callout weeks later — is not refused.
         mvc.perform(post("/api/v1/service/jobs")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"vehicleId":"BLRSS0440","source":"DEBOARD","damageCategory":"MINOR",
+                                 {"vehicleId":"BLRSS0440","source":"QRT","damageCategory":"MINOR",
                                   "damageNotes":"Scuffed on return"}
                                  """))
                 .andExpect(status().isCreated());

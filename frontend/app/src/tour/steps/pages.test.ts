@@ -61,6 +61,10 @@ describe('page tours', () => {
       '/inspections',
       '/qc',
       '/service',
+      '/recovery', // now the Vehicles list filtered to Recovery
+      '/service/qc', // now All job cards, filtered to QC Pending
+      '/service/assistance', // now All job cards
+      '/service/assistance/new', // job cards are opened from the two boards now
     ];
 
     const missing = ROUTE_PATHS.filter((path) => !notScreens.includes(path)).filter(

@@ -67,12 +67,13 @@ public class ServiceJobController {
             @RequestParam(required = false) ServiceJobStatus status,
             @RequestParam(required = false) ServiceQueue queue,
             @RequestParam(required = false) ServiceJobSource source,
+            @RequestParam(required = false) ServiceJobCategory category,
             @RequestParam(required = false) String vehicleId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size) {
         // Newest first: the desk works the job that just arrived, not the one
         // that has been sitting in the queue longest.
-        return reader.list(status, queue, source, vehicleId,
+        return reader.list(status, queue, source, category, vehicleId,
                 PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE),
                         Sort.by(Sort.Direction.DESC, "createdOn")));
     }

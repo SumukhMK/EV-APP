@@ -169,7 +169,8 @@ class ServiceJobRulesTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"items":[{"label":"Left panel","costPaise":85000}],"liability":"COMPANY"}
+                                 {"items":[{"label":"Left panel","costPaise":85000}],"liability":"COMPANY",
+                                  "technician":"Raju"}
                                  """))
                 .andExpect(status().isOk());
     }
@@ -182,7 +183,7 @@ class ServiceJobRulesTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"vehicleId":"BLRSS0601","riderId":"%s","source":"DEBOARD",
+                                 {"vehicleId":"BLRSS0601","riderId":"%s","source":"QRT",
                                   "damageCategory":"MINOR","damageNotes":"Scuffed"}
                                  """.formatted(RIDER_CODE)))
                 .andExpect(status().isCreated())
@@ -193,7 +194,8 @@ class ServiceJobRulesTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"items":[{"label":"Left panel","costPaise":85000}],"liability":"RIDER"}
+                                 {"items":[{"label":"Left panel","costPaise":85000}],"liability":"RIDER",
+                                  "technician":"Raju"}
                                  """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.liability").value("RIDER"));

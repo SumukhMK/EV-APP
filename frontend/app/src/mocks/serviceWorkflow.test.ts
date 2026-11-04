@@ -33,9 +33,9 @@ function reset() {
 beforeEach(reset);
 afterEach(reset);
 
-function intake(category: ServiceJob['damageCategory'] = 'MINOR') {
+function intake(category: ServiceJob['damageCategory'] = 'MINOR', source: ServiceJob['source'] = 'RSA') {
   const vehicle = vehicles.find((v) => v.state === 'DEPLOYED')!;
-  const job = createServiceJob({ vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: 'RSA', damageCategory: category, damageNotes: 'Mirror cracked', location: 'Pickup at hub gate' });
+  const job = createServiceJob({ vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source, damageCategory: category, damageNotes: 'Mirror cracked', location: 'Pickup at hub gate' });
   return { vehicle, job };
 }
 function update(job: ServiceJob, patch: Partial<UpdateServiceJobRequest> = {}) {
@@ -189,7 +189,8 @@ describe('service workflow integrity', () => {
 
 
   it('deducts deposit once and rejects an unaffordable deposit charge without mutation', () => {
-    const { job } = intake();
+    // The deposit answers for Hub Service work only; a walk-in or RSA card is paid by the rider or the company.
+    const { job } = intake('MINOR', 'QRT');
     const rider = riders.find((r) => r.id === job.riderId)!;
     const before = rider.depositHeld;
     expect(() => update(job, { queue: 'READY_TO_DEPLOY', liability: 'DEPOSIT', items: [{ label: 'Repair', costPaise: before + 100 }] })).toThrow(/more than the deposit/);

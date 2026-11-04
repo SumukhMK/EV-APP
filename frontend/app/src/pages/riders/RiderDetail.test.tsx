@@ -92,6 +92,20 @@ describe('KYC decision', () => {
     expect(kyc).toHaveBeenCalledWith('R11', 'VERIFIED');
     expect(rider.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('asks before rejecting and shows the error when the save fails', async () => {
+    rider.mockResolvedValue(pending);
+    kyc.mockRejectedValue(new Error('KYC service is down'));
+    show();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Reject' }));
+    expect(kyc).not.toHaveBeenCalled();
+    await user.click(await screen.findByRole('button', { name: 'Reject KYC' }));
+
+    expect(kyc).toHaveBeenCalledWith('R11', 'REJECTED');
+    expect(await screen.findByText('KYC service is down')).toBeInTheDocument();
+  });
 });
 
 /**

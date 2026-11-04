@@ -65,7 +65,6 @@ describe('rolesForPath', () => {
     ['/payments/run', [SA, FA]],
     ['/payments/run/R44', [SA, FA]],
     ['/payments/overdue', [SA, FA]],
-    ['/recovery', [SA, FA]],
     ['/riders', [SA, FA, FS]],
     ['/riders/onboard', [SA, FA, FS]],
     ['/riders/R44', [SA, FA, FS]],
@@ -75,6 +74,8 @@ describe('rolesForPath', () => {
     ['/vehicles/new', [SA, FA, FS]],
     ['/vehicles/bulk-upload', [SA, FA, FS]],
     ['/vehicles/BLRSS0407/edit', [SA, FA]],
+    ['/flows', [SA, FA]],
+    ['/design-tokens', [SA, FA]],
   ])('gates %s to %s', (path, roles) => {
     expect(rolesForPath(path)?.slice().sort()).toEqual(roles.slice().sort());
   });
@@ -96,10 +97,6 @@ describe('rolesForPath', () => {
     expect(rolesForPath(path)).toBeNull();
   });
 
-  it('leaves the dev tools ungated — they are tooling, not product', () => {
-    expect(rolesForPath('/design-tokens')).toBeNull();
-    expect(rolesForPath('/flows')).toBeNull();
-  });
 
   it('matches the detail route, not the edit route, for a bare vehicle id', () => {
     // `/vehicles/:id` is open to all four; `/vehicles/:id/edit` is not. A table
@@ -117,9 +114,13 @@ describe('RequireRole', () => {
     ['/audit', SM],
     ['/payments/overdue', FS],
     ['/payments/run', SM],
-    ['/recovery', FS],
     ['/riders', SM],
+    ['/assignments/assign', SM],
+    ['/assignments/exchange', SM],
     ['/assignments/deboard', SM],
+    ['/flows', FS],
+    ['/flows', SM],
+    ['/design-tokens', SM],
     ['/vehicles/new', SM],
     ['/vehicles/BLRSS0407/edit', FS],
   ])('keeps %s shut for %s', (path, role) => {
@@ -138,6 +139,8 @@ describe('RequireRole', () => {
     ['/dashboard', SM],
     ['/service/qc', FS],
     ['/vehicles/BLRSS0407', SM],
+    ['/flows', FA],
+    ['/design-tokens', SA],
   ])('opens %s for %s', (path, role) => {
     renderAt(path, role);
     expect(screen.getByText('screen content')).toBeInTheDocument();

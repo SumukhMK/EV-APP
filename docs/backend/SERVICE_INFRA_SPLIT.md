@@ -182,4 +182,54 @@ This mapping is a starting point, not a claim that every current source has alre
 
 ---
 
-*This file records the requested product direction only. No application code, schema, API, configuration, or existing documentation has been changed as part of this proposal.*
+## Decisions taken for the first implementation
+
+These answer the open questions above with defaults. Each can be revisited; the
+code keeps them in one place so a change is small.
+
+### Data model (migration `V019__service_job_categories.sql`)
+
+| Column on `service_jobs` | Type | Rule |
+|---|---|---|
+| `category` | `VARCHAR(20) NOT NULL` | `WALK_IN_RSA` or `HUB`. Set by the server from the source when the job opens; never sent by the client. Existing rows are backfilled the same way. |
+| `repair_type` | `VARCHAR(30) NOT NULL DEFAULT 'REPAIR_ONLY'` | `REPAIR_ONLY`, `SPARE_PARTS`, `REPAIR_AND_SPARE_PARTS`. |
+| `created_by` | `VARCHAR(100) NULL` | "Ticket Created By (Executive)". Required on new jobs from the two forms; null on older rows and on jobs opened by a deboard/exchange (the screen then falls back to the actor of the first activity event). |
+| `parts_paid_paise` | `BIGINT NOT NULL DEFAULT 0` | Spare-parts money collected at the counter when a Walk-in & RSA job closes. `>= 0`. |
+
+- "Ticket Resolved By (Technician)" is the existing `technician` column.
+- "Initial / Current Remarks" is the existing `damage_notes` column.
+- New source value `RECOVERY` ("Recovered from rider"); `chk_sj_source` is widened to allow it.
+
+### Category from source
+
+| Source | Category | Return / Recovery Source label |
+|---|---|---|
+| `WALK_IN` | Walk-in & RSA | — |
+| `RSA` | Walk-in & RSA | — |
+| `DEBOARD` | Hub Service | Returned by rider |
+| `EXCHANGE` | Hub Service | Returned in exchange |
+| `RECOVERY` | Hub Service | Recovered from rider |
+| `QRT` | Hub Service | QRT recovery |
+| `INSPECTION` | Hub Service | Routine inspection |
+| `REGISTRY` | Hub Service | Old records |
+
+1. **RSA ownership:** an RSA job stays in Walk-in & RSA. It only moves to Hub Service through the handoff in item 7.
+2. **QRT:** Hub Service intake source.
+3. **Hub release gate:** unchanged. A bike reaches Ready to Deploy only by passing QC; the state machine already enforces this.
+4. **Closed vs RFD:** RFD is the `READY_TO_DEPLOY` queue. The Hub stage shown on screen is derived from the queue: any repair queue (Assessment, Minor, Major, Accident, Warranty, Insurance) → **Under Repair**; `PARTS_WAITING` → **Parts Waiting**; `QC_PENDING` → **QC Pending**; `READY_TO_DEPLOY` → **RFD**; a closed job not in RFD → **Closed**. The board shows three counts (Under Repair, Parts Waiting, QC Pending), as in the reference.
+5. **Return/recovery source values:** the table above. A manual Hub job takes its source from the bike's state: `RETURNED` → `DEBOARD`, `RECOVERY` → `RECOVERY`. No separate return record is required.
+6. **Cost and liability:** Hub Service keeps the existing close process (deposit / rider / company, rider being the last known rider). Walk-in & RSA allows only **Rider** or **Company**.
+7. **Active-job uniqueness and handoff:** the one-open-job-per-bike rule stays. When a rider returns (deboard/exchange) a bike that has an open Walk-in & RSA job, that job's category becomes `HUB` and an activity event is written: "Moved to Hub Service — rider returned the bike". No second job is opened.
+8. **Form validation:** Walk-in & RSA needs an active rider, executive name and remarks. Hub Service needs an eligible bike, executive name, remarks and a stage. Technician is optional when opening and required when closing. `SPARE_PARTS` and `REPAIR_AND_SPARE_PARTS` need at least one part line at close; `REPAIR_ONLY` needs none.
+9. **Walk-in & RSA weekly payments:** with liability Rider, the charge is `sum(PART lines) − parts_paid_paise`, raised only if above zero. Labour and other lines are never charged to the rider. `parts_paid_paise` cannot exceed the parts total.
+10. **Hub stage moves:** the same roles that can manage service today. Under Repair, Parts Waiting and QC Pending can be changed from the board; RFD is reached only by passing QC on the job page.
+11. **Hub eligibility:** a bike is eligible if its state is `RETURNED` or `RECOVERY`, it has no current rider, and it has no open service job. Bikes deboarded or exchanged already get a Hub job automatically; the form covers the rest.
+
+### Screens
+
+- `/service/queues` becomes **Job Card Management**: two cards side by side (stacked on small screens), each with its counts, its primary button and its table. Both forms open as dialogs.
+- The old "New job" form (`/service/assistance/new`) redirects to `/service/queues`. The routine-inspection form, the job detail page and the QC queue stay.
+
+---
+
+*The proposal above was written as product direction only. The "Decisions taken" section is the build contract for the first implementation.*

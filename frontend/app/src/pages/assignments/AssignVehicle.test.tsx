@@ -72,5 +72,18 @@ describe('assign vehicle — deboarded riders and dues', () => {
     await user.click(await screen.findByRole('option', { name: /Abcd Two/ }));
     // The summary already warns before anything is sent.
     expect(screen.getByText(/₹4,500 · deposit ₹3,000/)).toBeInTheDocument();
+    expect(screen.getByText(/more than the ₹3,000 deposit/)).toBeInTheDocument();
+    expect(screen.getByText('Ask a fleet admin to record the payment or approve an override.')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /Admin override/ })).not.toBeInTheDocument();
+  });
+
+  it('offers an admin the override up front, before any submit', async () => {
+    riders.mockResolvedValue([{ ...base, duesPaise: 450000 }]);
+    show('FLEET_ADMIN');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+    await user.click(await screen.findByRole('option', { name: /Abcd Two/ }));
+    expect(screen.getByRole('checkbox', { name: /Admin override/ })).toBeInTheDocument();
+    expect(assign).not.toHaveBeenCalled();
   });
 });

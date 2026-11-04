@@ -19,6 +19,8 @@ public enum ServiceJobSource {
     QRT,
     /** The rider rode in with a problem. */
     WALK_IN,
+    /** Recovered from the rider, and now the hub's to deal with. */
+    RECOVERY,
     /** A routine check, with no fault reported. */
     INSPECTION,
     /** Migrated from the old records, where the reason was never captured. */

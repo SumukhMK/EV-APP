@@ -3,6 +3,7 @@ package com.evrental.payment;
 import com.evrental.rider.Rider;
 import com.evrental.rider.RiderRepository;
 import com.evrental.service.ServiceJobClosedEvent;
+import com.evrental.service.ServiceLiability;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -31,9 +32,11 @@ public class RiderChargeService {
     private final RiderRepository riders;
     private final BillingClock clock;
     private final JdbcTemplate jdbc;
+    private final PaymentPeriodRepository periods;
 
     public RiderChargeService(RiderChargeRepository charges, RiderRepository riders,
-                              BillingClock clock, JdbcTemplate jdbc) {
+                              BillingClock clock, JdbcTemplate jdbc, PaymentPeriodRepository periods) {
+        this.periods = periods;
         this.charges = charges;
         this.riders = riders;
         this.clock = clock;
@@ -97,6 +100,14 @@ public class RiderChargeService {
 
         try {
             RiderCharge saved = charges.saveAndFlush(charge);
+            // The week's bill may already exist; add the charge to it now rather than a week late.
+            if (charge.getLiability() == ServiceLiability.RIDER) {
+                periods.findByRiderIdAndPeriodStart(event.riderId(), charge.getPeriodStart()).ifPresent(row ->
+                        row.refreshCharges(
+                                charges.sumOpenInPeriod(event.riderId(), row.getPeriodStart(), ServiceLiability.RIDER),
+                                charges.sumOpenBefore(event.riderId(), row.getPeriodStart(), ServiceLiability.RIDER),
+                                clock.today()));
+            }
             log.info("Raised {} charge of {} paise against rider {} for job {}",
                     charge.getLiability(), charge.getAmountPaise(), event.riderId(), event.jobId());
             return saved;

@@ -10,13 +10,12 @@ import { MandatoryLabel } from '../../../components/form/MandatoryLabel';
 import { InfoTip } from '../../../components/InfoTip';
 import {
   DEPOSIT_TIERS,
-  PAYMENT_DAY_LABEL,
   PAYMENT_METHOD_LABEL,
   WEEKLY_PLAN_TIERS,
   WORKING_PLATFORMS,
 } from '../../../lib/labels';
 import { rupeesWithSymbol } from '../../../lib/format';
-import type { PaymentDay, PaymentMode } from '../../../types';
+import type { PaymentMode } from '../../../types';
 
 /**
  * Step 4 — Commercial: the plan, the platform and the deposit.
@@ -43,11 +42,6 @@ export function RiderCommercialStep({ step }: { step: number }) {
 
   const depositRupees = watch('depositRupees') ?? 0;
   const depositPaidRupees = watch('depositPaidRupees') ?? 0;
-
-  const paymentDayOptions = (Object.keys(PAYMENT_DAY_LABEL) as PaymentDay[]).map((d) => ({
-    value: d,
-    label: PAYMENT_DAY_LABEL[d],
-  }));
 
   // Driven off the same label map the payment run and the receipt use, so the
   // mode agreed here can always be recorded against an actual collection.
@@ -129,18 +123,11 @@ export function RiderCommercialStep({ step }: { step: number }) {
           <SelectField
             control={control}
             name="billingDay"
-            label="Billing day"
+            label="Rent cycle"
             options={[
-              { value: 'MONDAY', label: 'Monday' },
-              { value: 'WEDNESDAY', label: 'Wednesday' },
+              { value: 'MONDAY', label: 'Monday cycle' },
+              { value: 'WEDNESDAY', label: 'Wednesday cycle' },
             ]}
-          />
-
-          <SelectField
-            control={control}
-            name="paymentDay"
-            label={<>Payment day <InfoTip title="The weekly run is fixed Wednesday to Tuesday. This is recorded for the collections team and drives no calculation." /></>}
-            options={paymentDayOptions}
           />
 
           <SelectField

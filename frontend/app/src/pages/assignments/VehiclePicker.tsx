@@ -85,7 +85,7 @@ export function VehiclePicker({
     return (
       <Typography sx={{ fontSize: 14, color: 'text.secondary', py: 4 }}>
         No bikes are Ready to Deploy. A bike is ready once it passes{' '}
-        <Box component={Link} to="/service/qc" sx={{ color: 'inherit' }}>
+        <Box component={Link} to="/service/queues?board=all&stage=QC_PENDING" sx={{ color: 'inherit' }}>
           Quality Check
         </Box>
         .

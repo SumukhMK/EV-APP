@@ -143,6 +143,10 @@ describe('onboard rider — the confirmation lands before the route', () => {
     // The confirmation is on this screen, and the route has not changed yet.
     expect(await screen.findByText('Ravi Kumar onboarded as BLRSS0428')).toBeInTheDocument();
     expect(screen.queryByText('Rider detail page')).not.toBeInTheDocument();
+    // Payment day is no longer asked; the API still gets one, the rent cycle's day.
+    expect(screen.queryByRole('combobox', { name: /Payment day/ })).not.toBeInTheDocument();
+    expect(vi.mocked(onboardRider).mock.calls[0][0]).toMatchObject({ billingDay: 'MONDAY', paymentDay: 'MONDAY' });
+    expect(screen.queryByText(/fields verified/)).not.toBeInTheDocument();
 
     // Closing the Snackbar — here by its timeout — is what moves on.
     expect(await screen.findByText('Rider detail page', undefined, { timeout: 3000 })).toBeInTheDocument();
