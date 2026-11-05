@@ -24,6 +24,7 @@ export function JobCardDialog({
   subtitle,
   helper,
   error,
+  errorAction,
   pending,
   ready,
   onSubmit,
@@ -35,6 +36,7 @@ export function JobCardDialog({
   subtitle: string;
   helper: ReactNode;
   error?: string;
+  errorAction?: ReactNode;
   pending: boolean;
   ready: boolean;
   onSubmit: () => void;
@@ -64,7 +66,9 @@ export function JobCardDialog({
             {children}
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>{helper}</Typography>
-          {error && <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert>}
+          {error && <Alert severity="error" sx={{ mt: 3 }}>
+            {error}{errorAction && <> {errorAction}</>}
+          </Alert>}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 3 }}>
           <Button color="inherit" onClick={onClose} disabled={pending}>Cancel</Button>
