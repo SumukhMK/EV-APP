@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/sessionContext';
 import { PageHeader } from '../../components/PageHeader';
+import { TOUR_ANCHORS, tourAnchor } from '../../tour/anchors';
 import { listServiceJobs } from '../../lib/api/serviceJobs';
 import { canManageService } from '../../lib/roles';
 import { JOB_STAGE_LABEL, jobStage, type JobStage } from '../../lib/serviceWorkflow';
@@ -65,7 +66,24 @@ export function ServiceManagement() {
   return (
     <>
       <PageHeader section="Service management" title="Job Card Management" icon={HandymanIcon}
-        actions={<Button color="inherit" startIcon={<SearchIcon />} onClick={() => show({ board: 'all' })}>All job cards</Button>} />
+        actions={
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            startIcon={<SearchIcon />}
+            {...tourAnchor(TOUR_ANCHORS.serviceAllJobCards)}
+            onClick={() => show({ board: 'all' })}
+            sx={{
+              fontWeight: 700,
+              boxShadow: 2,
+              '&:hover': { boxShadow: 4 },
+            }}
+          >
+            All job cards
+          </Button>
+        }
+      />
       {!canWork && <Alert severity="info" sx={{ mt: 3 }}>View only — you cannot open or move job cards.</Alert>}
       {!openBoard && createdAlert && <Box sx={{ mt: 3 }}>{createdAlert}</Box>}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: { xs: 3, md: 4 }, mt: 4, alignItems: 'stretch' }}>
