@@ -102,6 +102,27 @@ class RiderChargeTest extends ServiceJobTestBase {
     }
 
     @Test
+    void aChargeRaisedAfterTheWeeksBillWasMadeLandsOnThatBill() throws Exception {
+        // Opening the run freezes this week's row before the job closes.
+        mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        long before = superAdmin(jdbc -> jdbc.queryForObject(
+                "SELECT total_due_paise FROM payment_periods WHERE rider_id = ? ORDER BY period_start DESC LIMIT 1",
+                Long.class, riderId));
+
+        close("RIDER");
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            var row = superAdmin(jdbc -> jdbc.queryForMap(
+                    "SELECT service_charges_paise, total_due_paise FROM payment_periods "
+                            + "WHERE rider_id = ? ORDER BY period_start DESC LIMIT 1", riderId));
+            assertThat(((Number) row.get("service_charges_paise")).longValue()).isEqualTo(85000);
+            assertThat(((Number) row.get("total_due_paise")).longValue()).isEqualTo(before + 85000);
+        });
+    }
+
+    @Test
     void aDepositChargeIsRaisedToo() throws Exception {
         // It never appears on a weekly run, but the money is owed either way.
         close("DEPOSIT");

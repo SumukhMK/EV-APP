@@ -155,9 +155,14 @@ public class PaymentRunService {
             return;
         }
 
-        Set<UUID> alreadyBilled = periods
-                .findByPeriodStartAndBillingDayOrderByRiderIdAsc(period.start(), period.billingDay())
-                .stream()
+        List<PaymentPeriod> existing =
+                periods.findByPeriodStartAndBillingDayOrderByRiderIdAsc(period.start(), period.billingDay());
+        // Charges raised after a row was frozen (or while it was being frozen) are picked up here.
+        existing.forEach(row -> row.refreshCharges(
+                charges.sumOpenInPeriod(row.getRiderId(), period.start(), BILLABLE),
+                charges.sumOpenBefore(row.getRiderId(), period.start(), BILLABLE),
+                today));
+        Set<UUID> alreadyBilled = existing.stream()
                 .map(PaymentPeriod::getRiderId)
                 .collect(Collectors.toSet());
 

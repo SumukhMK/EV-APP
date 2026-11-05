@@ -100,7 +100,7 @@ export function Dashboard() {
               value: s ? formatNumber(s.underRepair) : '—',
               tone: 'warn',
               icon: BuildIcon,
-              to: '/service/queues?state=UNDER_REPAIR',
+              to: '/service/assistance?state=UNDER_REPAIR',
             },
             {
               label: 'Quality Check',

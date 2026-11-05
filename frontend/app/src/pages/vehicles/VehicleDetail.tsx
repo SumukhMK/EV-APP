@@ -186,18 +186,30 @@ export function VehicleDetail() {
                   },
                 ]}
               />
-              <Button color="inherit" component={Link} to={`/riders/${v.currentRiderId}`} fullWidth>
-                Open rider record
-              </Button>
+              {/* The workshop role cannot open a rider record. */}
+              {canManageAssignments(user.roleKey) && (
+                <Button color="inherit" component={Link} to={`/riders/${v.currentRiderId}`} fullWidth>
+                  Open rider record
+                </Button>
+              )}
             </>
           ) : (
-            <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-              Nobody has this bike. A bike can only be given out when it is{' '}
-              <Box component="span" sx={{ color: tones.accent.fg }}>
-                Ready to Deploy
-              </Box>
-              .
-            </Typography>
+            <>
+              <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
+                Nobody has this bike. A bike can only be given out when it is{' '}
+                <Box component="span" sx={{ color: tones.accent.fg }}>
+                  Ready to Deploy
+                </Box>
+                .
+              </Typography>
+              {/* shortcut: AssignVehicle does not read a vehicleId param yet, so this opens the
+                  riders list; link to /assignments/assign?vehicleId= once it does. */}
+              {v.state === 'READY_TO_DEPLOY' && canManageAssignments(user.roleKey) && (
+                <Button component={Link} to="/riders" fullWidth sx={{ mt: 3 }}>
+                  Give to a rider
+                </Button>
+              )}
+            </>
           )}
         </Panel>
       </Box>

@@ -116,7 +116,7 @@ export function PaymentRun() {
             { label: 'Total billed', value: run.data ? rupees(billed) : '—', icon: RequestQuoteIcon },
             { label: 'Collected', value: run.data ? rupees(collected) : '—', tone: 'good', icon: PriceCheckIcon },
             {
-              label: 'Still unpaid',
+              label: 'Dues outstanding',
               value: run.data ? rupees(outstanding) : '—',
               tone: outstanding > 0 ? 'bad' : 'good',
               icon: PendingIcon,
@@ -297,7 +297,7 @@ export function PaymentRun() {
                   ]),
               {
                 key: 'due',
-                header: 'Total due',
+                header: 'Total dues',
                 align: 'right',
                 width: 88,
                 render: (r) => (

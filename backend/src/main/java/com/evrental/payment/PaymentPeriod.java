@@ -30,6 +30,11 @@ import org.hibernate.annotations.UpdateTimestamp;
  * {@code updatable = false}, so even a stray setter call cannot reach the
  * database. The setters exist for generation, which builds the row before it
  * is ever persisted.
+ *
+ * <p>The one exception is the repair charges ({@code serviceChargesPaise},
+ * {@code arrearsPaise} and the {@code totalDuePaise} they feed): a workshop job
+ * closed mid-week must reach that week's dues, so {@link #refreshCharges} may
+ * move them — and only on a week nobody has paid off yet.
  */
 @Entity
 @Table(name = "payment_periods")
@@ -71,13 +76,13 @@ public class PaymentPeriod {
     @Column(name = "billed_amount_paise", nullable = false, updatable = false)
     private long billedAmountPaise;
 
-    @Column(name = "service_charges_paise", nullable = false, updatable = false)
+    @Column(name = "service_charges_paise", nullable = false)
     private long serviceChargesPaise;
 
-    @Column(name = "arrears_paise", nullable = false, updatable = false)
+    @Column(name = "arrears_paise", nullable = false)
     private long arrearsPaise;
 
-    @Column(name = "total_due_paise", nullable = false, updatable = false)
+    @Column(name = "total_due_paise", nullable = false)
     private long totalDuePaise;
 
     @Column(name = "amount_paid_paise", nullable = false)
@@ -126,6 +131,25 @@ public class PaymentPeriod {
      * anticipates a negative, and turning money away at the counter is worse
      * than carrying a credit.
      */
+    /**
+     * Brings the week's repair charges up to date on a bill not yet paid.
+     *
+     * <p>A row is frozen when the run first opens, but a workshop job can close
+     * later in the same week; without this its charge waited a whole week to
+     * surface as arrears. Rent stays frozen — only the charges move.
+     */
+    public void refreshCharges(long serviceChargesPaise, long arrearsPaise, LocalDate today) {
+        // A week someone has paid off is history; a later charge carries forward as arrears.
+        // amountPaid > 0 matters: a week that billed nothing is not "paid", it is empty.
+        if (amountPaidPaise > 0 && amountPaidPaise >= totalDuePaise) {
+            return;
+        }
+        this.serviceChargesPaise = serviceChargesPaise;
+        this.arrearsPaise = arrearsPaise;
+        this.totalDuePaise = billedAmountPaise + serviceChargesPaise + arrearsPaise;
+        recomputeStatus(today);
+    }
+
     public void recomputeStatus(LocalDate today) {
         if (amountPaidPaise >= totalDuePaise) {
             this.status = PaymentStatus.PAID;

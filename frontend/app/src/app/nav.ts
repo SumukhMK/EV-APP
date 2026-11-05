@@ -5,16 +5,10 @@ import SpeedIcon from '@mui/icons-material/SpeedOutlined';
 import TodayIcon from '@mui/icons-material/TodayOutlined';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheelerOutlined';
 import HandymanIcon from '@mui/icons-material/HandymanOutlined';
-import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
-import SupportAgentIcon from '@mui/icons-material/SupportAgentOutlined';
 import PeopleIcon from '@mui/icons-material/PeopleOutlineOutlined';
 import PersonAddIcon from '@mui/icons-material/PersonAddAltOutlined';
-import LinkIcon from '@mui/icons-material/AddLinkOutlined';
-import SwapIcon from '@mui/icons-material/SwapHorizOutlined';
-import LogoutIcon from '@mui/icons-material/AssignmentReturnedOutlined';
 import ReceiptIcon from '@mui/icons-material/ReceiptLongOutlined';
 import WarningIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import RecoveryIcon from '@mui/icons-material/ReplayCircleFilledOutlined';
 import AdminIcon from '@mui/icons-material/ManageAccountsOutlined';
 import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 
@@ -76,9 +70,8 @@ export const NAV: NavSection[] = [
     heading: 'Service management',
     roles: ALL_ROLES,
     items: [
-      { label: 'Bikes in service', path: '/service/queues', icon: HandymanIcon, owner: 'smk', artboard: 22 },
-      { label: 'QC queue', path: '/service/qc', icon: FactCheckIcon, owner: 'smk', artboard: 14 },
-      { label: 'Help desk', path: '/service/assistance', icon: SupportAgentIcon, owner: 'smk' },
+      // QC queue and Help desk were the same jobs again; Job cards searches and filters all of them.
+      { label: 'Job cards', path: '/service/queues', icon: HandymanIcon, owner: 'smk', artboard: 22 },
     ],
   },
   {
@@ -88,9 +81,6 @@ export const NAV: NavSection[] = [
     items: [
       { label: 'Riders', path: '/riders', icon: PeopleIcon, owner: 'abhiram', artboard: 7 },
       { label: 'Onboard rider', path: '/riders/onboard', icon: PersonAddIcon, owner: 'abhiram', artboard: 9 },
-      { label: 'Assign vehicle', path: '/assignments/assign', icon: LinkIcon, owner: 'abhiram', artboard: 10 },
-      { label: 'Exchange vehicle', path: '/assignments/exchange', icon: SwapIcon, owner: 'abhiram', artboard: 11 },
-      { label: 'Deboard rider', path: '/assignments/deboard', icon: LogoutIcon, owner: 'abhiram', artboard: 12 },
     ],
   },
   {
@@ -100,7 +90,6 @@ export const NAV: NavSection[] = [
     items: [
       { label: 'Weekly payment run', path: '/payments/run', icon: ReceiptIcon, owner: 'smk', artboard: 15 },
       { label: 'Overdue riders', path: '/payments/overdue', icon: WarningIcon, owner: 'smk', artboard: 17 },
-      { label: 'Recovery', path: '/recovery', icon: RecoveryIcon, owner: 'smk', artboard: 23 },
     ],
   },
   {
@@ -139,6 +128,13 @@ const EXTRA_ROUTE_ROLES: Array<[string, UserRole[]]> = [
   ['/vehicles/new', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
   ['/vehicles/bulk-upload', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
   ['/vehicles/:vehicleId/edit', ['SUPER_ADMIN', 'FLEET_ADMIN']],
+  // Started from the rider record with the rider filled in, so not in the rail.
+  ['/assignments/assign', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
+  ['/assignments/exchange', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
+  ['/assignments/deboard', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
+  // Design tooling: not in the rail, but not for every role either.
+  ['/flows', ['SUPER_ADMIN', 'FLEET_ADMIN']],
+  ['/design-tokens', ['SUPER_ADMIN', 'FLEET_ADMIN']],
 ];
 
 /**

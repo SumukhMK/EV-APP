@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { recordPayment } from '../../lib/api/payments';
 import { invalidatePayments } from '../../lib/invalidate';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useShakeValidation, shakeStyles } from '../../hooks/useShakeValidation';
 import { PAYMENT_METHOD_LABEL } from '../../lib/labels';
 import { rupees } from '../../lib/format';
 import { neutral } from '../../theme/tokens';
@@ -47,7 +47,9 @@ export function RecordPaymentDialog({
 
   const [amountRupees, setAmountRupees] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('UPI');
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Set on a submit attempt, so an emptied amount shows its error and shakes.
+  const [tried, setTried] = useState(false);
+  const { containerRef, shake } = useShakeValidation();
 
   // Refill the default each time a different rider's dialog opens. Done during
   // render rather than in an effect, so the field never paints one frame of the
@@ -58,6 +60,7 @@ export function RecordPaymentDialog({
     setLastRider(activeRider);
     setAmountRupees(target ? String(Math.round(balance / 100)) : '');
     setMethod('UPI');
+    setTried(false);
   }
 
   const collect = useMutation({
@@ -72,16 +75,27 @@ export function RecordPaymentDialog({
 
   const paise = Math.round(Number(amountRupees) * 100);
   const valid = paise > 0 && paise <= balance;
+  const showError = (tried || amountRupees !== '') && !valid;
+
+  const submit = () => {
+    if (collect.isPending) return;
+    if (!valid) {
+      setTried(true);
+      // Wait a frame so the error class is on the field before shaking it.
+      requestAnimationFrame(shake);
+      return;
+    }
+    collect.mutate(paise);
+  };
 
   return (
-    <>
-      <Dialog open={Boolean(target)} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={Boolean(target)} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ fontSize: 16 }}>
         Record payment · {target?.riderName}
       </DialogTitle>
-      <DialogContent>
+      <DialogContent ref={containerRef} sx={shakeStyles}>
         <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 4 }}>
-          Outstanding balance {rupees(balance)}. Enter what was collected — a smaller amount is
+          Dues outstanding {rupees(balance)}. Enter what was collected — a smaller amount is
           recorded as a part payment.
         </Typography>
 
@@ -93,9 +107,9 @@ export function RecordPaymentDialog({
           fullWidth
           autoFocus
           slotProps={{ input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> } }}
-          error={amountRupees !== '' && !valid}
+          error={showError}
           helperText={
-            amountRupees !== '' && !valid
+            showError
               ? paise > balance
                 ? 'More than the balance — record a smaller amount.'
                 : 'Enter an amount above zero.'
@@ -124,23 +138,11 @@ export function RecordPaymentDialog({
         <Button color="inherit" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={() => valid && setConfirmOpen(true)} disabled={!valid || collect.isPending}>
-          Record {valid ? rupees(paise) : ''}
+        {/* The dialog is the confirmation: no second "are you sure" step. */}
+        <Button onClick={submit}>
+          {collect.isPending ? 'Recording…' : `Record ${valid ? rupees(paise) : 'payment'}`}
         </Button>
       </DialogActions>
-      </Dialog>
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Record the payment?"
-        message={`${rupees(paise)} against ${target?.riderName}'s current period.`}
-        info={`Method: ${PAYMENT_METHOD_LABEL[method]}. Balance after: ${rupees(Math.max(0, balance - paise))}.`}
-        confirmLabel={`Record ${valid ? rupees(paise) : ''}`}
-        tone="neutral"
-        dismissible
-        pending={collect.isPending}
-        onConfirm={() => { setConfirmOpen(false); collect.mutate(paise); }}
-        onCancel={() => setConfirmOpen(false)}
-      />
-    </>
+    </Dialog>
   );
 }

@@ -108,6 +108,9 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
             jdbc.update("DELETE FROM rider_plan_changes WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             // A held bike's QC test puts an assignment on a rider; it goes before the rider.
             jdbc.update("DELETE FROM assignments WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            // A test that opens the payment run leaves a weekly bill on the rider.
+            jdbc.update("DELETE FROM payment_collections WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("DELETE FROM payment_periods WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM riders WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicle_lifecycle_events WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM vehicles WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
@@ -211,13 +214,24 @@ public abstract class ServiceJobTestBase extends PostgresTestBase {
                         .post("/api/v1/service/jobs")
                         .header("Authorization", "Bearer " + token)
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        // QRT: a Hub Service intake the desk may file on any bike.
+                        // DEBOARD now asks the bike to really be back (V019), which
+                        // is the facade's job mid-return, not this helper's.
                         .content("""
-                                 {"vehicleId":"%s","source":"DEBOARD","damageCategory":"%s",
+                                 {"vehicleId":"%s","source":"QRT","damageCategory":"%s",
                                   "damageNotes":"Scratched left panel"%s}
                                  """.formatted(registryId, damage,
                                         riderCode == null ? "" : ",\"riderId\":\"" + riderCode + "\"")))
                 .andReturn().getResponse().getContentAsString();
         return new ObjectMapper().readTree(body).get("id").asString();
+    }
+
+    /** Puts RIDER_ID on a bike, which is what a Walk-in & RSA card needs to exist. */
+    protected void holdBike(UUID vehicleId) {
+        superAdmin(jdbc -> jdbc.update(
+                "INSERT INTO assignments (tenant_id, rider_id, vehicle_id, started_on) "
+                        + "VALUES (?, ?, ?, CURRENT_DATE - 30)",
+                TENANT, RIDER_ID, vehicleId));
     }
 
     /** Arranges and inspects rows across tenants, which RLS otherwise hides. */

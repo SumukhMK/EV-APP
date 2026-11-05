@@ -125,6 +125,16 @@ export function VehiclesList() {
     placeholderData: keepPreviousData,
   });
 
+  // Facets only list states that have bikes. Recovery is always offered (it
+  // replaced its own page), and so is whatever ?state= a link selected.
+  const stateOptions = useMemo(() => {
+    const opts = facets.data ?? [{ value: 'ALL' as const, label: 'All', count: 0 }];
+    const missing = [...new Set<VehicleState | 'ALL'>(['RECOVERY', state])].filter(
+      (s): s is VehicleState => s !== 'ALL' && !opts.some((o) => o.value === s),
+    );
+    return [...opts, ...missing.map((s) => ({ value: s, label: VEHICLE_STATE_LABEL[s], count: 0 }))];
+  }, [facets.data, state]);
+
   const filterOpts = useQuery({
     queryKey: ['vehicles', 'filter-options'],
     queryFn: vehicleFilterOptions,
@@ -230,7 +240,7 @@ export function VehiclesList() {
         }}
       >
         <FacetChips
-          options={facets.data ?? [{ value: 'ALL' as const, label: 'All', count: 0 }]}
+          options={stateOptions}
           value={state}
           onChange={setState}
         />

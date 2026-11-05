@@ -255,7 +255,7 @@ export function RidersList() {
     <>
       <PageHeader
         section="Riders"
-        title="Rider register"
+        title="Riders"
         actions={
           <Button component={Link} to="/riders/onboard">
             Onboard rider

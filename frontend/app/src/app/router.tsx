@@ -45,15 +45,11 @@ const BulkUploadVehicles = lazy(() =>
 );
 const VehicleDetail = lazy(() => import('../pages/vehicles/VehicleDetail').then((m) => ({ default: m.VehicleDetail })));
 const Inspection = lazy(() => import('../pages/service/Inspection').then((m) => ({ default: m.Inspection })));
-const QcQueue = lazy(() => import('../pages/workshop/QcQueue').then((m) => ({ default: m.QcQueue })));
 const ServiceManagement = lazy(() =>
   import('../pages/service/ServiceManagement').then((m) => ({ default: m.ServiceManagement })),
 );
-const AssistanceDesk = lazy(() =>
-  import('../pages/service/AssistanceDesk').then((m) => ({ default: m.AssistanceDesk })),
-);
-const NewAssistanceJob = lazy(() =>
-  import('../pages/service/AssistanceJob').then((m) => ({ default: m.NewAssistanceJob })),
+const LegacyJobList = lazy(() =>
+  import('../pages/service/LegacyJobList').then((m) => ({ default: m.LegacyJobList })),
 );
 const AssistanceJob = lazy(() =>
   import('../pages/service/AssistanceJob').then((m) => ({ default: m.AssistanceJob })),
@@ -79,9 +75,6 @@ const PaymentReceipt = lazy(() =>
   import('../pages/payments/PaymentReceipt').then((m) => ({ default: m.PaymentReceipt })),
 );
 const OverdueRiders = lazy(() => import('../pages/payments/OverdueRiders').then((m) => ({ default: m.OverdueRiders })));
-const RecoverySummary = lazy(() =>
-  import('../pages/recovery/RecoverySummary').then((m) => ({ default: m.RecoverySummary })),
-);
 
 // Admin — SMK
 const Users = lazy(() => import('../pages/users/Users').then((m) => ({ default: m.Users })));
@@ -116,10 +109,12 @@ export const router = createBrowserRouter([
 
       // Service management — SMK
       { path: '/service/queues', element: <ServiceManagement /> },
-      { path: '/service/qc', element: <QcQueue /> },
+      // The old QC queue and Help desk lists now open Job cards with the same filter.
+      { path: '/service/qc', element: <LegacyJobList /> },
       { path: '/service/inspection', element: <Inspection /> },
-      { path: '/service/assistance', element: <AssistanceDesk /> },
-      { path: '/service/assistance/new', element: <NewAssistanceJob /> },
+      { path: '/service/assistance', element: <LegacyJobList /> },
+      // A job card is opened from one of the two boards now, not from a page of its own.
+      { path: '/service/assistance/new', element: <Navigate to="/service/queues" replace /> },
       { path: '/service/assistance/:jobId', element: <AssistanceJob /> },
       // Legacy paths from before Service management had its own section.
       { path: '/inspections', element: <Navigate to="/service/inspection" replace /> },
@@ -138,7 +133,8 @@ export const router = createBrowserRouter([
       { path: '/payments/run', element: <PaymentRun /> },
       { path: '/payments/run/:riderId', element: <PaymentReceipt /> },
       { path: '/payments/overdue', element: <OverdueRiders /> },
-      { path: '/recovery', element: <RecoverySummary /> },
+      // Recovery was a page of links to these lists; the filtered Vehicles list is the screen.
+      { path: '/recovery', element: <Navigate to="/vehicles?state=RECOVERY" replace /> },
 
       // Admin — SMK
       { path: '/users', element: <Users /> },

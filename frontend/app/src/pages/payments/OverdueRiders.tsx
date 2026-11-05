@@ -9,7 +9,7 @@ import PersonOffIcon from '@mui/icons-material/PersonOffOutlined';
 import MoneyOffIcon from '@mui/icons-material/MoneyOffOutlined';
 import GavelIcon from '@mui/icons-material/GavelOutlined';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
 import { StatTiles } from '../../components/StatTiles';
@@ -34,9 +34,9 @@ const PAGE_SIZE = 12;
  *
  * The dunning stage escalates with days overdue: a reminder, two warnings, then
  * repossession due. The Monday SMS reminder is a Phase 1 promise but the send
- * is a backend action, so a reminder here is acknowledged and remembered for
- * the session — it goes grey once sent so the same rider is not chased twice,
- * and "Remind all due" clears the whole list in one action.
+ * is a backend action, so "Mark as reminded" only notes for the session that
+ * someone chased the rider (nothing is sent) — it goes grey so the same rider
+ * is not chased twice, and "Mark all as reminded" covers the whole list.
  */
 export function OverdueRiders() {
   const navigate = useNavigate();
@@ -76,11 +76,11 @@ export function OverdueRiders() {
               onClick={() =>
                 remind(
                   rows.map((o) => o.riderId),
-                  `${pending} reminder${pending === 1 ? '' : 's'} queued`,
+                  `${pending} rider${pending === 1 ? '' : 's'} marked as reminded. No message was sent.`,
                 )
               }
             >
-              {pending === 0 ? 'All reminded' : `Remind all due (${pending})`}
+              {pending === 0 ? 'All reminded' : `Mark all as reminded (${pending})`}
             </Button>
           ) : undefined
         }
@@ -95,7 +95,7 @@ export function OverdueRiders() {
         <StatTiles
           tiles={[
             { label: 'Overdue riders', value: overdue.data ? String(rows.length) : '—', tone: 'bad', icon: PersonOffIcon },
-            { label: 'Amount outstanding', value: overdue.data ? rupees(totalDue) : '—', tone: 'bad', icon: MoneyOffIcon },
+            { label: 'Dues outstanding', value: overdue.data ? rupees(totalDue) : '—', tone: 'bad', icon: MoneyOffIcon },
             {
               label: 'Repossession due',
               value: overdue.data ? String(repossession) : '—',
@@ -183,7 +183,7 @@ export function OverdueRiders() {
               },
               {
                 key: 'amount',
-                header: 'Amount due',
+                header: 'Dues',
                 align: 'right',
                 width: 120,
                 render: (o) => <Mono>{rupees(o.amountDue)}</Mono>,
@@ -198,9 +198,13 @@ export function OverdueRiders() {
                 key: 'action',
                 header: 'Action',
                 align: 'right',
-                width: 150,
-                render: (o: OverdueRider) =>
-                  reminded.has(o.riderId) ? (
+                width: 290,
+                render: (o: OverdueRider) => (
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.5 }}>
+                    <Button size="small" component={Link} to={`/payments/run/${o.riderId}`}>
+                      Record payment
+                    </Button>
+                    {reminded.has(o.riderId) ? (
                     <Box
                       sx={{
                         display: 'inline-flex',
@@ -216,11 +220,13 @@ export function OverdueRiders() {
                     <Button
                       color="inherit"
                       size="small"
-                      onClick={() => remind([o.riderId], `Reminder queued for ${o.riderName}`)}
+                      onClick={() => remind([o.riderId], `${o.riderName} marked as reminded. No message was sent.`)}
                     >
-                      Send reminder
+                      Mark as reminded
                     </Button>
-                  ),
+                    )}
+                  </Box>
+                ),
               },
             ]}
           />
@@ -232,8 +238,8 @@ export function OverdueRiders() {
       </Panel>
 
       <Typography sx={{ fontSize: 12, color: neutral[500], mt: 3 }}>
-        The Monday SMS reminder goes out through the notification queue once the backend exists. Here a
-        reminder is acknowledged and greyed for the session so no one is chased twice; tap a phone
+        The Monday SMS reminder goes out through the notification queue once the backend exists. Until then
+        nothing is sent from here: "Mark as reminded" notes that you chased the rider, for this session, so no one is chased twice; tap a phone
         number to call the rider directly.
       </Typography>
 

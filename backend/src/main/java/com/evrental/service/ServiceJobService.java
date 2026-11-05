@@ -140,11 +140,18 @@ public class ServiceJobService implements ServiceJobFacade {
                     .map(Rider::getId)
                     .orElseThrow(() -> NotFoundException.of("Rider", code));
         }
-        return open(request, riderId, tenantId, actorUserId, actorName);
+        return open(request, riderId, tenantId, actorUserId, actorName, true);
     }
 
+    /**
+     * @param fromDesk whether an operator filled in one of the two job-card
+     *                 forms, in which case the intake rules apply. A deboard or
+     *                 an exchange arriving through {@link #openJob} has already
+     *                 established what happened to the bike and is not asked to
+     *                 prove it again.
+     */
     private ServiceJob open(CreateServiceJobRequest request, UUID riderId,
-                            UUID tenantId, UUID actorUserId, String actorName) {
+                            UUID tenantId, UUID actorUserId, String actorName, boolean fromDesk) {
         Vehicle vehicle = vehicles.findByRegistryId(request.vehicleId().trim())
                 // RLS hides another tenant's bike, so "not yours" and "not
                 // there" arrive here as the same thing -- which is the answer
@@ -163,6 +170,9 @@ public class ServiceJobService implements ServiceJobFacade {
             throw new ConflictException(
                     "A vehicle that is " + vehicle.getState().label() + " cannot be taken into service");
         }
+        if (fromDesk) {
+            checkIntake(request.source(), vehicle, riderId);
+        }
 
         ServiceQueue queue = request.queue() != null
                 ? request.queue()
@@ -174,6 +184,10 @@ public class ServiceJobService implements ServiceJobFacade {
         job.setVehicleId(vehicle.getId());
         job.setRiderId(riderId);
         job.setSource(request.source());
+        job.setCategory(ServiceJobCategory.of(request.source()));
+        job.setRepairType(request.repairType() == null ? RepairType.REPAIR_ONLY : request.repairType());
+        job.setCreatedBy(trimToNull(request.createdBy()));
+        job.setTechnician(trimToNull(request.technician()));
         job.setDamageCategory(request.damageCategory());
         job.setQueue(queue);
         job.setStatus(ServiceJobStatus.OPEN);
@@ -189,6 +203,42 @@ public class ServiceJobService implements ServiceJobFacade {
 
         log(saved, moved, actorName, openingNote(request, queue));
         return saved;
+    }
+
+    /**
+     * Who the form is allowed to open a card on.
+     *
+     * <p>Walk-in & RSA is an active rider's bike, so the rider must be the one
+     * holding it — a card filed against a rider who gave the bike back weeks
+     * ago bills the wrong person. Hub Service is the other half: a bike that is
+     * really back, which the bike's own state is the evidence for.
+     *
+     * <p>Asked only of the two forms. A deboard or an exchange comes through
+     * the facade mid-return, when the bike is still deployed and the assignment
+     * is being closed in the same transaction, so neither test would hold.
+     */
+    private void checkIntake(ServiceJobSource source, Vehicle vehicle, UUID riderId) {
+        java.util.Optional<UUID> holder = holders.riderIdHolding(vehicle.getId());
+        if (ServiceJobCategory.of(source) == ServiceJobCategory.WALK_IN_RSA) {
+            if (riderId == null || !holder.filter(riderId::equals).isPresent()) {
+                throw new ValidationException("riderId", "Pick an active rider who has this bike");
+            }
+            return;
+        }
+        if (source == ServiceJobSource.RECOVERY && vehicle.getState() != VehicleState.RECOVERY) {
+            throw new ValidationException("vehicleId",
+                    "Only a bike marked Recovery can be taken in as recovered from a rider");
+        }
+        if (source == ServiceJobSource.DEBOARD
+                && (vehicle.getState() != VehicleState.RETURNED || holder.isPresent())) {
+            throw new ValidationException("vehicleId",
+                    "Only a bike a rider has handed back can be taken in as returned");
+        }
+    }
+
+    /** A name somebody typed, or nothing at all — a row of spaces is nobody. */
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     /**
@@ -305,6 +355,16 @@ public class ServiceJobService implements ServiceJobFacade {
             // The state machine may refuse the move -- a retired bike routed
             // to a repair queue, say. Its 409 is the right answer and names
             // both states in the words on the screen, so it is left alone.
+            // An accident bike cannot go straight to QC: the repair it just had
+            // is recorded as its own step, so the history reads Accident → Under repair → QC.
+            VehicleState from = vehicles.findById(job.getVehicleId()).map(Vehicle::getState).orElse(null);
+            VehicleState target = job.getQueue().vehicleState();
+            if (from != null && !stateMachine.canTransition(from, target)
+                    && stateMachine.canTransition(from, VehicleState.UNDER_REPAIR)
+                    && stateMachine.canTransition(VehicleState.UNDER_REPAIR, target)) {
+                vehicleTransitions.transitionState(
+                        job.getVehicleId(), VehicleState.UNDER_REPAIR, "Repaired", actorUserId, actorName);
+            }
             state = vehicleTransitions.transitionState(
                     job.getVehicleId(), job.getQueue().vehicleState(),
                     "Moved to " + job.getQueue().label(), actorUserId, actorName).getState();
@@ -541,6 +601,20 @@ public class ServiceJobService implements ServiceJobFacade {
             throw new ValidationException("liability",
                     "No rider is on this bike, so the company has to cover the cost.");
         }
+        if (isBlank(effective(request.technician(), job.getTechnician()))) {
+            throw new ValidationException("technician", "Enter who resolved the ticket");
+        }
+
+        // The lines the job will close with, whether they arrived with this
+        // request or were priced earlier. Both rules below are about parts.
+        long partsTotal = partsTotalOf(job, request);
+        if (job.getRepairType().requiresParts() && partsTotal <= 0) {
+            throw new ValidationException("items", "Add the spare parts used");
+        }
+        boolean walkIn = job.getCategory() == ServiceJobCategory.WALK_IN_RSA;
+        if (walkIn) {
+            job.setPartsPaidPaise(checkedPartsPaid(request, partsTotal));
+        }
 
         if (request.items() != null) {
             job.setTotalCostPaise(replaceItems(job, request.items()));
@@ -557,16 +631,52 @@ public class ServiceJobService implements ServiceJobFacade {
 
         log(job, state, actorName, closingNote(request, job));
 
-        if (request.liability().raisesCharge()) {
+        // Walk-in & RSA: only the unpaid spare parts are the rider's. Labour on
+        // a bike the rider is still riding is the company's, and a parts bill
+        // settled at the counter leaves nothing to carry over. A hub job bills
+        // the whole total, as it always has.
+        long billed = walkIn ? partsTotal - job.getPartsPaidPaise() : job.getTotalCostPaise();
+        if (request.liability().raisesCharge() && (!walkIn || billed > 0)) {
             // Published inside the transaction but delivered after it commits
             // (@TransactionalEventListener in the money module): a charge for
             // a close that then rolled back is a rider billed for work that
             // did not happen.
             publisher.publishEvent(new ServiceJobClosedEvent(
                     job.getTenantId(), job.getId(), job.getVehicleId(),
-                    job.getRiderId(), job.getLiability(), job.getTotalCostPaise()));
+                    job.getRiderId(), job.getLiability(), billed));
         }
         return job;
+    }
+
+    /**
+     * What the spare parts come to on the lines this close will leave behind:
+     * the request's own, when it sends them, otherwise the ones priced earlier.
+     */
+    private long partsTotalOf(ServiceJob job, CloseServiceJobRequest request) {
+        if (request.items() != null) {
+            return request.items().stream()
+                    .filter(line -> line.kindOrDefault() == ServiceJobItemKind.PART)
+                    .mapToLong(ServiceJobItemRequest::costPaise).sum();
+        }
+        return items.findByJobId(job.getId()).stream()
+                .filter(item -> item.getKind() == ServiceJobItemKind.PART)
+                .mapToLong(ServiceJobItem::getCostPaise).sum();
+    }
+
+    /** The counter payment on a walk-in close, once it is a payment that could have happened. */
+    private static long checkedPartsPaid(CloseServiceJobRequest request, long partsTotal) {
+        if (request.liability() == ServiceLiability.DEPOSIT) {
+            // The deposit answers for a bike that came back damaged. A rider
+            // still on the bike pays at the counter or the company absorbs it.
+            throw new ValidationException("liability",
+                    "A walk-in or RSA job is paid by the rider or by the company");
+        }
+        long paid = request.partsPaidPaise() == null ? 0 : request.partsPaidPaise();
+        if (paid > partsTotal) {
+            throw new ValidationException("partsPaidPaise",
+                    "Parts paid cannot be more than the spare parts total");
+        }
+        return paid;
     }
 
     private static boolean carriesNoCost(CloseServiceJobRequest request) {
@@ -621,9 +731,11 @@ public class ServiceJobService implements ServiceJobFacade {
                               DamageCategory damage, String damageNotes, String actor) {
         // Callers here already hold the rider's UUID (an assignment row), so
         // the request carries no code and the UUID goes straight through.
+        // No repair type, executive or technician: a return decides none of
+        // them, and the workshop fills them in as it works.
         return open(new CreateServiceJobRequest(
-                vehicleId, null, source, damage, damageNotes, null, null, null),
-                riderId, tenantId, null, actor);
+                vehicleId, null, source, damage, damageNotes, null, null, null, null, null, null),
+                riderId, tenantId, null, actor, false);
     }
 
     @Override
@@ -646,12 +758,22 @@ public class ServiceJobService implements ServiceJobFacade {
         if (condition.ordinal() > job.getDamageCategory().ordinal()) {
             job.setDamageCategory(condition);
         }
+        // The handoff the split calls for: the card was opened on an active
+        // rider's bike, and the rider has just given that bike back, so the
+        // workshop owns it from here. Still one card, with its history intact.
+        boolean movedToHub = job.getCategory() == ServiceJobCategory.WALK_IN_RSA;
+        if (movedToHub) {
+            job.setCategory(ServiceJobCategory.HUB);
+        }
         jobs.save(job);
         String what = source == ServiceJobSource.EXCHANGE ? "swapped onto another bike" : "handed the bike back";
         Vehicle vehicle = vehicles.findById(job.getVehicleId())
                 .orElseThrow(() -> NotFoundException.of("Vehicle", job.getVehicleId()));
         log(job, vehicle.getState(), actor, "Rider " + what + " while the bike was in the workshop — "
                 + condition.label().toLowerCase() + (damageNotes == null || damageNotes.isBlank() ? "" : ". " + damageNotes.trim()));
+        if (movedToHub) {
+            log(job, vehicle.getState(), actor, "Moved to Hub Service — rider returned the bike");
+        }
     }
 
     // -----------------------------------------------------------------------

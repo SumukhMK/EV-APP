@@ -159,7 +159,7 @@ class ServiceJobCloseTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"items":[],"liability":"COMPANY","note":"Written off"}
+                                 {"items":[],"liability":"COMPANY","technician":"Raju","note":"Written off"}
                                  """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"));
@@ -179,7 +179,7 @@ class ServiceJobCloseTest extends ServiceJobTestBase {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                 {"vehicleId":"BLRSS0428","source":"WALK_IN","damageCategory":"MINOR"}
+                                 {"vehicleId":"BLRSS0428","source":"QRT","damageCategory":"MINOR"}
                                  """))
                 .andExpect(status().isCreated());
     }

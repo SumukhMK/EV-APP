@@ -470,8 +470,10 @@ public class DevFleetSeeder implements ApplicationRunner {
             for (int i = 0; i < 6; i++) {
                 RiderRow r = riders.get(i);
                 int daysAgo = 45 - i * 6;
+                // Walk-in & RSA is a bike the rider still has, so the deposit is
+                // not in play: the rider pays at the counter or the company does.
                 UUID job = job(r.bikeRegistryId(), r.id(), i % 2 == 0 ? "WALK_IN" : "RSA", "MINOR", "READY_TO_DEPLOY", "CLOSED",
-                        i < 2 ? "RIDER" : i < 4 ? "RIDER" : i == 4 ? "COMPANY" : "DEPOSIT",
+                        i < 4 ? "RIDER" : "COMPANY",
                         "Brake pads worn out, replaced both sets; chain tensioned",
                         i % 2 == 0 ? "Rider walked in: brakes squealing" : "Rider called from Marathahalli: brakes gone soft",
                         i % 2 == 0 ? r.seed().city() : "Marathahalli bridge", null, "Raju", 65000 + i * 5000,
@@ -483,23 +485,24 @@ public class DevFleetSeeder implements ApplicationRunner {
                 event(job, "QC_PENDING", "QC_PENDING", "Raju", "Pads replaced, ready for checking", at(today.minusDays(daysAgo - 1), 16));
                 inspection(job, r.bikeId(), true, "Abhinandan", null, at(today.minusDays(daysAgo - 2), 10));
                 event(job, "READY_TO_DEPLOY", "DEPLOYED", "Abhinandan", "QC passed — all nine checks clear", at(today.minusDays(daysAgo - 2), 10));
-                String liability = i < 4 ? "RIDER" : i == 4 ? "COMPANY" : "DEPOSIT";
+                String liability = i < 4 ? "RIDER" : "COMPANY";
+                // Only the spare parts are the rider's on this board; the labour
+                // line is the company's either way.
+                long charged = 45000 + i * 5000;
                 event(job, "READY_TO_DEPLOY", "DEPLOYED", "Meenakshi Iyer",
-                        "Closed — " + liability.toLowerCase() + " pays " + (650 + i * 50) + " rupees", at(today.minusDays(daysAgo - 2), 11));
+                        "Closed — " + liability.toLowerCase() + " pays "
+                                + ("RIDER".equals(liability) ? 450 + i * 50 : 650 + i * 50) + " rupees",
+                        at(today.minusDays(daysAgo - 2), 11));
                 if (!"COMPANY".equals(liability)) {
-                    boolean settled = i == 2 || i == 3 || i == 5;
+                    boolean settled = i == 2 || i == 3;
                     LocalDate periodStart = periodStartOnOrAfter(r.seed().billingDay(), today.minusDays(daysAgo - 2));
                     jdbc.update("""
                             INSERT INTO rider_charges (tenant_id, rider_id, service_job_id, vehicle_id, amount_paise, liability,
                                 status, charged_on, settled_on, period_start)
                             VALUES (?,?,?,?,?,?,?,?,?,?)
-                            """, tenantId, r.id(), job, r.bikeId(), 65000 + i * 5000, liability,
+                            """, tenantId, r.id(), job, r.bikeId(), charged, liability,
                             settled ? "SETTLED" : "OPEN", at(today.minusDays(daysAgo - 2), 11),
                             settled ? at(today.minusDays(daysAgo - 9), 12) : null, periodStart);
-                    if ("DEPOSIT".equals(liability)) {
-                        jdbc.update("UPDATE riders SET deposit_held_paise = greatest(0, deposit_held_paise - ?) WHERE id = ?",
-                                65000 + i * 5000, r.id());
-                    }
                 }
             }
 
@@ -520,7 +523,11 @@ public class DevFleetSeeder implements ApplicationRunner {
             for (int i = 0; i < underRepair.size(); i++) {
                 String[] b = bench[Math.min(i, bench.length - 1)];
                 int daysAgo = 9 - i;
-                UUID riderId = i == 0 ? riderIdOf(20) : i == 1 ? riderIdOf(21) : null;
+                // A walk-in or RSA card is always somebody's: the rider brought
+                // the bike in and is waiting for it. The first two came back on
+                // a deboard instead, so they keep the rider who handed them in.
+                boolean walkIn = "WALK_IN".equals(b[1]) || "RSA".equals(b[1]);
+                UUID riderId = i == 0 ? riderIdOf(20) : i == 1 ? riderIdOf(21) : walkIn ? riderIdOf(6 + i % 8) : null;
                 UUID job = job(underRepair.get(i), riderId, b[1], b[2], b[0], i % 2 == 0 ? "OPEN" : "IN_PROGRESS", null,
                         i % 2 == 0 ? null : "Stripped and diagnosed; parts listed", b[3],
                         "RSA".equals(b[1]) || "QRT".equals(b[1]) ? "Outer Ring Road, near Silk Board" : "Whitefield", b[5],
@@ -538,7 +545,9 @@ public class DevFleetSeeder implements ApplicationRunner {
             for (int i = 0; i < qcPending.size(); i++) {
                 boolean repair = i >= 2;
                 int daysAgo = 4 - i;
-                UUID job = job(qcPending.get(i), null, repair ? "WALK_IN" : "INSPECTION",
+                // Hub Service, both of them: nobody is on these bikes, so the
+                // repairs came in as recoveries and the clean ones as checks.
+                UUID job = job(qcPending.get(i), null, repair ? "RECOVERY" : "INSPECTION",
                         repair ? "MINOR" : "NONE", "QC_PENDING", repair ? "IN_PROGRESS" : "OPEN", null,
                         repair ? "Headlight assembly replaced; wiring re-routed" : null,
                         repair ? "Headlight flickering, dies at speed" : "Routine check after return",
@@ -577,12 +586,23 @@ public class DevFleetSeeder implements ApplicationRunner {
                          String liability, String workSummary, String damageNotes, String location, String reference,
                          String technician, long totalPaise, LocalDate createdOn, LocalDate closedOn) {
             UUID id = UUID.randomUUID();
+            // The board follows the source, the same way ServiceJobCategory.of()
+            // decides it when a card is really opened.
+            boolean walkIn = "WALK_IN".equals(source) || "RSA".equals(source);
+            String repairType = "PARTS_WAITING".equals(queue) ? "SPARE_PARTS"
+                    : "CLOSED".equals(status) ? "REPAIR_AND_SPARE_PARTS" : "REPAIR_ONLY";
             jdbc.update("""
-                    INSERT INTO service_jobs (id, tenant_id, job_code, vehicle_id, rider_id, source, damage_category, queue, status,
+                    INSERT INTO service_jobs (id, tenant_id, job_code, vehicle_id, rider_id, source, category, repair_type,
+                        created_by, damage_category, queue, status,
                         liability, work_summary, damage_notes, location, reference, technician, total_cost_paise,
                         created_on, closed_on, updated_on)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                    """, id, tenantId, jobCodes.next(tenantId), vehicles.get(registryId), riderId, source, damage, queue, status,
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """, id, tenantId, jobCodes.next(tenantId), vehicles.get(registryId), riderId, source,
+                    walkIn ? "WALK_IN_RSA" : "HUB", repairType,
+                    // A deboard or an exchange opens its own card; nobody typed a name.
+                    "DEBOARD".equals(source) || "EXCHANGE".equals(source) ? null
+                            : walkIn ? "Dhananjay" : "Rohan Verma",
+                    damage, queue, status,
                     liability, workSummary == null ? "" : workSummary, damageNotes, location, reference, technician, totalPaise,
                     at(createdOn, 10), closedOn == null ? null : at(closedOn, 11), at(closedOn == null ? createdOn : closedOn, 11));
             jobs++;

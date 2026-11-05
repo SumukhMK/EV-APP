@@ -2,6 +2,7 @@ package com.evrental.service;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
@@ -19,5 +20,12 @@ public record CloseServiceJobRequest(
         @Size(max = 100, message = "Technician must be at most 100 characters")
         String technician,
         @Size(max = 2000, message = "Note must be at most 2000 characters")
-        String note) {
+        String note,
+        /**
+         * Spare-parts money collected at the counter, on a Walk-in & RSA job.
+         * Null means nothing was paid. Only the rest of the parts bill reaches
+         * Weekly Payments; a hub job ignores this.
+         */
+        @PositiveOrZero(message = "Parts paid cannot be negative")
+        Long partsPaidPaise) {
 }

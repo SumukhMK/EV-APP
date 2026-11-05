@@ -53,9 +53,11 @@ public class ServiceJobReader {
         this.riders = riders;
     }
 
+    /** category is how each board reads its own half of the one job table. */
     public PageResponse<ServiceJobResponse> list(ServiceJobStatus status,
                                                  ServiceQueue queue,
                                                  ServiceJobSource source,
+                                                 ServiceJobCategory category,
                                                  String vehicleRegistryId,
                                                  Pageable pageable) {
         UUID vehicleId = null;
@@ -67,7 +69,7 @@ public class ServiceJobReader {
                     .orElse(NO_SUCH_VEHICLE);
         }
 
-        Page<ServiceJob> page = jobs.search(status, queue, source, vehicleId, pageable);
+        Page<ServiceJob> page = jobs.search(status, queue, source, category, vehicleId, pageable);
         Map<UUID, String> registryIds = registryIdsFor(page.getContent());
         Map<UUID, Rider> ridersById = ridersFor(page.getContent());
         return PageResponse.from(page, job -> ServiceJobResponse.summary(

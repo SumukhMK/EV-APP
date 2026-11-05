@@ -221,9 +221,12 @@ class PaymentRunGenerationTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$.rows[0].totalDue").value(ROUNDING_PLAN_PAISE));
     }
 
-    /** A charge raised after the week was frozen belongs to the week, not to this row. */
+    /**
+     * Rent is frozen; repair charges are not. A charge raised later in the week
+     * belongs on this week's bill, or the rider's dues sit a week behind the workshop.
+     */
     @Test
-    void aChargeRaisedAfterGenerationDoesNotMoveTheFrozenRow() throws Exception {
+    void aChargeRaisedAfterGenerationLandsOnThisWeeksBill() throws Exception {
         mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.rows[1].totalDue").value(PLAIN_PLAN_PAISE));
@@ -232,8 +235,8 @@ class PaymentRunGenerationTest extends PaymentRunTestBase {
 
         mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.rows[1].serviceCharges").value(0))
-                .andExpect(jsonPath("$.rows[1].totalDue").value(PLAIN_PLAN_PAISE));
+                .andExpect(jsonPath("$.rows[1].serviceCharges").value(60_000))
+                .andExpect(jsonPath("$.rows[1].totalDue").value(PLAIN_PLAN_PAISE + 60_000));
     }
 
     /** Another tenant's riders are not on this run, and RLS is what says so. */

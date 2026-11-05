@@ -84,26 +84,32 @@ export function closeServiceJob(body: CloseServiceJobRequest): Promise<ServiceJo
 }
 
 export async function updateServiceJob(body: UpdateServiceJobRequest): Promise<ServiceJob> {
-  const { jobId, qcChecks, inspection: _inspection, liability, actor: _actor, ...rest } = body;
+  const { jobId, qcChecks, inspection: _inspection, liability, actor: _actor, partsPaidPaise, ...rest } = body;
   void _inspection; // no backend equivalent — the mock-only "routine inspection" concept
-  void _actor;
   const id = encodeURIComponent(jobId);
+
+  // A hub job is closed on the far side of QC; a Walk-in & RSA job is closed
+  // from the job screen with no QC at all. Both end at `/close`.
+  const closing = rest.queue === 'READY_TO_DEPLOY' && liability !== null;
 
   if (qcChecks && rest.queue !== 'QC_PENDING') {
     await request(`/service/jobs/${id}/qc`, {
       method: 'POST',
-      body: { checks: qcChecks, inspector: rest.technician || 'QC desk', notes: rest.note },
+      body: { checks: qcChecks, inspector: _actor || 'QC desk', notes: rest.note },
     });
-    if (rest.queue === 'READY_TO_DEPLOY' && liability) {
-      return request<ServiceJob>(`/service/jobs/${id}/close`, {
-        method: 'POST',
-        body: { items: rest.items, liability, technician: rest.technician, note: rest.note },
-      }).then(toJob);
-    }
     // QC failed and sent the bike back for rework: the API already moved the
     // queue and vehicle state as part of the QC decision, so re-read it
     // instead of also issuing the plain update below.
-    return getServiceJob(jobId);
+    if (!closing) return getServiceJob(jobId);
+  }
+
+  if (closing) {
+    return request<ServiceJob>(`/service/jobs/${id}/close`, {
+      method: 'POST',
+      // `partsPaidPaise` belongs to the close, not the working save — only
+      // /close knows what to do with money taken at the counter.
+      body: { items: rest.items, liability, technician: rest.technician, note: rest.note, partsPaidPaise },
+    }).then(toJob);
   }
 
   return request<ServiceJob>(`/service/jobs/${id}`, { method: 'PUT', body: rest }).then(toJob);

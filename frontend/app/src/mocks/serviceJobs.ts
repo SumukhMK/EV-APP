@@ -1,9 +1,9 @@
 import type {
-  CloseServiceJobRequest, CreateServiceJobRequest, DamageCategory, InspectionRequest, ServiceJob,
+  CloseServiceJobRequest, CreateServiceJobRequest, DamageCategory, InspectionRequest, RepairType, ServiceJob,
   ServiceJobItem, ServiceJobSource, ServiceQueue, UpdateServiceJobRequest, Vehicle, VehicleState,
 } from '../types';
 import { ApiError } from '../lib/api/client';
-import { hasServiceNote, isServiceQueue, QUEUE_STATE, RETURN_DESTINATIONS, queueForCondition, queueForDisposition, releaseState } from '../lib/serviceWorkflow';
+import { categoryOf, hasServiceNote, isServiceQueue, QUEUE_STATE, RETURN_DESTINATIONS, queueForCondition, queueForDisposition, releaseState, walkInRiderCharge } from '../lib/serviceWorkflow';
 import { addRiderCharge } from './riderCharges';
 import { riders } from './riders';
 import { lifecycleByVehicle, vehicles } from './vehicles';
@@ -20,9 +20,11 @@ function makeJob(req: CreateServiceJobRequest): ServiceJob {
     riderId: req.riderId,
     riderName: req.riderId ? (riders.find((r) => r.id === req.riderId)?.name ?? null) : null,
     source: req.source, damageCategory: req.damageCategory,
+    category: categoryOf(req.source), repairType: req.repairType ?? 'REPAIR_ONLY',
+    createdBy: req.createdBy?.trim() || null, partsPaidPaise: 0,
     queue, damageNotes: req.damageNotes ?? null, location: req.location ?? null,
     reference: req.reference?.trim() || null, workSummary: '', activity: [], inspections: [],
-    items: [], totalCostPaise: 0, liability: null, technician: null,
+    items: [], totalCostPaise: 0, liability: null, technician: req.technician?.trim() || null,
     status: queue === 'READY_TO_DEPLOY' ? 'CLOSED' : 'OPEN',
     createdOn: date, updatedOn: date, closedOn: queue === 'READY_TO_DEPLOY' ? date : null,
   };
@@ -71,10 +73,9 @@ const REPAIR_PLANS: SeedPlan[] = [
     notes: 'Migrated record. Came off the road with no notes.',
     work: { summary: 'Visual check done. Minor scuffs on panels, brakes at 60%.', technician: 'Dhananjay', note: 'Assessed — minor scuffs, no structural issue.',
       items: [{ label: 'Panel touch-up', costPaise: 15000, kind: 'LABOUR' }] } },
+  // Left without work on purpose: the Walk-in & RSA board needs an Open row.
   { queue: 'MINOR_REPAIR', source: 'WALK_IN', category: 'MINOR', daysAgo: 4,
-    notes: 'Rider came to the hub: brakes feel soft, rear pads worn thin.', location: 'Whitefield hub',
-    work: { summary: 'Rear brake pads replaced. Front pads at 40%, noted for next visit.', technician: 'Abhinandan', note: 'Rear pads swapped, front still OK.',
-      items: [{ label: 'Rear brake pads', costPaise: 32000, kind: 'PART' }, { label: 'Fitting and adjustment', costPaise: 18000, kind: 'LABOUR' }] } },
+    notes: 'Rider came to the hub: brakes feel soft, rear pads worn thin.', location: 'Whitefield hub' },
   { queue: 'MAJOR_REPAIR', source: 'RSA', category: 'MAJOR', daysAgo: 9,
     notes: 'Picked up from the roadside. Motor cut out and would not restart.', location: 'Outer Ring Road, Marathahalli',
     work: { summary: 'Controller tested and replaced. Wiring loom checked end to end.', technician: 'Abhinandan', note: 'Controller swapped, now on test.',
@@ -149,8 +150,10 @@ const CLOSED_PLANS: ClosedPlan[] = [
     notes: 'Rider came to the hub with a broken brake lever after dropping the bike.',
     summary: 'Brake lever and cable replaced. Road tested and handed back to the same rider.', technician: 'Dhananjay',
     items: [{ label: 'Brake lever', costPaise: 38000, kind: 'PART' }, { label: 'Cable and fitting', costPaise: 26000, kind: 'LABOUR' }] },
-  { state: 'DEPLOYED', source: 'RSA', category: 'MAJOR', liability: 'DEPOSIT', daysAgo: 9,
-    notes: 'Kerb hit on the roadside. Roadside team recovered it.',
+  // Hub work: the deposit is only ever drawn on for a bike that came back,
+  // never for a walk-in or RSA card (decision 9).
+  { state: 'DEPLOYED', source: 'QRT', category: 'MAJOR', liability: 'DEPOSIT', daysAgo: 9,
+    notes: 'Kerb hit on the roadside. Rescue team recovered it.',
     summary: 'Front fork straightened, headlamp replaced, wheel realigned. Taken out of the deposit we hold.', technician: 'Abhinandan',
     items: [{ label: 'Headlamp assembly', costPaise: 96000, kind: 'PART' }, { label: 'Fork straightening', costPaise: 84000, kind: 'LABOUR' }] },
   { state: 'DEPLOYED', source: 'QRT', category: 'MINOR', liability: 'RIDER', daysAgo: 17, earlierPeriod: true,
@@ -168,12 +171,25 @@ const CLOSED_PLANS: ClosedPlan[] = [
 const DAY_MS = 86_400_000;
 const seedDate = (daysAgo: number) => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
 
+/**
+ * A seeded card's repair type follows its own cost lines, so a card that
+ * carries a part is never left as "Repair only" — which the close step would
+ * then contradict. Same for the executive: a card a rider's return opened has
+ * nobody to name, exactly as on the API.
+ */
+const seedRepairType = (items: ServiceJobItem[] = []): RepairType =>
+  !items.some((i) => i.kind === 'PART') ? 'REPAIR_ONLY'
+    : items.some((i) => i.kind !== 'PART') ? 'REPAIR_AND_SPARE_PARTS' : 'SPARE_PARTS';
+const seedCreatedBy = (source: ServiceJobSource) =>
+  source === 'DEBOARD' || source === 'EXCHANGE' || source === 'REGISTRY' ? null : 'Meenakshi Iyer';
+
 function seedJob(vehicle: Vehicle, plan: SeedPlan): ServiceJob {
   const createdOn = seedDate(plan.daysAgo);
   const job = makeJob({
     vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: plan.source,
     damageCategory: plan.category, queue: plan.queue, damageNotes: plan.notes,
     location: plan.location ?? vehicle.hub, reference: plan.reference, occurredOn: createdOn,
+    repairType: seedRepairType(plan.work?.items), createdBy: seedCreatedBy(plan.source),
   });
   job.activity.push({ occurredOn: createdOn, actor: 'Fleet desk', note: plan.notes, queue: plan.queue, vehicleState: vehicle.state });
   if (plan.work) {
@@ -202,6 +218,7 @@ function seedClosedJob(vehicle: Vehicle, plan: ClosedPlan): ServiceJob {
     vehicleId: vehicle.id, riderId: vehicle.currentRiderId, source: plan.source,
     damageCategory: plan.category, queue: 'MINOR_REPAIR', damageNotes: plan.notes,
     location: vehicle.hub, occurredOn: createdOn,
+    repairType: seedRepairType(plan.items), createdBy: seedCreatedBy(plan.source),
   });
   const items = plan.items.map((item) => ({ ...item }));
   const total = items.reduce((sum, item) => sum + item.costPaise, 0);
@@ -219,13 +236,16 @@ function seedClosedJob(vehicle: Vehicle, plan: ClosedPlan): ServiceJob {
     technician: plan.technician, estimatedCostPaise: total, nextState: vehicle.state,
     occurredOn: closedOn, actor: plan.technician,
   });
-  if (total > 0 && job.riderId && job.liability && job.liability !== 'COMPANY') {
+  // A closed walk-in card billed the rider for spare parts only, exactly as the
+  // close step does today — otherwise the fixture shows labour on their bill.
+  const charge = job.category === 'WALK_IN_RSA' ? walkInRiderCharge(items, job.partsPaidPaise) : total;
+  if (charge > 0 && job.riderId && job.liability && job.liability !== 'COMPANY') {
     addRiderCharge({
       riderId: job.riderId, serviceJobId: job.id, vehicleId: job.vehicleId,
-      amount: total, liability: job.liability, period: plan.earlierPeriod ? 'PREVIOUS' : 'CURRENT',
+      amount: charge, liability: job.liability, period: plan.earlierPeriod ? 'PREVIOUS' : 'CURRENT',
     });
     const rider = riders.find((r) => r.id === job.riderId);
-    if (job.liability === 'DEPOSIT' && rider) rider.depositHeld = Math.max(0, rider.depositHeld - total);
+    if (job.liability === 'DEPOSIT' && rider) rider.depositHeld = Math.max(0, rider.depositHeld - charge);
   }
   return job;
 }
@@ -282,8 +302,13 @@ function recordEvent(job: ServiceJob, vehicle: Vehicle, note: string, actor: str
 export function createServiceJob(req: CreateServiceJobRequest): ServiceJob {
   const vehicle = requireServiceVehicle(req.vehicleId);
   validateCategory(req.damageCategory);
-  if (!['DEBOARD', 'EXCHANGE', 'RSA', 'QRT', 'WALK_IN', 'INSPECTION', 'REGISTRY'].includes(req.source)) throw new ApiError('Pick how the bike reached us', 400, 'source');
+  if (!['DEBOARD', 'EXCHANGE', 'RSA', 'QRT', 'WALK_IN', 'INSPECTION', 'REGISTRY', 'RECOVERY'].includes(req.source)) throw new ApiError('Pick how the bike reached us', 400, 'source');
+  if (req.repairType && !['REPAIR_ONLY', 'SPARE_PARTS', 'REPAIR_AND_SPARE_PARTS'].includes(req.repairType)) throw new ApiError('Pick a repair type', 400, 'repairType');
   if (req.riderId !== vehicle.currentRiderId) throw new ApiError('This bike was given to someone else in the meantime. Refresh the page and try again.', 409, 'riderId');
+  // The intake rules each board enforces (SERVICE_INFRA_SPLIT.md items 8, 11).
+  if (categoryOf(req.source) === 'WALK_IN_RSA' && !req.riderId) throw new ApiError('Walk-in and RSA job cards need an active rider who holds this bike', 400, 'riderId');
+  if (req.source === 'RECOVERY' && vehicle.state !== 'RECOVERY') throw new ApiError('Only a bike recovered from a rider can be taken in this way', 409, 'vehicleId');
+  if (req.source === 'DEBOARD' && (vehicle.state !== 'RETURNED' || vehicle.currentRiderId)) throw new ApiError('Only a bike a rider has given back can be taken in this way', 409, 'vehicleId');
   if (!req.damageNotes?.trim()) throw new ApiError('Say what is wrong with the bike, or why you are checking it', 400, 'damageNotes');
   if (req.queue && !isServiceQueue(req.queue)) throw new ApiError('That list does not exist', 400, 'queue');
   if (req.queue === 'READY_TO_DEPLOY') throw new ApiError('Take the bike in first. You can send it back out once the work is done.', 400, 'queue');
@@ -315,6 +340,12 @@ export function recordServiceReturn(vehicle: Vehicle, req: {
     queue, damageNotes: req.note, occurredOn: req.date,
   });
   if (!existing) serviceJobs.push(job);
+  // The handoff: an open Walk-in & RSA card on a bike the rider has just given
+  // back becomes hub work. No second job is opened (decision 7).
+  if (job.category === 'WALK_IN_RSA') {
+    job.category = 'HUB';
+    recordEvent(job, vehicle, 'Moved to Hub Service — rider returned the bike', 'Fleet desk', req.date);
+  }
   job.queue = queue;
   job.riderId = req.riderId;
   job.damageCategory = req.category;
@@ -355,6 +386,15 @@ export function updateServiceJobRecord(req: UpdateServiceJobRequest): ServiceJob
     throw new ApiError('Add the claim number, or say which parts you are waiting for', 400, 'reference');
   }
   const releasing = req.queue === 'READY_TO_DEPLOY';
+  const walkIn = job.category === 'WALK_IN_RSA';
+  if (walkIn && req.liability === 'DEPOSIT') throw new ApiError('A walk-in or RSA job is paid by the rider or by the company, not out of the deposit', 400, 'liability');
+  const partsTotal = req.items.reduce((sum, item) => sum + (item.kind === 'PART' ? item.costPaise : 0), 0);
+  const partsPaid = req.partsPaidPaise ?? 0;
+  if (!Number.isSafeInteger(partsPaid) || partsPaid < 0) throw new ApiError('Spare parts paid must be ₹0 or more', 400, 'partsPaidPaise');
+  if (partsPaid > partsTotal) throw new ApiError('Spare parts paid cannot be more than the spare parts total', 400, 'partsPaidPaise');
+  if (releasing && job.repairType !== 'REPAIR_ONLY' && !req.items.some((item) => item.kind === 'PART')) {
+    throw new ApiError('This job card is for spare parts, so add at least one part line before closing it', 400, 'items');
+  }
   if ((releasing || req.queue === 'QC_PENDING') && !req.technician?.trim()) {
     throw new ApiError('Say who did the work before QC or before the bike goes back out', 400, 'technician');
   }
@@ -379,7 +419,7 @@ export function updateServiceJobRecord(req: UpdateServiceJobRequest): ServiceJob
   Object.assign(job, {
     queue: req.queue, damageCategory: req.damageCategory, workSummary: req.workSummary.trim(),
     items: req.items.map((item) => ({ ...item, label: item.label.trim() })), totalCostPaise: total,
-    technician: req.technician?.trim() || null, liability: req.liability,
+    technician: req.technician?.trim() || null, liability: req.liability, partsPaidPaise: partsPaid,
     reference: req.reference?.trim() || null, status: releasing ? 'CLOSED' : 'IN_PROGRESS',
     closedOn: releasing ? iso() : null,
   });
@@ -387,9 +427,12 @@ export function updateServiceJobRecord(req: UpdateServiceJobRequest): ServiceJob
   if (req.inspection) job.inspections.push({ ...req.inspection, estimatedCostPaise: validateServiceItems(req.inspection.items), nextState: target, items: req.inspection.items.map((item) => ({ ...item })), actor: req.actor, occurredOn: iso() });
   if (vehicle.state !== target || previousQueue !== job.queue) recordVehicleMovement(vehicle, target, req.note, req.actor);
   recordEvent(job, vehicle, req.note, req.actor);
-  if (releasing && total > 0 && req.liability && req.liability !== 'COMPANY' && job.riderId) {
-    addRiderCharge({ riderId: job.riderId, serviceJobId: job.id, vehicleId: job.vehicleId, amount: total, liability: req.liability });
-    if (req.liability === 'DEPOSIT' && rider) rider.depositHeld -= total;
+  // Walk-in & RSA bills only the unpaid spare-parts balance; hub work bills the
+  // whole job (decision 9).
+  const charge = walkIn ? walkInRiderCharge(job.items, partsPaid) : total;
+  if (releasing && charge > 0 && req.liability && req.liability !== 'COMPANY' && job.riderId) {
+    addRiderCharge({ riderId: job.riderId, serviceJobId: job.id, vehicleId: job.vehicleId, amount: charge, liability: req.liability });
+    if (req.liability === 'DEPOSIT' && rider) rider.depositHeld -= charge;
   }
   // Receipt generated → decouple rider from vehicle. ServiceJob.riderId stays for payment audit.
   if (releasing && vehicle.currentRiderId) {

@@ -13,6 +13,10 @@ import jakarta.validation.constraints.Size;
  *
  * <p>queue is optional: leave it out and the damage category decides, which is
  * what every screen does today.
+ *
+ * <p>There is deliberately no category field. Which board owns the card follows
+ * from the source — see {@link ServiceJobCategory#of} — so a client cannot file
+ * a walk-in on the hub's board or the other way round.
  */
 public record CreateServiceJobRequest(
         @NotBlank(message = "Vehicle id is required")
@@ -31,5 +35,13 @@ public record CreateServiceJobRequest(
         @Size(max = 100, message = "Location must be at most 100 characters")
         String location,
         @Size(max = 100, message = "Reference must be at most 100 characters")
-        String reference) {
+        String reference,
+        /** Null means REPAIR_ONLY, which is what both forms default to. */
+        RepairType repairType,
+        /** "Ticket Created By (Executive)". */
+        @Size(max = 100, message = "Created by must be at most 100 characters")
+        String createdBy,
+        /** "Ticket Resolved By (Technician)" — blank at creation, required at close. */
+        @Size(max = 100, message = "Technician must be at most 100 characters")
+        String technician) {
 }

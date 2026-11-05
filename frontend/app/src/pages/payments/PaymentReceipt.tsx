@@ -154,7 +154,7 @@ export function PaymentReceipt() {
               borderTop: `1px solid ${neutral[800]}`,
             }}
           >
-            <Typography sx={{ fontSize: 14 }}>Total due</Typography>
+            <Typography sx={{ fontSize: 14 }}>Total dues</Typography>
             <Mono sx={{ fontSize: 18 }}>{rupees(r.totalDue)}</Mono>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
@@ -165,7 +165,7 @@ export function PaymentReceipt() {
           </Box>
           {r.balance > 0 && (
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-              <Typography sx={{ fontSize: 13, color: neutral[400] }}>Still to pay</Typography>
+              <Typography sx={{ fontSize: 13, color: neutral[400] }}>Dues outstanding</Typography>
               <Mono sx={{ fontSize: 13, color: tones.bad.fg }}>{rupees(r.balance)}</Mono>
             </Box>
           )}

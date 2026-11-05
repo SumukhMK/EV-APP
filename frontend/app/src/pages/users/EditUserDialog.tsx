@@ -15,6 +15,7 @@ import { invalidateUsers } from '../../lib/invalidate';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { USER_ROLE_LABEL, USER_STATUS_LABEL } from '../../lib/labels';
 import { USER_ROLES, type User, type UserRole, type UserStatus } from '../../types';
+import { useSession } from '../../app/sessionContext';
 
 const STATUSES: UserStatus[] = ['ACTIVE', 'INVITED', 'DISABLED'];
 
@@ -48,6 +49,7 @@ export function EditUserDialog({
   onSaved?: (name: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const { user } = useSession();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -105,7 +107,8 @@ export function EditUserDialog({
           <Box sx={{ display: 'flex', gap: 2.5 }}>
             <Field label="Role">
               <TextField select value={role} onChange={(e) => setRole(e.target.value as UserRole)}>
-                {USER_ROLES.map((r) => (
+                {/* Only a super admin can grant super admin; a target who already holds it keeps it visible. */}
+                {USER_ROLES.filter((r) => r !== 'SUPER_ADMIN' || user.roleKey === 'SUPER_ADMIN' || r === target?.role).map((r) => (
                   <MenuItem key={r} value={r}>{USER_ROLE_LABEL[r]}</MenuItem>
                 ))}
               </TextField>

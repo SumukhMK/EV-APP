@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
@@ -12,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useReturnTo } from '../../app/useReturnTo';
+import { shakeStyles, useShakeValidation } from '../../hooks/useShakeValidation';
 import { getVehicle } from '../../lib/api/vehicles';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
@@ -73,7 +72,7 @@ export function DeboardRider() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [banner, setBanner] = useState<string | null>(null);
-  const [confirmedValues, setConfirmedValues] = useState('');
+  const { containerRef, shake } = useShakeValidation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingValues, setPendingValues] = useState<DeboardRiderValues | null>(null);
 
@@ -100,8 +99,6 @@ export function DeboardRider() {
   });
 
   const picked = useWatch({ control: form.control });
-  const confirmationKey = JSON.stringify(picked);
-  const confirmed = confirmedValues === confirmationKey;
   const rider = riders.data?.find((r) => r.id === picked.riderId);
 
   // The bike is whichever one the rider holds, carried in the form so the
@@ -128,6 +125,18 @@ export function DeboardRider() {
     enabled: Boolean(rider),
   });
   const outstanding = (payments.data?.[0]?.totalDue ?? 0) - (payments.data?.[0]?.amountPaid ?? 0);
+
+  // Start the settlement at what the record says is owed, once per rider, so a
+  // refetch never overwrites what the desk typed. A figure typed before the
+  // record loaded is kept; one typed for the previously picked rider is not.
+  const defaultedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!rider || !payments.data || defaultedFor.current === rider.id) return;
+    const switched = defaultedFor.current !== null;
+    defaultedFor.current = rider.id;
+    if (!switched && form.getFieldState('outstandingRentRupees').isDirty) return;
+    form.resetField('outstandingRentRupees', { defaultValue: Math.round(Math.max(0, outstanding) / 100) });
+  }, [rider, payments.data, outstanding, form]);
 
   const save = useMutation({
     mutationFn: (values: DeboardRiderValues) =>
@@ -165,10 +174,10 @@ export function DeboardRider() {
 
   const submit = form.handleSubmit((values) => {
     setBanner(null);
-    if (!confirmed) { setBanner('Confirm the return destination and settlement before finalising.'); return; }
     setPendingValues(values);
     setConfirmOpen(true);
-  });
+    // On a refusal the error props land after this returns, so shake on the next tick.
+  }, () => setTimeout(shake, 0));
 
   if (riders.isLoading) {
     return (
@@ -204,7 +213,7 @@ export function DeboardRider() {
 
   return (
     <FormProvider {...form}>
-      <Box component="form" onSubmit={submit} noValidate>
+      <Box component="form" ref={containerRef} onSubmit={submit} noValidate sx={shakeStyles}>
         <PageHeader
           section="Riders"
           title="Deboard rider"
@@ -354,7 +363,7 @@ export function DeboardRider() {
               the form, then check what it is about to do. */}
           <Box sx={{ position: { lg: 'sticky' }, top: 16, minWidth: 0 }}>
             <Panel
-              label={<>Before you finish <InfoTip title="Here is what will happen when you confirm: the bike movement and the service job are saved together, and the job shows up in Bikes in service straight away. The rider stays on the register as Inactive and the bike is freed up — give them another bike from Assign vehicle whenever they are ready." /></>}
+              label={<>Before you finish <InfoTip title="Here is what will happen when you confirm: the bike movement and the service job are saved together, and the job shows up in Job cards straight away. The rider stays on the register as Inactive and the bike is freed up — give them another bike from Assign vehicle whenever they are ready." /></>}
               locked={!rider && 'Pick the rider first'}
             >
               <DefinitionList
@@ -391,7 +400,6 @@ export function DeboardRider() {
                   { label: 'Rider becomes', value: 'Inactive' },
                 ]}
               />
-              <FormControlLabel sx={{ mt: 3 }} control={<Checkbox checked={confirmed} onChange={(e) => setConfirmedValues(e.target.checked ? confirmationKey : '')} />} label="I confirm the rider, where the bike goes, and the money." />
             </Panel>
           </Box>
         </Box>
@@ -400,7 +408,7 @@ export function DeboardRider() {
         open={confirmOpen}
         title="Finish and take the bike back?"
         message="The rider is decoupled from the bike and the settlement is final."
-        info={pendingValues ? `${rupeesWithSymbol(outstanding)} of rent is settled${net >= 0 ? ` and ${rupeesWithSymbol(net)} of deposit is refunded` : ' — the deposit does not cover the rent owed'}. The bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.` : undefined}
+        info={pendingValues ? `${rupeesWithSymbol(pendingValues.outstandingRentRupees * 100)} of rent is settled${net >= 0 ? ` and ${rupeesWithSymbol(net)} of deposit is refunded` : ' — the deposit does not cover the rent owed'}. The bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.` : undefined}
         confirmLabel="Finish and take the bike back"
         tone="bad"
         dismissible={false}

@@ -1,9 +1,12 @@
+import { useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/sessionContext';
+import { canDecideKyc } from '../../lib/roles';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
@@ -13,6 +16,7 @@ import { Mono } from '../../components/Mono';
 import { ArrivalNotice } from '../../components/ArrivalNotice';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { decideKyc, getRider, listRiderPayments } from '../../lib/api/riders';
 import { getVehicle } from '../../lib/api/vehicles';
 import { invalidateRiders } from '../../lib/invalidate';
@@ -68,8 +72,9 @@ export function RiderDetail() {
   // SA/FA only, matching the endpoint. Judging someone's documents is not a
   // counter task, and the rest of the register being open to staff does not
   // make this so.
-  const canDecideKyc = user.roleKey === 'SUPER_ADMIN' || user.roleKey === 'FLEET_ADMIN';
+  const mayDecideKyc = canDecideKyc(user.roleKey);
 
+  const [rejectOpen, setRejectOpen] = useState(false);
   const kyc = useMutation({
     mutationFn: (decision: 'VERIFIED' | 'REJECTED') => decideKyc(riderId, decision),
     onSuccess: () => invalidateRiders(queryClient),
@@ -159,6 +164,12 @@ export function RiderDetail() {
         }
       />
 
+      {kyc.isError && (
+        <Alert severity="error" variant="outlined" sx={{ mt: 5 }}>
+          {kyc.error instanceof Error ? kyc.error.message : 'Could not save the KYC decision'}
+        </Alert>
+      )}
+
       <Box
         sx={{
           display: 'grid',
@@ -182,17 +193,17 @@ export function RiderDetail() {
                     {/* The decision, where the status is read. Documents are
                         judged while looking at the rider, not on a queue
                         screen somewhere else. */}
-                    {canDecideKyc && r.kycStatus !== 'VERIFIED' && (
+                    {mayDecideKyc && r.kycStatus !== 'VERIFIED' && (
                       <Button size="small" disabled={kyc.isPending} onClick={() => kyc.mutate('VERIFIED')}>
                         Verify
                       </Button>
                     )}
-                    {canDecideKyc && r.kycStatus !== 'REJECTED' && (
+                    {mayDecideKyc && r.kycStatus !== 'REJECTED' && (
                       <Button
                         size="small"
                         color="inherit"
                         disabled={kyc.isPending}
-                        onClick={() => kyc.mutate('REJECTED')}
+                        onClick={() => setRejectOpen(true)}
                       >
                         Reject
                       </Button>
@@ -429,6 +440,16 @@ export function RiderDetail() {
           />
         )}
       </Panel>
+      <ConfirmDialog
+        open={rejectOpen}
+        title={`Reject ${r.name}'s KYC?`}
+        message="The rider's documents are marked as rejected."
+        confirmLabel="Reject KYC"
+        tone="bad"
+        pending={kyc.isPending}
+        onConfirm={() => { setRejectOpen(false); kyc.mutate('REJECTED'); }}
+        onCancel={() => setRejectOpen(false)}
+      />
     </>
   );
 }
