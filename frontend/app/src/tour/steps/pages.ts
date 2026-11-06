@@ -148,6 +148,8 @@ const PAGES: Record<string, PageAbout> = {
     about:
       "Every job card, split into the two kinds of work. Walk-in & RSA is a bike a rider still holds, where only unpaid spare parts reach their weekly payment. Hub Service is a bike nobody is riding, worked through repair, parts, QC and ready to deploy.",
     cards: {
+      "All job cards":
+        "Open the combined job-card board to search and filter cards across Walk-in & RSA and Hub Service, including cards at different stages.",
       "CATEGORY 01":
         "Walk-in and RSA cards. Pick the rider and the bike follows, because the card is always about the bike that rider is holding. Move a card to In Progress here; closing one needs the technician and the parts, so it opens the card itself.",
       "CATEGORY 02":
@@ -388,7 +390,9 @@ function build(route: string, page: PageAbout): TourStep[] {
   for (const [label, body] of Object.entries(page.cards ?? {})) {
     steps.push({
       id: stepId(route, `card:${label}`),
-      anchor: panelAnchor(label),
+      anchor: route === '/service/queues' && label === 'All job cards'
+        ? TOUR_ANCHORS.serviceAllJobCards
+        : panelAnchor(label),
       title: label,
       wide: true,
       body,

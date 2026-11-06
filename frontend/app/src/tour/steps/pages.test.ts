@@ -123,6 +123,14 @@ describe('page tours', () => {
     expect(card?.anchor).toBe(panelAnchor('Service & inventory'));
   });
 
+  it('includes the All job cards CTA in the Job Card Management tour', () => {
+    const steps = pageTourFor('/service/queues') ?? [];
+    const allJobs = steps.find((step) => step.title === 'All job cards');
+
+    expect(allJobs?.anchor).toBe(TOUR_ANCHORS.serviceAllJobCards);
+    expect(allJobs?.body).toContain('combined job-card board');
+  });
+
   /**
    * A card that is only on screen sometimes — the bulk upload preview before a
    * file is chosen, a rider's bike when they hold one — must not strand the
