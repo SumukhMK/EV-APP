@@ -127,8 +127,9 @@ public class DevFleetSeeder implements ApplicationRunner {
                 return;
             }
             if (reseed) {
-                wipe(tenantId);
+                // Platform first: a super admin's test jobs there can point at the demo tenant's riders.
                 wipe(BootstrapData.PLATFORM_TENANT_ID);
+                wipe(tenantId);
                 moveAdminInto(tenantId);
             }
             Integer existing = jdbc.queryForObject(
