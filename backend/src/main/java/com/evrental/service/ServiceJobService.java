@@ -196,6 +196,10 @@ public class ServiceJobService implements ServiceJobFacade {
         job.setReference(request.reference());
 
         ServiceJob saved = saveOrConflict(job);
+        if (request.items() != null && !request.items().isEmpty()) {
+            saved.setTotalCostPaise(replaceItems(saved, request.items()));
+            jobs.save(saved);
+        }
 
         VehicleState moved = moveIntoService(
                 vehicle, queue.vehicleState(),
@@ -734,7 +738,7 @@ public class ServiceJobService implements ServiceJobFacade {
         // No repair type, executive or technician: a return decides none of
         // them, and the workshop fills them in as it works.
         return open(new CreateServiceJobRequest(
-                vehicleId, null, source, damage, damageNotes, null, null, null, null, null, null),
+                vehicleId, null, source, damage, damageNotes, null, null, null, null, null, null, null),
                 riderId, tenantId, null, actor, false);
     }
 

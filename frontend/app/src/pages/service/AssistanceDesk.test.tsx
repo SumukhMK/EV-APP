@@ -52,13 +52,15 @@ function seed(category: ServiceJob['damageCategory'] = 'MINOR', assigned = true)
 async function fillWork(user: ReturnType<typeof userEvent.setup>) {
   // The assigned-bike actions appear after the separate vehicle query finishes.
   await screen.findByRole('link', { name: 'Give another bike' });
-  await user.click(screen.getByRole('button', { name: 'Work done — send for Quality Check' }));
-  const dialog = within(await screen.findByRole('dialog'));
-  await user.click(dialog.getByRole('textbox', { name: 'What did you find, and what did you do?' }));
-  await user.paste('Mirror repaired and road tested');
-  await user.click(dialog.getByRole('textbox', { name: 'Ticket Resolved By (Technician)' }));
-  await user.paste('Inspector');
-  return dialog;
+  await user.click(screen.getByRole('textbox', { name: 'Repaired by (Technician)' }));
+  await user.paste('Ravi');
+}
+async function addPart(user: ReturnType<typeof userEvent.setup>, label: string, cost: string) {
+  await user.click(screen.getByRole('button', { name: 'Add part' }));
+  const parts = screen.getAllByRole('textbox', { name: 'Part' });
+  await user.type(parts[parts.length - 1], label);
+  const costs = screen.getAllByRole('textbox', { name: '₹' });
+  await user.type(costs[costs.length - 1], cost);
 }
 
 beforeEach(reset);
@@ -85,98 +87,79 @@ describe('service workbench stories', () => {
   });
 
 
-  it('lets fleet staff receive, work and release jobs — liability is fleet work', async () => {
+  it('saves parts and technician on the job card in place, with nothing charged', async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`, 'FLEET_STAFF');
     expect(await screen.findByRole('link', { name: 'Give another bike' })).toHaveAttribute('href', `/assignments/exchange?riderId=${job.riderId}`);
-    const dialog = await fillWork(user);
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
+    await fillWork(user);
+    await addPart(user, 'Mirror', '300');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
-    expect(job.workSummary).toContain('road tested');
-    expect(job.technician).toBe('Inspector');
+    expect(job.items).toEqual([{ label: 'Mirror', costPaise: 30000, kind: 'PART' }]);
+    expect(job.technician).toBe('Ravi');
     expect(job.status).toBe('IN_PROGRESS');
     expect(riderCharges).toHaveLength(0);
-    await user.click(screen.getByRole('button', { name: 'Do the Quality Check' }));
-    expect(within(await screen.findByRole('dialog')).getByRole('combobox', { name: 'Who pays?' })).toBeInTheDocument();
   });
 
-  it('lets the service manager work jobs but not decide who pays or release', async () => {
+  it('removes a part line and saves the shorter list', async () => {
+    const job = seed();
+    updateServiceJobRecord({ jobId: job.id, queue: 'MINOR_REPAIR', damageCategory: 'MINOR', workSummary: '', items: [{ label: 'Mirror', costPaise: 30000, kind: 'PART' }, { label: 'Horn', costPaise: 10000, kind: 'PART' }], technician: null, liability: null, reference: null, note: 'Parts listed', actor: 'Desk' });
+    const user = userEvent.setup();
+    show(`/service/assistance/${job.id}`);
+    await user.click(await screen.findByRole('button', { name: 'Remove line 2' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
+    expect(job.items.map((i) => i.label)).toEqual(['Mirror']);
+  });
+
+  it('lets the service manager hand the work to QC but not pass QC or decide who pays', async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`, 'SERVICE_MANAGER');
-    const dialog = await fillWork(user);
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
-    await user.click(await screen.findByRole('button', { name: 'Do the Quality Check' }));
-    const qc = within(await screen.findByRole('dialog'));
-    expect(qc.getByText(/You can fail the bike back/)).toBeInTheDocument();
-    expect(qc.queryByRole('combobox', { name: 'Who pays?' })).not.toBeInTheDocument();
-    expect(qc.queryByRole('button', { name: 'Pass QC and release' })).not.toBeInTheDocument();
-    expect(qc.getByRole('button', { name: /Fail — send back/ })).toBeInTheDocument();
+    await fillWork(user);
+    expect(screen.queryByRole('button', { name: 'Pass QC & close ticket' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Who pays?' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Work done — send for QC' }));
+    expect(await screen.findByText(/Waiting for fleet staff/)).toBeInTheDocument();
+    expect(job.queue).toBe('QC_PENDING');
   });
 
-  it('records the work, sends it to QC, and releases from the same record with one charge', { timeout: 15_000 }, async () => {
+  it('passes QC and closes the ticket in one press, with one charge', { timeout: 15_000 }, async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`, 'FLEET_ADMIN');
-    const dialog = await fillWork(user);
-    await user.click(dialog.getByRole('button', { name: 'Add a cost line' }));
-    await user.type(dialog.getByRole('textbox', { name: 'Item 1' }), 'Mirror');
-    await user.type(dialog.getByRole('textbox', { name: 'Cost 1 (₹)' }), '5000');
-    expect(dialog.queryByText(/over ₹5,000/)).not.toBeInTheDocument();
-    await user.type(dialog.getByRole('textbox', { name: 'Cost 1 (₹)' }), '.01');
-    expect(dialog.getByText(/over ₹5,000/)).toBeInTheDocument();
-    expect(dialog.getByText('Total: ₹5,000.01')).toBeInTheDocument();
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
-    expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
-    expect(riderCharges).toHaveLength(0);
-    await user.click(screen.getByRole('button', { name: 'Do the Quality Check' }));
-    const qc = within(await screen.findByRole('dialog'));
-    // Passing with checks missing shakes and saves nothing.
-    await user.click(qc.getByRole('button', { name: 'Pass QC and release' }));
-    expect(job.status).toBe('IN_PROGRESS');
-    // "Check all" covers the repair sign-off too, so passing is two clicks.
-    await user.click(qc.getByRole('button', { name: 'Check all' }));
-    expect(qc.getByRole('checkbox', { name: /Repair verified/ })).toBeChecked();
-    await user.click(qc.getByRole('button', { name: 'Pass QC and release' }));
+    await fillWork(user);
+    await addPart(user, 'Mirror', '5000.01');
+    expect(screen.getByText(/over ₹5,000/)).toBeInTheDocument();
+    // Closing with checks missing shakes and saves nothing.
+    await user.click(screen.getByRole('button', { name: 'Pass QC & close ticket' }));
+    expect(screen.getByText('Tick every QC check first.')).toBeInTheDocument();
+    expect(job.status).toBe('OPEN');
+    await user.click(screen.getByRole('button', { name: 'Check all' }));
+    await user.click(screen.getByRole('button', { name: 'Pass QC & close ticket' }));
     expect(await screen.findByText(/This job is finished/)).toBeInTheDocument();
+    expect(job.status).toBe('CLOSED');
     expect(riderCharges).toHaveLength(1);
     expect(riderCharges[0].amount).toBe(500001);
-    expect(job.technician).toBe('Inspector');
-    expect(screen.queryByRole('button', { name: 'Do the Quality Check' })).not.toBeInTheDocument();
-    expect(job.activity).toHaveLength(3);
-    expect(job.inspections).toHaveLength(2);
+    expect(job.technician).toBe('Ravi');
+    expect(job.workSummary).toBe('Mirror');
   });
 
   it('blocks invalid cost lines', async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
-    const dialog = await fillWork(user);
-    await user.click(dialog.getByRole('button', { name: 'Add a cost line' }));
-    await user.type(dialog.getByRole('textbox', { name: 'Item 1' }), 'Mirror');
-    await user.type(dialog.getByRole('textbox', { name: 'Cost 1 (₹)' }), '-5');
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
-    expect(job.status).toBe('OPEN'); // save did not go through
-    expect(dialog.getByText(/Every cost line needs/)).toBeInTheDocument();
-    await user.clear(dialog.getByRole('textbox', { name: 'Cost 1 (₹)' }));
-    await user.type(dialog.getByRole('textbox', { name: 'Cost 1 (₹)' }), '200');
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
-    expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
-  });
-
-  it('requires an explicit severity for migrated bikes whose damage was never assessed', async () => {
-    const job = seed();
-    Object.assign(job, { source: 'REGISTRY', queue: 'ASSESSMENT', damageCategory: 'NONE' });
-    const user = userEvent.setup();
-    show(`/service/assistance/${job.id}`);
-    const dialog = await fillWork(user);
-    expect(dialog.getByText(/Nobody has noted this yet/)).toBeInTheDocument();
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
+    await fillWork(user);
+    await addPart(user, 'Mirror', '-5');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(job.status).toBe('OPEN');
-    await user.click(dialog.getByRole('combobox', { name: 'How bad is the damage?' }));
-    await user.click(screen.getByRole('option', { name: 'Small damage' }));
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
+    expect(screen.getByText(/Every part or repair line needs/)).toBeInTheDocument();
+    const cost = screen.getByRole('textbox', { name: '₹' });
+    await user.clear(cost);
+    await user.type(cost, '200');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
   });
 
@@ -184,7 +167,7 @@ describe('service workbench stories', () => {
     const job = seed();
     show(`/service/inspection?vehicle=${job.vehicleId}`);
     expect(await screen.findByText(`${job.vehicleId} · ${job.id}`)).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Work done — send for Quality Check' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Work done — send for QC' })).toBeInTheDocument();
   });
 
   /**
@@ -201,8 +184,6 @@ describe('service workbench stories', () => {
     expect(screen.getByRole('combobox', { name: 'Which list should it go to?' })).toHaveTextContent('Quality Check');
   });
 
-
-
   it('prevents duplicate intake with a direct existing-job link', async () => {
     const job = seed();
     show(`/service/assistance/new?vehicle=${job.vehicleId}`);
@@ -215,10 +196,8 @@ describe('service workbench stories', () => {
     updateServiceJobRecord({ jobId: job.id, queue: 'READY_TO_DEPLOY', damageCategory: 'NONE', workSummary: 'No work required', items: [], technician: 'Inspector', liability: 'COMPANY', reference: null, note: 'Checks passed', actor: 'Inspector' });
     show(`/service/assistance/${job.id}`);
     expect(await screen.findByText('How it ended')).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: 'What did you find, and what did you do?' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Repaired by (Technician)' })).not.toBeInTheDocument();
   });
-
-
 
   it('picks the hub from a list at intake and only asks for a free-text spot for roadside jobs', async () => {
     const vehicle = vehicles.find((v) => v.state === 'DEPLOYED')!;
@@ -238,20 +217,17 @@ describe('service workbench stories', () => {
     expect(screen.getByRole('textbox', { name: 'Where did it break down?' })).toBeInTheDocument();
   });
 
-  it('moves a job to Waiting for parts from its own pop-up, and asks which parts first', async () => {
+  it('marks a job Parts Waiting from the card, and asks which parts first', async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
-    await user.click(await screen.findByRole('button', { name: 'Waiting on parts or a claim' }));
-    const dialog = within(await screen.findByRole('dialog'));
-    // A bike on the small-repair bench is most often waiting on parts, so that is the list it offers first.
-    expect(dialog.getByRole('combobox', { name: 'Which list?' })).toHaveTextContent('Waiting for parts');
-    await user.click(dialog.getByRole('button', { name: 'Move to Waiting for parts' }));
+    await user.click(await screen.findByRole('button', { name: 'Parts Waiting' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(job.queue).not.toBe('PARTS_WAITING');
-    expect(dialog.getByText('Add the parts or claim details.')).toBeInTheDocument();
-    await user.click(dialog.getByRole('textbox', { name: /Which parts/ }));
+    expect(screen.getByText('Say which parts you are waiting for.')).toBeInTheDocument();
+    await user.click(screen.getByRole('textbox', { name: /Which parts/ }));
     await user.paste('Mirror, Friday');
-    await user.click(dialog.getByRole('button', { name: 'Move to Waiting for parts' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();
     expect(job.queue).toBe('PARTS_WAITING');
     expect(job.reference).toBe('Mirror, Friday');
@@ -268,22 +244,21 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`, 'FLEET_ADMIN');
     expect(await screen.findByText('Walk-in & RSA')).toBeInTheDocument();
-    const dialog = await fillWork(user);
-    await user.click(dialog.getByRole('button', { name: 'Add a cost line' }));
-    await user.type(dialog.getByRole('textbox', { name: 'Item 1' }), 'Brake pads');
-    await user.type(dialog.getByRole('textbox', { name: 'Cost 1 (₹)' }), '500');
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
-
-    await user.click(await screen.findByRole('button', { name: 'Do the Quality Check' }));
-    const qc = within(await screen.findByRole('dialog'));
-    expect(qc.getByText(/charged ₹500 in Weekly Payments/)).toBeInTheDocument();
-    await user.clear(qc.getByRole('textbox', { name: 'Spare parts paid now (₹)' }));
-    await user.type(qc.getByRole('textbox', { name: 'Spare parts paid now (₹)' }), '200');
-    expect(qc.getByText(/charged ₹300 in Weekly Payments/)).toBeInTheDocument();
-
-    await user.click(qc.getByRole('combobox', { name: 'Who pays?' }));
-    expect(screen.getByRole('option', { name: 'Rider pays' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Take it from the deposit' })).not.toBeInTheDocument();
+    await fillWork(user);
+    await addPart(user, 'Brake pads', '500');
+    expect(screen.getByText(/charged ₹500 in Weekly Payments/)).toBeInTheDocument();
+    const paid = screen.getByRole('textbox', { name: 'Spare parts paid now (₹)' });
+    await user.clear(paid);
+    await user.type(paid, '200');
+    expect(screen.getByText(/charged ₹300 in Weekly Payments/)).toBeInTheDocument();
+    const payers = within(screen.getByRole('group', { name: 'Who pays?' }));
+    expect(payers.getByRole('button', { name: 'Rider' })).toBeInTheDocument();
+    expect(payers.queryByRole('button', { name: 'Deposit' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Check all' }));
+    await user.click(screen.getByRole('button', { name: 'Pass QC & close ticket' }));
+    expect(await screen.findByText(/This job is finished/)).toBeInTheDocument();
+    expect(riderCharges).toHaveLength(1);
+    expect(riderCharges[0].amount).toBe(30000);
   });
 
   it('retains edited work after a failed save', async () => {
@@ -291,10 +266,10 @@ describe('service workbench stories', () => {
     vi.spyOn(api, 'updateServiceJob').mockRejectedValueOnce(new Error('Could not save job'));
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
-    const dialog = await fillWork(user);
-    await user.click(dialog.getByRole('button', { name: 'Send for Quality Check' }));
-    expect(await dialog.findByText('Could not save job')).toBeInTheDocument();
-    expect(dialog.getByRole('textbox', { name: 'What did you find, and what did you do?' })).toHaveValue('Mirror repaired and road tested');
-    expect(job.workSummary).toBe('');
+    await fillWork(user);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Could not save job')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Repaired by (Technician)' })).toHaveValue('Ravi');
+    expect(job.technician).toBe(null);
   });
 });

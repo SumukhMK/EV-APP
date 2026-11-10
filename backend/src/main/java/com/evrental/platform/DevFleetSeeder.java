@@ -127,8 +127,9 @@ public class DevFleetSeeder implements ApplicationRunner {
                 return;
             }
             if (reseed) {
-                wipe(tenantId);
+                // Platform first: a super admin's test jobs there can point at the demo tenant's riders.
                 wipe(BootstrapData.PLATFORM_TENANT_ID);
+                wipe(tenantId);
                 moveAdminInto(tenantId);
             }
             Integer existing = jdbc.queryForObject(
@@ -155,7 +156,8 @@ public class DevFleetSeeder implements ApplicationRunner {
             "hubs", "vehicle_models", "user_role_changes", "refresh_tokens",
             "rider_code_counters", "job_code_counters", "receipt_counters",
         };
-        int rows = 0;
+        // An approved settlement points at its rent charge; unhook it so the charges can go first.
+        int rows = jdbc.update("UPDATE assignments SET settlement_charge_id = NULL WHERE tenant_id = ? AND settlement_charge_id IS NOT NULL", tenantId);
         for (String table : tables) {
             rows += jdbc.update("DELETE FROM " + table + " WHERE tenant_id = ?", tenantId);
         }
@@ -202,6 +204,7 @@ public class DevFleetSeeder implements ApplicationRunner {
             assignments();
             serviceJobs();
             billing();
+            settlements();
             auditTrail();
             log.info("Fleet seed: '{}' loaded — {} bikes, {} riders, {} jobs, {} billing periods, {} collections",
                     tenantSlug, vehicles.size(), riders.size(), jobs, periods, collections);
@@ -467,67 +470,62 @@ public class DevFleetSeeder implements ApplicationRunner {
                     .filter(r -> "ACCIDENT".equals(vehicleState.get(r))).toList();
 
             // Closed history first, oldest, so the codes read in time order.
+            // Counter payments vary: nothing paid, half paid, all paid; the
+            // last two the company covered. The charges are raised OPEN and
+            // billing() settles each one when the week it sits in is paid.
+            long[] partsPaidAtCounter = {0, 22500, 55000, 0, 0, 0};
             for (int i = 0; i < 6; i++) {
                 RiderRow r = riders.get(i);
                 int daysAgo = 45 - i * 6;
-                // Walk-in & RSA is a bike the rider still has, so the deposit is
-                // not in play: the rider pays at the counter or the company does.
-                UUID job = job(r.bikeRegistryId(), r.id(), i % 2 == 0 ? "WALK_IN" : "RSA", "MINOR", "READY_TO_DEPLOY", "CLOSED",
-                        i < 4 ? "RIDER" : "COMPANY",
-                        "Brake pads worn out, replaced both sets; chain tensioned",
+                long parts = 45000 + i * 5000;
+                closedWalkIn(r, i % 2 == 0 ? "WALK_IN" : "RSA", i < 4 ? "RIDER" : "COMPANY",
                         i % 2 == 0 ? "Rider walked in: brakes squealing" : "Rider called from Marathahalli: brakes gone soft",
-                        i % 2 == 0 ? r.seed().city() : "Marathahalli bridge", null, "Raju", 65000 + i * 5000,
-                        today.minusDays(daysAgo), today.minusDays(daysAgo - 2));
-                item(job, "Brake pads (front and rear)", 45000 + i * 5000, "PART");
-                item(job, "Labour", 20000, "LABOUR");
-                event(job, i % 2 == 0 ? "MINOR_REPAIR" : "ASSESSMENT", "UNDER_REPAIR", "Dhananjay",
-                        "Minor damage → Minor repair. Brakes squealing", at(today.minusDays(daysAgo), 10));
-                event(job, "QC_PENDING", "QC_PENDING", "Raju", "Pads replaced, ready for checking", at(today.minusDays(daysAgo - 1), 16));
-                inspection(job, r.bikeId(), true, "Abhinandan", null, at(today.minusDays(daysAgo - 2), 10));
-                event(job, "READY_TO_DEPLOY", "DEPLOYED", "Abhinandan", "QC passed — all nine checks clear", at(today.minusDays(daysAgo - 2), 10));
-                String liability = i < 4 ? "RIDER" : "COMPANY";
-                // Only the spare parts are the rider's on this board; the labour
-                // line is the company's either way.
-                long charged = 45000 + i * 5000;
-                event(job, "READY_TO_DEPLOY", "DEPLOYED", "Meenakshi Iyer",
-                        "Closed — " + liability.toLowerCase() + " pays "
-                                + ("RIDER".equals(liability) ? 450 + i * 50 : 650 + i * 50) + " rupees",
-                        at(today.minusDays(daysAgo - 2), 11));
-                if (!"COMPANY".equals(liability)) {
-                    boolean settled = i == 2 || i == 3;
-                    LocalDate periodStart = periodStartOnOrAfter(r.seed().billingDay(), today.minusDays(daysAgo - 2));
-                    jdbc.update("""
-                            INSERT INTO rider_charges (tenant_id, rider_id, service_job_id, vehicle_id, amount_paise, liability,
-                                status, charged_on, settled_on, period_start)
-                            VALUES (?,?,?,?,?,?,?,?,?,?)
-                            """, tenantId, r.id(), job, r.bikeId(), charged, liability,
-                            settled ? "SETTLED" : "OPEN", at(today.minusDays(daysAgo - 2), 11),
-                            settled ? at(today.minusDays(daysAgo - 9), 12) : null, periodStart);
-                }
+                        i % 2 == 0 ? r.seed().city() : "Marathahalli bridge",
+                        "Brake pads (front and rear)", parts, partsPaidAtCounter[i], daysAgo);
             }
+            // Two recent closes the rider has not paid for yet: one on last
+            // week's unpaid bill (so it is arrears on this week's), one on this
+            // week's bill.
+            closedWalkIn(riders.get(4), "WALK_IN", "RIDER", "Rider walked in: rear tyre bald",
+                    riders.get(4).seed().city(), "Rear tyre", 85000, 0,
+                    (int) (today.toEpochDay() - periodStartOnOrBefore(riders.get(4).seed().billingDay(), today).minusDays(4).toEpochDay()) + 2);
+            closedWalkIn(riders.get(9), "RSA", "RIDER", "Rider called from Bellandur: horn dead",
+                    "Bellandur", "Horn assembly", 32000, 0,
+                    (int) (today.toEpochDay() - periodStartOnOrBefore(riders.get(9).seed().billingDay(), today).toEpochDay()) + 2);
+
+            // Open Walk-in & RSA cards: bikes the riders still hold, in the
+            // workshop for the day. The assignment stays open, as it does when
+            // the desk really opens one.
+            openWalkIn(riders.get(6), "WALK_IN", "MINOR_REPAIR", "Throttle sticking at half twist", null,
+                    new String[][] {{"Throttle cable", "18000", "PART"}, {"Fitting", "10000", "LABOUR"}}, 1);
+            openWalkIn(riders.get(7), "RSA", "PARTS_WAITING", "Charger port loose, bike not charging",
+                    "Charging port on order from Ather, due Monday",
+                    new String[][] {{"Charging port", "64000", "PART"}}, 2);
+            openWalkIn(riders.get(8), "WALK_IN", "QC_PENDING", "Brake light stays on",
+                    null, new String[][] {{"Brake switch re-seated", "15000", "LABOUR"}}, 1);
 
             // The bench, one queue each, then the rest in minor repair.
             // The first two are the bikes Suresh and Ramesh handed back (see
             // assignments()); the rest came in on their own.
+            // Nobody holds these bikes, so every card here is Hub Service; a
+            // Walk-in & RSA card needs the rider on the bike (see openWalkIn).
             String[][] bench = {
-                {"ASSESSMENT", "DEBOARD", "MINOR", "Returned by rider; rear panel scratched, indicator broken", "Rear panel: scratched; Indicator: broken", null},
+                {"MINOR_REPAIR", "DEBOARD", "MINOR", "Returned by rider; rear panel scratched, indicator broken", "Rear panel: scratched; Indicator: broken", null},
                 {"MAJOR_REPAIR", "DEBOARD", "MAJOR", "Recovered by the team; battery casing cracked, seat torn", "Battery casing: cracked; Seat: torn", null},
-                {"MINOR_REPAIR", "WALK_IN", "MINOR", "Rear indicator and number plate light out", "Indicator: dead; Plate light: dead", null},
-                {"PARTS_WAITING", "WALK_IN", "MINOR", "Left mirror and horn", "Mirror: missing; Horn: dead", "Mirror arm on order from e-Sprinto, due Thursday"},
+                {"MINOR_REPAIR", "INSPECTION", "MINOR", "Rear indicator and number plate light out", "Indicator: dead; Plate light: dead", null},
+                {"PARTS_WAITING", "INSPECTION", "MINOR", "Left mirror and horn", "Mirror: missing; Horn: dead", "Mirror arm on order from e-Sprinto, due Thursday"},
                 {"WARRANTY", "QRT", "MAJOR", "Battery not holding charge after 18 months", "Battery: capacity below 60%", "Sun Mobility claim SM-2026-1187"},
-                {"INSURANCE", "RSA", "MAJOR", "Side collision with an auto at Silk Board", "Fairing: cracked; Footrest: bent", "ICICI Lombard claim CL/26/448812"},
-                {"MINOR_REPAIR", "WALK_IN", "MINOR", "Puncture, rear", "Tyre: puncture", null},
+                {"INSURANCE", "QRT", "MAJOR", "Side collision with an auto at Silk Board", "Fairing: cracked; Footrest: bent", "ICICI Lombard claim CL/26/448812"},
+                {"MINOR_REPAIR", "INSPECTION", "MINOR", "Puncture, rear", "Tyre: puncture", null},
                 {"MINOR_REPAIR", "QRT", "MINOR", "Chain slipping under load", "Chain: stretched", null},
-                {"MAJOR_REPAIR", "WALK_IN", "MAJOR", "Front fork leaking oil", "Fork seal: leaking", null},
+                {"MAJOR_REPAIR", "INSPECTION", "MAJOR", "Front fork leaking oil", "Fork seal: leaking", null},
             };
             for (int i = 0; i < underRepair.size(); i++) {
                 String[] b = bench[Math.min(i, bench.length - 1)];
                 int daysAgo = 9 - i;
-                // A walk-in or RSA card is always somebody's: the rider brought
-                // the bike in and is waiting for it. The first two came back on
-                // a deboard instead, so they keep the rider who handed them in.
-                boolean walkIn = "WALK_IN".equals(b[1]) || "RSA".equals(b[1]);
-                UUID riderId = i == 0 ? riderIdOf(20) : i == 1 ? riderIdOf(21) : walkIn ? riderIdOf(6 + i % 8) : null;
+                // The first two came back on a deboard, so they keep the rider
+                // who handed them in; the rest came in with nobody on them.
+                UUID riderId = i == 0 ? riderIdOf(20) : i == 1 ? riderIdOf(21) : null;
                 UUID job = job(underRepair.get(i), riderId, b[1], b[2], b[0], i % 2 == 0 ? "OPEN" : "IN_PROGRESS", null,
                         i % 2 == 0 ? null : "Stripped and diagnosed; parts listed", b[3],
                         "RSA".equals(b[1]) || "QRT".equals(b[1]) ? "Outer Ring Road, near Silk Board" : "Whitefield", b[5],
@@ -538,6 +536,11 @@ public class DevFleetSeeder implements ApplicationRunner {
                     item(job, "Diagnosis and strip-down", 30000, "LABOUR");
                     event(job, b[0], "UNDER_REPAIR", "Raju", "Stripped and diagnosed; parts listed", at(today.minusDays(daysAgo - 1), 15));
                 }
+                if ("PARTS_WAITING".equals(b[0])) {
+                    item(job, "Mirror arm (left)", 28000, "PART");
+                    item(job, "Horn", 22000, "PART");
+                    jdbc.update("UPDATE service_jobs SET total_cost_paise = total_cost_paise + 50000 WHERE id = ?", job);
+                }
             }
 
             // Quality check: two first checks on bikes that came back clean, two
@@ -547,7 +550,7 @@ public class DevFleetSeeder implements ApplicationRunner {
                 int daysAgo = 4 - i;
                 // Hub Service, both of them: nobody is on these bikes, so the
                 // repairs came in as recoveries and the clean ones as checks.
-                UUID job = job(qcPending.get(i), null, repair ? "RECOVERY" : "INSPECTION",
+                UUID job = job(qcPending.get(i), null, repair ? "QRT" : "INSPECTION",
                         repair ? "MINOR" : "NONE", "QC_PENDING", repair ? "IN_PROGRESS" : "OPEN", null,
                         repair ? "Headlight assembly replaced; wiring re-routed" : null,
                         repair ? "Headlight flickering, dies at speed" : "Routine check after return",
@@ -569,16 +572,91 @@ public class DevFleetSeeder implements ApplicationRunner {
                 }
             }
 
-            // Accidents: both riders were moved onto other bikes; the jobs keep them as the people concerned.
+            // Accidents: the QRT brought both bikes in. Nobody holds them, so
+            // they are Hub Service cards with no rider to bill.
             for (int i = 0; i < accident.size(); i++) {
                 int daysAgo = 15 - i * 4;
-                UUID job = job(accident.get(i), riderIdOf(14 + i), "RSA", "ACCIDENT", "ACCIDENT", "IN_PROGRESS", null,
+                UUID job = job(accident.get(i), null, "QRT", "ACCIDENT", "ACCIDENT", "IN_PROGRESS", null,
                         "Frame checked, awaiting surveyor", i == 0 ? "Hit from behind at Marathahalli signal; rider unhurt"
                                 : "Skidded on wet road at Bellandur; rider treated for grazes",
                         i == 0 ? "Marathahalli signal" : "Bellandur", "FIR 0" + (412 + i) + "/2026, Marathahalli PS", "Raju", 0,
                         today.minusDays(daysAgo), null);
                 event(job, "ACCIDENT", "ACCIDENT", "Dhananjay", "Accident damage → Accident. " + (i == 0 ? "Hit from behind" : "Skidded on wet road"), at(today.minusDays(daysAgo), 19));
                 event(job, "ACCIDENT", "ACCIDENT", "Abhinandan", "Surveyor booked; frame alignment to be checked", at(today.minusDays(daysAgo - 2), 11));
+            }
+
+            // Repair type follows the lines, the way the job card dialogs derive it (lineItems.ts repairTypeOf).
+            jdbc.update("""
+                    UPDATE service_jobs j SET repair_type = CASE
+                        WHEN p.parts AND p.other THEN 'REPAIR_AND_SPARE_PARTS'
+                        WHEN p.parts THEN 'SPARE_PARTS'
+                        ELSE 'REPAIR_ONLY' END
+                    FROM (SELECT j2.id,
+                                 coalesce(bool_or(i.kind = 'PART'), false) AS parts,
+                                 coalesce(bool_or(i.kind <> 'PART'), false) AS other
+                          FROM service_jobs j2 LEFT JOIN service_job_items i ON i.job_id = j2.id
+                          WHERE j2.tenant_id = ? GROUP BY j2.id) p
+                    WHERE j.id = p.id
+                    """, tenantId);
+        }
+
+        /**
+         * A Walk-in & RSA card on the bike the rider holds, closed through QC.
+         * Only the parts not paid at the counter become a charge (labour never
+         * does), dated into the week it was raised; billing() settles it when
+         * that week is paid.
+         */
+        private void closedWalkIn(RiderRow r, String source, String liability, String damageNotes, String location,
+                                  String partLabel, long parts, long partsPaid, int daysAgo) {
+            LocalDate opened = today.minusDays(daysAgo);
+            LocalDate closed = today.minusDays(daysAgo - 2);
+            long total = parts + 20000;
+            UUID job = job(r.bikeRegistryId(), r.id(), source, "MINOR", "READY_TO_DEPLOY", "CLOSED", liability,
+                    "Replaced " + partLabel.toLowerCase() + "; checked and road-tested", damageNotes, location, null,
+                    "Raju", total, opened, closed);
+            jdbc.update("UPDATE service_jobs SET parts_paid_paise = ? WHERE id = ?", partsPaid, job);
+            item(job, partLabel, parts, "PART");
+            item(job, "Labour", 20000, "LABOUR");
+            event(job, "MINOR_REPAIR", "UNDER_REPAIR", "Dhananjay", "Minor damage → Minor repair. " + damageNotes, at(opened, 10));
+            event(job, "QC_PENDING", "QC_PENDING", "Raju", "Work done, ready for checking", at(opened.plusDays(1), 16));
+            inspection(job, r.bikeId(), true, "Abhinandan", null, at(closed, 10));
+            event(job, "READY_TO_DEPLOY", "DEPLOYED", "Abhinandan", "QC passed — all nine checks clear", at(closed, 10));
+            event(job, "READY_TO_DEPLOY", "DEPLOYED", "Meenakshi Iyer",
+                    "Closed — " + liability.toLowerCase() + " pays " + (total / 100) + " rupees", at(closed, 11));
+            long charged = parts - partsPaid;
+            if ("RIDER".equals(liability) && charged > 0) {
+                jdbc.update("""
+                        INSERT INTO rider_charges (tenant_id, rider_id, service_job_id, vehicle_id, amount_paise, liability,
+                            status, charged_on, period_start)
+                        VALUES (?,?,?,?,?,'RIDER','OPEN',?,?)
+                        """, tenantId, r.id(), job, r.bikeId(), charged, at(closed, 11),
+                        periodStartOnOrBefore(r.seed().billingDay(), closed));
+            }
+        }
+
+        /** An open Walk-in & RSA card: the rider's own bike, in the workshop, assignment still open. */
+        private void openWalkIn(RiderRow r, String source, String queue, String damageNotes, String reference,
+                                String[][] lines, int daysAgo) {
+            String state = "QC_PENDING".equals(queue) ? "QC_PENDING" : "UNDER_REPAIR";
+            long total = 0;
+            for (String[] line : lines) {
+                total += Long.parseLong(line[1]);
+            }
+            boolean qc = "QC_PENDING".equals(queue);
+            UUID job = job(r.bikeRegistryId(), r.id(), source, "MINOR", queue, qc ? "IN_PROGRESS" : "OPEN", null,
+                    qc ? "Brake switch re-seated; light checked" : null, damageNotes,
+                    "RSA".equals(source) ? "Outer Ring Road, near Silk Board" : r.seed().city(), reference,
+                    qc ? "Raju" : null, total, today.minusDays(daysAgo), null);
+            for (String[] line : lines) {
+                item(job, line[0], Long.parseLong(line[1]), line[2]);
+            }
+            jdbc.update("UPDATE vehicles SET state = ? WHERE id = ?", state, r.bikeId());
+            lifecycle(r.bikeId(), "DEPLOYED", state, "In for service — " + damageNotes.toLowerCase(), "Dhananjay", at(today.minusDays(daysAgo), 10));
+            vehicleState.put(r.bikeRegistryId(), state);
+            event(job, "MINOR_REPAIR", "UNDER_REPAIR", "Dhananjay", "Minor damage → Minor repair. " + damageNotes, at(today.minusDays(daysAgo), 10));
+            if (!"MINOR_REPAIR".equals(queue)) {
+                event(job, queue, state, "Raju", qc ? "Work done, ready for checking" : "Waiting for parts — " + reference,
+                        at(today.minusDays(daysAgo), 15));
             }
         }
 
@@ -631,63 +709,83 @@ public class DevFleetSeeder implements ApplicationRunner {
 
         /**
          * Eight weeks of billing for every rider who held a bike in that week,
-         * current week included. Most weeks are paid in full with a receipt;
-         * some riders are a week behind, one is two weeks behind, one paid
-         * half, and the current week is pending for everybody.
+         * returned riders included, current week included, built the way the
+         * payment run builds it so no screen rewrites it on read. Most weeks
+         * are paid in full with a receipt; one rider is a week behind, one two,
+         * one four (repossession due), one pays half, and the current week is
+         * pending for everybody else.
          */
         private void billing() {
             UUID collector = userId("Meenakshi Iyer");
             for (int i = 0; i < riders.size(); i++) {
                 RiderRow r = riders.get(i);
-                if (r.bikeId() == null) {
+                // Every assignment the rider ever had, current or handed back,
+                // the window PaymentAssignmentQuery bills from.
+                // An open one bills to the end of the week (BillingPeriod.overlapDays).
+                List<Map<String, Object>> held = jdbc.queryForList("""
+                        SELECT vehicle_id, started_on, coalesce(ended_on, DATE '9999-12-31') AS ended_on FROM assignments
+                        WHERE rider_id = ? ORDER BY started_on
+                        """, r.id());
+                if (held.isEmpty()) {
                     continue;
                 }
+                LocalDate first = ((java.sql.Date) held.get(0).get("started_on")).toLocalDate();
+                LocalDate last = held.stream().map(h -> ((java.sql.Date) h.get("ended_on")).toLocalDate())
+                        .max(LocalDate::compareTo).orElse(today);
                 LocalDate current = periodStartOnOrBefore(r.seed().billingDay(), today);
+                LocalDate lastStart = periodStartOnOrBefore(r.seed().billingDay(), last);
                 for (int back = 7; back >= 0; back--) {
                     LocalDate start = current.minusWeeks(back);
                     LocalDate end = start.plusDays(6);
-                    if (end.isBefore(r.assignedOn())) {
+                    int days = (int) Math.max(0, Math.min(end.toEpochDay(), last.toEpochDay())
+                            - Math.max(start.toEpochDay(), first.toEpochDay()) + 1);
+                    if (days == 0) {
                         continue;
                     }
+                    UUID bike = held.stream()
+                            .filter(h -> !((java.sql.Date) h.get("started_on")).toLocalDate().isAfter(end))
+                            .reduce((a, b) -> b).map(h -> (UUID) h.get("vehicle_id")).orElse(null);
                     long plan = r.seed().planRupees() * 100;
-                    int days = (int) Math.min(7, end.toEpochDay() - Math.max(start.toEpochDay(), r.assignedOn().toEpochDay()) + 1);
                     long perDay = Math.round(plan / 7.0);
                     long billed = days == 7 ? plan : perDay * days;
-                    Long charges = jdbc.queryForObject("""
-                            SELECT coalesce(sum(amount_paise), 0) FROM rider_charges
-                            WHERE rider_id = ? AND liability = 'RIDER' AND period_start = ?
-                            """, Long.class, r.id(), start);
-                    long total = billed + (charges == null ? 0 : charges);
+                    // The same two sums the run uses: open rider charges of this
+                    // week, and open rider charges of earlier weeks.
+                    long charges = openCharges(r.id(), "period_start = ?", start);
+                    long arrears = openCharges(r.id(), "period_start < ?", start);
+                    long total = billed + charges + arrears;
                     // Who pays what, by rider: a pattern, not a dice roll, so a
                     // tester can find each case by name.
-                    String status;
+                    boolean finalWeek = start.equals(lastStart);
                     long paid;
-                    if (back == 0) {
-                        status = "PENDING";
-                        paid = 0;
-                    } else if (i == 1 && back == 1) {
-                        status = "PARTIAL";
-                        paid = total / 2;
+                    if (i == 1 && back <= 1) {
+                        paid = total / 2;                 // pays half: overdue last week, part-paid this week
+                    } else if (back == 0) {
+                        paid = 0;                         // this week, not collected yet
                     } else if (i == 4 && back <= 2) {
-                        status = "OVERDUE";
-                        paid = 0;
+                        paid = 0;                         // two weeks behind
                     } else if (i == 9 && back == 1) {
-                        status = "OVERDUE";
-                        paid = 0;
+                        paid = 0;                         // a week behind
+                    } else if (i == 12 && back <= 4) {
+                        paid = 0;                         // four weeks behind: due for repossession
+                    } else if (i == 20 && finalWeek) {
+                        paid = 0;                         // Suresh handed the bike back owing his last week
+                    } else if (i == 21 && (finalWeek || start.equals(lastStart.minusWeeks(1)))) {
+                        paid = 0;                         // Ramesh stopped paying before the recovery
                     } else {
-                        status = "PAID";
                         paid = total;
                     }
+                    String status = paid >= total ? "PAID" : today.isAfter(end) ? "OVERDUE" : paid > 0 ? "PARTIAL" : "PENDING";
                     UUID periodId = UUID.randomUUID();
                     String receipt = paid > 0 ? receiptNo(end.getYear()) : null;
+                    OffsetDateTime collectedOn = end.isAfter(today) ? at(today, 9) : at(end.minusDays(back % 2), 19);
                     jdbc.update("""
                             INSERT INTO payment_periods (id, tenant_id, rider_id, period_start, period_end, billing_day, vehicle_id,
                                 plan_amount_paise, days_billed, per_day_amount_paise, billed_amount_paise, service_charges_paise,
                                 arrears_paise, total_due_paise, amount_paid_paise, status, receipt_no, generated_on, updated_on)
-                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?)
-                            """, periodId, tenantId, r.id(), start, end, r.seed().billingDay(), r.bikeId(),
-                            plan, days, perDay, billed, charges == null ? 0 : charges, total, paid, status, receipt,
-                            at(start, 6), at(paid > 0 ? end : start, 12));
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                            """, periodId, tenantId, r.id(), start, end, r.seed().billingDay(), bike,
+                            plan, days, perDay, billed, charges, arrears, total, paid, status, receipt,
+                            at(start, 6), paid > 0 ? collectedOn : at(start, 6));
                     periods++;
                     if (paid > 0) {
                         String reference = switch (r.seed().mode()) {
@@ -698,9 +796,52 @@ public class DevFleetSeeder implements ApplicationRunner {
                         jdbc.update("""
                                 INSERT INTO payment_collections (tenant_id, period_id, amount_paise, method, reference, collected_on, collected_by_user_id)
                                 VALUES (?,?,?,?,?,?,?)
-                                """, tenantId, periodId, paid, r.seed().mode(), reference, at(end.minusDays(back % 2), 19), collector);
+                                """, tenantId, periodId, paid, r.seed().mode(), reference, collectedOn, collector);
                         collections++;
                     }
+                    if ("PAID".equals(status)) {
+                        // Paying a week settles every open rider charge up to it, as recordPayment does.
+                        jdbc.update("""
+                                UPDATE rider_charges SET status = 'SETTLED', settled_on = ?
+                                WHERE rider_id = ? AND liability = 'RIDER' AND status = 'OPEN' AND period_start <= ?
+                                """, collectedOn, r.id(), start);
+                    }
+                }
+            }
+        }
+
+        private long openCharges(UUID riderId, String periodClause, LocalDate start) {
+            Long sum = jdbc.queryForObject("SELECT coalesce(sum(amount_paise), 0) FROM rider_charges WHERE rider_id = ? "
+                    + "AND liability = 'RIDER' AND status = 'OPEN' AND " + periodClause, Long.class, riderId, start);
+            return sum == null ? 0 : sum;
+        }
+
+        /**
+         * The rent the two returned riders still owed, as the deboard form
+         * pre-fills it (the balance of their last week). Ramesh's settlement
+         * was approved, which turns that rent into an open rider charge;
+         * Suresh's is still waiting for approval.
+         */
+        private void settlements() {
+            for (int index : new int[] {20, 21}) {
+                RiderRow r = riders.get(index);
+                Long owed = jdbc.queryForObject("""
+                        SELECT coalesce((SELECT greatest(0, total_due_paise - amount_paid_paise) FROM payment_periods
+                                         WHERE rider_id = ? ORDER BY period_start DESC LIMIT 1), 0)
+                        """, Long.class, r.id());
+                UUID assignment = jdbc.queryForObject(
+                        "SELECT id FROM assignments WHERE rider_id = ? AND ended_on IS NOT NULL ORDER BY ended_on DESC LIMIT 1",
+                        UUID.class, r.id());
+                jdbc.update("UPDATE assignments SET outstanding_rent_paise = ? WHERE id = ?", owed, assignment);
+                if (index == 21 && owed != null && owed > 0) {
+                    LocalDate approvedOn = jdbc.queryForObject("SELECT ended_on FROM assignments WHERE id = ?", LocalDate.class, assignment).plusDays(1);
+                    UUID charge = UUID.randomUUID();
+                    jdbc.update("""
+                            INSERT INTO rider_charges (id, tenant_id, rider_id, amount_paise, liability, status, charged_on, period_start)
+                            VALUES (?,?,?,?,'RIDER','OPEN',?,?)
+                            """, charge, tenantId, r.id(), owed, at(approvedOn, 12),
+                            periodStartOnOrBefore(r.seed().billingDay(), approvedOn));
+                    jdbc.update("UPDATE assignments SET settlement_charge_id = ? WHERE id = ?", charge, assignment);
                 }
             }
         }
@@ -714,10 +855,6 @@ public class DevFleetSeeder implements ApplicationRunner {
 
         private LocalDate periodStartOnOrBefore(String billingDay, LocalDate date) {
             return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.valueOf(billingDay)));
-        }
-
-        private LocalDate periodStartOnOrAfter(String billingDay, LocalDate date) {
-            return date.with(TemporalAdjusters.nextOrSame(DayOfWeek.valueOf(billingDay)));
         }
 
         // -- the trail -------------------------------------------------------

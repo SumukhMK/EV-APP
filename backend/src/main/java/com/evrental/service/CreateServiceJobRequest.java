@@ -1,8 +1,10 @@
 package com.evrental.service;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 
 /**
  * Opening a job, from a deboard, an RSA or QRT callout, a walk-in or a
@@ -43,5 +45,7 @@ public record CreateServiceJobRequest(
         String createdBy,
         /** "Ticket Resolved By (Technician)" — blank at creation, required at close. */
         @Size(max = 100, message = "Technician must be at most 100 characters")
-        String technician) {
+        String technician,
+        /** Damaged parts and repair lines known when the card is opened. Null or empty means none yet. */
+        @Valid List<ServiceJobItemRequest> items) {
 }
