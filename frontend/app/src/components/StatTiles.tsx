@@ -29,18 +29,21 @@ export interface StatTile {
  * lift a touch on hover.
  */
 export function StatTiles({ tiles }: { tiles: StatTile[] }) {
+  const count = tiles.length;
+  if (count === 0) return null;
+
   return (
     <Box
       {...tourAnchor(TOUR_ANCHORS.statTiles)}
       sx={{
         display: 'grid',
-        // The strip reflows rather than scrolls: seven tiles across on a wide
-        // screen, four on a laptop, two on a phone. The 1px gaps still do the
-        // dividing, so a wrapped row needs no extra rules.
+        // On wide screens, the eight-tile admin roles use two rows of four,
+        // while roles with six tiles get one row of six. Smaller screens keep
+        // fewer columns so labels and figures remain readable.
         gridTemplateColumns: {
-          xs: 'repeat(2, 1fr)',
-          sm: `repeat(${Math.min(tiles.length, 4)}, 1fr)`,
-          lg: `repeat(${tiles.length}, 1fr)`,
+          xs: `repeat(${Math.min(count, 2)}, minmax(0, 1fr))`,
+          sm: `repeat(${Math.min(count, 3)}, minmax(0, 1fr))`,
+          lg: count === 8 ? 'repeat(4, minmax(0, 1fr))' : `repeat(${count}, minmax(0, 1fr))`,
         },
         gap: '1px',
         background: neutral[900],
@@ -56,11 +59,10 @@ export function StatTiles({ tiles }: { tiles: StatTile[] }) {
             key={t.label}
             {...(t.to ? { component: Link, to: t.to } : {})}
             sx={{
-              // An odd count leaves a dead cell in the two-column layout, which
-              // reads as a broken tile. The last one takes the whole row instead.
               gridColumn: {
-                xs: tiles.length % 2 === 1 && t === tiles[tiles.length - 1] ? 'span 2' : 'auto',
-                sm: 'auto',
+                xs: count % 2 === 1 && i === count - 1 ? 'span 2' : 'auto',
+                sm: count % 3 === 1 && i === count - 1 ? 'span 3' : 'auto',
+                lg: 'auto',
               },
               position: 'relative',
               background: base.surface,

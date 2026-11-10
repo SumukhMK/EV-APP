@@ -7,9 +7,10 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/sessionContext';
 import { PageHeader } from '../../components/PageHeader';
+import { TOUR_ANCHORS, tourAnchor } from '../../tour/anchors';
 import { listServiceJobs } from '../../lib/api/serviceJobs';
 import { canManageService } from '../../lib/roles';
 import { JOB_STAGE_LABEL, jobStage, type JobStage } from '../../lib/serviceWorkflow';
@@ -44,7 +45,7 @@ export function ServiceManagement() {
     setParams(p, { replace: true });
   };
   const [dialog, setDialog] = useState<'WALK_IN_RSA' | 'HUB' | null>(null);
-  const [created, setCreated] = useState('');
+  const [created, setCreated] = useState<ServiceJob | null>(null);
 
   const all = board(jobs.data ?? []);
   const walkInJobs = all.filter((j) => j.category === 'WALK_IN_RSA');
@@ -54,9 +55,33 @@ export function ServiceManagement() {
   const walkInStats = (['UNDER_REPAIR', 'QC_PENDING', 'CLOSED'] as const).map((s) => stat(walkInJobs, 'walk-in', s));
   const hubStats = (['UNDER_REPAIR', 'PARTS_WAITING', 'QC_PENDING'] as const).map((s) => stat(hubJobs, 'hub', s));
 
-  const onCreated = (job: ServiceJob) => { setDialog(null); setCreated(`Job card ${job.id} opened for ${job.vehicleId}.`); };
+  const onCreated = (job: ServiceJob) => { setDialog(null); setCreated(job); };
   const listError = jobs.isError ? jobs.error.message : undefined;
-  const createdAlert = created && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setCreated('')}>{created}</Alert>;
+  const createdAlert = created && <Alert severity="success" sx={{ mb: 2, alignItems: 'center' }} onClose={() => setCreated(null)}>
+    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+      <Box component="span">Job card {created.id} opened for {created.vehicleId}.</Box>
+      <Button
+        component={Link}
+        to={`/service/assistance/${encodeURIComponent(created.id)}`}
+        state={{ returnTo: `/service/queues${params.toString() ? `?${params.toString()}` : ''}` }}
+        onClick={() => setCreated(null)}
+        size="small"
+        variant="text"
+        color="inherit"
+        sx={{
+          fontWeight: 800,
+          letterSpacing: '0.03em',
+          textDecoration: 'underline',
+          textUnderlineOffset: '3px',
+          minWidth: 'auto',
+          px: 0.5,
+          '&:hover': { backgroundColor: 'transparent', textDecorationThickness: '2px' },
+        }}
+      >
+        Open {created.id}
+      </Button>
+    </Box>
+  </Alert>;
   const boardJobs = openBoard === 'walk-in' ? walkInJobs : openBoard === 'hub' ? hubJobs : all;
   const boardAction = !canWork || openBoard === 'all' || !openBoard ? undefined
     : openBoard === 'hub' ? { label: 'Open Hub Job Card', run: () => setDialog('HUB') }
@@ -65,7 +90,24 @@ export function ServiceManagement() {
   return (
     <>
       <PageHeader section="Service management" title="Job Card Management" icon={HandymanIcon}
-        actions={<Button color="inherit" startIcon={<SearchIcon />} onClick={() => show({ board: 'all' })}>All job cards</Button>} />
+        actions={
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            startIcon={<SearchIcon />}
+            {...tourAnchor(TOUR_ANCHORS.serviceAllJobCards)}
+            onClick={() => show({ board: 'all' })}
+            sx={{
+              fontWeight: 700,
+              boxShadow: 2,
+              '&:hover': { boxShadow: 4 },
+            }}
+          >
+            All job cards
+          </Button>
+        }
+      />
       {!canWork && <Alert severity="info" sx={{ mt: 3 }}>View only — you cannot open or move job cards.</Alert>}
       {!openBoard && createdAlert && <Box sx={{ mt: 3 }}>{createdAlert}</Box>}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: { xs: 3, md: 4 }, mt: 4, alignItems: 'stretch' }}>

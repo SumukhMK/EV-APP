@@ -20,6 +20,8 @@ import { Mono } from '../components/Mono';
 import { getFleetSummary, getMonthlyDeployments } from '../lib/api/dashboard';
 import { formatNumber, rupees } from '../lib/format';
 import { neutral } from '../theme/tokens';
+import { useSession } from '../app/sessionContext';
+import { canCollectPayments } from '../lib/roles';
 
 const MONTH_LABEL = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
@@ -37,6 +39,8 @@ function monthLabel(iso: string): string {
 }
 
 export function Dashboard() {
+  const { user } = useSession();
+  const showMoneyTiles = canCollectPayments(user.roleKey);
   const summary = useQuery({ queryKey: ['dashboard', 'summary'], queryFn: getFleetSummary });
   const deployments = useQuery({ queryKey: ['dashboard', 'deployments'], queryFn: getMonthlyDeployments });
 
@@ -116,20 +120,20 @@ export function Dashboard() {
               icon: ReplayIcon,
               to: '/vehicles?state=RECOVERY',
             },
-            {
+            ...(showMoneyTiles ? [{
               label: 'Riders behind on rent',
               value: s ? formatNumber(s.overdueRiders) : '—',
-              tone: 'bad',
+              tone: 'bad' as const,
               icon: PeopleAlertIcon,
               to: '/payments/overdue',
             },
             {
               label: 'Money owed',
               value: s ? rupees(s.overdueValue) : '—',
-              tone: 'bad',
+              tone: 'bad' as const,
               icon: CurrencyRupeeIcon,
               to: '/payments/overdue',
-            },
+            }] : []),
           ]}
         />
       </Box>
