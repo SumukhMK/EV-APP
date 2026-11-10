@@ -2,8 +2,9 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useSession } from '../../../app/sessionContext';
 import { listInspectableVehicles } from '../../../lib/api/inspections';
 import { createServiceJob, listServiceJobs } from '../../../lib/api/serviceJobs';
@@ -58,6 +59,22 @@ export function HubJobCardDialog({ open, onClose, onCreated }: {
       onCreated(job);
     },
   });
+  const conflict = create.error?.message.includes('already has an open service job')
+    || create.error?.message.includes("already has an open job");
+  const openJob = conflict
+    ? jobs.data?.find((job) => job.vehicleId === vehicle?.id && job.status !== 'CLOSED')
+    : undefined;
+  useEffect(() => {
+    if (conflict) void jobs.refetch();
+  // Refresh to include a job opened concurrently by another operator.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conflict]);
+  const error = create.isError ? create.error.message : vehicles.isError ? vehicles.error.message : undefined;
+  const errorAction = conflict && openJob ? (
+    <Link to={`/service/assistance/${encodeURIComponent(openJob.id)}`} style={{ fontWeight: 700 }}>
+      Open job {openJob.id}
+    </Link>
+  ) : undefined;
 
   return (
     <JobCardDialog

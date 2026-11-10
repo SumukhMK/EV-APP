@@ -52,6 +52,8 @@ export const TOUR_ANCHORS = {
    * list a second step each, and no page file learns that a tour exists.
    */
   pageActions: 'page-actions',
+  /** The Job Card Management header action that opens the combined board. */
+  serviceAllJobCards: 'service-all-job-cards',
   statTiles: 'stat-tiles',
   search: 'search',
   facets: 'facets',

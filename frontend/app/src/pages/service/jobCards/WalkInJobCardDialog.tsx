@@ -2,11 +2,12 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useSession } from '../../../app/sessionContext';
 import { listAssignedRiders } from '../../../lib/api/riders';
-import { createServiceJob } from '../../../lib/api/serviceJobs';
+import { createServiceJob, listServiceJobs } from '../../../lib/api/serviceJobs';
 import { invalidateServiceJobs } from '../../../lib/invalidate';
 import type { ServiceJob } from '../../../types';
 import { CostLines } from './CostLines';
@@ -38,6 +39,7 @@ export function WalkInJobCardDialog({ open, onClose, onCreated }: {
   // Only riders who currently hold a bike — the card is opened against that bike.
   const active = (riders.data ?? []).filter((r) => r.currentVehicleId);
   const rider = active.find((r) => r.id === riderId);
+  const existingJobs = useQuery({ queryKey: ['service-jobs', 'list'], queryFn: () => listServiceJobs(), enabled: open });
   const create = useMutation({
     mutationFn: () => createServiceJob({
       vehicleId: rider!.currentVehicleId!, riderId: rider!.id, source,
@@ -50,6 +52,22 @@ export function WalkInJobCardDialog({ open, onClose, onCreated }: {
       onCreated(job);
     },
   });
+  const conflict = create.error?.message.includes('already has an open service job')
+    || create.error?.message.includes("already has an open job");
+  const openJob = conflict
+    ? existingJobs.data?.find((job) => job.vehicleId === rider?.currentVehicleId && job.status !== 'CLOSED')
+    : undefined;
+  useEffect(() => {
+    if (conflict) void existingJobs.refetch();
+  // Fetch the authoritative open card after a concurrent create loses the race.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conflict]);
+  const error = create.isError ? create.error.message : riders.isError ? riders.error.message : undefined;
+  const errorAction = conflict && openJob ? (
+    <Link to={`/service/assistance/${encodeURIComponent(openJob.id)}`} style={{ fontWeight: 700 }}>
+      Open job {openJob.id}
+    </Link>
+  ) : undefined;
 
   return (
     <JobCardDialog
