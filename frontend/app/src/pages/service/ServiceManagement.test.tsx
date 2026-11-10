@@ -128,7 +128,6 @@ describe('Job Card Management', () => {
     await user.click(await dialog.findByRole('combobox', { name: 'Active Rider' }));
     await user.click(await screen.findByRole('option', { name: `${rider.id} — ${rider.name}` }));
     expect(dialog.getByRole('textbox', { name: 'Vehicle ID' })).toHaveValue(rider.currentVehicleId);
-    expect(dialog.getByRole('textbox', { name: 'Rider ID' })).toHaveValue(rider.id);
 
     // The button is never greyed out; it simply does not open a card yet.
     await user.click(dialog.getByRole('button', { name: 'Create Job Card' }));
@@ -137,12 +136,17 @@ describe('Job Card Management', () => {
 
     await user.click(dialog.getByRole('textbox', { name: 'Initial / Current Remarks' }));
     await user.paste('Brakes feel soft');
+    // The damaged part goes on the card now; the repair type follows from it.
+    await user.click(dialog.getByRole('button', { name: 'Add part' }));
+    await user.type(dialog.getByRole('textbox', { name: 'Part' }), 'Brake pads');
+    await user.type(dialog.getByRole('textbox', { name: '₹' }), '450');
     await user.click(dialog.getByRole('button', { name: 'Create Job Card' }));
     expect(await screen.findByText(/opened for/)).toBeInTheDocument();
     expect(serviceJobs).toHaveLength(before + 1);
     expect(serviceJobs.at(-1)).toMatchObject({
       vehicleId: rider.currentVehicleId, riderId: rider.id, category: 'WALK_IN_RSA',
-      createdBy: 'Demo operator', repairType: 'REPAIR_ONLY',
+      createdBy: 'Demo operator', repairType: 'SPARE_PARTS',
+      items: [{ label: 'Brake pads', costPaise: 45000, kind: 'PART' }], totalCostPaise: 45000,
     });
   });
 

@@ -1,24 +1,18 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../../app/sessionContext';
 import { listInspectableVehicles } from '../../../lib/api/inspections';
 import { createServiceJob, listServiceJobs } from '../../../lib/api/serviceJobs';
 import { invalidateServiceJobs } from '../../../lib/invalidate';
-import { REPAIR_TYPE_LABEL, SERVICE_CATEGORY_LABEL } from '../../../lib/serviceJobLabels';
-import { JOB_STAGE_LABEL } from '../../../lib/serviceWorkflow';
-import type { RepairType, ServiceJob, ServiceQueue } from '../../../types';
-import { JobCardDialog, ReadOnlyField } from './JobCardDialog';
+import type { ServiceJob } from '../../../types';
+import { CostLines } from './CostLines';
+import { linesValid, repairTypeOf, toItems, type CostLine } from './lineItems';
+import { JobCardDialog } from './JobCardDialog';
 import { fullWidth } from './layout';
-
-const REPAIR_TYPES = ['REPAIR_ONLY', 'SPARE_PARTS', 'REPAIR_AND_SPARE_PARTS'] as const;
-/** The three stages a card can be opened into; Closed is reached by passing QC. */
-const OPENING_STAGES = ['UNDER_REPAIR', 'PARTS_WAITING', 'QC_PENDING'] as const;
-type OpeningStage = (typeof OPENING_STAGES)[number];
-const STAGE_QUEUE: Record<OpeningStage, ServiceQueue> = {
-  UNDER_REPAIR: 'MINOR_REPAIR', PARTS_WAITING: 'PARTS_WAITING', QC_PENDING: 'QC_PENDING',
-};
 
 /**
  * Open a card for a bike nobody is riding. The picker is the whole rule: a
@@ -33,11 +27,12 @@ export function HubJobCardDialog({ open, onClose, onCreated }: {
   const { user } = useSession();
   const queryClient = useQueryClient();
   const [vehicleId, setVehicleId] = useState('');
-  const [repairType, setRepairType] = useState<RepairType>('REPAIR_ONLY');
+  const [lines, setLines] = useState<CostLine[]>([]);
   const [executive, setExecutive] = useState(user.name);
   const [technician, setTechnician] = useState('');
   const [remarks, setRemarks] = useState('');
-  const [stage, setStage] = useState<OpeningStage>('UNDER_REPAIR');
+  // QC happens when the card is closed, so a card opens on the bench or waiting for parts.
+  const [waiting, setWaiting] = useState(false);
   const [reference, setReference] = useState('');
 
   const vehicles = useQuery({ queryKey: ['vehicles', 'inspectable'], queryFn: listInspectableVehicles, enabled: open });
@@ -47,17 +42,16 @@ export function HubJobCardDialog({ open, onClose, onCreated }: {
     !(jobs.data ?? []).some((j) => j.vehicleId === v.id && j.status !== 'CLOSED'),
   );
   const vehicle = eligible.find((v) => v.id === vehicleId);
-  const needsReference = stage === 'PARTS_WAITING';
+  const needsReference = waiting;
   const create = useMutation({
     mutationFn: () => createServiceJob({
       vehicleId: vehicle!.id, riderId: null,
       source: vehicle!.state === 'RECOVERY' ? 'RECOVERY' : 'DEBOARD',
-      // The API still asks how bad the damage is; a card opened straight into
-      // QC has nothing to repair, anything else starts as small damage.
-      damageCategory: stage === 'QC_PENDING' ? 'NONE' : 'MINOR',
-      queue: STAGE_QUEUE[stage], damageNotes: remarks.trim(),
+      // The API still asks how bad the damage is; every hub card starts as small damage.
+      damageCategory: 'MINOR',
+      queue: waiting ? 'PARTS_WAITING' : 'MINOR_REPAIR', damageNotes: remarks.trim(),
       reference: needsReference ? reference.trim() : null,
-      repairType, createdBy: executive.trim(), technician: technician.trim() || null, actor: user.name,
+      repairType: repairTypeOf(lines), items: toItems(lines), createdBy: executive.trim(), technician: technician.trim() || null, actor: user.name,
     }),
     onSuccess: (job) => {
       invalidateServiceJobs(queryClient);
@@ -70,16 +64,13 @@ export function HubJobCardDialog({ open, onClose, onCreated }: {
       open={open}
       title="Open Hub Service Job Card"
       subtitle="Hub Service is only for inactive vehicles returned by riders or recovered from riders. No rider payment fields are used."
-      helper={repairType === 'REPAIR_ONLY'
-        ? 'Repair-only job card: no spare part is required.'
-        : 'Spare parts must be added before the job card is closed.'}
+      helper="List the damaged parts now if you know them. You can add, change or remove them later from the job card."
       error={create.isError ? create.error.message : vehicles.isError ? vehicles.error.message : undefined}
       pending={create.isPending}
-      ready={Boolean(vehicle) && Boolean(executive.trim()) && Boolean(remarks.trim()) && (!needsReference || Boolean(reference.trim()))}
+      ready={Boolean(vehicle) && Boolean(executive.trim()) && Boolean(remarks.trim()) && (!needsReference || Boolean(reference.trim())) && linesValid(lines)}
       onSubmit={() => create.mutate()}
       onClose={onClose}
     >
-      <ReadOnlyField label="Service Category" value={SERVICE_CATEGORY_LABEL.HUB} />
       <TextField select required label="Eligible Inactive Vehicle (Returned / Recovery)" value={vehicleId}
         onChange={(e) => setVehicleId(e.target.value)}
         helperText="Only inactive vehicles returned by riders or recovered from riders should appear here."
@@ -89,12 +80,11 @@ export function HubJobCardDialog({ open, onClose, onCreated }: {
           <MenuItem key={v.id} value={v.id}>{v.id} — {v.state === 'RECOVERY' ? 'Recovered' : 'Returned'}</MenuItem>
         ))}
       </TextField>
-      <TextField select label="Repair Type" value={repairType} onChange={(e) => setRepairType(e.target.value as RepairType)}>
-        {REPAIR_TYPES.map((t) => <MenuItem key={t} value={t}>{REPAIR_TYPE_LABEL[t]}</MenuItem>)}
-      </TextField>
-      <TextField select label="Hub Service Stage" value={stage} onChange={(e) => setStage(e.target.value as OpeningStage)}>
-        {OPENING_STAGES.map((s) => <MenuItem key={s} value={s}>{JOB_STAGE_LABEL[s]}</MenuItem>)}
-      </TextField>
+      <ToggleButtonGroup exclusive color="primary" value={waiting ? 'PARTS_WAITING' : 'UNDER_REPAIR'} aria-label="Status" sx={{ alignSelf: 'start' }}
+        onChange={(_, next) => { if (next) setWaiting(next === 'PARTS_WAITING'); }}>
+        <ToggleButton value="UNDER_REPAIR">Under Repair</ToggleButton>
+        <ToggleButton value="PARTS_WAITING">Parts Waiting</ToggleButton>
+      </ToggleButtonGroup>
       {needsReference && (
         <TextField required sx={fullWidth} label="Which parts, and when are they expected?"
           value={reference} onChange={(e) => setReference(e.target.value)} />
@@ -105,6 +95,7 @@ export function HubJobCardDialog({ open, onClose, onCreated }: {
       <TextField required multiline minRows={3} sx={fullWidth} label="Initial / Current Remarks"
         placeholder="Vehicle issue, inspection findings or repair notes"
         value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+      <CostLines lines={lines} onChange={setLines} sx={fullWidth} />
     </JobCardDialog>
   );
 }

@@ -24,7 +24,7 @@ function makeJob(req: CreateServiceJobRequest): ServiceJob {
     createdBy: req.createdBy?.trim() || null, partsPaidPaise: 0,
     queue, damageNotes: req.damageNotes ?? null, location: req.location ?? null,
     reference: req.reference?.trim() || null, workSummary: '', activity: [], inspections: [],
-    items: [], totalCostPaise: 0, liability: null, technician: req.technician?.trim() || null,
+    items: (req.items ?? []).map((item) => ({ ...item, label: item.label.trim() })), totalCostPaise: (req.items ?? []).reduce((sum, item) => sum + item.costPaise, 0), liability: null, technician: req.technician?.trim() || null,
     status: queue === 'READY_TO_DEPLOY' ? 'CLOSED' : 'OPEN',
     createdOn: date, updatedOn: date, closedOn: queue === 'READY_TO_DEPLOY' ? date : null,
   };
@@ -314,6 +314,7 @@ export function createServiceJob(req: CreateServiceJobRequest): ServiceJob {
   if (req.queue === 'READY_TO_DEPLOY') throw new ApiError('Take the bike in first. You can send it back out once the work is done.', 400, 'queue');
   if (req.queue && ['WARRANTY', 'INSURANCE', 'PARTS_WAITING'].includes(req.queue) && !req.reference?.trim()) throw new ApiError('Add the claim number, or say which parts you are waiting for', 400, 'reference');
   if (activeJobForVehicle(vehicle.id)) throw new ApiError('This bike already has an open job. Open that one instead.', 409, 'vehicleId');
+  validateServiceItems(req.items ?? []);
   const job = makeJob(req);
   serviceJobs.push(job);
   const target = QUEUE_STATE[job.queue];

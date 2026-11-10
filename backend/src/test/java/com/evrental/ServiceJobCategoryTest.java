@@ -107,6 +107,22 @@ class ServiceJobCategoryTest extends ServiceJobTestBase {
     }
 
     @Test
+    void thePartsListedWhenTheCardOpensAreSavedWithIt() throws Exception {
+        holdBike(vehicleId);
+
+        open("""
+             {"vehicleId":"BLRSS0428","riderId":"%s","source":"WALK_IN","damageCategory":"MINOR",
+              "repairType":"REPAIR_AND_SPARE_PARTS","createdBy":"Dhananjay","damageNotes":"Brakes squealing",
+              "items":[{"label":"Brake pads","costPaise":45000,"kind":"PART"},
+                       {"label":"Fitting","costPaise":20000,"kind":"LABOUR"}]}
+             """.formatted(RIDER_CODE))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].label").value("Brake pads"))
+                .andExpect(jsonPath("$.totalCostPaise").value(65000));
+    }
+
+    @Test
     void anRsaCalloutIsTheSameBoardAsAWalkIn() throws Exception {
         holdBike(vehicleId);
 

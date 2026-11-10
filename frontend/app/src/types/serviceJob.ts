@@ -125,6 +125,8 @@ export interface CreateServiceJobRequest {
   repairType?: RepairType;
   createdBy?: string | null;
   technician?: string | null;
+  /** Damaged parts and repair lines known when the card is opened. */
+  items?: ServiceJobItem[];
 }
 
 /** What the assistance desk sends when it closes a job. */
