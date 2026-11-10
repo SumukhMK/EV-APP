@@ -196,13 +196,22 @@ export const theme = createTheme({
           '& fieldset': { borderColor: base.divider },
           '&:hover fieldset': { borderColor: mix(base.text, 45, base.surface) },
           '&.Mui-focused fieldset': { borderColor: base.accent, borderWidth: 1 },
+          // The notch must be as wide as the shrunk label below, or the border cuts through it.
+          '& legend': { fontSize: '0.85em' },
         },
         input: { padding: '7px 10px' },
       },
     },
 
     MuiInputLabel: {
-      styleOverrides: { root: { fontSize: 12, color: neutral[400] } },
+      // MUI shrinks a floated label to 75%; at 12px that was 9px and unreadable on small screens.
+      styleOverrides: {
+        root: {
+          fontSize: 14,
+          color: neutral[400],
+          '&.MuiInputLabel-outlined.MuiInputLabel-shrink': { transform: 'translate(14px, -9px) scale(0.85)' },
+        },
+      },
     },
 
     MuiTextField: {
@@ -210,7 +219,7 @@ export const theme = createTheme({
     },
 
     MuiFormHelperText: {
-      styleOverrides: { root: { fontSize: 11, marginLeft: 0 } },
+      styleOverrides: { root: { fontSize: 12, marginLeft: 0 } },
     },
 
     MuiDivider: { styleOverrides: { root: { borderColor: neutral[900] } } },
@@ -232,6 +241,11 @@ export const theme = createTheme({
 
     MuiDialog: {
       styleOverrides: { paper: { borderRadius: radius.lg, borderColor: neutral[800] } },
+    },
+
+    // MUI zeroes the top padding under a title, which clips the floated label of the first field.
+    MuiDialogContent: {
+      styleOverrides: { root: { '.MuiDialogTitle-root + &': { paddingTop: 12 } } },
     },
 
     MuiLink: { defaultProps: { underline: 'hover' }, styleOverrides: { root: { color: accent[300] } } },
