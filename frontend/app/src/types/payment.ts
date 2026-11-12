@@ -1,5 +1,4 @@
 import type { Iso8601, Paise } from './common';
-import type { BillingDay } from './rider';
 import type { ServiceLiability } from './serviceJob';
 
 export type PaymentStatus = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
@@ -16,6 +15,7 @@ export interface PaymentPeriodRow {
   riderId: string;
   riderName: string;
   vehicleId: string;
+  billingDay: import('./rider').BillingDay;
   planAmount: Paise;
   /** Days actually billed in the period — a mid-week deboard bills fewer. */
   daysBilled: number;
@@ -31,7 +31,6 @@ export interface PaymentPeriodRow {
 export interface PaymentRun {
   periodStart: Iso8601;
   periodEnd: Iso8601;
-  billingDay: BillingDay;
   rows: PaymentPeriodRow[];
 }
 
@@ -122,7 +121,7 @@ export interface PaymentReceipt {
   vehicleId: string;
   periodStart: Iso8601;
   periodEnd: Iso8601;
-  billingDay: BillingDay;
+  billingDay: import('./rider').BillingDay;
   planAmount: Paise;
   daysBilled: number;
   perDayAmount: Paise;

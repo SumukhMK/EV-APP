@@ -1,6 +1,5 @@
 package com.evrental.payment;
 
-import com.evrental.rider.BillingDay;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -15,6 +14,5 @@ import java.util.List;
 public record PaymentRunResponse(
         LocalDate periodStart,
         LocalDate periodEnd,
-        BillingDay billingDay,
         List<PaymentPeriodRowResponse> rows) {
 }

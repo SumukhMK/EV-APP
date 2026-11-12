@@ -52,3 +52,21 @@ describe('working platform', () => {
     expect(values!.workingPlatform).toBe('Zomato');
   });
 });
+
+describe('billing day', () => {
+  it('offers every weekday as the rider-selected billing day', async () => {
+    let values: OnboardRiderValues | null = null;
+    render(<Harness onValues={(v) => { values = v; }} />);
+    const user = userEvent.setup();
+    const billingDay = screen.getByRole('combobox', { name: 'Billing day' });
+    await user.click(billingDay);
+
+    for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
+      expect(await screen.findByRole('option', { name: day })).toBeInTheDocument();
+    }
+    await user.click(screen.getByRole('option', { name: 'Thursday' }));
+    await user.click(screen.getByRole('button', { name: 'read' }));
+
+    expect(values!.billingDay).toBe('THURSDAY');
+  });
+});

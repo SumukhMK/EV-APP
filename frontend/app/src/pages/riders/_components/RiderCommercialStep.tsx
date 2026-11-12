@@ -123,10 +123,15 @@ export function RiderCommercialStep({ step }: { step: number }) {
           <SelectField
             control={control}
             name="billingDay"
-            label="Rent cycle"
+            label="Billing day"
             options={[
-              { value: 'MONDAY', label: 'Monday cycle' },
-              { value: 'WEDNESDAY', label: 'Wednesday cycle' },
+              { value: 'MONDAY', label: 'Monday' },
+              { value: 'TUESDAY', label: 'Tuesday' },
+              { value: 'WEDNESDAY', label: 'Wednesday' },
+              { value: 'THURSDAY', label: 'Thursday' },
+              { value: 'FRIDAY', label: 'Friday' },
+              { value: 'SATURDAY', label: 'Saturday' },
+              { value: 'SUNDAY', label: 'Sunday' },
             ]}
           />
 

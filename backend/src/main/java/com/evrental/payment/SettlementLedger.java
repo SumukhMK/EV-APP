@@ -83,7 +83,7 @@ public class SettlementLedger {
     private LocalDate periodStartFor(UUID riderId) {
         LocalDate today = clock.today();
         return riders.findById(riderId)
-                .map(r -> BillingPeriod.startOnOrBefore(r.getBillingDay(), today))
+                .map(r -> BillingPeriod.current(r.getBillingDay(), r.getOnboardedOn(), today).start())
                 .orElse(today);
     }
 }

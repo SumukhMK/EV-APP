@@ -28,7 +28,7 @@ class PaymentGraceTest extends PaymentRunTestBase {
         LocalDate start = currentPeriodStart(BillingDay.MONDAY);
         insertPeriod(TENANT, MONDAY_RIDER, start, BillingDay.MONDAY, 175000L, 0L, "PENDING");
 
-        mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
+        mvc.perform(get("/api/v1/payments/runs/current")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysOverdue").value(0))
@@ -102,3 +102,4 @@ class PaymentGraceTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$[?(@.riderName == 'Anil Shetty')].stage").value("WARNING_1"));
     }
 }
+

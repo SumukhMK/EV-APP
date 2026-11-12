@@ -37,14 +37,17 @@ export const onboardRiderSchema = z.object({
   phone: z
     .string()
     .trim()
+    .min(10, 'Phone number must be at least 10 digits')
     .regex(/^[6-9]\d{9}$/, 'Enter a 10 digit Indian mobile number'),
   whatsappNumber: z
     .string()
     .trim()
+    .min(10, 'WhatsApp number must be at least 10 digits')
     .regex(/^[6-9]\d{9}$/, 'Enter a 10 digit Indian mobile number'),
   alternateNumber1: z
     .string()
     .trim()
+    .min(10, 'Alternate number must be at least 10 digits')
     .regex(/^[6-9]\d{9}$/, 'Enter a 10 digit Indian mobile number'),
 
   // Address — step 3.

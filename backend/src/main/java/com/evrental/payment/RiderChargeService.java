@@ -2,9 +2,11 @@ package com.evrental.payment;
 
 import com.evrental.rider.Rider;
 import com.evrental.rider.RiderRepository;
+import com.evrental.assignment.AssignmentQuery;
 import com.evrental.service.ServiceJobClosedEvent;
 import com.evrental.service.ServiceLiability;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -30,15 +32,18 @@ public class RiderChargeService {
 
     private final RiderChargeRepository charges;
     private final RiderRepository riders;
+    private final AssignmentQuery assignments;
     private final BillingClock clock;
     private final JdbcTemplate jdbc;
     private final PaymentPeriodRepository periods;
 
     public RiderChargeService(RiderChargeRepository charges, RiderRepository riders,
-                              BillingClock clock, JdbcTemplate jdbc, PaymentPeriodRepository periods) {
+                              AssignmentQuery assignments, BillingClock clock, JdbcTemplate jdbc,
+                              PaymentPeriodRepository periods) {
         this.periods = periods;
         this.charges = charges;
         this.riders = riders;
+        this.assignments = assignments;
         this.clock = clock;
         this.jdbc = jdbc;
     }
@@ -148,7 +153,8 @@ public class RiderChargeService {
             log.warn("Rider {} is not on the register; no charge raised", riderId);
             return null;
         }
-        return BillingPeriod.startOnOrBefore(rider.getBillingDay(), clock.today());
+        LocalDate startedOn = assignments.currentAssignmentStartedOn(riderId).orElse(rider.getOnboardedOn());
+        return BillingPeriod.current(rider.getBillingDay(), startedOn, clock.today()).start();
     }
 
     /**

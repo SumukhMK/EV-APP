@@ -1,5 +1,4 @@
 import type {
-  BillingDay,
   DunningStage,
   OverdueRider,
   Paise,
@@ -16,6 +15,11 @@ import { arrearsBeforePeriod, chargesForPeriod } from './riderCharges';
 
 const rupees = (n: number) => n * 100;
 const DAY_MS = 86_400_000;
+
+export function accruedRentPaise(weeklyPlanPaise: number, usageStartIso: string, throughIso: string): number {
+  const days = Math.max(0, Math.floor((Date.parse(throughIso) - Date.parse(usageStartIso)) / DAY_MS) + 1);
+  return Math.round(weeklyPlanPaise / 7) * days;
+}
 
 /** Artboard 15, the Monday 24 Aug run, verbatim. */
 const DESIGNED_ROWS: PaymentPeriodRow[] = [
@@ -47,6 +51,7 @@ function row(
     riderId,
     riderName,
     vehicleId,
+    billingDay: 'MONDAY',
     // The current week is the one the run shows, and it has not closed, so
     // nothing on it is overdue. The API says the same for a running period.
     daysOverdue: 0,
@@ -77,22 +82,19 @@ function row(
  * same way, so the Wednesday run is as real as the Monday one and the screen
  * can be switched between them.
  */
-function buildRun(billingDay: BillingDay): PaymentRun {
+function buildRun(): PaymentRun {
   const designed = new Map(DESIGNED_ROWS.map((r) => [r.riderId, r]));
 
-  // The Wednesday cycle bills the same week, three days later.
-  const monday = billingDay === 'MONDAY';
-  const periodStart = monday ? '2026-08-24' : '2026-08-26';
-  const periodEnd = monday ? '2026-08-30' : '2026-09-01';
-  const periodStartMs = Date.parse(periodStart);
+  const periodEnd = new Date().toISOString().slice(0, 10);
   const periodEndMs = Date.parse(periodEnd);
+  const periodStart = new Date(periodEndMs - 6 * DAY_MS).toISOString().slice(0, 10);
 
   const rows = riders
     // A rider with no bike has no open plan, so there is nothing to bill.
-    .filter((r) => r.currentVehicleId && r.billingDay === billingDay)
+    .filter((r) => r.currentVehicleId)
     .map<PaymentPeriodRow>((r) => {
       const asDrawn = designed.get(r.id);
-      if (asDrawn) return asDrawn;
+      if (asDrawn && r.billingDay === 'MONDAY') return { ...asDrawn, billingDay: r.billingDay };
 
       const paid = r.paymentStatus === 'PAID';
       const partial = r.paymentStatus === 'PARTIAL';
@@ -104,16 +106,20 @@ function buildRun(billingDay: BillingDay): PaymentRun {
       // which overcharges a rider who joined mid-week. `onboardedOn` is the
       // closest thing the fixture has to an assignment start date; a real
       // assignment record would carry its own, but the shape is the same.
-      const onboardedMs = Date.parse(r.onboardedOn);
-      const effectiveStartMs = Math.max(periodStartMs, onboardedMs);
-      const daysBilled =
-        effectiveStartMs > periodEndMs ? 0 : Math.min(7, Math.round((periodEndMs - effectiveStartMs) / DAY_MS) + 1);
-      const billedAmount = perDayAmount * daysBilled;
+      const assignmentStart = r.onboardedOn;
+      const effectiveStartMs = Date.parse(assignmentStart);
+      const daysBilled = effectiveStartMs > periodEndMs
+        ? 0
+        : Math.round((periodEndMs - effectiveStartMs) / DAY_MS) + 1;
+      const billedAmount = accruedRentPaise(r.planAmount, r.onboardedOn, periodEnd);
+      const amountPaid = paid ? billedAmount : partial ? Math.round(billedAmount * 0.6) : 0;
+      const status = amountPaid >= billedAmount ? 'PAID' : amountPaid > 0 ? 'PARTIAL' : r.paymentStatus;
 
       return {
         riderId: r.id,
         riderName: r.name,
         vehicleId: r.currentVehicleId ?? '—',
+        billingDay: r.billingDay,
         // The run shows the current week, which has not closed.
         daysOverdue: 0,
         pastGrace: false,
@@ -124,12 +130,12 @@ function buildRun(billingDay: BillingDay): PaymentRun {
         serviceCharges: 0,
         arrears: 0,
         totalDue: billedAmount,
-        amountPaid: paid ? billedAmount : partial ? Math.round(billedAmount * 0.6) : 0,
-        status: r.paymentStatus,
+        amountPaid,
+        status,
       };
     });
 
-  return { periodStart, periodEnd, billingDay, rows };
+  return { periodStart, periodEnd, rows };
 }
 
 /**
@@ -165,14 +171,9 @@ export function withLiveServiceFigures(run: PaymentRun): PaymentRun {
   };
 }
 
-export const mondayRun: PaymentRun = buildRun('MONDAY');
-export const wednesdayRun: PaymentRun = buildRun('WEDNESDAY');
-
-/** Both cycles, so a screen can ask for either by billing day. */
-export const runsByDay: Record<BillingDay, PaymentRun> = {
-  MONDAY: mondayRun,
-  WEDNESDAY: wednesdayRun,
-};
+export function currentPaymentRun(): PaymentRun {
+  return withLiveServiceFigures(buildRun());
+}
 
 /**
  * A receipt for one rider's line in the current run (screen 16).
@@ -187,11 +188,8 @@ export const runsByDay: Record<BillingDay, PaymentRun> = {
  * into a "no line in this period" state rather than inventing one.
  */
 export function paymentReceiptFor(riderId: string): PaymentReceipt | null {
-  // A rider sits in exactly one cycle, so find the run that actually bills
-  // them rather than assuming Monday — otherwise every Wednesday rider's
-  // receipt reads "no line in this period".
-  const run = Object.values(runsByDay).find((r) => r.rows.some((x) => x.riderId === riderId));
-  const row = run && withLiveServiceFigures(run).rows.find((r) => r.riderId === riderId);
+  const run = currentPaymentRun();
+  const row = run.rows.find((r) => r.riderId === riderId);
   if (!run || !row) return null;
 
   const rng = mulberry32(hash(`receipt-${riderId}`));
@@ -214,7 +212,7 @@ export function paymentReceiptFor(riderId: string): PaymentReceipt | null {
     vehicleId: row.vehicleId,
     periodStart: run.periodStart,
     periodEnd: run.periodEnd,
-    billingDay: run.billingDay,
+    billingDay: row.billingDay,
     planAmount: row.planAmount,
     daysBilled: row.daysBilled,
     perDayAmount: row.perDayAmount,
@@ -301,7 +299,7 @@ export function recordPaymentInRun(
   amount: Paise,
   method: PaymentMethod,
 ): PaymentPeriodRow {
-  const run = Object.values(runsByDay).find((r) => r.rows.some((x) => x.riderId === riderId));
+  const run = currentPaymentRun();
   const row = run?.rows.find((r) => r.riderId === riderId);
   if (!run || !row) throw new Error(`No run line for ${riderId}`);
 
@@ -339,8 +337,7 @@ export function recordPaymentInRun(
  */
 const PERIODS = 8;
 
-/** The Monday run's period start, so a rider's weeks line up with the run. */
-const CURRENT_PERIOD_START = Date.parse('2026-08-24T00:00:00+05:30');
+const CURRENT_PERIOD_END = Date.parse('2026-08-30T00:00:00Z');
 
 export function riderPaymentHistory(rider: Rider): RiderPaymentRow[] {
   // No bike, no open plan, so nothing is being billed. For a deboarded rider
@@ -349,16 +346,23 @@ export function riderPaymentHistory(rider: Rider): RiderPaymentRow[] {
   // inventing the history rather than showing it.
   if (!rider.currentVehicleId) return [];
 
-  // Wednesday riders are billed three days later in the same week.
-  const offset = rider.billingDay === 'WEDNESDAY' ? 2 * DAY_MS : 0;
   const onboarded = Date.parse(rider.onboardedOn);
+  const dueDay = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].indexOf(rider.billingDay);
+  const dueDate = new Date(CURRENT_PERIOD_END);
+  const back = (dueDate.getUTCDay() - dueDay + 7) % 7;
+  dueDate.setUTCDate(dueDate.getUTCDate() - back);
+  const end = dueDate.getTime();
   const rng = mulberry32(hash(rider.id));
   const out: RiderPaymentRow[] = [];
 
   for (let i = 0; i < PERIODS; i++) {
-    const start = CURRENT_PERIOD_START + offset - i * 7 * DAY_MS;
+    const currentEnd = end - i * 7 * DAY_MS;
+    const currentStart = i === 0 && onboarded > currentEnd - 7 * DAY_MS
+      ? onboarded
+      : currentEnd - 6 * DAY_MS;
     // Nothing is billed before the rider joined.
-    if (start < onboarded) break;
+    if (currentStart > currentEnd || currentEnd < onboarded) break;
+    const days = Math.floor((currentEnd - currentStart) / DAY_MS) + 1;
 
     const status = i === 0 ? rider.paymentStatus : 'PAID';
     const amountPaid =
@@ -369,10 +373,10 @@ export function riderPaymentHistory(rider: Rider): RiderPaymentRow[] {
           : 0;
 
     out.push({
-      id: `${rider.id}-${iso(start)}`,
-      periodStart: iso(start),
-      periodEnd: iso(start + 6 * DAY_MS),
-      totalDue: rider.planAmount,
+      id: `${rider.id}-${iso(currentStart)}`,
+      periodStart: iso(currentStart),
+      periodEnd: iso(currentEnd),
+      totalDue: Math.round(rider.planAmount / 7) * days,
       amountPaid,
       status,
       method: amountPaid === 0 ? null : pick(rng, PAYMENT_METHODS),

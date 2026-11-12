@@ -1,5 +1,4 @@
 import type {
-  BillingDay,
   OverdueRider,
   PaymentPeriodRow,
   PaymentReceipt,
@@ -18,8 +17,8 @@ import { request } from './client';
  * type — no mapping layer.
  */
 
-export function getCurrentPaymentRun(billingDay: BillingDay = 'MONDAY'): Promise<PaymentRun> {
-  return request<PaymentRun>('/payments/runs/current', { query: { billingDay } });
+export function getCurrentPaymentRun(): Promise<PaymentRun> {
+  return request<PaymentRun>('/payments/runs/current');
 }
 
 export function listOverdueRiders(): Promise<OverdueRider[]> {
