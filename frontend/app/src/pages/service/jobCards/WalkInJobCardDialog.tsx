@@ -75,7 +75,8 @@ export function WalkInJobCardDialog({ open, onClose, onCreated }: {
       title="Open Walk-in / RSA Job Card"
       subtitle="Select an existing active rider. Only unpaid spare-parts balance is added to Weekly Payments."
       helper="List the damaged parts now if you know them. You can add, change or remove them later from the job card."
-      error={create.isError ? create.error.message : riders.isError ? riders.error.message : undefined}
+      error={error}
+      errorAction={errorAction}
       pending={create.isPending}
       ready={Boolean(rider) && Boolean(executive.trim()) && Boolean(remarks.trim()) && linesValid(lines)}
       onSubmit={() => create.mutate()}

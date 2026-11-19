@@ -24,6 +24,9 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
     @Query("select a from Assignment a where a.riderId = :riderId and a.endedOn is null")
     Optional<Assignment> findOpenByRiderId(@Param("riderId") UUID riderId);
 
+    @Query("select a from Assignment a where a.riderId = :riderId and a.endedOn is null")
+    Optional<Assignment> findCurrentByRiderId(@Param("riderId") UUID riderId);
+
     /** The bike's current rider, if any. Same reasoning, same index. */
     @Query("select a from Assignment a where a.vehicleId = :vehicleId and a.endedOn is null")
     Optional<Assignment> findOpenByVehicleId(@Param("vehicleId") UUID vehicleId);

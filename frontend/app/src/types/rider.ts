@@ -12,7 +12,9 @@ export const RIDER_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
 export type RiderStatus = (typeof RIDER_STATUSES)[number];
 export type KycStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 /** Ashok runs two billing cycles today. Both must survive to the backend. */
-export type BillingDay = 'MONDAY' | 'WEDNESDAY';
+export type BillingDay =
+  | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY'
+  | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
 
 /**
  * The day this rider says they pay.
@@ -22,6 +24,7 @@ export type BillingDay = 'MONDAY' | 'WEDNESDAY';
  * rider form offers all seven days. Those two cannot both be true, so this is
  * captured and displayed and feeds no calculation until Ashok says which wins.
  */
+/** Legacy onboarding preference retained for existing rider records. */
 export type PaymentDay =
   | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY'
   | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';

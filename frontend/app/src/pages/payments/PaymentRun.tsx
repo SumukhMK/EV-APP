@@ -7,8 +7,6 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLongOutlined';
 import GroupsIcon from '@mui/icons-material/GroupsOutlined';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuoteOutlined';
@@ -31,7 +29,7 @@ import { formatDate, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
 import { useSession } from '../../app/sessionContext';
 import { canCollectPayments } from '../../lib/roles';
-import type { BillingDay, PaymentPeriodRow } from '../../types';
+import type { PaymentPeriodRow } from '../../types';
 
 // A due amount above this is flagged for a second look before it's collected
 // — the same ₹5,000 line the assistance desk uses for a service job.
@@ -46,8 +44,8 @@ const PAGE_SIZE = 12;
  * argued about on, so it shows the whole calculation — days billed, service,
  * arrears — not just the total. Each row opens that rider's receipt.
  *
- * Only the Monday cycle is built; the Wednesday run is the same screen against
- * the other billing day, and waits on its own fixture rather than being faked.
+ * Each rider follows their own onboarding-selected billing day. The run
+ * collects the current period for every rider; there is no shared weekday tab.
  */
 export function PaymentRun() {
   const navigate = useNavigate();
@@ -62,15 +60,12 @@ export function PaymentRun() {
 
   const [collect, setCollect] = useState<CollectTarget | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  // Both cycles are billed; the screen shows one at a time so the totals on it
-  // always describe a single period rather than a blend of two.
-  const [cycle, setCycle] = useState<BillingDay>('MONDAY');
   // The table paginates; the totals above always describe the whole run.
   const [page, setPage] = useState(0);
 
   const run = useQuery({
-    queryKey: ['payments', 'run', cycle],
-    queryFn: () => getCurrentPaymentRun(cycle),
+    queryKey: ['payments', 'run'],
+    queryFn: () => getCurrentPaymentRun(),
     placeholderData: keepPreviousData,
   });
 
@@ -103,7 +98,7 @@ export function PaymentRun() {
         meta={
           run.data ? (
             <Mono sx={{ fontSize: 12, color: neutral[500] }}>
-              {run.data.billingDay === 'MONDAY' ? 'Monday cycle' : 'Wednesday cycle'} · {period}
+              {period}
             </Mono>
           ) : undefined
         }
@@ -128,32 +123,15 @@ export function PaymentRun() {
 
       <Panel
         label="This period"
-        subtitle={run.data ? `${rows.length} riders in the ${run.data.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday'} cycle · ${period}` : undefined}
+        subtitle={run.data ? `${rows.length} riders · individual billing days · ${period}` : undefined}
         sx={{ mt: 5, p: { xs: '16px 12px 12px', sm: '18px 20px 14px' } }}
-        action={
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={cycle}
-            onChange={(_, next: BillingDay | null) => {
-              if (next) {
-                setCycle(next);
-                // A new cycle is a new result set — start at its first page.
-                setPage(0);
-              }
-            }}
-          >
-            <ToggleButton value="MONDAY">Monday cycle</ToggleButton>
-            <ToggleButton value="WEDNESDAY">Wednesday cycle</ToggleButton>
-          </ToggleButtonGroup>
-        }
       >
         {run.isLoading ? (
           <EmptyState title="Loading the run…" />
         ) : rows.length === 0 ? (
           <EmptyState
             title="Nothing to bill this week"
-            description="A rider shows up here once they have a bike on this billing day."
+            description="Riders appear here when their individual billing period is due."
           />
         ) : stacked ? (
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -172,7 +150,7 @@ export function PaymentRun() {
                   <Box>
                     <Typography sx={{ fontSize: 14 }}>{r.riderName}</Typography>
                     <Mono sx={{ fontSize: 12, color: neutral[500] }}>
-                      {r.riderId} · {r.vehicleId}
+                      {r.riderId} · {r.vehicleId} · {r.billingDay.charAt(0) + r.billingDay.slice(1).toLowerCase()} due
                     </Mono>
                   </Box>
                   <StateChip label={PAYMENT_STATUS_LABEL[r.status]} tone={PAYMENT_STATUS_TONE[r.status]} />
@@ -260,7 +238,7 @@ export function PaymentRun() {
                 : [
                     {
                       key: 'days',
-                      header: 'Days',
+                header: 'Days',
                       align: 'right' as const,
                       width: 56,
                       render: (r: PaymentPeriodRow) => <Mono sx={{ color: neutral[400] }}>{r.daysBilled}</Mono>,

@@ -91,7 +91,7 @@ export function OnboardRider() {
         // Rupees at the desk, paise on the wire. Converted once, here.
         planAmount: values.planRupees * 100,
         billingDay: values.billingDay,
-        // Not asked any more — it drove no calculation. Sent as the cycle day so the API contract holds.
+        // Retained as a legacy preference; the billing engine uses billingDay.
         paymentDay: values.billingDay,
         paymentMode: values.paymentMode,
         depositPlan: values.depositRupees * 100,

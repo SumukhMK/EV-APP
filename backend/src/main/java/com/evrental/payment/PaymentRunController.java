@@ -1,7 +1,6 @@
 package com.evrental.payment;
 
 import com.evrental.auth.JwtPrincipal;
-import com.evrental.rider.BillingDay;
 import com.evrental.rider.RiderService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -13,7 +12,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.node.NullNode;
 
@@ -44,17 +42,11 @@ public class PaymentRunController {
         this.riderService = riderService;
     }
 
-    /**
-     * This week's run for one cycle. Generates the rows if nobody has yet —
-     * see PaymentRunService for why generation is a side effect of a read.
-     *
-     * <p>Defaults to MONDAY, matching the contract's default argument.
-     */
+    /** Current run: one current rider-specific period per active rider. */
     @GetMapping("/runs/current")
-    public PaymentRunResponse currentRun(Authentication authentication,
-                                         @RequestParam(defaultValue = "MONDAY") BillingDay billingDay) {
+    public PaymentRunResponse currentRun(Authentication authentication) {
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
-        return runs.currentRun(principal.tenantId(), billingDay);
+        return runs.currentRun(principal.tenantId());
     }
 
     @GetMapping("/overdue")

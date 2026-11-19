@@ -19,14 +19,21 @@ import org.springframework.data.repository.query.Param;
  */
 public interface PaymentPeriodRepository extends JpaRepository<PaymentPeriod, UUID> {
 
-    /** One run: the riders in a cycle, for one week. */
-    List<PaymentPeriod> findByPeriodStartAndBillingDayOrderByRiderIdAsc(
-            LocalDate periodStart, com.evrental.rider.BillingDay billingDay);
-
     Optional<PaymentPeriod> findByRiderIdAndPeriodStart(UUID riderId, LocalDate periodStart);
+
+    @Query("select p from PaymentPeriod p where p.riderId in :riderIds and p.periodStart in :periodStarts")
+    List<PaymentPeriod> findByRiderIdInAndPeriodStartInOrderByRiderIdAsc(
+            @Param("riderIds") Collection<UUID> riderIds,
+            @Param("periodStarts") Collection<LocalDate> periodStarts);
 
     /** The rider profile's payment history panel, newest week first. */
     List<PaymentPeriod> findByRiderIdOrderByPeriodStartDesc(UUID riderId);
+
+    @Query("select coalesce(sum(p.daysBilled), 0) from PaymentPeriod p where p.riderId = :riderId")
+    int sumDaysBilledForRider(@Param("riderId") UUID riderId);
+
+    @Query("select p from PaymentPeriod p where p.riderId = :riderId and p.periodEnd < :today and p.amountPaidPaise < p.totalDuePaise order by p.periodStart asc")
+    List<PaymentPeriod> findUnpaidBeforeCurrent(@Param("riderId") UUID riderId, @Param("today") LocalDate today);
 
     /**
      * The same read for a page of riders, in one query.

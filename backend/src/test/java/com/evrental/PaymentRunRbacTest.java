@@ -22,7 +22,7 @@ import org.springframework.http.MediaType;
 class PaymentRunRbacTest extends PaymentRunTestBase {
 
     private static final String[] MONEY_READS = {
-            "/api/v1/payments/runs/current?billingDay=MONDAY",
+            "/api/v1/payments/runs/current",
             "/api/v1/payments/overdue",
     };
 
@@ -91,3 +91,4 @@ class PaymentRunRbacTest extends PaymentRunTestBase {
         mvc.perform(get("/api/v1/payments/overdue")).andExpect(status().isUnauthorized());
     }
 }
+

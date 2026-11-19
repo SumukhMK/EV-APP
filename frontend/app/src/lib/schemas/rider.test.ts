@@ -97,3 +97,24 @@ describe('onboardRiderSchema local address', () => {
     }
   });
 });
+
+describe('onboardRiderSchema contact numbers', () => {
+  it.each([
+    ['phone', 'Phone number must be at least 10 digits'],
+    ['whatsappNumber', 'WhatsApp number must be at least 10 digits'],
+    ['alternateNumber1', 'Alternate number must be at least 10 digits'],
+  ] as const)('%s requires at least 10 digits', (field, message) => {
+    const result = onboardRiderSchema.safeParse({ ...valid, [field]: '78945612' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.message)).toContain(message);
+    }
+  });
+
+  it.each(['phone', 'whatsappNumber', 'alternateNumber1'] as const)(
+    'accepts a valid 10-digit %s',
+    (field) => {
+      expect(onboardRiderSchema.safeParse({ ...valid, [field]: '7894561234' }).success).toBe(true);
+    },
+  );
+});

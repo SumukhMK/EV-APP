@@ -82,7 +82,8 @@ export function HubJobCardDialog({ open, onClose, onCreated }: {
       title="Open Hub Service Job Card"
       subtitle="Hub Service is only for inactive vehicles returned by riders or recovered from riders. No rider payment fields are used."
       helper="List the damaged parts now if you know them. You can add, change or remove them later from the job card."
-      error={create.isError ? create.error.message : vehicles.isError ? vehicles.error.message : undefined}
+      error={error}
+      errorAction={errorAction}
       pending={create.isPending}
       ready={Boolean(vehicle) && Boolean(executive.trim()) && Boolean(remarks.trim()) && (!needsReference || Boolean(reference.trim())) && linesValid(lines)}
       onSubmit={() => create.mutate()}

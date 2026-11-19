@@ -1,5 +1,7 @@
 package com.evrental.payment;
 
+import com.evrental.rider.BillingDay;
+
 /**
  * One rider's line in a weekly payment run (screen 15), mirroring
  * PaymentPeriodRow in frontend/app/src/types/payment.ts field for field.
@@ -19,6 +21,7 @@ public record PaymentPeriodRowResponse(
         String riderId,
         String riderName,
         String vehicleId,
+        BillingDay billingDay,
         long planAmount,
         int daysBilled,
         long perDayAmount,
@@ -27,6 +30,7 @@ public record PaymentPeriodRowResponse(
         long arrears,
         long totalDue,
         long amountPaid,
+        long balance,
         PaymentStatus status,
         /**
          * Days since the week closed, zero while it is still running.
@@ -53,6 +57,7 @@ public record PaymentPeriodRowResponse(
                 riderCode,
                 riderName,
                 registryId,
+                period.getBillingDay(),
                 period.getPlanAmountPaise(),
                 period.getDaysBilled(),
                 period.getPerDayAmountPaise(),
@@ -61,6 +66,7 @@ public record PaymentPeriodRowResponse(
                 period.getArrearsPaise(),
                 period.getTotalDuePaise(),
                 period.getAmountPaidPaise(),
+                period.balancePaise(),
                 period.getStatus(),
                 daysOverdue,
                 short_ && daysOverdue > graceDays);

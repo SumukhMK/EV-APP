@@ -25,8 +25,8 @@ import tools.jackson.databind.ObjectMapper;
  * The fixture the payment-run tests need: two tenants, riders on both billing
  * cycles, and enough of a workshop to hang a charge off.
  *
- * <p>Its own tenant ids (3000…/4000…), deliberately not the ranges
- * RiderTestBase (1000…/2000…) or ServiceJobTestBase (e0…/f0…) use. A shared id
+ * <p>Its own tenant ids (3000ΓÇª/4000ΓÇª), deliberately not the ranges
+ * RiderTestBase (1000ΓÇª/2000ΓÇª) or ServiceJobTestBase (e0ΓÇª/f0ΓÇª) use. A shared id
  * would mean one suite's cleanup deciding another's fixture, which is the
  * coupling both of those bases already warn about.
  *
@@ -279,7 +279,7 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
 
     /** The Monday or Wednesday this week's run is for, in the billing zone. */
     protected LocalDate currentPeriodStart(BillingDay billingDay) {
-        return BillingPeriod.startOnOrBefore(billingDay, billingClock.today());
+        return BillingPeriod.current(billingDay, billingClock.today().minusDays(60), billingClock.today()).start();
     }
 
     protected LocalDate today() {

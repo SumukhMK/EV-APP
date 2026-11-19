@@ -178,7 +178,7 @@ export function PaymentReceipt() {
                 { label: 'Name', value: r.riderName },
                 { label: 'Rider id', value: <Mono sx={{ fontSize: 13 }}>{r.riderId}</Mono> },
                 { label: 'Vehicle', value: <Mono sx={{ fontSize: 13 }}>{r.vehicleId}</Mono> },
-                { label: 'Billing day', value: r.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday' },
+                { label: 'Billing day', value: r.billingDay.charAt(0) + r.billingDay.slice(1).toLowerCase() },
                 { label: 'Weekly plan', value: <Mono sx={{ fontSize: 13 }}>{rupees(r.planAmount)}</Mono> },
               ]}
             />
