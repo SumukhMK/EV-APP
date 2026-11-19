@@ -40,7 +40,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
     }
 
     private void openTheRun() throws Exception {
-        mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
+        mvc.perform(get("/api/v1/payments/runs/current")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
@@ -237,7 +237,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
         superAdmin(jdbc -> jdbc.update("DELETE FROM payment_periods WHERE rider_id = ?", CHARGED_RIDER));
         openTheRun();
 
-        String run = mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
+        String run = mvc.perform(get("/api/v1/payments/runs/current")
                         .header("Authorization", "Bearer " + token))
                 .andReturn().getResponse().getContentAsString();
         var row = new tools.jackson.databind.ObjectMapper().readTree(run).get("rows").get(1);
@@ -378,3 +378,4 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 String.class, riderId, monday));
     }
 }
+

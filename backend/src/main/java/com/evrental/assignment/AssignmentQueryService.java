@@ -155,6 +155,11 @@ public class AssignmentQueryService implements AssignmentQuery {
         return assignments.riderIdsWhoseVehicleIsIn(state);
     }
 
+    @Override
+    public java.util.Optional<LocalDate> currentAssignmentStartedOn(UUID riderId) {
+        return assignments.findCurrentByRiderId(riderId).map(Assignment::getStartedOn);
+    }
+
     private CurrentRider riderOf(UUID riderId) {
         return riders.findById(riderId)
                 .map(r -> new CurrentRider(r.getRiderCode(), r.getName()))

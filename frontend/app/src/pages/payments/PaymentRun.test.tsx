@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { SessionContext, type SessionValue } from '../../app/sessionContext';
 import { getCurrentPaymentRun } from '../../lib/api/payments';
+import { accruedRentPaise } from '../../mocks/payments';
 import type { PaymentPeriodRow, PaymentRun } from '../../types';
 import { PaymentRun as PaymentRunScreen } from './PaymentRun';
 
@@ -20,6 +21,7 @@ function row(i: number): PaymentPeriodRow {
     riderId: `R${String(i).padStart(2, '0')}`,
     riderName: `Rider ${String(i).padStart(2, '0')}`,
     vehicleId: `BLRSS${String(4000 + i)}`,
+    billingDay: 'THURSDAY',
     daysOverdue: 0,
     pastGrace: false,
     planAmount: 175000,
@@ -57,11 +59,14 @@ beforeEach(() => {
 });
 
 describe('payment run pagination', () => {
+  it('calculates rent accrued over 15 usage days at the per-day rate', () => {
+    expect(accruedRentPaise(175000, '2026-11-03', '2026-11-17')).toBe(375000);
+  });
+
   it('shows twelve riders a page and pages through the rest', async () => {
     const data: PaymentRun = {
       periodStart: '2026-08-24',
       periodEnd: '2026-08-30',
-      billingDay: 'MONDAY',
       rows: Array.from({ length: 20 }, (_, i) => row(i + 1)),
     };
     run.mockResolvedValue(data);
@@ -70,7 +75,7 @@ describe('payment run pagination', () => {
 
     // The totals and the panel subtitle describe the whole run, not the page.
     expect(await screen.findByText('Showing 1–12 of 20')).toBeInTheDocument();
-    expect(screen.getByText(/20 riders in the Monday cycle/)).toBeInTheDocument();
+    expect(screen.getByText(/20 riders · individual billing days/)).toBeInTheDocument();
     expect(screen.getByText('Rider 01')).toBeInTheDocument();
     expect(screen.queryByText('Rider 13')).not.toBeInTheDocument();
 
@@ -84,23 +89,4 @@ describe('payment run pagination', () => {
     expect(screen.getByText('Rider 01')).toBeInTheDocument();
   });
 
-  it('starts at the first page when the cycle changes', async () => {
-    run.mockResolvedValue({
-      periodStart: '2026-08-24',
-      periodEnd: '2026-08-30',
-      billingDay: 'MONDAY',
-      rows: Array.from({ length: 20 }, (_, i) => row(i + 1)),
-    });
-    const user = userEvent.setup();
-    show();
-
-    await screen.findByText('Showing 1–12 of 20');
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText('Showing 13–20 of 20')).toBeInTheDocument();
-
-    // Switching to the Wednesday cycle is a new result set — page 2 of the
-    // Monday run means nothing there.
-    await user.click(screen.getByRole('button', { name: 'Wednesday cycle' }));
-    expect(await screen.findByText('Showing 1–12 of 20')).toBeInTheDocument();
-  });
 });

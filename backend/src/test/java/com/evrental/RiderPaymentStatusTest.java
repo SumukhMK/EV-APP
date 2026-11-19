@@ -89,3 +89,4 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$.paymentStatus").value("PENDING"));
     }
 }
+

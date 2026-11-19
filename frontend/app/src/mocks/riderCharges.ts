@@ -1,5 +1,4 @@
 import type { RiderCharge, ServiceLiability } from '../types';
-import { riders } from './riders';
 
 /**
  * OWNER: SMK (contract + mock). One list of what an assistance-desk job has
@@ -14,17 +13,9 @@ export const riderCharges: RiderCharge[] = [];
 let nextId = 1;
 const iso = () => new Date().toISOString().slice(0, 10);
 
-/** Matches the current run's period starts in mocks/payments.ts. */
-const CURRENT_PERIOD_START: Record<'MONDAY' | 'WEDNESDAY', string> = {
-  MONDAY: '2026-08-24',
-  WEDNESDAY: '2026-08-26',
-};
-
-/** The week before the current run — fixtures use it to show money carried forward. */
-export const PREVIOUS_PERIOD_START: Record<'MONDAY' | 'WEDNESDAY', string> = {
-  MONDAY: '2026-08-17',
-  WEDNESDAY: '2026-08-19',
-};
+/** Deterministic reference window for demo data. */
+const CURRENT_PERIOD_START = '2026-08-24';
+export const PREVIOUS_PERIOD_START = '2026-08-17';
 
 export function addRiderCharge(input: {
   riderId: string;
@@ -35,9 +26,7 @@ export function addRiderCharge(input: {
   /** Fixtures only: bill an earlier week so arrears have something to show. */
   period?: 'CURRENT' | 'PREVIOUS';
 }): RiderCharge {
-  const rider = riders.find((r) => r.id === input.riderId);
-  const table = input.period === 'PREVIOUS' ? PREVIOUS_PERIOD_START : CURRENT_PERIOD_START;
-  const periodStart = table[rider?.billingDay ?? 'MONDAY'];
+  const periodStart = input.period === 'PREVIOUS' ? PREVIOUS_PERIOD_START : CURRENT_PERIOD_START;
 
   const charge: RiderCharge = {
     id: `CHG-${String(nextId++).padStart(4, '0')}`,

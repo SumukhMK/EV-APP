@@ -49,4 +49,7 @@ public interface AssignmentQuery {
 
     /** Riders whose current bike is in the given state — the register's vehicleState filter. */
     Set<UUID> riderIdsWhoseVehicleIsIn(VehicleState state);
+
+    /** The current assignment start date, when this rider began using a vehicle. */
+    java.util.Optional<java.time.LocalDate> currentAssignmentStartedOn(UUID riderId);
 }

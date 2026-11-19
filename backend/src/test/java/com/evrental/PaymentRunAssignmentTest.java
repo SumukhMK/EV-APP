@@ -57,7 +57,7 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
         assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(3), null);
 
         mvc.perform(get("/api/v1/payments/runs/current")
-                        .param("billingDay", "MONDAY")
+                        
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(7))
@@ -73,7 +73,7 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
         assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(2), start.plusDays(2));
 
         mvc.perform(get("/api/v1/payments/runs/current")
-                        .param("billingDay", "MONDAY")
+                        
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(3))
@@ -88,7 +88,7 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
         assignment(MONDAY_RIDER, vehicleId, start.plusDays(3), null);
 
         mvc.perform(get("/api/v1/payments/runs/current")
-                        .param("billingDay", "MONDAY")
+                        
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(4));
@@ -105,7 +105,7 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
         assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(6), start.minusWeeks(4));
 
         mvc.perform(get("/api/v1/payments/runs/current")
-                        .param("billingDay", "MONDAY")
+                        
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(0))
@@ -130,10 +130,11 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
         assignment(MONDAY_RIDER, second, start.plusDays(3), null);
 
         mvc.perform(get("/api/v1/payments/runs/current")
-                        .param("billingDay", "MONDAY")
+                        
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(7))
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId").value("BLRSS0429"));
     }
 }
+
