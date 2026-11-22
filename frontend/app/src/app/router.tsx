@@ -4,7 +4,7 @@
 // component; splitting twenty-six one-line wrappers into their own files to
 // satisfy the heuristic would make the route table unreadable for no gain.
 import { lazy } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
 import { RequireSession } from './RequireSession';
 import { RouteError } from '../components/RouteError';
@@ -70,11 +70,17 @@ const DeboardRider = lazy(() =>
 );
 
 // Money — SMK
-const PaymentRun = lazy(() => import('../pages/payments/PaymentRun').then((m) => ({ default: m.PaymentRun })));
-const PaymentReceipt = lazy(() =>
-  import('../pages/payments/PaymentReceipt').then((m) => ({ default: m.PaymentReceipt })),
+/** An old receipt link lands on that rider's account. */
+function RiderReceiptRedirect() {
+  const { riderId = '' } = useParams();
+  return <Navigate to={`/payments/riders/${riderId}`} replace />;
+}
+
+const Collections = lazy(() => import('../pages/payments/Collections').then((m) => ({ default: m.Collections })));
+const RiderAccount = lazy(() => import('../pages/payments/RiderAccount').then((m) => ({ default: m.RiderAccount })));
+const TodayCollections = lazy(() =>
+  import('../pages/payments/TodayCollections').then((m) => ({ default: m.TodayCollections })),
 );
-const OverdueRiders = lazy(() => import('../pages/payments/OverdueRiders').then((m) => ({ default: m.OverdueRiders })));
 
 // Admin — SMK
 const Users = lazy(() => import('../pages/users/Users').then((m) => ({ default: m.Users })));
@@ -130,9 +136,13 @@ export const router = createBrowserRouter([
       { path: '/assignments/deboard', element: <DeboardRider /> },
 
       // Money — SMK
-      { path: '/payments/run', element: <PaymentRun /> },
-      { path: '/payments/run/:riderId', element: <PaymentReceipt /> },
-      { path: '/payments/overdue', element: <OverdueRiders /> },
+      { path: '/payments/collections', element: <Collections /> },
+      { path: '/payments/riders/:riderId', element: <RiderAccount /> },
+      { path: '/payments/today', element: <TodayCollections /> },
+      // The weekly run and the overdue list became Collections and its Late filter.
+      { path: '/payments/run', element: <Navigate to="/payments/collections" replace /> },
+      { path: '/payments/run/:riderId', element: <RiderReceiptRedirect /> },
+      { path: '/payments/overdue', element: <Navigate to="/payments/collections?filter=late" replace /> },
       // Recovery was a page of links to these lists; the filtered Vehicles list is the screen.
       { path: '/recovery', element: <Navigate to="/vehicles?state=RECOVERY" replace /> },
 

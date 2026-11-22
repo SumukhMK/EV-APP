@@ -277,6 +277,24 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
                 amountPaidPaise, status));
     }
 
+    /**
+     * A past week and, when something was paid, the payment that paid it —
+     * the way weeks looked before V022, when a payment was tied to its week.
+     */
+    protected UUID insertPaidPeriod(UUID tenantId, UUID riderId, LocalDate periodStart,
+                                    BillingDay billingDay, long totalDuePaise, long amountPaidPaise) {
+        UUID period = insertPeriod(tenantId, riderId, periodStart, billingDay, totalDuePaise, amountPaidPaise, "PENDING");
+        if (amountPaidPaise > 0) {
+            superAdmin(jdbc -> jdbc.update(
+                    "INSERT INTO payment_collections (tenant_id, rider_id, period_id, amount_paise, method, collected_on) "
+                            + "VALUES (?, ?, ?, ?, 'UPI', ?)",
+                    tenantId, riderId, period, amountPaidPaise,
+                    java.sql.Timestamp.from(java.util.Collections.min(List.of(java.time.Instant.now(),
+                            periodStart.plusDays(6).atTime(19, 0).atZone(BillingClock.ZONE).toInstant())))));
+        }
+        return period;
+    }
+
     /** The Monday or Wednesday this week's run is for, in the billing zone. */
     protected LocalDate currentPeriodStart(BillingDay billingDay) {
         return BillingPeriod.current(billingDay, billingClock.today().minusDays(60), billingClock.today()).start();

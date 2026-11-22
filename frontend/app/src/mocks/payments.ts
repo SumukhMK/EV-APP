@@ -1,257 +1,134 @@
+import dayjs from 'dayjs';
 import type {
+  AccountLine,
+  BillingDay,
+  CollectionRow,
+  Collections,
   DunningStage,
-  OverdueRider,
-  Paise,
+  Payment,
   PaymentMethod,
-  PaymentPeriodRow,
-  PaymentReceipt,
-  PaymentRun,
+  RecordPaymentRequest,
   Rider,
-  RiderPaymentRow,
+  RiderAccount,
+  StaffTotal,
+  TodayCollections,
 } from '../types';
 import { riders } from './riders';
-import { mulberry32, pick } from './seed';
-import { arrearsBeforePeriod, chargesForPeriod } from './riderCharges';
-
-const rupees = (n: number) => n * 100;
-const DAY_MS = 86_400_000;
-
-export function accruedRentPaise(weeklyPlanPaise: number, usageStartIso: string, throughIso: string): number {
-  const days = Math.max(0, Math.floor((Date.parse(throughIso) - Date.parse(usageStartIso)) / DAY_MS) + 1);
-  return Math.round(weeklyPlanPaise / 7) * days;
-}
-
-/** Artboard 15, the Monday 24 Aug run, verbatim. */
-const DESIGNED_ROWS: PaymentPeriodRow[] = [
-  row('R03', 'Dulan Hajong', 'BLRSS0428', 1750, 7, 1750, 0, 0, 1750, 'PAID'),
-  row('R07', 'Ashwin Kamath', 'FBLSS0112', 1900, 7, 1900, 0, 0, 1900, 'PAID'),
-  row('R11', 'Imran Shaikh', 'FBLSS0129', 1700, 6, 1458, 310, 0, 0, 'OVERDUE'),
-  row('R14', 'Prakash Bhandari', 'BLRSS0396', 1750, 7, 1750, 0, 0, 1750, 'PAID'),
-  row('R31', 'Sohail Ahmed', 'FBLSS0141', 1950, 7, 1950, 0, 500, 2450, 'PAID'),
-  row('R38', 'Yash Karkera', 'BLRSS0403', 1999, 5, 1428, 0, 1000, 0, 'OVERDUE'),
-  row('R22', 'Nabam Tada', 'FBLSS0086', 2099, 7, 2099, 180, 0, 2279, 'PAID'),
-  row('R26', 'Lalit Chhetri', 'BLRSS0412', 1600, 7, 1600, 0, 0, 1100, 'PARTIAL'),
-  row('R41', 'Girish Poojary', 'FBLSS0097', 1700, 7, 1700, 0, 0, 1700, 'PAID'),
-  row('R19', 'Raju Debnath', 'FBLSS003B', 1999, 7, 1999, 420, 0, 1500, 'PARTIAL'),
-];
-
-function row(
-  riderId: string,
-  riderName: string,
-  vehicleId: string,
-  planRupees: number,
-  daysBilled: number,
-  billedRupees: number,
-  serviceRupees: number,
-  arrearsRupees: number,
-  paidRupees: number,
-  status: PaymentPeriodRow['status'],
-): PaymentPeriodRow {
-  return {
-    riderId,
-    riderName,
-    vehicleId,
-    billingDay: 'MONDAY',
-    // The current week is the one the run shows, and it has not closed, so
-    // nothing on it is overdue. The API says the same for a running period.
-    daysOverdue: 0,
-    pastGrace: false,
-    planAmount: rupees(planRupees),
-    daysBilled,
-    perDayAmount: Math.round(rupees(planRupees) / 7),
-    billedAmount: rupees(billedRupees),
-    serviceCharges: rupees(serviceRupees),
-    arrears: rupees(arrearsRupees),
-    totalDue: rupees(billedRupees + serviceRupees + arrearsRupees),
-    amountPaid: rupees(paidRupees),
-    status,
-  };
-}
+import { riderCharges } from './riderCharges';
 
 /**
- * A run is the riders in that cycle — one row each, no more and no fewer.
+ * Demo-mode money: a small in-memory ledger shaped like the real one.
  *
- * It used to be `[...DESIGNED_ROWS, ...rest]`, which appended all ten rows
- * drawn on artboard 15 and then the Monday riders who were not among them.
- * Five of those ten (R14, R19, R22, R26, R41) bill on Wednesday, so the Monday
- * run carried 63 rows while the audit log recorded "58 riders billed" for the
- * same period — and it listed riders who are not in that cycle at all.
- *
- * Deriving the rows from the riders in the cycle and looking up the designed
- * amounts by id makes the two numbers one number. Both cycles are built the
- * same way, so the Wednesday run is as real as the Monday one and the screen
- * can be switched between them.
+ * Same rule as the API — owes = rent + open rider charges − payments — and
+ * payments are one row each, covering the oldest week first. Rent runs for the
+ * last few weeks (earlier weeks count as settled, as on the server); the
+ * seeded payments follow each fixture rider's payment status so the screens
+ * have late, part-paid and paid-up riders to show.
  */
-function buildRun(): PaymentRun {
-  const designed = new Map(DESIGNED_ROWS.map((r) => [r.riderId, r]));
 
-  const periodEnd = new Date().toISOString().slice(0, 10);
-  const periodEndMs = Date.parse(periodEnd);
-  const periodStart = new Date(periodEndMs - 6 * DAY_MS).toISOString().slice(0, 10);
+const DAYS: BillingDay[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+const WEEKS_SHOWN = 5;
+const STAFF = ['Meenakshi Iyer', 'Priya Menon'];
 
-  const rows = riders
-    // A rider with no bike has no open plan, so there is nothing to bill.
-    .filter((r) => r.currentVehicleId)
-    .map<PaymentPeriodRow>((r) => {
-      const asDrawn = designed.get(r.id);
-      if (asDrawn && r.billingDay === 'MONDAY') return { ...asDrawn, billingDay: r.billingDay };
-
-      const paid = r.paymentStatus === 'PAID';
-      const partial = r.paymentStatus === 'PARTIAL';
-      const perDayAmount = Math.round(r.planAmount / 7);
-
-      // A rider onboarded partway through this period bills only the days
-      // they actually held the bike within it — the wireframe billed every
-      // derived row a full week regardless of when the assignment started,
-      // which overcharges a rider who joined mid-week. `onboardedOn` is the
-      // closest thing the fixture has to an assignment start date; a real
-      // assignment record would carry its own, but the shape is the same.
-      const assignmentStart = r.onboardedOn;
-      const effectiveStartMs = Date.parse(assignmentStart);
-      const daysBilled = effectiveStartMs > periodEndMs
-        ? 0
-        : Math.round((periodEndMs - effectiveStartMs) / DAY_MS) + 1;
-      const billedAmount = accruedRentPaise(r.planAmount, r.onboardedOn, periodEnd);
-      const amountPaid = paid ? billedAmount : partial ? Math.round(billedAmount * 0.6) : 0;
-      const status = amountPaid >= billedAmount ? 'PAID' : amountPaid > 0 ? 'PARTIAL' : r.paymentStatus;
-
-      return {
-        riderId: r.id,
-        riderName: r.name,
-        vehicleId: r.currentVehicleId ?? '—',
-        billingDay: r.billingDay,
-        // The run shows the current week, which has not closed.
-        daysOverdue: 0,
-        pastGrace: false,
-        planAmount: r.planAmount,
-        daysBilled,
-        perDayAmount,
-        billedAmount,
-        serviceCharges: 0,
-        arrears: 0,
-        totalDue: billedAmount,
-        amountPaid,
-        status,
-      };
-    });
-
-  return { periodStart, periodEnd, rows };
+interface MockPayment extends Payment {
+  riderKey: string;
+  clientKey?: string;
 }
 
-/**
- * `serviceCharges` and `arrears` were flat zeros on every derived row and
- * static wireframe numbers on the designed ones — nothing in the app ever
- * wrote them, so a closed assistance-desk job had nowhere to go. This overlays
- * whatever the `RiderCharge` ledger (mocks/riderCharges.ts) actually holds for
- * the row's rider and period on top of the row's baseline, and recomputes
- * `totalDue` to match. It reads the ledger fresh on every call and never
- * mutates the stored row, so calling it twice never double-counts a charge.
- */
-export function withLiveServiceFigures(run: PaymentRun): PaymentRun {
+const iso = (d: dayjs.Dayjs) => d.format('YYYY-MM-DD');
+const today = () => dayjs().startOf('day');
+
+/** The most recent billing day on or before `date`. */
+function weekStart(day: BillingDay, date: dayjs.Dayjs): dayjs.Dayjs {
+  const target = DAYS.indexOf(day) + 1; // 1 = Monday, like isoWeekday
+  const dow = date.day() === 0 ? 7 : date.day();
+  return date.subtract((dow - target + 7) % 7, 'day');
+}
+
+interface RentWeek {
+  start: dayjs.Dayjs;
+  end: dayjs.Dayjs; // last day covered so far
+  weekEnd: dayjs.Dayjs; // last day of the billing week
+  days: number;
+  rent: number;
+}
+
+function rentWeeks(rider: Rider): RentWeek[] {
+  if (!rider.currentVehicleId) return [];
+  const perDay = Math.round(rider.planAmount / 7);
+  const now = today();
+  const current = weekStart(rider.billingDay, now);
+  const onboarded = dayjs(rider.onboardedOn);
+  const out: RentWeek[] = [];
+  for (let w = WEEKS_SHOWN; w >= 0; w--) {
+    const start = current.subtract(w, 'week');
+    const weekEnd = start.add(6, 'day');
+    const from = onboarded.isAfter(start) ? onboarded : start;
+    const to = weekEnd.isAfter(now) ? now : weekEnd;
+    if (from.isAfter(to)) continue;
+    const days = to.diff(from, 'day') + 1;
+    out.push({ start: from, end: to, weekEnd, days, rent: days === 7 ? rider.planAmount : days * perDay });
+  }
+  return out;
+}
+
+const payments: MockPayment[] = [];
+let seeded = false;
+let nextPayment = 1;
+let nextReceipt = 120;
+
+function newPayment(rider: Rider, amount: number, method: PaymentMethod, at: dayjs.Dayjs, by: string,
+                    owedBefore: number | null, extra: Partial<Payment> = {}): MockPayment {
   return {
-    ...run,
-    rows: run.rows.map((row) => {
-      const liveService = chargesForPeriod(row.riderId, run.periodStart).reduce(
-        (sum, c) => sum + c.amount,
-        0,
-      );
-      const liveArrears = arrearsBeforePeriod(row.riderId, run.periodStart).reduce(
-        (sum, c) => sum + c.amount,
-        0,
-      );
-      const serviceCharges = row.serviceCharges + liveService;
-      const arrears = row.arrears + liveArrears;
-      return {
-        ...row,
-        serviceCharges,
-        arrears,
-        totalDue: row.billedAmount + serviceCharges + arrears,
-      };
-    }),
-  };
-}
-
-export function currentPaymentRun(): PaymentRun {
-  return withLiveServiceFigures(buildRun());
-}
-
-/**
- * A receipt for one rider's line in the current run (screen 16).
- *
- * Derived from that rider's row, never stored separately, for the same reason
- * the overdue list is derived: the run is the single source of the numbers, so
- * a receipt cannot drift from the run it came out of. The method, date and
- * reference are the only things a receipt adds, and they are seeded off the
- * rider id so a reload does not reissue a different receipt for the same week.
- *
- * Returns null when the rider is not in this run at all — the screen turns that
- * into a "no line in this period" state rather than inventing one.
- */
-export function paymentReceiptFor(riderId: string): PaymentReceipt | null {
-  const run = currentPaymentRun();
-  const row = run.rows.find((r) => r.riderId === riderId);
-  if (!run || !row) return null;
-
-  const rng = mulberry32(hash(`receipt-${riderId}`));
-  const collected = row.amountPaid > 0;
-  const override = recordedPayments.get(riderId);
-  const method = override?.method ?? (collected ? pick(rng, PAYMENT_METHODS) : null);
-
-  // Payment lands within the billing week. Only a settled or part-settled row
-  // carries a date at all.
-  const paidOn = override?.paidOn ?? (collected
-    ? iso(Date.parse(run.periodStart) + Math.floor(rng() * 4) * DAY_MS)
-    : null);
-
-  return {
-    receiptNo: collected
-      ? `RCPT-${run.periodStart.slice(0, 4)}-${hash(riderId).toString().slice(0, 4)}`
-      : null,
-    riderId: row.riderId,
-    riderName: row.riderName,
-    vehicleId: row.vehicleId,
-    periodStart: run.periodStart,
-    periodEnd: run.periodEnd,
-    billingDay: row.billingDay,
-    planAmount: row.planAmount,
-    daysBilled: row.daysBilled,
-    perDayAmount: row.perDayAmount,
-    billedAmount: row.billedAmount,
-    serviceCharges: row.serviceCharges,
-    arrears: row.arrears,
-    totalDue: row.totalDue,
-    amountPaid: row.amountPaid,
-    balance: row.totalDue - row.amountPaid,
-    status: row.status,
+    id: `PAY-${String(nextPayment++).padStart(5, '0')}`,
+    receiptNo: amount > 0 ? `RCPT-${at.year()}-${String(nextReceipt++).padStart(6, '0')}` : null,
+    riderId: rider.id,
+    riderName: rider.name,
+    vehicleId: rider.currentVehicleId,
+    amount,
     method,
-    paidOn,
-    reference:
-      method === 'UPI'
-        ? `${Math.floor(rng() * 1e12)}@okhdfcbank`
-        : method === 'BANK_TRANSFER'
-          ? `NEFT${Math.floor(rng() * 1e9)}`
-          : null,
+    reference: method === 'UPI' && amount > 0 ? `UPI${String(400000000 + nextPayment * 7919).slice(0, 9)}` : null,
+    at: at.toISOString(),
+    by,
+    owedBefore,
+    owedAfter: owedBefore === null ? null : owedBefore - amount,
+    reversesId: null,
+    reason: null,
+    reversed: false,
+    riderKey: rider.id,
+    ...extra,
   };
 }
 
-/**
- * Overdue is derived from the riders fixture, never listed separately — the
- * wireframe's own two artboards disagree (07 shows R19 and R26 as partial, 17
- * lists them as overdue), and a dashboard tile that contradicts the list under
- * it is the first thing a client notices. The designed rows below supply the
- * days and dunning stage for the riders they name; everyone else overdue gets
- * a derived one.
- */
-const DESIGNED_DETAIL: Record<string, { days: number; amountRupees: number }> = {
-  R38: { days: 26, amountRupees: 4856 },
-  R11: { days: 19, amountRupees: 3536 },
-  R29: { days: 17, amountRupees: 3398 },
-  R35: { days: 12, amountRupees: 2850 },
-  R26: { days: 9, amountRupees: 1600 },
-  R19: { days: 5, amountRupees: 1919 },
-  R09: { days: 4, amountRupees: 1700 },
-  R17: { days: 3, amountRupees: 1692 },
-};
+/** Payments the fixture riders made before today, following their payment status. */
+function seed() {
+  if (seeded) return;
+  seeded = true;
+  riders.forEach((rider, i) => {
+    const weeks = rentWeeks(rider);
+    if (weeks.length === 0) return;
+    const lateWeeks = rider.paymentStatus === 'OVERDUE' ? 1 + (i % 3) : 0;
+    weeks.forEach((w, idx) => {
+      const isCurrent = idx === weeks.length - 1;
+      const by = STAFF[i % STAFF.length];
+      if (isCurrent) {
+        if (rider.paymentStatus === 'PAID') payments.push(newPayment(rider, w.rent, rider.paymentMode, w.end.hour(10), by, null));
+        if (rider.paymentStatus === 'PARTIAL') payments.push(newPayment(rider, Math.round(w.rent * 0.6), rider.paymentMode, w.end.hour(10), by, null));
+        return;
+      }
+      if (idx >= weeks.length - 1 - lateWeeks) return; // the unpaid late weeks
+      payments.push(newPayment(rider, w.rent, rider.paymentMode, w.weekEnd.hour(18), by, null));
+    });
+  });
+}
+
+function riderById(id: string): Rider | undefined {
+  return riders.find((r) => r.id === id);
+}
+
+function openCharges(riderId: string) {
+  return riderCharges.filter((c) => c.riderId === riderId && c.liability === 'RIDER' && c.status === 'OPEN');
+}
 
 function stageFor(days: number): DunningStage {
   if (days >= 21) return 'REPOSSESSION_DUE';
@@ -260,139 +137,213 @@ function stageFor(days: number): DunningStage {
   return 'REMINDER_DUE';
 }
 
-export const overdueRiders: OverdueRider[] = riders
-  .filter((r) => r.paymentStatus === 'OVERDUE')
-  .map<OverdueRider>((r, i) => {
-    const designed = DESIGNED_DETAIL[r.id];
-    const days = designed?.days ?? 2 + ((i * 5) % 24);
-    return {
-      riderId: r.id,
-      riderName: r.name,
-      phone: r.phone,
-      // Three days is the operator's buffer; the API holds the real value and
-      // the fixture mirrors its default so the two screens agree in either mode.
-      pastGrace: days > 3,
-      vehicleId: r.currentVehicleId ?? '—',
-      daysOverdue: days,
-      amountDue: designed ? designed.amountRupees * 100 : Math.round((r.planAmount / 7) * days),
-      stage: stageFor(days),
-    };
-  })
-  .sort((a, b) => b.daysOverdue - a.daysOverdue);
+/** The same account the API builds: lines oldest first, rent paid oldest week first. */
+function accountOf(rider: Rider): RiderAccount {
+  seed();
+  const weeks = rentWeeks(rider);
+  const charges = openCharges(rider.id);
+  const paid = payments.filter((p) => p.riderKey === rider.id);
+  const reversedIds = new Set(paid.filter((p) => p.reversesId).map((p) => p.reversesId));
 
-/**
- * Recording a payment against whichever run bills this rider.
- *
- * The runs and the receipts read the same row objects, so mutating one in
- * place is what makes the collection show up everywhere at once — the run line
- * flips, the receipt reissues, and the dashboard's outstanding figure follows
- * on the next read. This is the same simulated-write shape the QC and
- * assignment screens already use; it is not a real ledger, just a live cache.
- *
- * `recordedPayments` overrides the seeded method/date on the receipt so the
- * receipt shows how the money actually came in, not the fixture's guess.
- */
-const recordedPayments = new Map<string, { method: PaymentMethod; paidOn: string }>();
+  type Item = { at: string; order: number; line: Omit<AccountLine, 'balance'> };
+  const items: Item[] = [
+    ...weeks.map<Item>((w) => ({
+      at: w.start.toISOString(),
+      order: 0,
+      line: {
+        kind: 'RENT', date: iso(w.start), at: w.start.toISOString(), amount: w.rent, to: iso(w.end), days: w.days,
+        locked: !w.weekEnd.isAfter(today()), note: null, paymentId: null, receiptNo: null, method: null,
+        reference: null, by: null, reason: null, reversed: false,
+      },
+    })),
+    ...charges.map<Item>((c) => ({
+      at: dayjs(c.createdOn).toISOString(),
+      order: 1,
+      line: {
+        kind: 'CHARGE', date: c.createdOn, at: dayjs(c.createdOn).toISOString(), amount: c.amount, to: null, days: 0,
+        locked: false, note: 'Repair', paymentId: null, receiptNo: null, method: null, reference: null, by: null,
+        reason: null, reversed: false,
+      },
+    })),
+    ...paid.map<Item>((p) => ({
+      at: p.at,
+      order: 2,
+      line: {
+        kind: p.reversesId ? 'REVERSAL' : 'PAYMENT', date: p.at.slice(0, 10), at: p.at, amount: -p.amount, to: null,
+        days: 0, locked: false, note: null, paymentId: p.id, receiptNo: p.receiptNo, method: p.method,
+        reference: p.reference, by: p.by, reason: p.reason, reversed: reversedIds.has(p.id),
+      },
+    })),
+  ];
+  items.sort((a, b) => a.line.date.localeCompare(b.line.date) || a.order - b.order || a.at.localeCompare(b.at));
 
-export function recordPaymentInRun(
-  riderId: string,
-  amount: Paise,
-  method: PaymentMethod,
-): PaymentPeriodRow {
-  const run = currentPaymentRun();
-  const row = run?.rows.find((r) => r.riderId === riderId);
-  if (!run || !row) throw new Error(`No run line for ${riderId}`);
+  let balance = 0;
+  const lines = items.map<AccountLine>((i) => {
+    balance += i.line.amount;
+    return { ...i.line, balance };
+  });
 
-  // What is actually owed includes any live service charge or arrears, not
-  // just the row's stored baseline — a collection has to clear the whole
-  // amount due, service charges included, before the rider reads PAID.
-  const liveTotalDue = withLiveServiceFigures(run).rows.find((r) => r.riderId === riderId)!.totalDue;
+  const rent = weeks.reduce((t, w) => t + w.rent, 0);
+  const chargeTotal = charges.reduce((t, c) => t + c.amount, 0);
+  const paidTotal = paid.reduce((t, p) => t + p.amount, 0);
+  const owes = rent + chargeTotal - paidTotal;
 
-  row.amountPaid = Math.min(liveTotalDue, row.amountPaid + amount);
-  row.status = row.amountPaid >= liveTotalDue ? 'PAID' : row.amountPaid > 0 ? 'PARTIAL' : row.status;
-  recordedPayments.set(riderId, { method, paidOn: iso(Date.now()) });
-
-  // A period read as PAID has cleared everything folded into its total,
-  // service charges and carried arrears included — settle those charges so
-  // they stop counting as arrears against a future period.
-  if (row.status === 'PAID') {
-    for (const c of [...chargesForPeriod(riderId, run.periodStart), ...arrearsBeforePeriod(riderId, run.periodStart)]) {
-      c.status = 'SETTLED';
+  let left = paidTotal;
+  let lateSince: string | null = null;
+  let daysLate = 0;
+  for (const w of weeks) {
+    if (left >= w.rent) {
+      left -= w.rent;
+      continue;
     }
+    const late = today().diff(w.weekEnd, 'day');
+    if (late > 0 && owes > 0) {
+      daysLate = late;
+      lateSince = iso(w.weekEnd);
+    }
+    break;
   }
 
-  return { ...row, totalDue: liveTotalDue };
+  return {
+    riderId: rider.id,
+    riderName: rider.name,
+    phone: rider.phone,
+    vehicleId: rider.currentVehicleId,
+    active: rider.status === 'ACTIVE',
+    planAmount: rider.planAmount,
+    depositHeld: rider.depositHeld,
+    usualMethod: rider.paymentMode,
+    owes,
+    daysLate,
+    lateSince,
+    stage: daysLate > 0 ? stageFor(daysLate) : null,
+    rentFrom: weeks.length ? iso(weeks[0].start) : null,
+    rent,
+    charges: chargeTotal,
+    paid: paidTotal,
+    lines: lines.reverse(),
+  };
 }
 
-/**
- * A rider's own ledger, derived from their plan and billing day rather than
- * listed — the same reason `overdueRiders` is derived. The eight most recent
- * periods, newest first: enough to show a pattern, short enough to read
- * without a scroll inside the panel.
- *
- * The current period carries the rider's live `paymentStatus`, so the chip on
- * the list screen and the top row of this table can never disagree. Earlier
- * periods are settled — a rider carrying three months of arrears is not a
- * state the register allows, and inventing one here would be inventing a rule.
- */
-const PERIODS = 8;
+function rowOf(rider: Rider): CollectionRow {
+  const a = accountOf(rider);
+  const last = payments
+    .filter((p) => p.riderKey === rider.id && !p.reversesId && !a.lines.some((l) => l.paymentId === p.id && l.reversed))
+    .at(-1);
+  const weeks = rentWeeks(rider);
+  const current = weeks.at(-1);
+  return {
+    riderId: rider.id,
+    riderName: rider.name,
+    phone: rider.phone,
+    vehicleId: rider.currentVehicleId,
+    active: rider.status === 'ACTIVE',
+    owes: a.owes,
+    daysLate: a.daysLate,
+    stage: a.stage,
+    dueBy: current ? iso(current.weekEnd) : null,
+    weekRent: current && !current.weekEnd.isBefore(today()) ? current.rent : 0,
+    usualMethod: rider.paymentMode,
+    lastPayment: last ? { amount: last.amount, method: last.method, at: last.at, by: last.by } : null,
+  };
+}
 
-const CURRENT_PERIOD_END = Date.parse('2026-08-30T00:00:00Z');
+function todays(date: string) {
+  return payments.filter((p) => p.at.slice(0, 10) === date || dayjs(p.at).format('YYYY-MM-DD') === date);
+}
 
-export function riderPaymentHistory(rider: Rider): RiderPaymentRow[] {
-  // No bike, no open plan, so nothing is being billed. For a deboarded rider
-  // this under-reports — they do have a past ledger — but the fixture records
-  // no deboard date, and deriving weeks up to a date we do not have would be
-  // inventing the history rather than showing it.
-  if (!rider.currentVehicleId) return [];
+function strip(p: MockPayment): Payment {
+  const { riderKey: _rider, clientKey: _key, ...rest } = p;
+  return { ...rest, reversed: payments.some((r) => r.reversesId === p.id) };
+}
 
-  const onboarded = Date.parse(rider.onboardedOn);
-  const dueDay = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].indexOf(rider.billingDay);
-  const dueDate = new Date(CURRENT_PERIOD_END);
-  const back = (dueDate.getUTCDay() - dueDay + 7) % 7;
-  dueDate.setUTCDate(dueDate.getUTCDate() - back);
-  const end = dueDate.getTime();
-  const rng = mulberry32(hash(rider.id));
-  const out: RiderPaymentRow[] = [];
+export function collections(): Collections {
+  seed();
+  const rows = riders
+    .filter((r) => r.status === 'ACTIVE' || accountOf(r).owes !== 0)
+    .map(rowOf)
+    .sort((a, b) => b.daysLate - a.daysLate || b.owes - a.owes || a.riderName.localeCompare(b.riderName));
+  const day = todays(iso(today()));
+  return {
+    today: iso(today()),
+    collectedToday: day.reduce((t, p) => t + p.amount, 0),
+    paymentsToday: day.filter((p) => !p.reversesId).length,
+    rows,
+  };
+}
 
-  for (let i = 0; i < PERIODS; i++) {
-    const currentEnd = end - i * 7 * DAY_MS;
-    const currentStart = i === 0 && onboarded > currentEnd - 7 * DAY_MS
-      ? onboarded
-      : currentEnd - 6 * DAY_MS;
-    // Nothing is billed before the rider joined.
-    if (currentStart > currentEnd || currentEnd < onboarded) break;
-    const days = Math.floor((currentEnd - currentStart) / DAY_MS) + 1;
+export function riderAccount(riderId: string): RiderAccount | null {
+  const rider = riderById(riderId);
+  return rider ? accountOf(rider) : null;
+}
 
-    const status = i === 0 ? rider.paymentStatus : 'PAID';
-    const amountPaid =
-      status === 'PAID'
-        ? rider.planAmount
-        : status === 'PARTIAL'
-          ? Math.round(rider.planAmount * 0.6)
-          : 0;
-
-    out.push({
-      id: `${rider.id}-${iso(currentStart)}`,
-      periodStart: iso(currentStart),
-      periodEnd: iso(currentEnd),
-      totalDue: Math.round(rider.planAmount / 7) * days,
-      amountPaid,
-      status,
-      method: amountPaid === 0 ? null : pick(rng, PAYMENT_METHODS),
-    });
+export function recordPayment(req: RecordPaymentRequest): Payment {
+  seed();
+  if (req.clientKey) {
+    const existing = payments.find((p) => p.clientKey === req.clientKey);
+    if (existing) return strip(existing);
   }
-
-  return out;
+  const rider = riderById(req.riderId);
+  if (!rider) throw new Error(`No rider ${req.riderId}`);
+  if (!(req.amount > 0)) throw new Error('A payment must be more than zero');
+  const owedBefore = accountOf(rider).owes;
+  const p = newPayment(rider, req.amount, req.method, dayjs(), 'You', owedBefore, {
+    reference: req.reference?.trim() || null,
+  });
+  p.clientKey = req.clientKey;
+  payments.push(p);
+  return strip(p);
 }
 
-const PAYMENT_METHODS: readonly PaymentMethod[] = ['UPI', 'CASH', 'BANK_TRANSFER'];
+export function reversePayment(paymentId: string, reason: string): Payment {
+  seed();
+  const original = payments.find((p) => p.id === paymentId);
+  if (!original) throw new Error('No such payment');
+  if (original.reversesId) throw new Error('A reversal cannot be reversed');
+  if (payments.some((p) => p.reversesId === paymentId)) throw new Error('This payment was already reversed');
+  const rider = riderById(original.riderKey)!;
+  const owedBefore = accountOf(rider).owes;
+  const p = newPayment(rider, -original.amount, original.method, dayjs(), 'You', owedBefore, {
+    reversesId: paymentId,
+    reason: reason.trim(),
+    reference: null,
+  });
+  payments.push(p);
+  return strip(p);
+}
 
-const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+export function paymentById(paymentId: string): Payment | null {
+  seed();
+  const p = payments.find((x) => x.id === paymentId);
+  return p ? strip(p) : null;
+}
 
-/** Stable per-rider seed, so a reload does not reshuffle their payment methods. */
-function hash(id: string) {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = (h ^ id.charCodeAt(i)) * 16777619;
-  return h >>> 0;
+export function todayCollections(date: string): TodayCollections {
+  seed();
+  const day = todays(date).slice().sort((a, b) => b.at.localeCompare(a.at));
+  const staff = new Map<string, StaffTotal>();
+  for (const p of day) {
+    const owner = p.reversesId ? payments.find((o) => o.id === p.reversesId)?.by ?? p.by : p.by;
+    const name = owner ?? 'Unknown';
+    const t = staff.get(name) ?? { name, count: 0, cash: 0, upi: 0, bank: 0, total: 0 };
+    if (!p.reversesId) t.count++;
+    if (p.method === 'CASH') t.cash += p.amount;
+    if (p.method === 'UPI') t.upi += p.amount;
+    if (p.method === 'BANK_TRANSFER') t.bank += p.amount;
+    t.total += p.amount;
+    staff.set(name, t);
+  }
+  return {
+    date,
+    total: day.reduce((t, p) => t + p.amount, 0),
+    count: day.filter((p) => !p.reversesId).length,
+    byStaff: [...staff.values()],
+    payments: day.map(strip),
+  };
+}
+
+/** The dashboard's two money tiles: late riders and what they owe. */
+export function lateSummary(): { riders: number; value: number } {
+  const late = collections().rows.filter((r) => r.active && r.daysLate > 0 && r.owes > 0);
+  return { riders: late.length, value: late.reduce((t, r) => t + r.owes, 0) };
 }

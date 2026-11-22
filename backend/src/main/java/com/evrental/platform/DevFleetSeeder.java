@@ -794,9 +794,9 @@ public class DevFleetSeeder implements ApplicationRunner {
                             default -> null;
                         };
                         jdbc.update("""
-                                INSERT INTO payment_collections (tenant_id, period_id, amount_paise, method, reference, collected_on, collected_by_user_id)
-                                VALUES (?,?,?,?,?,?,?)
-                                """, tenantId, periodId, paid, r.seed().mode(), reference, collectedOn, collector);
+                                INSERT INTO payment_collections (tenant_id, rider_id, period_id, amount_paise, method, reference, collected_on, collected_by_user_id)
+                                VALUES (?,?,?,?,?,?,?,?)
+                                """, tenantId, r.id(), periodId, paid, r.seed().mode(), reference, collectedOn, collector);
                         collections++;
                     }
                     if ("PAID".equals(status)) {

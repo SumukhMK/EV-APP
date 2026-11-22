@@ -108,18 +108,27 @@ public class AuditService {
 
               UNION ALL
 
-              -- Money in. Never edited, so each row is one collection.
+              -- Money in, and reversals. Never edited, so each row is one
+              -- payment: what the rider owed before, what came in, what is left.
+              -- Rows from before V022 were one piece per week and say which.
               SELECT 'collection:' || c.id,
                      c.collected_on,
                      coalesce(u.name, 'Unknown'),
-                     'Payment recorded',
-                     'Payment · ' || r.name || ' / ' || to_char(p.period_start, 'DD Mon'),
-                     'Due ' || round(p.total_due_paise / 100.0, 2)::text,
-                     'Paid ' || round(c.amount_paise / 100.0, 2)::text
+                     CASE WHEN c.reverses_id IS NULL THEN 'Payment recorded' ELSE 'Payment reversed' END,
+                     'Payment · ' || r.name
+                       || coalesce(' / ' || to_char(p.period_start, 'DD Mon'), '')
+                       || coalesce(' · ' || c.receipt_no, ''),
+                     CASE WHEN c.owed_before_paise IS NULL THEN NULL
+                          ELSE 'Owed ' || round(c.owed_before_paise / 100.0, 2)::text END,
+                     CASE WHEN c.reverses_id IS NULL THEN 'Paid ' ELSE 'Reversed ' END
+                       || round(abs(c.amount_paise) / 100.0, 2)::text
+                       || ' ' || lower(replace(c.method, '_', ' '))
+                       || coalesce(' · owes ' || round(c.owed_after_paise / 100.0, 2)::text, '')
+                       || coalesce(' · ' || c.reason, '')
                 FROM payment_collections c
-                JOIN payment_periods p ON p.id = c.period_id
-                JOIN riders r          ON r.id = p.rider_id
-                LEFT JOIN users u      ON u.id = c.collected_by_user_id
+                JOIN riders r               ON r.id = c.rider_id
+                LEFT JOIN payment_periods p ON p.id = c.period_id
+                LEFT JOIN users u           ON u.id = c.collected_by_user_id
 
               UNION ALL
 

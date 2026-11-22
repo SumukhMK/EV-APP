@@ -63,20 +63,4 @@ public interface RiderChargeRepository extends JpaRepository<RiderCharge, UUID> 
     long sumOpenBefore(@Param("riderId") UUID riderId,
                        @Param("periodStart") LocalDate periodStart,
                        @Param("liability") ServiceLiability liability);
-
-    /**
-     * The charges a paid period has just cleared: everything OPEN and billable
-     * on or before it. Settled together when the week reads PAID, so they stop
-     * counting as arrears against the next one.
-     */
-    @Query("""
-            select c from RiderCharge c
-            where c.riderId = :riderId
-              and c.status = com.evrental.payment.RiderChargeStatus.OPEN
-              and c.liability = :liability
-              and c.periodStart <= :periodStart
-            """)
-    List<RiderCharge> findOpenUpTo(@Param("riderId") UUID riderId,
-                                   @Param("periodStart") LocalDate periodStart,
-                                   @Param("liability") ServiceLiability liability);
 }

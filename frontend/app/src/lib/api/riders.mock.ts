@@ -4,7 +4,6 @@ import type {
   Page,
   Platform,
   Rider,
-  RiderPaymentRow,
   RiderStatus,
   VehicleState,
   RiderDetail,
@@ -12,7 +11,6 @@ import type {
 } from '../../types';
 import { riders } from '../../mocks/riders';
 import { assignmentsByVehicle, vehicles } from '../../mocks/vehicles';
-import { riderPaymentHistory } from '../../mocks/payments';
 import { ApiError, delay, paginate } from './client';
 import { RIDER_STATUS_LABEL } from '../labels';
 
@@ -122,11 +120,6 @@ export async function listAssignedRiders(): Promise<Rider[]> {
   return delay(riders.filter((r) => r.currentVehicleId !== null));
 }
 
-export async function listRiderPayments(riderId: string): Promise<RiderPaymentRow[]> {
-  const r = riders.find((x) => x.id === riderId);
-  if (!r) throw new ApiError(`No rider with id ${riderId}`, 404);
-  return delay(riderPaymentHistory(r));
-}
 
 /**
  * A rider joins the register with no bike and KYC pending — assignment and

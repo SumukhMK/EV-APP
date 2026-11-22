@@ -175,6 +175,13 @@ public class AssignmentQueryService implements AssignmentQuery {
         return java.util.Optional.of(start);
     }
 
+    @Override
+    public java.util.Optional<LocalDate> lastReturnedOn(UUID riderId) {
+        return assignments.findByRiderIdOrderByStartedOnDesc(riderId).stream()
+                .map(Assignment::getEndedOn).filter(java.util.Objects::nonNull)
+                .max(LocalDate::compareTo);
+    }
+
     private CurrentRider riderOf(UUID riderId) {
         return riders.findById(riderId)
                 .map(r -> new CurrentRider(r.getRiderCode(), r.getName()))

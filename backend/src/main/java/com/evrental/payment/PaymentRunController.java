@@ -1,10 +1,14 @@
 package com.evrental.payment;
 
 import com.evrental.auth.JwtPrincipal;
-import com.evrental.rider.RiderService;
+import com.evrental.payment.CollectionResponses.Account;
+import com.evrental.payment.CollectionResponses.Collections;
+import com.evrental.payment.CollectionResponses.Payment;
+import com.evrental.payment.CollectionResponses.Today;
 import jakarta.validation.Valid;
-import java.util.List;
-import org.springframework.http.ResponseEntity;
+import java.time.LocalDate;
+import java.util.UUID;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,74 +16,64 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import tools.jackson.databind.node.NullNode;
 
 /**
- * The weekly run, the overdue list, receipts and collections — screens 15, 16
- * and 17.
+ * The money screens: Collections, a rider's account, payments, reversals and
+ * the end-of-day count. Mirrors {@code lib/api/payments.ts}.
  *
- * <p>These four mirror {@code lib/api/payments.ts} one for one —
- * {@code getCurrentPaymentRun}, {@code listOverdueRiders},
- * {@code getPaymentReceipt}, {@code recordPayment} — so the frontend swap is a
- * re-export rather than a rewrite.
- *
- * <p>SUPER_ADMIN and FLEET_ADMIN only. RBAC.md's Money section is explicit:
- * "FS and SM never see the section". The one exception is the rider profile's
- * history panel, which lives in {@link RiderPaymentController} and is gated
- * SA/FA/FS for that reason.
+ * <p>SUPER_ADMIN and FLEET_ADMIN only (RBAC.md, Money). The one exception is a
+ * rider's account, which the rider profile shows to fleet staff too.
  */
 @RestController
 @RequestMapping("/api/v1/payments")
 @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN')")
 public class PaymentRunController {
 
-    private final PaymentRunService runs;
-    private final RiderService riderService;
+    private final PaymentRunService payments;
+    private final BillingClock clock;
 
-    public PaymentRunController(PaymentRunService runs, RiderService riderService) {
-        this.runs = runs;
-        this.riderService = riderService;
+    public PaymentRunController(PaymentRunService payments, BillingClock clock) {
+        this.payments = payments;
+        this.clock = clock;
     }
 
-    /** Current run: one current rider-specific period per active rider. */
-    @GetMapping("/runs/current")
-    public PaymentRunResponse currentRun(Authentication authentication) {
-        JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
-        return runs.currentRun(principal.tenantId());
+    @GetMapping("/collections")
+    public Collections collections(Authentication authentication) {
+        return payments.collections(principal(authentication).tenantId());
     }
 
-    @GetMapping("/overdue")
-    public List<OverdueRiderResponse> overdue() {
-        return runs.overdue();
+    @GetMapping("/riders/{riderId}/account")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
+    public Account account(@PathVariable String riderId) {
+        return payments.account(riderId);
     }
 
-    /**
-     * One rider's receipt for the current period.
-     *
-     * <p>A rider with no line in this period is <b>200 with a JSON null</b>,
-     * not a 404: the screen renders "no line in this period", which is a
-     * different state from "no such rider" (that one is the 404 thrown in the
-     * service). The literal {@code NullNode} is deliberate — returning Java
-     * null here would send an empty body instead, and {@code res.json()} on an
-     * empty body throws rather than resolving to null.
-     */
-    @GetMapping("/receipts/{riderId}")
-    public ResponseEntity<Object> receipt(@PathVariable String riderId) {
-        PaymentReceiptResponse receipt = runs.receiptFor(riderService.findByRiderCode(riderId).getId());
-        return ResponseEntity.ok(receipt == null ? NullNode.getInstance() : receipt);
-    }
-
-    /**
-     * Records money taken at the counter.
-     *
-     * <p>Returns the updated run row so RecordPaymentDialog can close onto
-     * fresh numbers without a refetch.
-     */
+    /** Records money taken. Returns the payment, which is also its receipt. */
     @PostMapping("/collections")
-    public PaymentPeriodRowResponse record(Authentication authentication,
-                                           @Valid @RequestBody RecordPaymentRequest request) {
-        JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
-        return runs.record(principal.tenantId(), principal.userId(), request);
+    public Payment record(Authentication authentication, @Valid @RequestBody RecordPaymentRequest request) {
+        JwtPrincipal principal = principal(authentication);
+        return payments.record(principal.tenantId(), principal.userId(), request);
+    }
+
+    @GetMapping("/collections/{paymentId}")
+    public Payment payment(@PathVariable UUID paymentId) {
+        return payments.payment(paymentId);
+    }
+
+    @PostMapping("/collections/{paymentId}/reverse")
+    public Payment reverse(Authentication authentication, @PathVariable UUID paymentId,
+                           @Valid @RequestBody ReversePaymentRequest request) {
+        return payments.reverse(principal(authentication).userId(), paymentId, request);
+    }
+
+    @GetMapping("/today")
+    public Today today(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return payments.today(date == null ? clock.today() : date);
+    }
+
+    private static JwtPrincipal principal(Authentication authentication) {
+        return (JwtPrincipal) authentication.getPrincipal();
     }
 }

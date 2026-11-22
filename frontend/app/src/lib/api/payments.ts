@@ -7,8 +7,7 @@ import * as mock from './payments.mock';
  *
  * S6's second half shipped a real API; this is the swap vehicles.ts already
  * does for S1. The choice is made here, once, from VITE_API_BASE, so no
- * screen — PaymentRun, OverdueRiders, PaymentReceipt, RecordPaymentDialog —
- * knows which implementation it got.
+ * money screen knows which implementation it got.
  *
  * The two implementations share a signature by construction — the compiler
  * checks it below, so a live function that drifts from its mock twin fails
@@ -17,7 +16,9 @@ import * as mock from './payments.mock';
 
 const impl: typeof mock = IS_LIVE ? { ...mock, ...live } : mock;
 
-export const getCurrentPaymentRun = impl.getCurrentPaymentRun;
-export const listOverdueRiders = impl.listOverdueRiders;
-export const getPaymentReceipt = impl.getPaymentReceipt;
+export const getCollections = impl.getCollections;
+export const getRiderAccount = impl.getRiderAccount;
 export const recordPayment = impl.recordPayment;
+export const reversePayment = impl.reversePayment;
+export const getPayment = impl.getPayment;
+export const getTodayCollections = impl.getTodayCollections;

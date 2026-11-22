@@ -17,7 +17,10 @@ import { ArrivalNotice } from '../../components/ArrivalNotice';
 import { SimpleTable } from '../../components/SimpleTable';
 import { EmptyState } from '../../components/EmptyState';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { decideKyc, getRider, listRiderPayments } from '../../lib/api/riders';
+import { decideKyc, getRider } from '../../lib/api/riders';
+import { getRiderAccount } from '../../lib/api/payments';
+import { canCollectPayments } from '../../lib/roles';
+import { owesText } from '../payments/money';
 import { getVehicle } from '../../lib/api/vehicles';
 import { invalidateRiders } from '../../lib/invalidate';
 import {
@@ -94,9 +97,10 @@ export function RiderDetail() {
     enabled: Boolean(rider.data?.currentVehicleId),
   });
 
-  const payments = useQuery({
-    queryKey: ['rider', riderId, 'payments'],
-    queryFn: () => listRiderPayments(riderId),
+  // The same account every money screen reads; fleet staff may see it here.
+  const account = useQuery({
+    queryKey: ['payments', 'account', riderId],
+    queryFn: () => getRiderAccount(riderId),
     enabled: Boolean(rider.data),
   });
 
@@ -384,58 +388,60 @@ export function RiderDetail() {
       <Panel
         label="Payment history"
         subtitle={
-          holdsBike ? 'The eight most recent billing periods, newest first.' : undefined
+          account.data
+            ? `Owes ${owesText(account.data.owes)}${account.data.daysLate > 0 ? ` · ${account.data.daysLate} days late` : ''}. Latest first.`
+            : undefined
+        }
+        action={
+          canCollectPayments(user.roleKey) ? (
+            <Button color="inherit" size="small" component={Link} to={`/payments/riders/${r.id}`}>
+              Full account
+            </Button>
+          ) : undefined
         }
         collapsible
         defaultOpen={false}
         sx={{ mt: 5 }}
       >
-        {payments.isLoading ? (
+        {account.isLoading ? (
           <Box sx={{ display: 'grid', placeItems: 'center', py: 8 }}>
             <CircularProgress size={18} />
           </Box>
-        ) : (payments.data ?? []).length === 0 ? (
+        ) : (account.data?.lines ?? []).length === 0 ? (
           <Typography sx={{ fontSize: 14, color: 'text.secondary', py: 4 }}>
             {holdsBike
-              ? 'No billing period has closed for this rider yet.'
+              ? 'Nothing billed or paid yet.'
               : 'No open plan. Rent is billed for as long as a bike is assigned.'}
           </Typography>
         ) : (
           <SimpleTable
-            rows={payments.data ?? []}
-            getRowKey={(p) => p.id}
+            rows={(account.data?.lines ?? []).slice(0, 10)}
+            getRowKey={(l, i) => `${l.kind}-${l.at}-${i}`}
+            scrollable
             columns={[
-              { key: 'period', header: 'Period', width: 150, render: (p) => <Mono>{formatDate(p.periodStart)}</Mono> },
-              { key: 'due', header: 'Due', align: 'right', width: 130, render: (p) => <Mono>{rupees(p.totalDue)}</Mono> },
+              { key: 'date', header: 'Date', width: 120, render: (l) => <Mono>{formatDate(l.date)}</Mono> },
               {
-                key: 'paid',
-                header: 'Paid',
+                key: 'what',
+                header: 'What',
+                render: (l) =>
+                  l.kind === 'RENT'
+                    ? `Rent · ${l.days} ${l.days === 1 ? 'day' : 'days'}`
+                    : l.kind === 'CHARGE'
+                      ? l.note ?? 'Charge'
+                      : `${l.kind === 'REVERSAL' ? 'Reversed' : 'Payment'} · ${l.method ? PAYMENT_METHOD_LABEL[l.method] : ''}${l.by ? ` · ${l.by}` : ''}`,
+              },
+              {
+                key: 'amount',
+                header: 'Amount',
                 align: 'right',
                 width: 130,
-                render: (p) => (
-                  <Mono sx={{ color: p.amountPaid === 0 ? neutral[500] : undefined }}>
-                    {rupees(p.amountPaid)}
+                render: (l) => (
+                  <Mono sx={{ color: l.amount < 0 ? 'success.main' : undefined }}>
+                    {l.amount < 0 ? `− ${rupees(-l.amount)}` : rupees(l.amount)}
                   </Mono>
                 ),
               },
-              {
-                key: 'status',
-                header: 'Status',
-                width: 130,
-                render: (p) => (
-                  <StateChip label={PAYMENT_STATUS_LABEL[p.status]} tone={PAYMENT_STATUS_TONE[p.status]} />
-                ),
-              },
-              {
-                key: 'method',
-                header: 'Method',
-                width: 150,
-                render: (p) => (
-                  <Box component="span" sx={{ color: p.method ? undefined : neutral[500] }}>
-                    {p.method ? PAYMENT_METHOD_LABEL[p.method] : '—'}
-                  </Box>
-                ),
-              },
+              { key: 'balance', header: 'Balance', align: 'right', width: 130, render: (l) => <Mono>{rupees(l.balance)}</Mono> },
             ]}
           />
         )}

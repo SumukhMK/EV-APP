@@ -142,16 +142,17 @@ class RiderReadTest extends RiderTestBase {
     }
 
     @Test
-    void thePaymentHistorySeamReturnsAnEmptyList() throws Exception {
-        mvc.perform(get("/api/v1/payments/riders/" + RIDER_A_CODE + "/periods")
+    void aRiderWithNoBikeHasAnEmptyAccount() throws Exception {
+        mvc.perform(get("/api/v1/payments/riders/" + RIDER_A_CODE + "/account")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.owes").value(0))
+                .andExpect(jsonPath("$.lines.length()").value(0));
     }
 
     @Test
     void thePaymentHistorySeam404sAnUnknownRider() throws Exception {
-        mvc.perform(get("/api/v1/payments/riders/" + java.util.UUID.randomUUID() + "/periods")
+        mvc.perform(get("/api/v1/payments/riders/" + java.util.UUID.randomUUID() + "/account")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isNotFound());
     }

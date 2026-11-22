@@ -8,7 +8,7 @@ import type {
   ServiceJob,
 } from '../types';
 import dayjs from 'dayjs';
-import { overdueRiders } from './payments';
+import { collections, lateSummary } from './payments';
 import { vehicles } from './vehicles';
 import { serviceJobs } from './serviceJobs';
 
@@ -25,8 +25,8 @@ export const fleetSummary = (): FleetSummary => ({
   qcPending: vehicles.filter((v) => v.state === 'QC_PENDING').length,
   accident: vehicles.filter((v) => v.state === 'ACCIDENT').length,
   recovery: vehicles.filter((v) => v.state === 'RECOVERY').length,
-  overdueRiders: overdueRiders.length,
-  overdueValue: overdueRiders.reduce((sum, o) => sum + o.amountDue, 0),
+  overdueRiders: lateSummary().riders,
+  overdueValue: lateSummary().value,
 });
 
 /**
@@ -161,8 +161,9 @@ export function recoveryCounts(): RecoveryCounts {
   const accident = vehicles.filter((v) => v.state === 'ACCIDENT').length;
 
   // The deep arrears are the ones with nothing paid; the rest are part-paid.
-  const notPaid = overdueRiders.filter((o) => o.stage === 'REPOSSESSION_DUE').length;
-  const partiallyPaid = Math.max(0, overdueRiders.length - notPaid);
+  const late = collections().rows.filter((r) => r.active && r.daysLate > 0 && r.owes > 0);
+  const notPaid = late.filter((r) => r.stage === 'REPOSSESSION_DUE').length;
+  const partiallyPaid = Math.max(0, late.length - notPaid);
 
   // Split the recovery bikes across roadside / missing / already-recovered.
   const leftAtRoadside = Math.round(inRecovery * 0.4);

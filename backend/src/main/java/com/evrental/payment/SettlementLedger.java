@@ -42,6 +42,13 @@ public class SettlementLedger {
     public UUID settle(UUID tenantId, UUID riderId, long outstandingRentPaise, long depositRefundPaise) {
         UUID chargeId = null;
 
+        // What the rider still owed at return is decided on the deboard form
+        // (it starts at the account's Owes, repairs included), so open charges
+        // are folded into that one figure instead of being billed twice.
+        charges.findByRiderIdAndStatusOrderByChargedOnDesc(riderId, RiderChargeStatus.OPEN).stream()
+                .filter(c -> c.getLiability() == com.evrental.service.ServiceLiability.RIDER)
+                .forEach(c -> c.settle(java.time.Instant.now()));
+
         if (outstandingRentPaise > 0) {
             RiderCharge charge = new RiderCharge();
             charge.setTenantId(tenantId);

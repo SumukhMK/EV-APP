@@ -1,94 +1,159 @@
 import type { Iso8601, Paise } from './common';
 import type { ServiceLiability } from './serviceJob';
 
+/**
+ * Money, mirroring backend payment/CollectionResponses.java.
+ *
+ * One number per rider: `owes` — rent + charges − payments, worked out on the
+ * server and nowhere else. Positive is owed; negative is credit (paid ahead).
+ */
+
+/** The register's chip. Derived from the same account as `owes`. */
 export type PaymentStatus = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
-
-/** One rider's line in a weekly payment run (screen 15). */
-export interface PaymentPeriodRow {
-  /** Days since the week closed; 0 while it is still running. */
-  daysOverdue: number;
-  /**
-   * Past the operator's buffer and still short. A verdict, not a duration —
-   * the threshold is a business rule and lives on the API.
-   */
-  pastGrace: boolean;
-  riderId: string;
-  riderName: string;
-  vehicleId: string;
-  billingDay: import('./rider').BillingDay;
-  planAmount: Paise;
-  /** Days actually billed in the period — a mid-week deboard bills fewer. */
-  daysBilled: number;
-  perDayAmount: Paise;
-  billedAmount: Paise;
-  serviceCharges: Paise;
-  arrears: Paise;
-  totalDue: Paise;
-  amountPaid: Paise;
-  status: PaymentStatus;
-}
-
-export interface PaymentRun {
-  periodStart: Iso8601;
-  periodEnd: Iso8601;
-  rows: PaymentPeriodRow[];
-}
 
 export type DunningStage = 'REMINDER_DUE' | 'WARNING_1' | 'WARNING_2' | 'REPOSSESSION_DUE';
 
-export interface OverdueRider {
-  /** Past the operator's buffer. */
-  pastGrace: boolean;
-  riderId: string;
-  riderName: string;
-  /** Shown on the list so a reminder can be a call, not a click-through. */
-  phone: string;
-  vehicleId: string;
-  daysOverdue: number;
-  amountDue: Paise;
-  stage: DunningStage;
+export type PaymentMethod = 'UPI' | 'CASH' | 'BANK_TRANSFER';
+
+export interface LastPayment {
+  amount: Paise;
+  method: PaymentMethod;
+  at: Iso8601;
+  /** Who took it; null when unknown. */
+  by: string | null;
 }
 
-/**
- * What "record a payment" sends (screens 15 and 16). A collection is always
- * against one rider's current period; the amount is what actually came in, so
- * a partial payment is just an amount short of the balance.
- */
+/** One rider on the Collections page. */
+export interface CollectionRow {
+  riderId: string;
+  riderName: string;
+  phone: string;
+  /** The bike they hold now; null after a deboard. */
+  vehicleId: string | null;
+  active: boolean;
+  owes: Paise;
+  /** 0 when nothing is late. */
+  daysLate: number;
+  /** Next step for a late rider; null when not late. */
+  stage: DunningStage | null;
+  /** Last day of the current week: this week's rent is late after it. */
+  dueBy: Iso8601 | null;
+  /** Rent for the current week so far. */
+  weekRent: Paise;
+  /** How this rider normally pays — the collect form starts on it. */
+  usualMethod: PaymentMethod;
+  lastPayment: LastPayment | null;
+}
+
+export interface Collections {
+  today: Iso8601;
+  /** Net of reversals. */
+  collectedToday: Paise;
+  paymentsToday: number;
+  rows: CollectionRow[];
+}
+
 export interface RecordPaymentRequest {
   riderId: string;
   amount: Paise;
   method: PaymentMethod;
+  reference?: string;
+  /** Made once per collect form, so a double tap or retry saves one payment. */
+  clientKey?: string;
 }
 
-/**
- * One period on a single rider's ledger (screen 08's payment history panel).
- *
- * A thinner row than `PaymentPeriodRow`: the weekly run needs the whole
- * calculation because that is the screen where it is argued about, whereas the
- * rider's own history only has to answer "was this week settled, and how".
- */
-export interface RiderPaymentRow {
+/** One payment or reversal — also its receipt. */
+export interface Payment {
   id: string;
-  periodStart: Iso8601;
-  periodEnd: Iso8601;
-  totalDue: Paise;
-  amountPaid: Paise;
-  status: PaymentStatus;
-  /** null while nothing has been collected against the period. */
-  method: PaymentMethod | null;
+  receiptNo: string | null;
+  riderId: string;
+  riderName: string;
+  vehicleId: string | null;
+  /** Positive for a payment, negative for a reversal. */
+  amount: Paise;
+  method: PaymentMethod;
+  reference: string | null;
+  at: Iso8601;
+  by: string | null;
+  /** null on payments recorded before the switch to one row per payment. */
+  owedBefore: Paise | null;
+  owedAfter: Paise | null;
+  /** Set on a reversal: the payment it takes back. */
+  reversesId: string | null;
+  reason: string | null;
+  /** A payment that has since been reversed. */
+  reversed: boolean;
 }
 
-export type PaymentMethod = 'UPI' | 'CASH' | 'BANK_TRANSFER';
+export type AccountLineKind = 'RENT' | 'CHARGE' | 'PAYMENT' | 'REVERSAL';
 
-/**
- * A cost posted to a rider once an assistance-desk job closes with
- * `liability: 'RIDER'` or `'DEPOSIT'`. `serviceCharges` on a `PaymentPeriodRow`
- * is the sum of the `RIDER`-liability charges whose `periodStart` matches the
- * run; a `DEPOSIT` charge never appears on the run because it is settled
- * against the deposit, not billed. `arrears` is the sum of `OPEN` charges
- * whose `periodStart` is before the current run — money owed that carried
- * forward rather than being paid in the week it was charged.
- */
+export interface AccountLine {
+  kind: AccountLineKind;
+  date: Iso8601;
+  at: Iso8601;
+  /** Positive adds to what is owed; negative takes off. */
+  amount: Paise;
+  /** What was owed right after this line. */
+  balance: Paise;
+  /** Rent: last day covered. */
+  to: Iso8601 | null;
+  /** Rent: days covered. */
+  days: number;
+  /** Rent: the week is billed and frozen; false while it is still running. */
+  locked: boolean;
+  /** Charge: what it was for. */
+  note: string | null;
+  paymentId: string | null;
+  receiptNo: string | null;
+  method: PaymentMethod | null;
+  reference: string | null;
+  by: string | null;
+  reason: string | null;
+  reversed: boolean;
+}
+
+/** A rider's whole account, lines newest first. */
+export interface RiderAccount {
+  riderId: string;
+  riderName: string;
+  phone: string;
+  vehicleId: string | null;
+  active: boolean;
+  planAmount: Paise;
+  depositHeld: Paise;
+  usualMethod: PaymentMethod;
+  owes: Paise;
+  daysLate: number;
+  /** Last day of the oldest unpaid week; null when nothing is late. */
+  lateSince: Iso8601 | null;
+  stage: DunningStage | null;
+  /** First day of rent in this account; null when the rider holds no bike. */
+  rentFrom: Iso8601 | null;
+  rent: Paise;
+  charges: Paise;
+  paid: Paise;
+  lines: AccountLine[];
+}
+
+export interface StaffTotal {
+  name: string;
+  count: number;
+  cash: Paise;
+  upi: Paise;
+  bank: Paise;
+  total: Paise;
+}
+
+/** One day's money, for the end-of-day cash count. */
+export interface TodayCollections {
+  date: Iso8601;
+  total: Paise;
+  count: number;
+  byStaff: StaffTotal[];
+  /** Newest first, reversals included. */
+  payments: Payment[];
+}
+
 export type RiderChargeStatus = 'OPEN' | 'SETTLED';
 
 export interface RiderCharge {
@@ -99,43 +164,7 @@ export interface RiderCharge {
   amount: Paise;
   liability: ServiceLiability;
   status: RiderChargeStatus;
-  /** The billing period this charge should first appear against. */
+  /** The billing week this charge was raised in. */
   periodStart: Iso8601;
   createdOn: Iso8601;
-}
-
-/**
- * A single rider's receipt for one billing period (screen 16).
- *
- * It is the `PaymentPeriodRow` from the run plus the three things a receipt
- * has to answer that the run does not: what was actually collected against it,
- * how, and when. Every rupee line here is one already carried on the run row —
- * a receipt restates the same calculation, it does not invent a new one — so
- * the total on the run and the total on the receipt can never disagree.
- */
-export interface PaymentReceipt {
-  /** Human receipt number, only meaningful once something has been paid. */
-  receiptNo: string | null;
-  riderId: string;
-  riderName: string;
-  vehicleId: string;
-  periodStart: Iso8601;
-  periodEnd: Iso8601;
-  billingDay: import('./rider').BillingDay;
-  planAmount: Paise;
-  daysBilled: number;
-  perDayAmount: Paise;
-  billedAmount: Paise;
-  serviceCharges: Paise;
-  arrears: Paise;
-  totalDue: Paise;
-  amountPaid: Paise;
-  /** totalDue − amountPaid; positive means still owed. */
-  balance: Paise;
-  status: PaymentStatus;
-  /** null until money is collected. */
-  method: PaymentMethod | null;
-  paidOn: Iso8601 | null;
-  /** UPI/bank reference, where the method carries one. */
-  reference: string | null;
 }

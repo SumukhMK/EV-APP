@@ -2,31 +2,25 @@ package com.evrental.payment;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
- * What "record a payment" sends (screens 15 and 16), mirroring
- * RecordPaymentRequest in frontend/app/src/types/payment.ts.
+ * What "collect" sends, mirroring RecordPaymentRequest in
+ * frontend/app/src/types/payment.ts.
  *
- * <p>{@code riderId} is the rider code an operator reads, such as "R01", not
- * the register's internal row id.
+ * <p>{@code riderId} is the rider code an operator reads, such as "R01".
+ * {@code amount} is what came in, in paise; more than is owed is kept as
+ * credit. {@code method} is a String so an unknown value answers 422 naming
+ * the field rather than Jackson's 400.
  *
- * <p>{@code amount} is what actually came in, so a partial payment is simply
- * an amount short of the balance and an overpayment is one past it. Both are
- * accepted: a rider paying ahead carries a credit, and refusing money at the
- * counter is worse than carrying one.
- *
- * <p>{@code method} is a String rather than the enum on purpose. Jackson
- * answers an unknown enum value with a 400 and a deserialisation message; the
- * contract wants a 422 naming the field, like every other rule in this module.
- * Parsing it in the service is what buys that.
- *
- * <p>{@code reference} is not in the frontend type. It is accepted because a
- * UPI or NEFT collection has one and a receipt is expected to print it, and it
- * is optional so the existing dialog keeps working unchanged.
+ * <p>{@code clientKey} is made once per payment form by the screen. Sending
+ * the same key twice — a double tap, or a retry on a slow network — returns
+ * the first payment instead of saving a second.
  */
 public record RecordPaymentRequest(
         @NotBlank String riderId,
         long amount,
         @NotNull String method,
-        String reference) {
+        @Size(max = 100) String reference,
+        @Size(max = 64) String clientKey) {
 }

@@ -125,14 +125,14 @@ export function Dashboard() {
               value: s ? formatNumber(s.overdueRiders) : '—',
               tone: 'bad' as const,
               icon: PeopleAlertIcon,
-              to: '/payments/overdue',
+              to: '/payments/collections?filter=late',
             },
             {
               label: 'Money owed',
               value: s ? rupees(s.overdueValue) : '—',
               tone: 'bad' as const,
               icon: CurrencyRupeeIcon,
-              to: '/payments/overdue',
+              to: '/payments/collections?filter=late',
             }] : []),
           ]}
         />

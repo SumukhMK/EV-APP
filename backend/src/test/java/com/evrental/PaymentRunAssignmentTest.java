@@ -9,35 +9,18 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * The run bills the days a rider actually held a bike, and names the bike.
- *
- * <p>Until now it did neither. {@code payment.AssignmentQuery} had one
- * implementation — {@code NoAssignmentsYet}, which answers empty for every
- * rider — and S5 shipping did not change that, because the assignment module
- * published a <i>different</i> interface that happens to share the name. So
- * every row billed a full seven days and carried a null vehicle, on a database
- * that knew exactly which bike the rider had and when they gave it back.
- *
- * <p>That is wrong money, not a missing screen: a rider who hands the bike
- * back on Wednesday was billed to Sunday.
+ * Rent runs for the days a rider actually held a bike, and Collections names
+ * the bike they hold now. An exchange continues the account; a deboard ends it.
  */
 class PaymentRunAssignmentTest extends PaymentRunTestBase {
 
-    /**
-     * The base gives every fixture rider an open assignment, because the run
-     * now bills days held. These tests are about what those rows say, so each
-     * one starts from none and writes exactly the history it is testing.
-     *
-     * <p>JUnit runs a superclass {@code @BeforeEach} before a subclass's, so
-     * this lands after the fixture is built and clears it.
-     */
+    /** Each test writes exactly the bike history it is about. */
     @org.junit.jupiter.api.BeforeEach
     void clearAssignments() {
         superAdmin(jdbc -> jdbc.update("DELETE FROM assignments WHERE tenant_id IN (?, ?)",
                 TENANT, OTHER_TENANT));
     }
 
-    /** Opens an assignment for a rider over a given window. */
     private void assignment(UUID riderId, UUID vehicle, LocalDate from, LocalDate to) {
         superAdmin(jdbc -> jdbc.update("""
                 INSERT INTO assignments (tenant_id, rider_id, vehicle_id, started_on, ended_on,
@@ -51,95 +34,67 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
                 to == null ? null : "Test"));
     }
 
+    /** Rent for the days from {@code from} to today: whole weeks at the plan, the rest per day. */
+    private long rentSince(LocalDate from) {
+        long days = Math.max(0, today().toEpochDay() - from.toEpochDay() + 1);
+        return (days / 7) * ROUNDING_PLAN_PAISE + (days % 7) * Math.round(ROUNDING_PLAN_PAISE / 7.0);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions collections() throws Exception {
+        return mvc.perform(get("/api/v1/payments/collections")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
+                .andExpect(status().isOk());
+    }
+
     @Test
-    void aRiderHoldingABikeAllWeekIsBilledTheWholeWeekAndTheBikeIsNamed() throws Exception {
+    void aRiderHoldingABikeAllWeekPaysForEveryDaySoFarAndTheBikeIsNamed() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
         assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(3), null);
 
-        mvc.perform(get("/api/v1/payments/runs/current")
-                        
-                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(7))
+        collections()
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].weekRent").value((int) rentSince(start)))
                 // The bike an operator reads off the frame, not a row id.
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId").value("BLRSS0428"));
     }
 
     /**
-     * Handed back mid-week: the run bills nothing more. A deboard closes the
-     * rider's account; the days held are settled through the deboard's
-     * outstanding rent, which becomes a charge — billing them here as well
-     * would charge them twice.
+     * Handed back mid-week: the account stops. The days held are settled
+     * through the deboard's outstanding rent, which becomes a charge —
+     * billing them here as well would charge them twice.
      */
     @Test
-    void aMidWeekDeboardIsBilledOnlyTheDaysHeld() throws Exception {
+    void aMidWeekDeboardStopsTheRent() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(2), start.plusDays(2));
+        assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(2), start.minusDays(1));
 
-        mvc.perform(get("/api/v1/payments/runs/current")
-                        
-                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(0))
+        collections()
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].weekRent").value(0))
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].owes").value(0))
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId")
                         .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue())));
     }
 
-    /** Picked the bike up mid-week: billed from the day they took it. */
+    /** Took the bike mid-week: rent from that day. */
     @Test
-    void aMidWeekAssignIsBilledFromTheDayItStarted() throws Exception {
+    void aMidWeekAssignPaysFromTheDayItStarted() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        // Thursday onward is Thursday to Sunday, four days.
-        assignment(MONDAY_RIDER, vehicleId, start.plusDays(3), null);
+        LocalDate took = today().isAfter(start) ? start.plusDays(1) : start;
+        assignment(MONDAY_RIDER, vehicleId, took, null);
 
-        mvc.perform(get("/api/v1/payments/runs/current")
-                        
-                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(4));
+        collections()
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].weekRent").value((int) rentSince(took)));
     }
 
-    /**
-     * A rider with no bike at all this week. The row still exists — a run that
-     * silently omits people is how somebody stops being billed by accident —
-     * but it bills nothing and names nothing.
-     */
+    /** An exchange closes one bike and opens the next: the account carries on, naming the new bike. */
     @Test
-    void aRiderWithNoBikeThisWeekIsBilledNothing() throws Exception {
-        LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(6), start.minusWeeks(4));
-
-        mvc.perform(get("/api/v1/payments/runs/current")
-                        
-                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(0))
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].billedAmount").value(0))
-                // A filtered path returns a list, so the absence of a bike is
-                // a list holding null rather than no value at all.
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId")
-                        .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue())));
-    }
-
-    /**
-     * Two bikes in one week, because the rider exchanged mid-week. The run
-     * bills the days held across both and names the one they ended on — a
-     * period carries a single vehicle column, and the bike they have now is
-     * the one an operator chasing the payment needs.
-     */
-    @Test
-    void anExchangeMidWeekBillsTheDaysHeldAcrossBothBikes() throws Exception {
+    void anExchangeCarriesTheAccountOnToTheNewBike() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
         UUID second = insertVehicle(TENANT, "BLRSS0429", "CHASSIS0429");
-        assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(1), start.plusDays(2));
-        assignment(MONDAY_RIDER, second, start.plusDays(3), null);
+        assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(1), today().minusDays(1));
+        assignment(MONDAY_RIDER, second, today(), null);
 
-        mvc.perform(get("/api/v1/payments/runs/current")
-                        
-                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(7))
+        collections()
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].weekRent").value((int) rentSince(start)))
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId").value("BLRSS0429"));
     }
 }
-

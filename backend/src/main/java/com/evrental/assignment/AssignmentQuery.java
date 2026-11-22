@@ -58,4 +58,7 @@ public interface AssignmentQuery {
      * rider holds no bike.
      */
     java.util.Optional<java.time.LocalDate> billingStartedOn(UUID riderId);
+
+    /** The day the rider last handed a bike back; empty if they never have. */
+    java.util.Optional<java.time.LocalDate> lastReturnedOn(UUID riderId);
 }

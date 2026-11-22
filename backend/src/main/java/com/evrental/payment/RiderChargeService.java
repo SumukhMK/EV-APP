@@ -35,12 +35,9 @@ public class RiderChargeService {
     private final AssignmentQuery assignments;
     private final BillingClock clock;
     private final JdbcTemplate jdbc;
-    private final PaymentPeriodRepository periods;
 
     public RiderChargeService(RiderChargeRepository charges, RiderRepository riders,
-                              AssignmentQuery assignments, BillingClock clock, JdbcTemplate jdbc,
-                              PaymentPeriodRepository periods) {
-        this.periods = periods;
+                              AssignmentQuery assignments, BillingClock clock, JdbcTemplate jdbc) {
         this.charges = charges;
         this.riders = riders;
         this.assignments = assignments;
@@ -105,14 +102,6 @@ public class RiderChargeService {
 
         try {
             RiderCharge saved = charges.saveAndFlush(charge);
-            // The week's bill may already exist; add the charge to it now rather than a week late.
-            if (charge.getLiability() == ServiceLiability.RIDER) {
-                periods.findByRiderIdAndPeriodStart(event.riderId(), charge.getPeriodStart()).ifPresent(row ->
-                        row.refreshCharges(
-                                charges.sumOpenInPeriod(event.riderId(), row.getPeriodStart(), ServiceLiability.RIDER),
-                                charges.sumOpenBefore(event.riderId(), row.getPeriodStart(), ServiceLiability.RIDER),
-                                clock.today()));
-            }
             log.info("Raised {} charge of {} paise against rider {} for job {}",
                     charge.getLiability(), charge.getAmountPaise(), event.riderId(), event.jobId());
             return saved;

@@ -59,7 +59,7 @@ class RiderRbacTest extends RiderTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ONBOARD_BODY))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/payments/riders/" + RIDER_A_CODE + "/periods")
+        mvc.perform(get("/api/v1/payments/riders/" + RIDER_A_CODE + "/account")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
     }

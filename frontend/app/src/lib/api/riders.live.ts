@@ -3,7 +3,6 @@ import type {
   OnboardRiderRequest,
   Page,
   Rider,
-  RiderPaymentRow,
   RiderStatus,
   RiderDetail,
 } from '../../types';
@@ -15,11 +14,6 @@ import type { RiderQuery } from './riders.mock';
  *
  * Same "no mapping layer" contract as vehicles.live.ts: RiderResponse was
  * written field-for-field against Rider, so the JSON is the type.
- *
- * `listRiderPayments` was written for payments.ts's S6 stage, but the
- * endpoint (`/payments/riders/{riderId}/periods`) belongs to a rider's
- * history, which this module owns — matching riders.mock.ts, where it also
- * lives rather than in payments.mock.ts.
  */
 function filters(query: RiderQuery) {
   return { q: query.q, status: query.status, platform: query.platform, vehicleState: query.vehicleState };
@@ -52,9 +46,6 @@ export function listAssignedRiders(): Promise<Rider[]> {
   return request<Rider[]>('/riders/assigned');
 }
 
-export function listRiderPayments(riderId: string): Promise<RiderPaymentRow[]> {
-  return request<RiderPaymentRow[]>(`/payments/riders/${encodeURIComponent(riderId)}/periods`);
-}
 
 export function onboardRider(body: OnboardRiderRequest): Promise<Rider> {
   return request<Rider>('/riders', { method: 'POST', body });

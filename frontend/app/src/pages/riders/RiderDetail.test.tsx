@@ -4,22 +4,23 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SessionContext, type SessionValue } from '../../app/sessionContext';
-import { decideKyc, getRider, listRiderPayments } from '../../lib/api/riders';
+import { decideKyc, getRider } from '../../lib/api/riders';
+import { getRiderAccount } from '../../lib/api/payments';
 import type { RiderDetail as RiderDetailRecord } from '../../types';
 import { RiderDetail } from './RiderDetail';
 
 vi.mock('../../lib/api/riders', () => ({
   getRider: vi.fn(),
   decideKyc: vi.fn(),
-  listRiderPayments: vi.fn(),
 }));
+vi.mock('../../lib/api/payments', () => ({ getRiderAccount: vi.fn() }));
 vi.mock('../../lib/api/vehicles', () => ({
   getVehicle: vi.fn(),
 }));
 
 const rider = vi.mocked(getRider);
 const kyc = vi.mocked(decideKyc);
-const payments = vi.mocked(listRiderPayments);
+const payments = vi.mocked(getRiderAccount);
 
 const pending: RiderDetailRecord = {
   id: 'R11',
@@ -69,7 +70,11 @@ beforeEach(() => {
   rider.mockReset();
   kyc.mockReset();
   payments.mockReset();
-  payments.mockResolvedValue([]);
+  payments.mockResolvedValue({
+    riderId: 'R01', riderName: 'x', phone: '', vehicleId: null, active: true, planAmount: 0, depositHeld: 0,
+    usualMethod: 'UPI', owes: 0, daysLate: 0, lateSince: null, stage: null, rentFrom: null, rent: 0, charges: 0,
+    paid: 0, lines: [],
+  });
 });
 
 /**

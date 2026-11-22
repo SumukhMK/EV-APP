@@ -102,24 +102,16 @@ class RiderChargeTest extends ServiceJobTestBase {
     }
 
     @Test
-    void aChargeRaisedAfterTheWeeksBillWasMadeLandsOnThatBill() throws Exception {
-        // Opening the run freezes this week's row before the job closes.
-        mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
-        long before = superAdmin(jdbc -> jdbc.queryForObject(
-                "SELECT total_due_paise FROM payment_periods WHERE rider_id = ? ORDER BY period_start DESC LIMIT 1",
-                Long.class, riderId));
-
+    void aClosedJobsChargeIsOwedOnTheRidersAccountAtOnce() throws Exception {
         close("RIDER");
 
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-            var row = superAdmin(jdbc -> jdbc.queryForMap(
-                    "SELECT service_charges_paise, total_due_paise FROM payment_periods "
-                            + "WHERE rider_id = ? ORDER BY period_start DESC LIMIT 1", riderId));
-            assertThat(((Number) row.get("service_charges_paise")).longValue()).isEqualTo(85000);
-            assertThat(((Number) row.get("total_due_paise")).longValue()).isEqualTo(before + 85000);
-        });
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                mvc.perform(get("/api/v1/payments/riders/" + riderCode(riderId) + "/account")
+                                .header("Authorization", "Bearer " + token))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.owes").value(85000))
+                        .andExpect(jsonPath("$.lines[0].kind").value("CHARGE"))
+                        .andExpect(jsonPath("$.lines[0].note").value("Repair")));
     }
 
     @Test

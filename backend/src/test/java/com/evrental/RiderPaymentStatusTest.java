@@ -21,7 +21,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
     @Test
     void aRiderWhoHasPaidReadsPaid() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L, "PENDING");
+        insertPaidPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L);
 
         mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
@@ -32,7 +32,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
     @Test
     void aRiderWhoHasPaidSomethingReadsPartial() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 50000L, "PENDING");
+        insertPaidPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 50000L);
 
         mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
@@ -44,7 +44,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
     @Test
     void aClosedWeekStillShortReadsOverdue() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY).minusWeeks(3);
-        insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L, "PENDING");
+        insertPaidPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L);
 
         mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
@@ -65,8 +65,8 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
     @Test
     void theListCarriesTheSameStatusAsTheProfile() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L, "PENDING");
-        insertPeriod(TENANT, CHARGED_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L, "PENDING");
+        insertPaidPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L);
+        insertPaidPeriod(TENANT, CHARGED_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L);
 
         mvc.perform(get("/api/v1/riders")
                         .param("size", "50")
@@ -80,8 +80,8 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
     @Test
     void theMostRecentPeriodIsTheOneThatCounts() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        insertPeriod(TENANT, MONDAY_RIDER, start.minusWeeks(1), com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L, "PENDING");
-        insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L, "PENDING");
+        insertPaidPeriod(TENANT, MONDAY_RIDER, start.minusWeeks(1), com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L);
+        insertPaidPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L);
 
         mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))

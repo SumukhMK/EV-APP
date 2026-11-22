@@ -65,6 +65,9 @@ describe('page tours', () => {
       '/service/qc', // now All job cards, filtered to QC Pending
       '/service/assistance', // now All job cards
       '/service/assistance/new', // job cards are opened from the two boards now
+      '/payments/run', // now Collections
+      '/payments/run/:riderId', // now the rider's account
+      '/payments/overdue', // now Collections, Late filter
     ];
 
     const missing = ROUTE_PATHS.filter((path) => !notScreens.includes(path)).filter(
@@ -86,7 +89,7 @@ describe('page tours', () => {
       '/vehicles',
       '/riders/onboard',
       '/assignments/assign',
-      '/payments/run',
+      '/payments/collections',
     ]) {
       expect(pageTourFor(path), path).not.toBeNull();
     }

@@ -103,53 +103,6 @@ public class PaymentPeriod {
     @Column(name = "updated_on", nullable = false)
     private Instant updatedOn;
 
-    /**
-     * Sets what was actually collected, recomputed from the collection rows.
-     *
-     * <p>Always a recomputed {@code SUM}, never {@code amountPaid + amount}:
-     * two people recording cash at the same counter would otherwise lose one
-     * of the two payments.
-     */
-    public void applyCollected(long collectedPaise, LocalDate today) {
-        this.amountPaidPaise = collectedPaise;
-        recomputeStatus(today);
-    }
-
-    /**
-     * The one place status is decided, so the run, the receipt and the overdue
-     * list cannot disagree about a row.
-     *
-     * <p>OVERDUE is tested before PARTIAL. A week that has closed while still
-     * short is overdue whether nothing came in or only half did, and the
-     * overdue screen is the one place that has to say so — ordering PARTIAL
-     * first would hide every part-paying rider from the chasing list, which is
-     * exactly the rider who needs chasing. The design document originally
-     * listed the reverse order and has been corrected to match this.
-     *
-     * <p>Overpayment reads PAID rather than being refused: the contract
-     * documents {@code balance} as "positive means still owed", which already
-     * anticipates a negative, and turning money away at the counter is worse
-     * than carrying a credit.
-     */
-    /**
-     * Brings the week's repair charges up to date on a bill not yet paid.
-     *
-     * <p>A row is frozen when the run first opens, but a workshop job can close
-     * later in the same week; without this its charge waited a whole week to
-     * surface as arrears. Rent stays frozen — only the charges move.
-     */
-    public void refreshCharges(long serviceChargesPaise, long arrearsPaise, LocalDate today) {
-        // A week someone has paid off is history; a later charge carries forward as arrears.
-        // amountPaid > 0 matters: a week that billed nothing is not "paid", it is empty.
-        if (amountPaidPaise > 0 && amountPaidPaise >= totalDuePaise) {
-            return;
-        }
-        this.serviceChargesPaise = serviceChargesPaise;
-        this.arrearsPaise = arrearsPaise;
-        this.totalDuePaise = billedAmountPaise + serviceChargesPaise + arrearsPaise;
-        recomputeStatus(today);
-    }
-
     public void recomputeStatus(LocalDate today) {
         if (amountPaidPaise >= totalDuePaise) {
             this.status = PaymentStatus.PAID;
@@ -160,18 +113,6 @@ public class PaymentPeriod {
         } else {
             this.status = PaymentStatus.PENDING;
         }
-    }
-
-    /** Issued once, on the first collection, and never reissued. */
-    public void assignReceiptNo(String receiptNo) {
-        if (this.receiptNo == null) {
-            this.receiptNo = receiptNo;
-        }
-    }
-
-    /** totalDue − amountPaid. Negative when the rider has paid ahead. */
-    public long balancePaise() {
-        return totalDuePaise - amountPaidPaise;
     }
 
     /** Days between the day the money was due and today; never negative. */

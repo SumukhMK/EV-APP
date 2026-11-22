@@ -26,7 +26,8 @@ import { SelectionSummary } from './_components/SelectionSummary';
 import { DispositionFields } from './_components/DispositionFields';
 import { DamageItemsField } from './_components/DamageItemsField';
 import { deboardRider } from '../../lib/api/assignments';
-import { listAssignedRiders, listRiderPayments } from '../../lib/api/riders';
+import { listAssignedRiders } from '../../lib/api/riders';
+import { getRiderAccount } from '../../lib/api/payments';
 import { ApiError } from '../../lib/api/client';
 import { invalidateAssignments, invalidateServiceJobs } from '../../lib/invalidate';
 import {
@@ -117,14 +118,16 @@ export function DeboardRider() {
     enabled: Boolean(rider?.currentVehicleId),
   });
 
-  // What the record says is owed this period — shown in the summary, typed
-  // again in the settlement, because the settlement is what the desk agrees.
+  // Everything the rider owes — old weeks and repairs included, the same
+  // Owes every money screen shows — typed again in the settlement, because
+  // the settlement is what the desk agrees. It used to read only the latest
+  // week, so older unpaid weeks were left off the settlement.
   const payments = useQuery({
-    queryKey: ['rider-payments', rider?.id],
-    queryFn: () => listRiderPayments(rider!.id),
+    queryKey: ['payments', 'account', rider?.id],
+    queryFn: () => getRiderAccount(rider!.id),
     enabled: Boolean(rider),
   });
-  const outstanding = (payments.data?.[0]?.totalDue ?? 0) - (payments.data?.[0]?.amountPaid ?? 0);
+  const outstanding = Math.max(0, payments.data?.owes ?? 0);
 
   // Start the settlement at what the record says is owed, once per rider, so a
   // refetch never overwrites what the desk typed. A figure typed before the
@@ -341,7 +344,7 @@ export function DeboardRider() {
           >
             {/* A number input hands back a string unless it is asked not to. */}
             <TextField
-              label="Rent still owed (₹)"
+              label="Still owed, rent and repairs (₹)"
               type="number"
               fullWidth
               {...form.register('outstandingRentRupees', { valueAsNumber: true })}

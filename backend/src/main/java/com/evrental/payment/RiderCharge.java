@@ -102,12 +102,6 @@ public class RiderCharge {
         this.settledOn = when;
     }
 
-    /** Settles the charge out of a payment taken in the run. */
-    public void settleByPayment(Instant when) {
-        settle(when);
-        this.settledByPayment = true;
-    }
-
     public boolean isSettledByPayment() {
         return settledByPayment;
     }

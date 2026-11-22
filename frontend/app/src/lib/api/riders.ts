@@ -16,5 +16,4 @@ export const getRider = impl.getRider;
 export const decideKyc = impl.decideKyc;
 export const listAssignableRiders = impl.listAssignableRiders;
 export const listAssignedRiders = impl.listAssignedRiders;
-export const listRiderPayments = impl.listRiderPayments;
 export const onboardRider = impl.onboardRider;

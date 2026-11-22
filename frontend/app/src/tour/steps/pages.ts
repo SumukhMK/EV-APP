@@ -269,38 +269,34 @@ const PAGES: Record<string, PageAbout> = {
     },
   },
 
-  '/payments/run': {
-    title: "Weekly payment run",
+  '/payments/collections': {
+    title: "Collections",
     about:
-      "This week's collections, rider by rider: what each one owes and what has come in. Record payments as they are taken and the totals at the top move with you. Open a rider for the receipt behind their line.",
+      "Every rider and one number each: what they owe right now. Late riders are at the top. Search by name, R-code, phone or bike, tap Collect, check the amount and press Enter. Open a rider for their full account.",
     tiles:
-      "What the week comes to: how much is due across all riders, how much has come in, and how much is still outstanding. They move as you record payments.",
+      "What came in today, what is owed across everyone, how many are late, and how many are paid up. Each one opens the riders behind it.",
+  },
+
+  '/payments/riders/:riderId': {
+    title: "Rider account",
+    about:
+      "One rider's account like a bank statement: every week of rent, every charge, every payment and reversal on the day it happened, with what they owed after each. Print a receipt for any payment from here.",
     cards: {
-      "This period":
-        "Which week you are collecting for. Everything on the screen follows it, so check it before you start recording.",
+      "Account history":
+        "Newest first. The balance column is what the rider owed right after that line, so the top line always matches Owes.",
     },
   },
 
-  '/payments/run/:riderId': {
-    title: "Receipt",
+  '/payments/today': {
+    title: "Today's collections",
     about:
-      "One rider's week in detail: who they are, what they were charged and why, and the payment recorded against it. This is the receipt sitting behind a single line in the weekly payment run.",
+      "The end-of-day count: what came in, who took it and how. Check the cash each person holds against their line. A reversal comes off the person who took the original payment.",
     cards: {
-      "Rider":
-        "Who this receipt belongs to, how to reach them, and the terms they are billed under. Enough to settle a query without leaving the page.",
-      "Charges":
-        "What was billed this week and why — rent, and anything added on top. The line-by-line working behind the total.",
-      "Payment":
-        "What was actually received, how it was paid, and when. The other side of the charges above.",
+      "By staff":
+        "Cash, UPI and bank for each person who took money today. Cash is what they should be holding now.",
+      "Every payment":
+        "Each payment and reversal on this day, newest first, with what the rider owed before and after it.",
     },
-  },
-
-  '/payments/overdue': {
-    title: "Overdue riders",
-    about:
-      "Who is behind on rent and by how much, worst first. The totals at the top say how much is outstanding across the whole fleet before you open anyone. Use it to decide who to chase today.",
-    tiles:
-      "How much is outstanding across the fleet, and how many riders it is spread across. The size of the problem before you open any one rider.",
   },
 
   '/users': {

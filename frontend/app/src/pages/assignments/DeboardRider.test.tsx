@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { DeboardRider } from './DeboardRider';
 import { deboardRider } from '../../lib/api/assignments';
-import { listAssignedRiders, listRiderPayments } from '../../lib/api/riders';
+import { listAssignedRiders } from '../../lib/api/riders';
+import { getRiderAccount } from '../../lib/api/payments';
 
 vi.mock('../../lib/api/assignments', async (original) => ({
   ...(await original<typeof import('../../lib/api/assignments')>()),
@@ -27,7 +28,7 @@ describe('deboard settlement', () => {
   /** Nothing about the return can be filled in before the rider is known: the panels are inert and say why. */
   it('locks the return, money and confirmation panels until a rider is picked', async () => {
     show();
-    const rent = await screen.findByRole('spinbutton', { name: 'Rent still owed (₹)' });
+    const rent = await screen.findByRole('spinbutton', { name: 'Still owed, rent and repairs (₹)' });
     expect(rent.closest('[inert]')).not.toBeNull();
     expect(screen.getAllByRole('note', { name: '' }).map((n) => n.textContent)).toEqual(
       expect.arrayContaining(['Pick the rider first']),
@@ -38,7 +39,7 @@ describe('deboard settlement', () => {
   it('settles the rent but never asks the desk to guess a damage deduction', async () => {
     show();
     const user = userEvent.setup();
-    expect(await screen.findByRole('spinbutton', { name: 'Rent still owed (₹)' })).toBeInTheDocument();
+    expect(await screen.findByRole('spinbutton', { name: 'Still owed, rent and repairs (₹)' })).toBeInTheDocument();
     expect(screen.queryByRole('spinbutton', { name: 'Deposit being returned (₹)' })).not.toBeInTheDocument();
     expect(screen.getAllByText('Deposit left after rent owed').length).toBeGreaterThan(0);
     // The damage guidance lives behind the (i) on the Money panel now.
@@ -49,12 +50,11 @@ describe('deboard settlement', () => {
 
   /** What the dialog quotes is what goes on the wire: refund = deposit held − rent typed. */
   it('starts at the recorded rent and refunds the deposit less what was typed', async () => {
-    // A rider whose record shows rent owed, so the default is visibly not 0.
+    // A rider whose account shows money owed, so the default is visibly not 0.
     let rider = null as Awaited<ReturnType<typeof listAssignedRiders>>[number] | null;
     let recorded = 0;
     for (const r of await listAssignedRiders()) {
-      const row = (await listRiderPayments(r.id))[0];
-      recorded = Math.round(Math.max(0, (row?.totalDue ?? 0) - (row?.amountPaid ?? 0)) / 100);
+      recorded = Math.round(Math.max(0, (await getRiderAccount(r.id)).owes) / 100);
       if (recorded > 0 && r.depositHeld >= 100_000) { rider = r; break; }
     }
     if (!rider) throw new Error('mock data has no rider with rent owed');
@@ -62,7 +62,7 @@ describe('deboard settlement', () => {
     show(`/assignments/deboard?riderId=${rider.id}`);
     const user = userEvent.setup();
 
-    const rent = await screen.findByRole('spinbutton', { name: 'Rent still owed (₹)' });
+    const rent = await screen.findByRole('spinbutton', { name: 'Still owed, rent and repairs (₹)' });
     await waitFor(() => expect(rent).toHaveValue(recorded));
 
     await user.clear(rent);

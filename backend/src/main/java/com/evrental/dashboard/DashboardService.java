@@ -6,7 +6,6 @@ import com.evrental.dashboard.DashboardResponses.MonthlyDeployments;
 import com.evrental.dashboard.DashboardResponses.OperationsSummary;
 import com.evrental.dashboard.DashboardResponses.RecoveryCounts;
 import com.evrental.payment.BillingClock;
-import com.evrental.payment.OverdueRiderResponse;
 import com.evrental.payment.PaymentRunService;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -66,9 +65,9 @@ public class DashboardService {
         long overdueValue = 0;
         if (includeMoney) {
             // The overdue list itself, so the tiles and that screen always agree.
-            List<OverdueRiderResponse> overdue = payments.overdue();
-            overdueRiders = overdue.size();
-            overdueValue = overdue.stream().mapToLong(OverdueRiderResponse::amountDue).sum();
+            com.evrental.payment.CollectionResponses.LateSummary late = payments.late();
+            overdueRiders = late.riders();
+            overdueValue = late.value();
         }
 
         return new FleetSummary(
@@ -217,19 +216,12 @@ public class DashboardService {
         long partiallyPaid = 0;
         long notPaid = 0;
         if (includeMoney) {
-            LocalDate today = clock.today();
-            // Split by whether anything at all came in: a rider who has paid
-            // part of a closed week is a different conversation from one who
-            // has paid nothing.
-            partiallyPaid = scalar("""
-                    SELECT count(DISTINCT rider_id) FROM payment_periods
-                     WHERE period_end < ? AND amount_paid_paise > 0
-                       AND amount_paid_paise < total_due_paise
-                    """, today);
-            notPaid = scalar("""
-                    SELECT count(DISTINCT rider_id) FROM payment_periods
-                     WHERE period_end < ? AND amount_paid_paise = 0 AND total_due_paise > 0
-                    """, today);
+            // Split by whether anything came in against the late week: a rider
+            // who has paid part of it is a different conversation from one
+            // who has paid nothing. Same accounts as the Late filter.
+            com.evrental.payment.CollectionResponses.LateSummary late = payments.late();
+            partiallyPaid = late.partlyPaid();
+            notPaid = late.notPaid();
         }
 
         // A bike whose last assignment was left at the roadside and which has

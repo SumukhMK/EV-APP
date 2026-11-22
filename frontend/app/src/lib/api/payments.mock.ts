@@ -1,28 +1,33 @@
-import type {
-  OverdueRider,
-  PaymentPeriodRow,
-  PaymentReceipt,
-  PaymentRun,
-  RecordPaymentRequest,
-} from '../../types';
-import { overdueRiders, paymentReceiptFor, recordPaymentInRun, currentPaymentRun } from '../../mocks/payments';
-import { delay } from './client';
+import type { Collections, Payment, RecordPaymentRequest, RiderAccount, TodayCollections } from '../../types';
+import * as ledger from '../../mocks/payments';
+import { ApiError, delay } from './client';
 
-/** Current periods for all riders, irrespective of their individual due day. */
-export async function getCurrentPaymentRun(): Promise<PaymentRun> {
-  return delay(currentPaymentRun());
+/** Demo mode: the same calls against an in-memory ledger shaped like the API's. */
+
+export async function getCollections(): Promise<Collections> {
+  return delay(ledger.collections());
 }
 
-export async function listOverdueRiders(): Promise<OverdueRider[]> {
-  return delay(overdueRiders);
+export async function getRiderAccount(riderId: string): Promise<RiderAccount> {
+  const account = ledger.riderAccount(riderId);
+  if (!account) throw new ApiError(`No rider with id ${riderId}`, 404);
+  return delay(account);
 }
 
-/** One rider's receipt for the current period. null if they have no line in it. */
-export async function getPaymentReceipt(riderId: string): Promise<PaymentReceipt | null> {
-  return delay(paymentReceiptFor(riderId));
+export async function recordPayment(req: RecordPaymentRequest): Promise<Payment> {
+  return delay(ledger.recordPayment(req));
 }
 
-/** Record a collection against the current run. Simulated write; see the mock. */
-export async function recordPayment(req: RecordPaymentRequest): Promise<PaymentPeriodRow> {
-  return delay(recordPaymentInRun(req.riderId, req.amount, req.method));
+export async function reversePayment(paymentId: string, reason: string): Promise<Payment> {
+  return delay(ledger.reversePayment(paymentId, reason));
+}
+
+export async function getPayment(paymentId: string): Promise<Payment> {
+  const payment = ledger.paymentById(paymentId);
+  if (!payment) throw new Error('No such payment');
+  return delay(payment);
+}
+
+export async function getTodayCollections(date?: string): Promise<TodayCollections> {
+  return delay(ledger.todayCollections(date ?? new Date().toISOString().slice(0, 10)));
 }

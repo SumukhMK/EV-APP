@@ -8,7 +8,7 @@ import HandymanIcon from '@mui/icons-material/HandymanOutlined';
 import PeopleIcon from '@mui/icons-material/PeopleOutlineOutlined';
 import PersonAddIcon from '@mui/icons-material/PersonAddAltOutlined';
 import ReceiptIcon from '@mui/icons-material/ReceiptLongOutlined';
-import WarningIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import TodayMoneyIcon from '@mui/icons-material/EventAvailableOutlined';
 import AdminIcon from '@mui/icons-material/ManageAccountsOutlined';
 import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 
@@ -88,8 +88,8 @@ export const NAV: NavSection[] = [
     // Money is an admin responsibility; staff and workshop never touch it.
     roles: ['SUPER_ADMIN', 'FLEET_ADMIN'],
     items: [
-      { label: 'Weekly payment run', path: '/payments/run', icon: ReceiptIcon, owner: 'smk', artboard: 15 },
-      { label: 'Overdue riders', path: '/payments/overdue', icon: WarningIcon, owner: 'smk', artboard: 17 },
+      { label: 'Collections', path: '/payments/collections', icon: ReceiptIcon, owner: 'smk', artboard: 15 },
+      { label: "Today's collections", path: '/payments/today', icon: TodayMoneyIcon, owner: 'smk', artboard: 17 },
     ],
   },
   {
@@ -120,8 +120,12 @@ export function navForRole(role: UserRole): NavSection[] {
 const EXTRA_ROUTE_ROLES: Array<[string, UserRole[]]> = [
   // Reached from the riders list, which the workshop role never sees.
   ['/riders/:riderId', ['SUPER_ADMIN', 'FLEET_ADMIN', 'FLEET_STAFF']],
-  // Reached from the payment run; money is admin work.
+  // Reached from Collections; money is admin work.
+  ['/payments/riders/:riderId', ['SUPER_ADMIN', 'FLEET_ADMIN']],
+  // Old addresses that now redirect into Collections.
+  ['/payments/run', ['SUPER_ADMIN', 'FLEET_ADMIN']],
   ['/payments/run/:riderId', ['SUPER_ADMIN', 'FLEET_ADMIN']],
+  ['/payments/overdue', ['SUPER_ADMIN', 'FLEET_ADMIN']],
   // Fleet is an unrestricted section — every role reads the list and a bike's
   // record — but inducting a bike is fleet work (RBAC.md §4 conflict 1) and
   // correcting the record is not fleet-staff work.
