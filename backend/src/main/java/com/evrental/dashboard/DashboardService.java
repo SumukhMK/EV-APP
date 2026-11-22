@@ -6,6 +6,8 @@ import com.evrental.dashboard.DashboardResponses.MonthlyDeployments;
 import com.evrental.dashboard.DashboardResponses.OperationsSummary;
 import com.evrental.dashboard.DashboardResponses.RecoveryCounts;
 import com.evrental.payment.BillingClock;
+import com.evrental.payment.OverdueRiderResponse;
+import com.evrental.payment.PaymentRunService;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -23,21 +25,21 @@ import org.springframework.transaction.annotation.Transactional;
  * statements as it can — one grouped count rather than one query per tile —
  * because this is what runs on the first screen after login.
  *
- * <p>Read-only throughout. The dashboard reports; it never repairs a status
- * the way {@code PaymentRunService.overdue()} deliberately does. That is why
- * the overdue figures below are read from the numbers (balance outstanding and
- * the period closed) rather than from the stored {@code status} enum — the
- * same rule that method documents, applied without its write.
+ * <p>Read-only throughout. The two money tiles are the overdue list's own
+ * count and total ({@code PaymentRunService.overdue()}), not a second sum over
+ * stored weeks that could disagree with it.
  */
 @Service
 public class DashboardService {
 
     private final JdbcTemplate jdbc;
     private final BillingClock clock;
+    private final PaymentRunService payments;
 
-    public DashboardService(JdbcTemplate jdbc, BillingClock clock) {
+    public DashboardService(JdbcTemplate jdbc, BillingClock clock, PaymentRunService payments) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.payments = payments;
     }
 
     // -----------------------------------------------------------------------
@@ -63,17 +65,10 @@ public class DashboardService {
         long overdueRiders = 0;
         long overdueValue = 0;
         if (includeMoney) {
-            LocalDate today = clock.today();
-            // One row per overdue period; a rider with two late weeks is one
-            // rider to chase, which is what the tile means.
-            overdueRiders = scalar("""
-                    SELECT count(DISTINCT rider_id) FROM payment_periods
-                     WHERE period_end < ? AND amount_paid_paise < total_due_paise
-                    """, today);
-            overdueValue = scalar("""
-                    SELECT coalesce(sum(total_due_paise - amount_paid_paise), 0) FROM payment_periods
-                     WHERE period_end < ? AND amount_paid_paise < total_due_paise
-                    """, today);
+            // The overdue list itself, so the tiles and that screen always agree.
+            List<OverdueRiderResponse> overdue = payments.overdue();
+            overdueRiders = overdue.size();
+            overdueValue = overdue.stream().mapToLong(OverdueRiderResponse::amountDue).sum();
         }
 
         return new FleetSummary(

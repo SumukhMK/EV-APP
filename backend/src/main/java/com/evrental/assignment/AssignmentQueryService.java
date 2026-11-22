@@ -156,8 +156,23 @@ public class AssignmentQueryService implements AssignmentQuery {
     }
 
     @Override
-    public java.util.Optional<LocalDate> currentAssignmentStartedOn(UUID riderId) {
-        return assignments.findCurrentByRiderId(riderId).map(Assignment::getStartedOn);
+    public java.util.Optional<LocalDate> billingStartedOn(UUID riderId) {
+        List<Assignment> history = assignments.findByRiderIdOrderByStartedOnDesc(riderId);
+        if (history.isEmpty() || history.get(0).getEndedOn() != null) {
+            return java.util.Optional.empty();
+        }
+        LocalDate start = history.get(0).getStartedOn();
+        for (Assignment earlier : history.subList(1, history.size())) {
+            // A deboard always records its settlement (outstanding rent, deposit
+            // refund); an exchange never does. Same-day dates alone are not enough.
+            // Back to back: handed over the same day, or the next one.
+            boolean contiguous = earlier.getEndedOn() != null && !earlier.getEndedOn().isBefore(start.minusDays(1));
+            if (!contiguous || earlier.getOutstandingRentPaise() != null) {
+                break;
+            }
+            start = earlier.getStartedOn();
+        }
+        return java.util.Optional.of(start);
     }
 
     private CurrentRider riderOf(UUID riderId) {

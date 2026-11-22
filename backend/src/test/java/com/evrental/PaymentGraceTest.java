@@ -77,11 +77,15 @@ class PaymentGraceTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$[?(@.riderName == 'Anil Shetty')].pastGrace").value(false));
     }
 
-    /** Money in clears it: a settled week never reaches the overdue list at all. */
+    /**
+     * Money in clears it: a settled week never reaches the overdue list. The
+     * week is the one just closed — days after an older one that nobody billed
+     * are still owed, which is a different test.
+     */
     @Test
     void aSettledWeekIsNotOverdueHoweverOld() throws Exception {
-        LocalDate end = today().minusDays(30);
-        insertPeriod(TENANT, MONDAY_RIDER, end.minusDays(6), BillingDay.MONDAY, 175000L, 175000L, "PAID");
+        LocalDate start = currentPeriodStart(BillingDay.MONDAY).minusWeeks(1);
+        insertPeriod(TENANT, MONDAY_RIDER, start, BillingDay.MONDAY, 199900L, 199900L, "PAID");
 
         mvc.perform(get("/api/v1/payments/overdue")
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))

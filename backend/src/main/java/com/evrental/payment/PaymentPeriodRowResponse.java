@@ -48,27 +48,4 @@ public record PaymentPeriodRowResponse(
          * compares a number to three.
          */
         boolean pastGrace) {
-
-    public static PaymentPeriodRowResponse from(PaymentPeriod period, String riderCode, String riderName,
-                                                String registryId, java.time.LocalDate today, int graceDays) {
-        long daysOverdue = period.daysOverdue(today);
-        boolean short_ = period.getAmountPaidPaise() < period.getTotalDuePaise();
-        return new PaymentPeriodRowResponse(
-                riderCode,
-                riderName,
-                registryId,
-                period.getBillingDay(),
-                period.getPlanAmountPaise(),
-                period.getDaysBilled(),
-                period.getPerDayAmountPaise(),
-                period.getBilledAmountPaise(),
-                period.getServiceChargesPaise(),
-                period.getArrearsPaise(),
-                period.getTotalDuePaise(),
-                period.getAmountPaidPaise(),
-                period.balancePaise(),
-                period.getStatus(),
-                daysOverdue,
-                short_ && daysOverdue > graceDays);
-    }
 }

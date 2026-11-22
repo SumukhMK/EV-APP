@@ -88,7 +88,7 @@ class RiderSchemaTest extends PostgresTestBase {
                             + "plan_amount_paise, deposit_held_paise, billing_day, payment_day, "
                             + "payment_mode, platform, onboarded_on, aadhaar_encrypted, rider_code) "
                             + "VALUES (?, 'Bad Rider', '9000000006', 'ACTIVE', 'PENDING', "
-                            + "0, 0, 'FRIDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, "
+                            + "0, 0, 'FUNDAY', 'MONDAY', 'UPI', 'Zomato', CURRENT_DATE, "
                             + "'v1:test-iv:test-ciphertext', 'R-SCHEMA-2')")) {
                 ps.setObject(1, TENANT_A);
                 ps.executeUpdate();

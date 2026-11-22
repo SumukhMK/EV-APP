@@ -65,19 +65,24 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId").value("BLRSS0428"));
     }
 
-    /** The case that was being overcharged: handed back mid-week. */
+    /**
+     * Handed back mid-week: the run bills nothing more. A deboard closes the
+     * rider's account; the days held are settled through the deboard's
+     * outstanding rent, which becomes a charge — billing them here as well
+     * would charge them twice.
+     */
     @Test
     void aMidWeekDeboardIsBilledOnlyTheDaysHeld() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        // Monday through Wednesday inclusive is three days.
         assignment(MONDAY_RIDER, vehicleId, start.minusWeeks(2), start.plusDays(2));
 
         mvc.perform(get("/api/v1/payments/runs/current")
                         
                         .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(3))
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId").value("BLRSS0428"));
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].daysBilled").value(0))
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId")
+                        .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue())));
     }
 
     /** Picked the bike up mid-week: billed from the day they took it. */

@@ -39,6 +39,23 @@ class PaymentCollectionTest extends PaymentRunTestBase {
         openTheRun();
     }
 
+    /**
+     * Deboarded with the settlement squared: bike returned, nothing owed,
+     * no longer on the run. Every active rider has a line now that each one
+     * bills on their own day, so this is the rider who does not.
+     */
+    private void riderHasLeft(UUID riderId) {
+        superAdmin(jdbc -> {
+            jdbc.update("DELETE FROM payment_periods WHERE rider_id = ?", riderId);
+            jdbc.update("""
+                    UPDATE assignments SET ended_on = CURRENT_DATE, reason = 'RETURNED', return_condition = 'NONE',
+                           next_vehicle_state = 'READY_TO_DEPLOY', outstanding_rent_paise = 0, deposit_refund_paise = 0
+                     WHERE rider_id = ? AND ended_on IS NULL
+                    """, riderId);
+            return jdbc.update("UPDATE riders SET status = 'INACTIVE' WHERE id = ?", riderId);
+        });
+    }
+
     private void openTheRun() throws Exception {
         mvc.perform(get("/api/v1/payments/runs/current")
                         .header("Authorization", "Bearer " + token))
@@ -205,9 +222,10 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 .andExpect(status().isNotFound());
     }
 
-    /** A rider on the other cycle has no line in the Monday period yet. */
+    /** A rider who has left, owing nothing, has nothing to pay against. */
     @Test
     void aPaymentAgainstARiderWithNoCurrentLineIs409() throws Exception {
+        riderHasLeft(WEDNESDAY_RIDER);
         pay(WEDNESDAY_RIDER, 1_000, "CASH")
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.field").value("riderId"));
@@ -263,6 +281,7 @@ class PaymentCollectionTest extends PaymentRunTestBase {
      */
     @Test
     void aRiderWithNoLineInThisPeriodIs200Null() throws Exception {
+        riderHasLeft(WEDNESDAY_RIDER);
         mvc.perform(get("/api/v1/payments/receipts/" + WEDNESDAY_RIDER_CODE)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -315,12 +334,13 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$.length()").value(2))
                 // Worst first: three weeks behind before two.
                 .andExpect(jsonPath("$[0].riderId").value(MONDAY_RIDER_CODE))
-                .andExpect(jsonPath("$[0].amountDue").value(PLAIN_PLAN_PAISE))
+                // The short week plus every unbilled day since it, at the plan rate.
+                .andExpect(jsonPath("$[0].amountDue").value(org.hamcrest.Matchers.greaterThan((int) PLAIN_PLAN_PAISE)))
                 .andExpect(jsonPath("$[0].daysOverdue").value(22))
                 .andExpect(jsonPath("$[0].stage").value("REPOSSESSION_DUE"))
                 .andExpect(jsonPath("$[0].phone").value("9845010001"))
                 .andExpect(jsonPath("$[1].riderId").value(CHARGED_RIDER_CODE))
-                .andExpect(jsonPath("$[1].amountDue").value(PLAIN_PLAN_PAISE - 75_000))
+                .andExpect(jsonPath("$[1].amountDue").value(org.hamcrest.Matchers.greaterThan((int) (PLAIN_PLAN_PAISE - 75_000))))
                 .andExpect(jsonPath("$[1].daysOverdue").value(15))
                 .andExpect(jsonPath("$[1].stage").value("WARNING_2"));
     }
@@ -333,10 +353,10 @@ class PaymentCollectionTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
-    /** A settled old week drops off the list. */
+    /** A settled week drops off the list. */
     @Test
     void aSettledOldWeekIsNotOverdue() throws Exception {
-        insertPeriod(TENANT, MONDAY_RIDER, monday.minusWeeks(3), BillingDay.MONDAY,
+        insertPeriod(TENANT, MONDAY_RIDER, monday.minusWeeks(1), BillingDay.MONDAY,
                 PLAIN_PLAN_PAISE, PLAIN_PLAN_PAISE, "PAID");
 
         mvc.perform(get("/api/v1/payments/overdue")

@@ -43,29 +43,4 @@ public record PaymentReceiptResponse(
         PaymentMethod method,
         Instant paidOn,
         String reference) {
-
-    public static PaymentReceiptResponse from(PaymentPeriod period, String riderCode, String riderName,
-                                              String registryId, PaymentCollection latest) {
-        return new PaymentReceiptResponse(
-                period.getReceiptNo(),
-                riderCode,
-                riderName,
-                registryId,
-                period.getPeriodStart(),
-                period.getPeriodEnd(),
-                period.getBillingDay(),
-                period.getPlanAmountPaise(),
-                period.getDaysBilled(),
-                period.getPerDayAmountPaise(),
-                period.getBilledAmountPaise(),
-                period.getServiceChargesPaise(),
-                period.getArrearsPaise(),
-                period.getTotalDuePaise(),
-                period.getAmountPaidPaise(),
-                period.balancePaise(),
-                period.getStatus(),
-                latest == null ? null : latest.getMethod(),
-                latest == null ? null : latest.getCollectedOn(),
-                latest == null ? null : latest.getReference());
-    }
 }

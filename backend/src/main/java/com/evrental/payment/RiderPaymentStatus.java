@@ -1,98 +1,65 @@
 package com.evrental.payment;
 
+import com.evrental.rider.Rider;
 import com.evrental.rider.RiderPaymentStatusQuery;
+import com.evrental.rider.RiderRepository;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The money module's answer to the register's question.
+ * The money module's answer to the register's question, read off the same
+ * {@link RiderAccounts} account as the payment run, so the register's chip and
+ * dues cannot disagree with the run, the receipt or the overdue list.
  *
- * <p>A rider's standing is the status of their most recent billing period.
- * Not an aggregate over all of them: an operator looking at the register
- * wants to know where this rider is now, and a week settled in August should
- * not colour the chip for a week that is unpaid today.
- *
- * <p>The status is computed from the numbers rather than read from the stored
- * column, for the reason {@code PaymentRunService.overdue()} documents at
- * length: nothing writes to a period row between the day it is generated and
- * the day it quietly goes overdue, so the stored enum lags reality. Unlike
- * that method this one does not write the correction back — the register is a
- * reader, and a list screen is the wrong place to be repairing the ledger.
+ * <p>A rider with no tenancy and nothing open is absent: never billed is not
+ * the same as owing.
  */
 @Component
 public class RiderPaymentStatus implements RiderPaymentStatusQuery {
 
-    private final PaymentPeriodRepository periods;
-    private final RiderChargeRepository charges;
+    private final RiderRepository riders;
+    private final RiderAccounts accounts;
     private final BillingClock clock;
 
-    public RiderPaymentStatus(PaymentPeriodRepository periods, RiderChargeRepository charges, BillingClock clock) {
-        this.periods = periods;
-        this.charges = charges;
+    public RiderPaymentStatus(RiderRepository riders, RiderAccounts accounts, BillingClock clock) {
+        this.riders = riders;
+        this.accounts = accounts;
         this.clock = clock;
     }
 
-    /**
-     * Rent still unpaid on any period, plus every open charge. A period paid
-     * ahead (negative balance) does not offset another period's debt here:
-     * the credit is real, but netting it against a repair charge is a
-     * decision for the desk, not for a number on a picker.
-     */
     @Override
     @Transactional(readOnly = true)
     public Map<UUID, Long> owedPaiseFor(Collection<UUID> riderIds) {
-        if (riderIds.isEmpty()) {
-            return Map.of();
-        }
-        List<UUID> ids = List.copyOf(riderIds);
         Map<UUID, Long> owed = new LinkedHashMap<>();
-        for (PaymentPeriod row : periods.findByRiderIdInOrderByPeriodStartDesc(ids)) {
-            long balance = row.balancePaise();
-            if (balance > 0) {
-                owed.merge(row.getRiderId(), balance, Long::sum);
-            }
-        }
-        for (RiderCharge charge : charges.findByRiderIdInAndStatus(ids, RiderChargeStatus.OPEN)) {
-            owed.merge(charge.getRiderId(), charge.getAmountPaise(), Long::sum);
-        }
+        forEachAccount(riderIds, (rider, a) -> {
+            if (a.owed() > 0) owed.put(rider.getId(), a.owed());
+        });
         return owed;
     }
 
     @Override
     @Transactional(readOnly = true)
     public Map<UUID, String> statusFor(Collection<UUID> riderIds) {
-        if (riderIds.isEmpty()) {
-            return Map.of();
-        }
-        LocalDate today = clock.today();
-        List<PaymentPeriod> rows = periods.findByRiderIdInOrderByPeriodStartDesc(List.copyOf(riderIds));
-
         Map<UUID, String> byRider = new LinkedHashMap<>();
-        for (PaymentPeriod row : rows) {
-            // Newest first, so the first row seen for a rider is their current
-            // one and later rows are history.
-            byRider.computeIfAbsent(row.getRiderId(), id -> statusOf(row, today));
-        }
+        forEachAccount(riderIds, (rider, a) -> {
+            if (a.since() != null || a.owed() > 0) byRider.put(rider.getId(), a.status().name());
+        });
         return byRider;
     }
 
-    /** The same four-way rule {@link PaymentPeriod#recomputeStatus} applies, without the write. */
-    private static String statusOf(PaymentPeriod row, LocalDate today) {
-        if (row.getAmountPaidPaise() >= row.getTotalDuePaise()) {
-            return PaymentStatus.PAID.name();
+    private void forEachAccount(Collection<UUID> riderIds, BiConsumer<Rider, RiderAccounts.Account> each) {
+        if (riderIds.isEmpty()) {
+            return;
         }
-        if (today.isAfter(row.getPeriodEnd())) {
-            return PaymentStatus.OVERDUE.name();
+        LocalDate today = clock.today();
+        for (Rider rider : riders.findAllById(riderIds)) {
+            each.accept(rider, accounts.of(rider, today));
         }
-        if (row.getAmountPaidPaise() > 0) {
-            return PaymentStatus.PARTIAL.name();
-        }
-        return PaymentStatus.PENDING.name();
     }
 }

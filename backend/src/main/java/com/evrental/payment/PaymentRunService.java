@@ -18,7 +18,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -62,6 +61,7 @@ public class PaymentRunService {
     private final AssignmentQuery assignments;
     private final ReceiptNumbers receiptNumbers;
     private final BillingClock clock;
+    private final RiderAccounts accounts;
 
     /**
      * Days past the end of a week before a rider is chased.
@@ -84,6 +84,7 @@ public class PaymentRunService {
                              ReceiptNumbers receiptNumbers,
                              BillingClock clock,
                              JdbcTemplate jdbc,
+                             RiderAccounts accounts,
                               @org.springframework.beans.factory.annotation.Value("${app.payment.grace-days:3}") int graceDays) {
         this.periods = periods;
         this.collections = collections;
@@ -95,6 +96,7 @@ public class PaymentRunService {
         this.clock = clock;
         this.graceDays = graceDays;
         this.jdbc = jdbc;
+        this.accounts = accounts;
     }
 
     // -----------------------------------------------------------------------
@@ -114,51 +116,19 @@ public class PaymentRunService {
         LocalDate today = clock.today();
         List<Rider> active = riders.findByStatus(RiderStatus.ACTIVE).stream()
                 .sorted(Comparator.comparing(Rider::getId)).toList();
+        Map<UUID, RiderAccounts.Account> byRider = new LinkedHashMap<>();
         Map<UUID, BillingPeriod> billing = new LinkedHashMap<>();
         for (Rider rider : active) {
-            LocalDate startedOn = assignments.currentAssignmentStartedOn(rider.getId())
-                    .orElse(rider.getOnboardedOn());
-            billing.put(rider.getId(), BillingPeriod.current(rider.getBillingDay(), startedOn, today));
+            RiderAccounts.Account account = accounts.of(rider, today);
+            byRider.put(rider.getId(), account);
+            billing.put(rider.getId(), account.period());
         }
+        // The weekly rows are still written: collections are recorded against them.
         generate(tenantId, active, billing, today);
 
         List<PaymentPeriodRowResponse> body = new ArrayList<>();
         for (Rider rider : active) {
-            BillingPeriod current = billing.get(rider.getId());
-            PaymentPeriod currentRow = periods.findByRiderIdAndPeriodStart(rider.getId(), current.start()).orElse(null);
-            List<PaymentPeriod> history = periods.findByRiderIdOrderByPeriodStartDesc(rider.getId());
-            history.forEach(p -> p.recomputeStatus(today));
-            LocalDate usageStart = assignments.currentAssignmentStartedOn(rider.getId())
-                    .orElse(rider.getOnboardedOn());
-            int elapsedDays = usageStart.isAfter(today) ? 0
-                    : Math.toIntExact(today.toEpochDay() - usageStart.toEpochDay() + 1);
-            int accruedDays = elapsedDays;
-            long accruedRent = Math.round(rider.getPlanAmountPaise() / 7.0) * accruedDays;
-            long postedServiceCharges = charges.findByRiderIdAndStatusOrderByChargedOnDesc(
-                            rider.getId(), RiderChargeStatus.OPEN).stream()
-                    .filter(c -> c.getLiability() == BILLABLE).mapToLong(RiderCharge::getAmountPaise).sum();
-            long historicalPaid = history.stream().mapToLong(PaymentPeriod::getAmountPaidPaise).sum();
-            long totalDue = accruedRent + postedServiceCharges;
-            long totalPaid = historicalPaid;
-            long totalBalance = Math.max(0, totalDue - totalPaid);
-            long postedArrears = 0;
-            int dueIso = rider.getBillingDay().ordinal() + 1;
-            int currentIso = today.getDayOfWeek().getValue();
-            int daysLate = Math.floorMod(currentIso - dueIso, 7);
-            boolean dueDayReached = daysLate == 0 || currentIso > dueIso;
-            String vehicleId = currentRow == null || currentRow.getVehicleId() == null ? null
-                    : vehicles.findById(currentRow.getVehicleId()).map(PaymentRunService::registryIdOf).orElse(null);
-            body.add(new PaymentPeriodRowResponse(
-                    rider.getRiderCode(), rider.getName(), vehicleId, rider.getBillingDay(),
-                    rider.getPlanAmountPaise(), accruedDays,
-                    Math.round(rider.getPlanAmountPaise() / 7.0),
-                    accruedRent,
-                    postedServiceCharges,
-                    postedArrears,
-                    totalDue, totalPaid, totalBalance,
-                    totalBalance == 0 ? PaymentStatus.PAID : dueDayReached ? PaymentStatus.OVERDUE
-                            : totalPaid > 0 ? PaymentStatus.PARTIAL : PaymentStatus.PENDING,
-                    daysLate, totalBalance > 0 && dueDayReached && daysLate > graceDays));
+            body.add(rowFor(rider, byRider.get(rider.getId())));
         }
         body.sort(Comparator.comparing(PaymentPeriodRowResponse::riderName,
                 Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
@@ -166,6 +136,25 @@ public class PaymentRunService {
         LocalDate start = billing.values().stream().map(BillingPeriod::start).min(LocalDate::compareTo).orElse(today);
         LocalDate end = billing.values().stream().map(BillingPeriod::end).max(LocalDate::compareTo).orElse(today);
         return new PaymentRunResponse(start, end, body);
+    }
+
+    /**
+     * One rider's line: this period's rent and repairs, what was carried in,
+     * and what has been paid since the period opened. The same account backs
+     * the receipt, the overdue list, the register and the dashboard.
+     */
+    /** The plan this week was billed at; a plan changed since applies from next week. */
+    private long frozenPlan(Rider rider, RiderAccounts.Account a) {
+        return periods.findByRiderIdAndPeriodStart(rider.getId(), a.period().start())
+                .map(PaymentPeriod::getPlanAmountPaise).orElse(rider.getPlanAmountPaise());
+    }
+
+    private PaymentPeriodRowResponse rowFor(Rider rider, RiderAccounts.Account a) {
+        return new PaymentPeriodRowResponse(
+                rider.getRiderCode(), rider.getName(), assignments.currentVehicleIdOf(rider.getId()),
+                rider.getBillingDay(), frozenPlan(rider, a), a.periodDays(), a.perDay(),
+                a.periodRent(), a.periodCharges(), a.carried(), a.totalDue(), a.periodPaid(), a.balance(),
+                a.status(), a.daysOverdue(), a.owed() > 0 && a.daysOverdue() > graceDays);
     }
 
     /**
@@ -195,7 +184,8 @@ public class PaymentRunService {
         int written = 0;
         for (Rider rider : cycle) {
             BillingPeriod period = billing.get(rider.getId());
-            if (alreadyBilled.contains(rider.getId() + ":" + period.start())) {
+            // A week that has not begun yet (a bike starting tomorrow) has nothing to bill.
+            if (period.end().isBefore(period.start()) || alreadyBilled.contains(rider.getId() + ":" + period.start())) {
                 continue;
             }
             written += insert(freeze(tenantId, rider, period, today));
@@ -228,7 +218,7 @@ public class PaymentRunService {
         long plan = rider.getPlanAmountPaise();
         long perDay = Math.round(plan / 7.0);
 
-        LocalDate usedFrom = assignments.currentAssignmentStartedOn(rider.getId()).orElse(rider.getOnboardedOn());
+        LocalDate usedFrom = assignments.billingStartedOn(rider.getId()).orElse(rider.getOnboardedOn());
         int daysBilled = usedFrom.isAfter(period.end()) ? 0
                 : Math.toIntExact(period.end().toEpochDay() - Math.max(usedFrom.toEpochDay(), period.start().toEpochDay()) + 1);
         String currentRegistryId = assignments.currentVehicleIdOf(rider.getId());
@@ -240,7 +230,7 @@ public class PaymentRunService {
             daysBilled = 0;
         }
 
-        long billed = perDay * daysBilled;
+        long billed = RiderAccounts.rent(plan, perDay, daysBilled);
         long serviceCharges = charges.sumOpenInPeriod(rider.getId(), period.start(), BILLABLE);
         long arrears = charges.sumOpenBefore(rider.getId(), period.start(), BILLABLE);
 
@@ -291,39 +281,24 @@ public class PaymentRunService {
     // -----------------------------------------------------------------------
 
     /**
-     * Every rider whose week closed while still short, worst first.
-     *
-     * <p>Read off the numbers rather than the stored {@code status}: without a
-     * scheduler, nothing writes to a row between generation and the day it
-     * goes overdue, so trusting the enum would miss every one of them. The
-     * statuses are brought back into line here as a side effect, which is why
-     * this is not a read-only transaction.
+     * Every active rider with rent unpaid past the end of its week, worst
+     * first — one line per rider, read off the same account as the run.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public List<OverdueRiderResponse> overdue() {
         LocalDate today = clock.today();
-        List<PaymentPeriod> late = periods.findOverdue(today);
-        late.forEach(row -> row.recomputeStatus(today));
-
-        Map<UUID, Rider> riderById = ridersFor(late.stream().map(PaymentPeriod::getRiderId).toList());
-        Map<UUID, String> registryById = registryIdsFor(late);
-
-        return late.stream()
-                .map(row -> {
-                    Rider rider = riderById.get(row.getRiderId());
-                    long days = row.daysOverdue(today);
-                    return new OverdueRiderResponse(
-                            rider == null ? null : rider.getRiderCode(),
-                            rider == null ? null : rider.getName(),
-                            rider == null ? null : rider.getPhone(),
-                            registryById.get(row.getVehicleId()),
-                            days,
-                            row.balancePaise(),
-                            DunningStage.forDays(days),
-                            days > graceDays);
-                })
-                .sorted(Comparator.comparingLong(OverdueRiderResponse::daysOverdue).reversed())
-                .toList();
+        List<OverdueRiderResponse> out = new ArrayList<>();
+        for (Rider rider : riders.findByStatus(RiderStatus.ACTIVE)) {
+            RiderAccounts.Account a = accounts.of(rider, today);
+            if (a.owed() == 0 || a.daysOverdue() == 0) continue;
+            out.add(new OverdueRiderResponse(
+                    rider.getRiderCode(), rider.getName(), rider.getPhone(),
+                    assignments.currentVehicleIdOf(rider.getId()),
+                    a.daysOverdue(), a.owed(), DunningStage.forDays(a.daysOverdue()),
+                    a.daysOverdue() > graceDays));
+        }
+        out.sort(Comparator.comparingLong(OverdueRiderResponse::daysOverdue).reversed());
+        return out;
     }
 
     // -----------------------------------------------------------------------
@@ -341,26 +316,33 @@ public class PaymentRunService {
      * the same frozen columns, so the total on the run and the total on the
      * receipt cannot disagree.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public PaymentReceiptResponse receiptFor(UUID riderId) {
         Rider rider = riders.findById(riderId)
                 .orElseThrow(() -> NotFoundException.of("Rider", riderId));
-        LocalDate today = clock.today();
-        LocalDate startedOn = assignments.currentAssignmentStartedOn(rider.getId()).orElse(rider.getOnboardedOn());
-        BillingPeriod billing = BillingPeriod.current(rider.getBillingDay(), startedOn, today);
-        LocalDate start = billing.start();
+        RiderAccounts.Account a = accounts.of(rider, clock.today());
 
-        PaymentPeriod period = periods.findByRiderIdAndPeriodStart(riderId, start).orElse(null);
+        PaymentPeriod period = periods.findByRiderIdAndPeriodStart(riderId, a.period().start()).orElse(null);
         if (period == null) {
             return null;
         }
-        period.recomputeStatus(today);
+        PaymentCollection latest = collections.findByRiderId(riderId).stream()
+                .max(Comparator.comparing(PaymentCollection::getCollectedOn)).orElse(null);
 
-        PaymentCollection latest = collections.findByPeriodIdOrderByCollectedOnDesc(period.getId())
-                .stream().findFirst().orElse(null);
-
-        return PaymentReceiptResponse.from(period, rider.getRiderCode(), rider.getName(),
-                registryIdsFor(List.of(period)).get(period.getVehicleId()), latest);
+        // Payments clear the oldest week first, so the latest one may sit on an
+        // earlier week than this: its receipt number is the one to print.
+        String receiptNo = latest == null ? period.getReceiptNo()
+                : periods.findById(latest.getPeriodId()).map(PaymentPeriod::getReceiptNo).orElse(period.getReceiptNo());
+        return new PaymentReceiptResponse(
+                receiptNo, rider.getRiderCode(), rider.getName(),
+                assignments.currentVehicleIdOf(riderId),
+                a.period().start(), a.period().end(), rider.getBillingDay(),
+                period.getPlanAmountPaise(), a.periodDays(), a.perDay(),
+                a.periodRent(), a.periodCharges(), a.carried(), a.totalDue(), a.periodPaid(), a.balance(),
+                a.status(),
+                latest == null ? null : latest.getMethod(),
+                latest == null ? null : latest.getCollectedOn(),
+                latest == null ? null : latest.getReference());
     }
 
     // -----------------------------------------------------------------------
@@ -392,22 +374,31 @@ public class PaymentRunService {
                 .orElseThrow(() -> NotFoundException.of("Rider", request.riderId()));
 
         LocalDate today = clock.today();
-        LocalDate startedOn = assignments.currentAssignmentStartedOn(rider.getId()).orElse(rider.getOnboardedOn());
-        LocalDate start = BillingPeriod.current(rider.getBillingDay(), startedOn, today).start();
-
-        List<PaymentPeriod> outstanding = periods.findByRiderIdOrderByPeriodStartDesc(rider.getId()).stream()
-                .filter(p -> p.balancePaise() > 0)
-                .sorted(Comparator.comparing(PaymentPeriod::getPeriodStart))
-                .toList();
-        if (outstanding.isEmpty()) {
+        RiderAccounts.Account account = accounts.of(rider, today);
+        // The account, not the stored weeks, decides: weeks nobody opened the
+        // run for have no row, and their rent is still owed.
+        if (account.owed() == 0) {
             throw new ConflictException(rider.getName() + " has no outstanding balance", "riderId");
         }
+        LocalDate currentStart = account.period().start();
+        if (periods.findByRiderIdAndPeriodStart(rider.getId(), currentStart).isEmpty()) {
+            insert(freeze(tenantId, rider, account.period(), today));
+        }
+
+        // Oldest short week first; whatever is left lands on the current week,
+        // which may then read overpaid — that is the credit, carried forward.
+        List<LocalDate> targets = new ArrayList<>(periods.findByRiderIdOrderByPeriodStartDesc(rider.getId()).stream()
+                .filter(p -> p.balancePaise() > 0 && !p.getPeriodStart().equals(currentStart))
+                .map(PaymentPeriod::getPeriodStart)
+                .sorted()
+                .toList());
+        targets.add(currentStart);
         long remaining = request.amount();
-        PaymentPeriod lastApplied = outstanding.get(outstanding.size() - 1);
-        for (PaymentPeriod candidate : outstanding) {
+        for (LocalDate periodStart : targets) {
             if (remaining <= 0) break;
-            PaymentPeriod period = periods.findForUpdate(rider.getId(), candidate.getPeriodStart()).orElseThrow();
-            long applied = Math.min(remaining, period.balancePaise());
+            PaymentPeriod period = periods.findForUpdate(rider.getId(), periodStart).orElseThrow();
+            boolean last = periodStart.equals(currentStart);
+            long applied = last ? remaining : Math.min(remaining, period.balancePaise());
             if (applied <= 0) continue;
             collections.saveAndFlush(new PaymentCollection(
                     tenantId, period.getId(), applied, method, request.reference(), userId));
@@ -417,14 +408,12 @@ public class PaymentRunService {
             }
             if (period.getStatus() == PaymentStatus.PAID) {
                 charges.findOpenUpTo(rider.getId(), period.getPeriodStart(), BILLABLE)
-                        .forEach(charge -> charge.settle(java.time.Instant.now()));
+                        .forEach(charge -> charge.settleByPayment(java.time.Instant.now()));
             }
             periods.save(period);
             remaining -= applied;
-            lastApplied = period;
         }
-        return PaymentPeriodRowResponse.from(lastApplied, rider.getRiderCode(), rider.getName(),
-                registryIdsFor(List.of(lastApplied)).get(lastApplied.getVehicleId()), clock.today(), graceDays);
+        return rowFor(rider, accounts.of(rider, today));
     }
 
     /**
@@ -483,59 +472,5 @@ public class PaymentRunService {
                     latestMethod.get(row.getId())));
         }
         return out;
-    }
-
-    // -----------------------------------------------------------------------
-    // Shared lookups
-    // -----------------------------------------------------------------------
-
-    private Map<UUID, Rider> ridersFor(List<UUID> riderIds) {
-        if (riderIds.isEmpty()) {
-            return Map.of();
-        }
-        Map<UUID, Rider> byId = new LinkedHashMap<>();
-        riders.findAllById(riderIds).forEach(r -> byId.put(r.getId(), r));
-        return byId;
-    }
-
-    /**
-     * Row ids to the registry ids an operator actually reads ("BLRSS0428").
-     *
-     * <p>Empty today: {@link NoAssignmentsYet} leaves every {@code vehicleId}
-     * null until S5. Written now so the day a real {@link AssignmentQuery}
-     * arrives, the run and the receipt name the bike without another change
-     * here.
-     *
-     * <p>A {@link HashMap} rather than {@link Map#of()}, and that is not
-     * style. Callers look up {@code period.getVehicleId()}, which is null for
-     * every row until S5, and an immutable map throws
-     * {@link NullPointerException} on a null key instead of answering null.
-     */
-    private Map<UUID, String> registryIdsFor(List<PaymentPeriod> rows) {
-        Map<UUID, String> byId = new HashMap<>();
-        List<UUID> ids = rows.stream()
-                .map(PaymentPeriod::getVehicleId)
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .toList();
-        if (ids.isEmpty()) {
-            return byId;
-        }
-        vehicles.findAllById(ids).forEach(v -> byId.put(v.getId(), registryIdOf(v)));
-        return byId;
-    }
-
-    private static String registryIdOf(Vehicle vehicle) {
-        return vehicle.getRegistryId();
-    }
-
-    private static String nameOf(Map<UUID, Rider> riderById, UUID riderId) {
-        Rider rider = riderById.get(riderId);
-        return rider == null ? null : rider.getName();
-    }
-
-    private static String codeOf(Map<UUID, Rider> riderById, UUID riderId) {
-        Rider rider = riderById.get(riderId);
-        return rider == null ? null : rider.getRiderCode();
     }
 }

@@ -80,7 +80,7 @@ class RiderPaymentStatusTest extends PaymentRunTestBase {
     @Test
     void theMostRecentPeriodIsTheOneThatCounts() throws Exception {
         LocalDate start = currentPeriodStart(com.evrental.rider.BillingDay.MONDAY);
-        insertPeriod(TENANT, MONDAY_RIDER, start.minusWeeks(2), com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L, "PENDING");
+        insertPeriod(TENANT, MONDAY_RIDER, start.minusWeeks(1), com.evrental.rider.BillingDay.MONDAY, 175000L, 175000L, "PENDING");
         insertPeriod(TENANT, MONDAY_RIDER, start, com.evrental.rider.BillingDay.MONDAY, 175000L, 0L, "PENDING");
 
         mvc.perform(get("/api/v1/riders/" + MONDAY_RIDER_CODE)

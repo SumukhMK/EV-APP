@@ -36,30 +36,24 @@ class PaymentRunGenerationTest extends PaymentRunTestBase {
 
     @Test
     void aRunIsTheRidersInThatCycleOneRowEach() throws Exception {
-        mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
+        // Every active rider, one row each, sorted by name — each on their own billing day.
+        mvc.perform(get("/api/v1/payments/runs/current")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.periodStart").value(monday.toString()))
-                .andExpect(jsonPath("$.periodEnd").value(monday.plusDays(6).toString()))
-                .andExpect(jsonPath("$.billingDay").value("MONDAY"))
-                // Anil, Bhavana, Chetan — sorted by name. Deepa bills Wednesday.
-                .andExpect(jsonPath("$.rows.length()").value(3))
+                .andExpect(jsonPath("$.rows.length()").value(4))
                 .andExpect(jsonPath("$.rows[0].riderName").value("Anil Shetty"))
-                .andExpect(jsonPath("$.rows[2].riderName").value("Chetan Naik"));
+                .andExpect(jsonPath("$.rows[2].riderName").value("Chetan Naik"))
+                .andExpect(jsonPath("$.rows[3].riderName").value("Deepa Hegde"));
     }
 
     @Test
     void ridersOnTheOtherCycleAreNotInThisRun() throws Exception {
-        mvc.perform(get("/api/v1/payments/runs/current?billingDay=MONDAY")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.rows[?(@.riderName == 'Deepa Hegde')]").isEmpty());
-
-        mvc.perform(get("/api/v1/payments/runs/current?billingDay=WEDNESDAY")
+        // No separate cycles any more: a Wednesday rider is in the same run, billed on Wednesday.
+        mvc.perform(get("/api/v1/payments/runs/current")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.periodStart").value(currentPeriodStart(BillingDay.WEDNESDAY).toString()))
-                .andExpect(jsonPath("$.rows.length()").value(1))
-                .andExpect(jsonPath("$.rows[0].riderName").value("Deepa Hegde"));
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Deepa Hegde')].billingDay").value("WEDNESDAY"))
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].billingDay").value("MONDAY"));
     }
 
     /**

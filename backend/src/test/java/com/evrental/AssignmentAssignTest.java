@@ -87,7 +87,10 @@ class AssignmentAssignTest extends AssignmentTestBase {
     }
 
 
-    /** Dues are carried, not cleared: a rider who owes less than the deposit gets the bike and the log says what they owe. */
+    /**
+     * Dues are carried, not cleared: a rider who owes less than the deposit gets the bike and the log says what they owe.
+     * Starting today, the rider's account then reads the carried charge plus today's rent on the new bike.
+     */
     @Test
     void duesWithinTheDepositAreCarriedAndRecorded() throws Exception {
         insertOpenCharge(RIDER_A, 120000L); // deposit held is 3,00,000
@@ -96,10 +99,11 @@ class AssignmentAssignTest extends AssignmentTestBase {
                         .header("Authorization", "Bearer " + tokenFor(STAFF_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"riderId":"%s","vehicleId":"%s","startedOn":"2026-09-28"}
-                                """.formatted(RIDER_A_CODE, VEHICLE_READY)))
+                                {"riderId":"%s","vehicleId":"%s","startedOn":"%s"}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY,
+                                java.time.LocalDate.now(com.evrental.payment.BillingClock.ZONE))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.duesPaise").value(120000));
+                .andExpect(jsonPath("$.duesPaise").value(120000 + Math.round(175000 / 7.0)));
 
         org.assertj.core.api.Assertions.assertThat(lastLifecycleNote(VEHICLE_READY))
                 .isEqualTo("Assigned to Anil Shetty — owes ₹1,200");

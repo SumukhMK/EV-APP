@@ -153,7 +153,7 @@ public class RiderChargeService {
             log.warn("Rider {} is not on the register; no charge raised", riderId);
             return null;
         }
-        LocalDate startedOn = assignments.currentAssignmentStartedOn(riderId).orElse(rider.getOnboardedOn());
+        LocalDate startedOn = assignments.billingStartedOn(riderId).orElse(rider.getOnboardedOn());
         return BillingPeriod.current(rider.getBillingDay(), startedOn, clock.today()).start();
     }
 

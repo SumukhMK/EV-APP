@@ -50,6 +50,12 @@ public interface AssignmentQuery {
     /** Riders whose current bike is in the given state — the register's vehicleState filter. */
     Set<UUID> riderIdsWhoseVehicleIsIn(VehicleState state);
 
-    /** The current assignment start date, when this rider began using a vehicle. */
-    java.util.Optional<java.time.LocalDate> currentAssignmentStartedOn(UUID riderId);
+    /**
+     * The day this rider's rent started running: the start of the unbroken run
+     * of assignments ending in the one they hold now. An exchange closes one
+     * bike and opens the next back to back, so it continues the run; a
+     * deboard (whose unpaid rent becomes a charge) ends it. Empty when the
+     * rider holds no bike.
+     */
+    java.util.Optional<java.time.LocalDate> billingStartedOn(UUID riderId);
 }

@@ -85,6 +85,10 @@ public class RiderCharge {
     @Column(name = "period_start", nullable = false, updatable = false)
     private LocalDate periodStart;
 
+    /** Settled by a payment taken in the run, rather than marked settled by hand. */
+    @Column(name = "settled_by_payment", nullable = false)
+    private boolean settledByPayment;
+
     @Column(name = "settled_on")
     private Instant settledOn;
 
@@ -96,6 +100,16 @@ public class RiderCharge {
     public void settle(Instant when) {
         this.status = RiderChargeStatus.SETTLED;
         this.settledOn = when;
+    }
+
+    /** Settles the charge out of a payment taken in the run. */
+    public void settleByPayment(Instant when) {
+        settle(when);
+        this.settledByPayment = true;
+    }
+
+    public boolean isSettledByPayment() {
+        return settledByPayment;
     }
 
     public UUID getId() {

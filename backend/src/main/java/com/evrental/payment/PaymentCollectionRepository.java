@@ -28,4 +28,8 @@ public interface PaymentCollectionRepository extends JpaRepository<PaymentCollec
      */
     @Query("select coalesce(sum(c.amountPaise), 0) from PaymentCollection c where c.periodId = :periodId")
     long sumForPeriod(@Param("periodId") UUID periodId);
+
+    /** Everything one rider has paid, whichever week it was applied to. */
+    @Query("select c from PaymentCollection c where c.periodId in (select p.id from PaymentPeriod p where p.riderId = :riderId)")
+    List<PaymentCollection> findByRiderId(@Param("riderId") UUID riderId);
 }
