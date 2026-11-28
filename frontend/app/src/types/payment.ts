@@ -5,7 +5,7 @@ import type { ServiceLiability } from './serviceJob';
  * Money, mirroring backend payment/CollectionResponses.java.
  *
  * One number per rider: `owes` — rent + charges − payments, worked out on the
- * server and nowhere else. Positive is owed; negative is credit (paid ahead).
+ * server and nowhere else. Positive is owed. Negative only for credit taken before advance payments were stopped — a new payment can never exceed what is owed.
  */
 
 /** The register's chip. Derived from the same account as `owes`. */
@@ -110,6 +110,14 @@ export interface AccountLine {
   by: string | null;
   reason: string | null;
   reversed: boolean;
+  /** For whoever is looking: may they reverse this payment now (the server's ReversalPolicy decides). */
+  canReverse: boolean;
+  /** Why not, in words, when they may not. */
+  reverseBlock: string | null;
+  /** More than 7 days old: the reason must say what happened (20+ characters). */
+  needsDetailedReason: boolean;
+  /** When the receipt was first printed; null until then. */
+  receiptIssuedAt: Iso8601 | null;
 }
 
 /** A rider's whole account, lines newest first. */
@@ -120,6 +128,8 @@ export interface RiderAccount {
   vehicleId: string | null;
   active: boolean;
   planAmount: Paise;
+  /** One day of the plan, to the paisa — the rate a part week is charged at. */
+  perDayAmount: Paise;
   depositHeld: Paise;
   usualMethod: PaymentMethod;
   owes: Paise;
@@ -145,8 +155,12 @@ export interface StaffTotal {
 }
 
 /** One day's money, for the end-of-day cash count. */
+/** Payments taken from `from` to `to`, both days included (Indian calendar days). */
 export interface TodayCollections {
+  /** The last day of the range. */
   date: Iso8601;
+  from: Iso8601;
+  to: Iso8601;
   total: Paise;
   count: number;
   byStaff: StaffTotal[];

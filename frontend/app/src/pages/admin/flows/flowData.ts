@@ -800,7 +800,7 @@ export const MONEY_NODES: Node<FlowNodeData>[] = [
       label: 'Overdue',
       description: 'Not paid — dunning ladder starts',
       tone: 'bad',
-      screens: [{ path: '/payments/collections?filter=late', label: 'Collections · Late' }],
+      screens: [{ path: '/payments/collections?filter=owes', label: 'Collections · Owes' }],
       actors: ['SUPER_ADMIN', 'FLEET_ADMIN'],
       actions: ['Mark as reminded', 'Escalate', 'Repossess'],
       triggers: ['Payment not received by due date'],

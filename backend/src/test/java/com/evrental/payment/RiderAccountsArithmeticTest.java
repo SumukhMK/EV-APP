@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class RiderAccountsArithmeticTest {
 
     private static final long PLAN = 199900;
-    private static final long PER_DAY = Math.round(PLAN / 7.0); // 28557
+    private static final long PER_DAY = RiderAccounts.perDay(PLAN); // whole rupees
 
     @Test
     void wholeWeeksBillThePlanExactlyAndOnlyTheRemainderIsProrated() {
@@ -26,5 +26,15 @@ class RiderAccountsArithmeticTest {
         assertThat(RiderAccounts.coveredDays(PLAN, PER_DAY, 10 * PLAN, 20)).isEqualTo(20);
         // A plan of nothing owes nothing: every day is covered.
         assertThat(RiderAccounts.coveredDays(0, 0, 0, 20)).isEqualTo(20);
+    }
+
+    /** A day is a seventh of the plan to the nearest whole rupee — what the screen shows is what is charged. */
+    @org.junit.jupiter.api.Test
+    void aDayIsASeventhOfThePlanInWholeRupees() {
+        assertThat(RiderAccounts.perDay(219_900)).isEqualTo(31_400);   // ₹2,199 → ₹314 (314.14)
+        assertThat(RiderAccounts.perDay(170_000)).isEqualTo(24_300);   // ₹1,700 → ₹243 (242.86)
+        assertThat(RiderAccounts.perDay(175_000)).isEqualTo(25_000);   // ₹1,750 → ₹250 exactly
+        assertThat(RiderAccounts.perDay(0)).isZero();
+        assertThat(RiderAccounts.perDay(219_900) % 100).isZero();
     }
 }

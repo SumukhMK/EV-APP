@@ -2,6 +2,7 @@ package com.evrental.payment;
 
 import com.evrental.assignment.AssignmentQuery;
 import com.evrental.common.ConflictException;
+import com.evrental.common.Money;
 import com.evrental.common.NotFoundException;
 import com.evrental.common.ValidationException;
 import com.evrental.payment.CollectionResponses.Collections;
@@ -165,7 +166,7 @@ public class PaymentRunService {
     // -----------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public CollectionResponses.Account account(String riderCode) {
+    public CollectionResponses.Account account(String riderCode, UUID viewerId, com.evrental.user.UserRole viewerRole) {
         Rider rider = riders.findByRiderCode(riderCode)
                 .orElseThrow(() -> NotFoundException.of("Rider", riderCode));
         LocalDate today = clock.today();
@@ -177,9 +178,12 @@ public class PaymentRunService {
         Set<UUID> reversed = a.lines().stream().map(RiderAccounts.Line::payment).filter(Objects::nonNull)
                 .map(PaymentCollection::getReversesId).filter(Objects::nonNull).collect(Collectors.toSet());
 
+        java.time.Instant now = clock.now();
         List<Line> lines = new ArrayList<>();
         for (RiderAccounts.Line l : a.lines()) {
             PaymentCollection p = l.payment();
+            ReversalPolicy.Verdict verdict = p == null ? null
+                    : ReversalPolicy.check(p, reversed.contains(p.getId()), viewerId, viewerRole, now, today);
             String note = l.kind() != RiderAccounts.LineKind.CHARGE ? null
                     : l.charge().getServiceJobId() != null ? "Repair" : "Unpaid when the bike was returned";
             lines.add(new Line(l.kind().name(), l.date(), l.at(), l.amount(), l.balance(),
@@ -188,13 +192,17 @@ public class PaymentRunService {
                     p == null ? null : p.getId(), p == null ? null : receiptNoOf(p),
                     p == null ? null : p.getMethod(), p == null ? null : p.getReference(),
                     p == null ? null : names.get(p.getCollectedByUserId()),
-                    p == null ? null : p.getReason(), p != null && reversed.contains(p.getId())));
+                    p == null ? null : p.getReason(), p != null && reversed.contains(p.getId()),
+                    verdict != null && verdict.allowed(), verdict == null ? null : verdict.message(),
+                    verdict != null && verdict.needsDetailedReason(),
+                    p == null ? null : p.getReceiptIssuedAt()));
         }
         java.util.Collections.reverse(lines);
 
         return new CollectionResponses.Account(rider.getRiderCode(), rider.getName(), rider.getPhone(),
                 assignments.currentVehicleIdOf(rider.getId()), rider.getStatus() == RiderStatus.ACTIVE,
-                rider.getPlanAmountPaise(), rider.getDepositHeldPaise(), usualMethod(rider),
+                rider.getPlanAmountPaise(), RiderAccounts.perDay(rider.getPlanAmountPaise()),
+                rider.getDepositHeldPaise(), usualMethod(rider),
                 a.balance(), a.owed() > 0 ? a.daysOverdue() : 0, a.owed() > 0 ? a.lateSince() : null,
                 a.owed() > 0 && a.daysOverdue() > 0 ? DunningStage.forDays(a.daysOverdue()) : null,
                 a.since(), a.rent(), a.charges(), a.paid(), lines);
@@ -205,18 +213,26 @@ public class PaymentRunService {
     // -----------------------------------------------------------------------
 
     /**
-     * Records money taken from a rider. One row, whatever the amount: less
-     * than owed stays owed, more is credit.
+     * Records money taken from a rider, up to what they owe and never more.
+     * Less than owed stays owed. There is no paying ahead: a rider who owes
+     * nothing cannot pay, and an amount above what is owed is refused.
      *
      * <p>The rider is locked for the length of the transaction, so two
-     * payments for one rider are recorded one after the other — each sees the
-     * other's effect on "owed before", and a double tap carrying the same
-     * {@code clientKey} finds the first payment instead of saving a second.
+     * payments for one rider are recorded one after the other — the second
+     * is checked against what the first left owing, so two staff collecting at
+     * once cannot take more than is owed between them. A double tap carrying
+     * the same {@code clientKey} finds the first payment instead of saving a
+     * second (or being refused because the first paid the rider up).
      */
     @Transactional
     public Payment record(UUID tenantId, UUID userId, RecordPaymentRequest request) {
         if (request.amount() <= 0) {
-            throw new ValidationException("amount", "A payment must be more than zero");
+            throw new ValidationException("amount", "A payment must be more than zero",
+                    Map.of("code", "INVALID_PAYMENT_AMOUNT"));
+        }
+        if (!Money.isWholeRupees(request.amount())) {
+            throw new ValidationException("amount", "Enter whole rupees — no paise.",
+                    Map.of("code", "INVALID_PAYMENT_AMOUNT"));
         }
         PaymentMethod method = parseMethod(request.method());
         Rider rider = riders.findByRiderCode(request.riderId())
@@ -231,6 +247,16 @@ public class PaymentRunService {
 
         LocalDate today = clock.today();
         long owedBefore = accounts.of(rider, today).balance();
+        if (owedBefore <= 0) {
+            throw new ConflictException(rider.getName() + " has no outstanding dues", "amount",
+                    Map.of("code", "NO_OUTSTANDING_DUES", "owes", owedBefore));
+        }
+        if (request.amount() > owedBefore) {
+            throw new ValidationException("amount",
+                    "That is more than " + rider.getName() + " owes (" + Money.rupees(owedBefore)
+                            + "). Advance payments are not taken.",
+                    Map.of("code", "PAYMENT_EXCEEDS_DUES", "owes", owedBefore));
+        }
         PaymentCollection saved = collections.saveAndFlush(PaymentCollection.payment(
                 tenantId, rider.getId(), request.amount(), method, blankToNull(request.reference()), userId,
                 key, receiptNumbers.next(tenantId, today.getYear()), owedBefore));
@@ -239,25 +265,39 @@ public class PaymentRunService {
 
     /**
      * Takes a payment back out with a reason. A new row, the negative of the
-     * first — nothing is edited or deleted. Admins only (the controller says so).
+     * first — nothing is edited or deleted. Who may, and until when, is
+     * {@link ReversalPolicy}: checked here, under the rider's lock.
      */
     @Transactional
-    public Payment reverse(UUID userId, UUID paymentId, ReversePaymentRequest request) {
+    public Payment reverse(UUID userId, com.evrental.user.UserRole role, UUID paymentId, ReversePaymentRequest request) {
         PaymentCollection payment = collections.findById(paymentId)
                 .orElseThrow(() -> NotFoundException.of("Payment", paymentId));
-        if (payment.isReversal()) {
-            throw new ConflictException("A reversal cannot be reversed; record the payment again instead");
-        }
         Rider rider = riders.findById(payment.getRiderId())
                 .orElseThrow(() -> NotFoundException.of("Rider", payment.getRiderId()));
         lock(rider.getId());
-        if (collections.findByReversesId(paymentId).isPresent()) {
-            throw new ConflictException("This payment was already reversed");
+        ReversalPolicy.Verdict verdict = ReversalPolicy.check(payment,
+                collections.findByReversesId(paymentId).isPresent(), userId, role, clock.now(), clock.today());
+        if (!verdict.allowed()) {
+            throw new ConflictException(verdict.message(), null, Map.of("code", verdict.code()));
+        }
+        if (verdict.needsDetailedReason() && request.reason().trim().length() < ReversalPolicy.DETAILED_REASON_MIN) {
+            throw new ValidationException("reason",
+                    "This payment is more than 7 days old. Say what happened, in at least "
+                            + ReversalPolicy.DETAILED_REASON_MIN + " characters.",
+                    Map.of("code", "REASON_TOO_SHORT"));
         }
         long owedBefore = accounts.of(rider, clock.today()).balance();
         PaymentCollection saved = collections.saveAndFlush(
                 PaymentCollection.reversal(payment, userId, request.reason().trim(), owedBefore));
         return paymentOf(saved, rider);
+    }
+
+    /** The receipt was printed. The first print is kept; a reprint changes nothing. */
+    @Transactional
+    public void markReceiptIssued(UUID paymentId) {
+        PaymentCollection p = collections.findById(paymentId)
+                .orElseThrow(() -> NotFoundException.of("Payment", paymentId));
+        p.markReceiptIssued(clock.now());
     }
 
     /** One payment or reversal: the receipt. */
@@ -272,7 +312,27 @@ public class PaymentRunService {
     /** One day's payments and reversals, totalled by who took the money and how. */
     @Transactional(readOnly = true)
     public Today today(LocalDate date) {
-        List<PaymentCollection> day = between(date, date.plusDays(1));
+        return received(date, date);
+    }
+
+    /** The longest range one request may ask for: a year, so a typo cannot pull every payment ever. */
+    static final int MAX_RANGE_DAYS = 366;
+
+    /**
+     * Payments and reversals taken from {@code from} to {@code to}, both days
+     * included, as Indian calendar days. Filtered in the database.
+     */
+    @Transactional(readOnly = true)
+    public Today received(LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) {
+            throw new ValidationException("to", "The end date cannot be before the start date",
+                    Map.of("code", "INVALID_DATE_RANGE"));
+        }
+        if (java.time.temporal.ChronoUnit.DAYS.between(from, to) >= MAX_RANGE_DAYS) {
+            throw new ValidationException("to", "Pick a range of a year or less",
+                    Map.of("code", "INVALID_DATE_RANGE"));
+        }
+        List<PaymentCollection> day = between(from, to.plusDays(1));
         Map<UUID, PaymentCollection> originals = new HashMap<>();
         collections.findAllById(day.stream().map(PaymentCollection::getReversesId).filter(Objects::nonNull).toList())
                 .forEach(o -> originals.put(o.getId(), o));
@@ -303,7 +363,7 @@ public class PaymentRunService {
                 .map(e -> new StaffTotal(e.getKey(), (int) e.getValue()[0], e.getValue()[1], e.getValue()[2],
                         e.getValue()[3], e.getValue()[1] + e.getValue()[2] + e.getValue()[3]))
                 .toList();
-        return new Today(date, day.stream().mapToLong(PaymentCollection::getAmountPaise).sum(),
+        return new Today(to, from, to, day.stream().mapToLong(PaymentCollection::getAmountPaise).sum(),
                 (int) day.stream().filter(p -> !p.isReversal()).count(), byStaff, payments);
     }
 
@@ -404,7 +464,7 @@ public class PaymentRunService {
     /** A full week bills the plan exactly; a part week is prorated per day. */
     private PaymentPeriod freeze(UUID tenantId, Rider rider, BillingPeriod period, LocalDate today) {
         long plan = rider.getPlanAmountPaise();
-        long perDay = Math.round(plan / 7.0);
+        long perDay = RiderAccounts.perDay(plan);
 
         LocalDate usedFrom = assignments.billingStartedOn(rider.getId()).orElse(rider.getOnboardedOn());
         int daysBilled = usedFrom.isAfter(period.end()) ? 0

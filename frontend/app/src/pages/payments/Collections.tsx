@@ -30,17 +30,17 @@ import { neutral, status as tones } from '../../theme/tokens';
 import { useSession } from '../../app/sessionContext';
 import { canCollectPayments } from '../../lib/roles';
 import type { CollectionRow } from '../../types';
-import { CollectDialog, type CollectTarget } from './CollectDialog';
-import { owesTag, owesText, owesTone, whenText } from './money';
+import { CollectButton, CollectDialog, type CollectTarget } from './CollectDialog';
+import { canCollectFrom, owesTag, owesText, owesTone, whenText } from './money';
 
-type Filter = 'all' | 'late' | 'owes' | 'paid';
+type Filter = 'all' | 'owes' | 'paid';
 const PAGE_SIZE = 25;
 
 const isLate = (r: CollectionRow) => r.owes > 0 && r.daysLate > 0;
+/** One "Owes" view: everyone with money due, late or not. How late is shown in the Owes column itself. */
 const MATCH: Record<Filter, (r: CollectionRow) => boolean> = {
   all: () => true,
-  late: isLate,
-  owes: (r) => r.owes > 0 && r.daysLate === 0,
+  owes: (r) => r.owes > 0,
   paid: (r) => r.owes <= 0,
 };
 
@@ -48,8 +48,8 @@ const MATCH: Record<Filter, (r: CollectionRow) => boolean> = {
  * Collections: every rider with a bike, and anyone without one who still
  * owes — one number each. Replaces the weekly run and the overdue list.
  *
- * Late riders come first, the longest-late at the top. The Late filter adds
- * the phone and the next step. Search finds a rider by name, code, phone or
+ * Late riders come first, the longest-late at the top. The Owes filter adds
+ * the phone and, for late riders, the next step. Search finds a rider by name, code, phone or
  * bike in a few keystrokes, so nobody pages through the list at the counter.
  */
 export function Collections() {
@@ -60,7 +60,9 @@ export function Collections() {
   const canCollect = canCollectPayments(user.roleKey);
 
   const [params, setParams] = useSearchParams();
-  const filter = (['all', 'late', 'owes', 'paid'].includes(params.get('filter') ?? '') ? params.get('filter') : 'all') as Filter;
+  // ?filter=late was a separate view; old links land on Owes, where the late riders lead.
+  const asked = params.get('filter') === 'late' ? 'owes' : params.get('filter');
+  const filter = (['all', 'owes', 'paid'].includes(asked ?? '') ? asked : 'all') as Filter;
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
   const [collect, setCollect] = useState<CollectTarget | null>(null);
@@ -72,7 +74,7 @@ export function Collections() {
   const counts = useMemo(
     () => ({
       all: all.length,
-      late: all.filter(MATCH.late).length,
+      late: all.filter(isLate).length,
       owes: all.filter(MATCH.owes).length,
       paid: all.filter(MATCH.paid).length,
     }),
@@ -98,6 +100,7 @@ export function Collections() {
     setParams(next === 'all' ? {} : { filter: next }, { replace: true });
   };
   const openCollect = (r: CollectionRow) =>
+    canCollectFrom(r.owes) &&
     setCollect({
       riderId: r.riderId,
       riderName: r.riderName,
@@ -134,7 +137,7 @@ export function Collections() {
     );
   const actions = (r: CollectionRow, full = false) => (
     <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', flexWrap: 'wrap', width: full ? '100%' : undefined }}>
-      {filter === 'late' && (
+      {filter === 'owes' && isLate(r) && (
         reminded.has(r.riderId) ? (
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tones.good.fg, fontSize: 13, minHeight: 36 }}>
             <CheckIcon sx={{ fontSize: 16 }} /> Reminded
@@ -154,17 +157,7 @@ export function Collections() {
         )
       )}
       {canCollect && (
-        <Button
-          variant={r.owes > 0 ? 'contained' : 'outlined'}
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            openCollect(r);
-          }}
-          sx={{ minHeight: 36, minWidth: 88, flex: full ? 1 : 'none' }}
-        >
-          Collect
-        </Button>
+        <CollectButton owes={r.owes} compact onClick={() => openCollect(r)} sx={{ flex: full ? 1 : 'none' }} />
       )}
     </Box>
   );
@@ -186,7 +179,7 @@ export function Collections() {
       ),
     },
     { key: 'bike', header: 'Bike', width: 120, render: (r) => <Mono sx={{ fontSize: 12.5, color: neutral[400] }}>{r.vehicleId ?? '—'}</Mono> },
-    ...(filter === 'late'
+    ...(filter === 'owes'
       ? [
           {
             key: 'phone',
@@ -201,7 +194,7 @@ export function Collections() {
         ]
       : []),
     { key: 'owes', header: 'Owes', align: 'right', width: 150, render: owesCell },
-    ...(filter === 'late'
+    ...(filter === 'owes'
       ? [
           {
             key: 'next',
@@ -212,7 +205,7 @@ export function Collections() {
           } satisfies Column<CollectionRow>,
         ]
       : [{ key: 'last', header: 'Last paid', width: 190, render: lastPaidCell } satisfies Column<CollectionRow>]),
-    { key: 'action', header: '', align: 'right', width: filter === 'late' ? 230 : 110, render: (r) => actions(r) },
+    { key: 'action', header: '', align: 'right', width: filter === 'owes' ? 230 : 110, render: (r) => actions(r) },
   ];
 
   return (
@@ -224,7 +217,7 @@ export function Collections() {
         meta={data.data ? <Mono sx={{ fontSize: 12, color: neutral[500] }}>{formatDate(data.data.today)}</Mono> : undefined}
         actions={
           <Button component={RouterLink} to="/payments/today" color="inherit" size="small">
-            Today's collections
+            Payments received
           </Button>
         }
       />
@@ -237,17 +230,18 @@ export function Collections() {
               value: data.data ? rupeesWithSymbol(data.data.collectedToday) : '—',
               tone: 'good',
               icon: PriceCheckIcon,
-              to: '/payments/today',
+              to: data.data ? `/payments/today?from=${data.data.today}&to=${data.data.today}` : '/payments/today',
             },
-            { label: 'Total owed', value: data.data ? rupeesWithSymbol(totalOwed) : '—', icon: PendingIcon, to: '/payments/collections?filter=owes' },
             {
-              label: 'Late',
-              value: data.data ? `${counts.late} · ${rupeesWithSymbol(lateValue)}` : '—',
-              tone: counts.late > 0 ? 'bad' : 'good',
-              icon: WarningIcon,
-              to: '/payments/collections?filter=late',
+              label: 'Owes',
+              value: data.data
+                ? `${rupeesWithSymbol(totalOwed)}${counts.late > 0 ? ` · ${counts.late} late (${rupeesWithSymbol(lateValue)})` : ''}`
+                : '—',
+              tone: counts.late > 0 ? 'bad' : undefined,
+              icon: counts.late > 0 ? WarningIcon : PendingIcon,
+              to: '/payments/collections?filter=owes',
             },
-            { label: 'Paid up', value: data.data ? `${counts.paid}/${counts.all}` : '—', icon: DoneAllIcon, to: '/payments/collections?filter=paid' },
+            { label: 'PAID', value: data.data ? `${counts.paid}/${counts.all}` : '—', icon: DoneAllIcon, to: '/payments/collections?filter=paid' },
           ]}
         />
       </Box>
@@ -269,9 +263,8 @@ export function Collections() {
             onChange={setFilter}
             options={[
               { value: 'all', label: 'All', count: counts.all },
-              { value: 'late', label: 'Late', count: counts.late },
-              { value: 'owes', label: 'Owes', count: counts.owes },
-              { value: 'paid', label: 'Paid up', count: counts.paid },
+              { value: 'owes', label: counts.late > 0 ? `Owes · ${counts.late} late` : 'Owes', count: counts.owes },
+              { value: 'paid', label: 'PAID', count: counts.paid },
             ]}
           />
         </Box>
@@ -282,7 +275,7 @@ export function Collections() {
           <EmptyState title="Could not load collections" description={(data.error as Error).message} />
         ) : rows.length === 0 ? (
           <EmptyState
-            title={query ? `No rider matches "${query}"` : filter === 'late' ? 'Nobody is late' : 'Nobody here'}
+            title={query ? `No rider matches "${query}"` : filter === 'owes' ? 'Nobody owes anything' : 'Nobody here'}
             description={query ? 'Try a name, an R-code, a phone number or a bike number.' : undefined}
           />
         ) : phone ? (
@@ -306,7 +299,7 @@ export function Collections() {
                   {owesCell(r)}
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mt: 2 }}>
-                  {filter === 'late' ? (
+                  {filter === 'owes' && isLate(r) ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                       <Link href={`tel:${r.phone}`}><Mono sx={{ fontSize: 13 }}>{r.phone}</Mono></Link>
                       {r.stage && <StateChip label={DUNNING_LABEL[r.stage]} tone={DUNNING_TONE[r.stage]} />}

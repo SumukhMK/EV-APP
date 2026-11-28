@@ -454,6 +454,7 @@ public class ServiceJobService implements ServiceJobFacade {
 
         long total = 0;
         for (ServiceJobItemRequest line : lines) {
+            com.evrental.common.Money.requireWholeRupees("items", line.costPaise());
             ServiceJobItem item = new ServiceJobItem();
             item.setTenantId(job.getTenantId());
             item.setJobId(job.getId());
@@ -676,6 +677,7 @@ public class ServiceJobService implements ServiceJobFacade {
                     "A walk-in or RSA job is paid by the rider or by the company");
         }
         long paid = request.partsPaidPaise() == null ? 0 : request.partsPaidPaise();
+        com.evrental.common.Money.requireWholeRupees("partsPaidPaise", paid);
         if (paid > partsTotal) {
             throw new ValidationException("partsPaidPaise",
                     "Parts paid cannot be more than the spare parts total");

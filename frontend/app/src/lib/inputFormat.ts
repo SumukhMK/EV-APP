@@ -51,3 +51,17 @@ export function licenceMask(value: string): string {
   }
   return out;
 }
+
+/**
+ * A rupee amount as typed: whole rupees only ("1750") — money has no paise.
+ * Letters, signs, commas, a point and an exponent never get in. `decimals`
+ * exists for a field that may one day need them; nothing uses it now.
+ */
+export function rupeesInput(value: string, { decimals = 0, maxDigits = 7 }: { decimals?: number; maxDigits?: number } = {}): string {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const dot = cleaned.indexOf('.');
+  const whole = (dot === -1 ? cleaned : cleaned.slice(0, dot)).slice(0, maxDigits);
+  if (decimals === 0 || dot === -1) return whole;
+  const fraction = cleaned.slice(dot + 1).replace(/\./g, '').slice(0, decimals);
+  return `${whole}.${fraction}`;
+}

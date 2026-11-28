@@ -7,6 +7,7 @@ import { DerivedField } from '../../../components/DerivedField';
 import { DateField } from '../../../components/form/DateField';
 import { SelectField } from '../../../components/form/SelectField';
 import { MandatoryLabel } from '../../../components/form/MandatoryLabel';
+import { digitsOnly } from '../../../lib/inputFormat';
 import { InfoTip } from '../../../components/InfoTip';
 import {
   DEPOSIT_TIERS,
@@ -40,8 +41,8 @@ export function RiderCommercialStep({ step }: { step: number }) {
     };
   };
 
-  const depositRupees = watch('depositRupees') ?? 0;
-  const depositPaidRupees = watch('depositPaidRupees') ?? 0;
+  const depositRupees = Number(watch('depositRupees')) || 0;
+  const depositPaidRupees = Number(watch('depositPaidRupees')) || 0;
 
   // Driven off the same label map the payment run and the receipt use, so the
   // mode agreed here can always be recorded against an actual collection.
@@ -50,31 +51,46 @@ export function RiderCommercialStep({ step }: { step: number }) {
     label: PAYMENT_METHOD_LABEL[m],
   }));
 
-  /** A freeSolo money combobox: options are formatted, the value is whole rupees. */
+  /**
+   * A freeSolo money combobox: options are formatted, the value is whole rupees.
+   * The box only ever holds digits, and what is typed is the value — freeSolo's
+   * onChange fires only on a pick or Enter, so a typed amount was lost on Tab.
+   */
   const moneyCombobox = (name: 'planRupees' | 'depositRupees', tiers: readonly number[]) => (
     <Controller
       control={control}
       name={name}
-      render={({ field, fieldState }) => (
-        <Autocomplete
-          freeSolo
-          options={tiers.map((p) => rupeesWithSymbol(p))}
-          value={field.value ? String(field.value) : ''}
-          onChange={(_, next) => {
-            const n = Number(String(next ?? '').replace(/[^\d]/g, ''));
-            field.onChange(Number.isFinite(n) && n > 0 ? n : 0);
-          }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={name === 'planRupees' ? 'Weekly plan (₹)' : 'Deposit plan (₹)'}
-              placeholder="Type an amount or pick a tier"
-              error={Boolean(fieldState.error)}
-              helperText={fieldState.error?.message}
-            />
-          )}
-        />
-      )}
+      render={({ field, fieldState }) => {
+        const text = Number.isFinite(field.value) && field.value > 0 ? String(field.value) : '';
+        const commit = (raw: string) => {
+          const digits = digitsOnly(raw, 6);
+          field.onChange(digits === '' ? Number.NaN : Number(digits));
+        };
+        return (
+          <Autocomplete
+            freeSolo
+            options={tiers.map((p) => rupeesWithSymbol(p))}
+            // Typed digits never match "₹1,750", so every tier stays offered.
+            filterOptions={(o) => o}
+            value={text}
+            inputValue={text}
+            onInputChange={(_, next, reason) => {
+              if (reason !== 'reset') commit(next);
+            }}
+            onChange={(_, next) => commit(String(next ?? ''))}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={<>{name === 'planRupees' ? 'Weekly plan (₹)' : 'Deposit plan (₹)'} <MandatoryLabel /></>}
+                placeholder="Type an amount or pick a tier"
+                error={Boolean(fieldState.error)}
+                helperText={fieldState.error?.message}
+                slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, inputMode: 'numeric' } }}
+              />
+            )}
+          />
+        );
+      }}
     />
   );
 
@@ -123,7 +139,7 @@ export function RiderCommercialStep({ step }: { step: number }) {
           <SelectField
             control={control}
             name="billingDay"
-            label="Billing day"
+            label={<>Billing day <MandatoryLabel /></>}
             options={[
               { value: 'MONDAY', label: 'Monday' },
               { value: 'TUESDAY', label: 'Tuesday' },
@@ -138,17 +154,29 @@ export function RiderCommercialStep({ step }: { step: number }) {
           <SelectField
             control={control}
             name="paymentMode"
-            label={<>Mode of payment <InfoTip title="The standing arrangement, shown on the register. Each collection still records how that week's money actually arrived, so a UPI rider paying cash once stays a UPI rider." /></>}
+            label={<>Mode of payment <MandatoryLabel /> <InfoTip title="The standing arrangement, shown on the register. Each collection still records how that week's money actually arrived, so a UPI rider paying cash once stays a UPI rider." /></>}
             options={paymentModeOptions}
           />
 
           {moneyCombobox('depositRupees', DEPOSIT_TIERS)}
-          <TextField
-            label="Deposit paid (₹)"
-            type="number"
-            {...register('depositPaidRupees', { valueAsNumber: true })}
-            error={fieldError('depositPaidRupees').error}
-            helperText={fieldError('depositPaidRupees').helperText}
+          <Controller
+            control={control}
+            name="depositPaidRupees"
+            render={({ field, fieldState }) => (
+              <TextField
+                label={<>Deposit paid (₹) <MandatoryLabel /></>}
+                value={Number.isFinite(field.value) ? String(field.value) : ''}
+                onChange={(e) => {
+                  const digits = digitsOnly(e.target.value, 6);
+                  field.onChange(digits === '' ? Number.NaN : Number(digits));
+                }}
+                onBlur={field.onBlur}
+                inputRef={field.ref}
+                error={Boolean(fieldState.error)}
+                helperText={fieldState.error?.message}
+                slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+              />
+            )}
           />
 
           <DerivedField
@@ -157,7 +185,8 @@ export function RiderCommercialStep({ step }: { step: number }) {
             derivation={`Plan ${rupeesWithSymbol(depositRupees * 100)} − paid ${rupeesWithSymbol(depositPaidRupees * 100)}`}
           />
           <DateField
-            label="Onboarded on"
+            label={<>Onboarded on <MandatoryLabel /></>}
+            labelText="Onboarded on"
             value={(watch('onboardedOn') as string) ?? ''}
             onChange={(next) =>
               setValue('onboardedOn', next, { shouldValidate: formState.isSubmitted })

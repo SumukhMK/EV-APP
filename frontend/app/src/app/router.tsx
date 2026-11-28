@@ -142,7 +142,7 @@ export const router = createBrowserRouter([
       // The weekly run and the overdue list became Collections and its Late filter.
       { path: '/payments/run', element: <Navigate to="/payments/collections" replace /> },
       { path: '/payments/run/:riderId', element: <RiderReceiptRedirect /> },
-      { path: '/payments/overdue', element: <Navigate to="/payments/collections?filter=late" replace /> },
+      { path: '/payments/overdue', element: <Navigate to="/payments/collections?filter=owes" replace /> },
       // Recovery was a page of links to these lists; the filtered Vehicles list is the screen.
       { path: '/recovery', element: <Navigate to="/vehicles?state=RECOVERY" replace /> },
 

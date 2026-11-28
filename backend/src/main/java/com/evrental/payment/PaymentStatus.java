@@ -13,7 +13,7 @@ public enum PaymentStatus {
     PENDING,
     /** Some money in, still short. */
     PARTIAL,
-    /** Settled, or more than settled — a rider may pay ahead. */
+    /** Settled. Below zero only for credit taken before advance payments were stopped. */
     PAID,
     /** The week closed and the money is still short. */
     OVERDUE

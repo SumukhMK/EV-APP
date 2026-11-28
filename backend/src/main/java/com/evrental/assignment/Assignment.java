@@ -58,6 +58,10 @@ public class Assignment {
     @Column(name = "ended_on")
     private LocalDate endedOn;
 
+    /** When the return was recorded (V023) — the moment the rider's account starts afresh. */
+    @Column(name = "closed_at")
+    private java.time.Instant closedAt;
+
     @Column
     private String reason;
 
@@ -130,6 +134,14 @@ public class Assignment {
 
     public void setEndedOn(LocalDate endedOn) {
         this.endedOn = endedOn;
+    }
+
+    public java.time.Instant getClosedAt() {
+        return closedAt;
+    }
+
+    public void setClosedAt(java.time.Instant closedAt) {
+        this.closedAt = closedAt;
     }
 
     public String getReason() {

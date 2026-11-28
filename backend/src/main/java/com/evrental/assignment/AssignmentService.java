@@ -223,13 +223,21 @@ public class AssignmentService {
         requireWithinAssignment(request.occurredOn(), open, "occurredOn", "Exchange date");
 
         String damageNotes = damageNotes(request.returnCondition(), request.damageItems());
-        validateReturn(request.returnCondition(), request.nextVehicleState(), request.note(), request.damageItems());
+        // Already on an open job card: the job holds the assessment and the bike
+        // stays where it is, so there is no destination to choose or justify —
+        // the closing row records where the bike actually is.
+        boolean onJob = RETURN_DESTINATIONS.contains(from.getState())
+                && serviceJobs.openJobFor(from.getRegistryId()).isPresent();
+        VehicleState destination = onJob ? from.getState() : request.nextVehicleState();
+        if (!onJob) {
+            validateReturn(request.returnCondition(), request.nextVehicleState(), request.note(), request.damageItems());
+        }
 
         // Closed before the new row is inserted, and flushed, so the partial
         // unique index never sees two open rows for one rider: Hibernate would
         // otherwise order the insert before the update within the flush.
         close(open, request.occurredOn(), request.reason().name(), request.returnCondition(),
-                request.nextVehicleState(), damageNotes, null, null, actorName);
+                destination, damageNotes, null, null, actorName);
 
         Assignment next = new Assignment();
         next.setTenantId(tenantId);
@@ -367,6 +375,7 @@ public class AssignmentService {
                        VehicleState nextState, String damageNotes, Long outstandingRent, Long depositRefund,
                        String actorName) {
         open.setEndedOn(endedOn);
+        open.setClosedAt(java.time.Instant.now());
         open.setReason(reason);
         open.setReturnCondition(condition);
         open.setNextVehicleState(nextState);
@@ -440,7 +449,8 @@ public class AssignmentService {
                 row.getTenantId(),
                 row.getRiderId(),
                 row.getOutstandingRentPaise() == null ? 0 : row.getOutstandingRentPaise(),
-                row.getDepositRefundPaise() == null ? 0 : row.getDepositRefundPaise());
+                row.getDepositRefundPaise() == null ? 0 : row.getDepositRefundPaise(),
+                row.getClosedAt());
 
         row.setSettlementApprovedBy(actorName);
         row.setSettlementApprovedOn(java.time.Instant.now());

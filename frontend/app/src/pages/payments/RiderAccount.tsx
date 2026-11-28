@@ -8,11 +8,12 @@ import DialogTitle from '@mui/material/DialogTitle';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import Link from '@mui/material/Link';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { Link as RouterLink, useParams } from 'react-router-dom';
 import AccountIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
 import { PageHeader } from '../../components/PageHeader';
 import { Panel } from '../../components/Panel';
@@ -22,7 +23,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { Mono } from '../../components/Mono';
 import { SimpleTable, type Column } from '../../components/SimpleTable';
 import { FacetChips } from '../../components/FacetChips';
-import { getPayment, getRiderAccount, reversePayment } from '../../lib/api/payments';
+import { getPayment, getRiderAccount, markReceiptIssued, reversePayment } from '../../lib/api/payments';
 import { invalidatePayments } from '../../lib/invalidate';
 import { useShakeValidation, shakeStyles } from '../../hooks/useShakeValidation';
 import { DUNNING_LABEL, DUNNING_TONE, PAYMENT_METHOD_LABEL } from '../../lib/labels';
@@ -31,8 +32,9 @@ import { neutral, status as tones } from '../../theme/tokens';
 import { useSession } from '../../app/sessionContext';
 import { canCollectPayments } from '../../lib/roles';
 import type { AccountLine, AccountLineKind, RiderAccount as Account } from '../../types';
-import { CollectDialog, type CollectTarget } from './CollectDialog';
-import { owesText, dayRange, money } from './money';
+import { CollectButton, CollectDialog, type CollectTarget } from './CollectDialog';
+import { canCollectFrom, owesText, dayRange, money } from './money';
+import { MandatoryLabel } from '../../components/form/MandatoryLabel';
 
 type Show = 'all' | 'payments' | 'rent' | 'charges';
 const SHOWS: Record<Show, AccountLineKind[]> = {
@@ -100,6 +102,7 @@ export function RiderAccount() {
   }
 
   const openCollect = () =>
+    canCollectFrom(a.owes) &&
     setCollect({
       riderId: a.riderId,
       riderName: a.riderName,
@@ -117,11 +120,18 @@ export function RiderAccount() {
         <Link component="button" type="button" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setReceiptId(l.paymentId); }} sx={{ fontSize: 13 }}>
           Receipt
         </Link>
-        {isAdmin && l.kind === 'PAYMENT' && !l.reversed && (
+        {l.canReverse ? (
           <Link component="button" type="button" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setReversing(l); }} sx={{ fontSize: 13, color: tones.warn.fg }}>
             Reverse
           </Link>
-        )}
+        ) : l.kind === 'PAYMENT' && !l.reversed && l.reverseBlock ? (
+          // Says who can, instead of a dead link: the rule is the server's (ReversalPolicy).
+          <Tooltip title={l.reverseBlock}>
+            <Typography component="span" tabIndex={0} sx={{ fontSize: 12.5, color: neutral[500], cursor: 'help' }}>
+              Reverse: ask an admin
+            </Typography>
+          </Tooltip>
+        ) : null}
       </Box>
     ) : null;
 
@@ -164,12 +174,20 @@ export function RiderAccount() {
         icon={AccountIcon}
         backTo="/payments/collections"
         backLabel="Collections"
-        actions={isAdmin ? <Button variant="contained" onClick={openCollect} sx={{ minHeight: 40 }}>Collect</Button> : undefined}
+        actions={isAdmin ? <CollectButton owes={a.owes} onClick={openCollect} sx={{ minHeight: 40 }} /> : undefined}
       />
 
       <Box sx={{ mt: 3, display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <Mono sx={{ fontSize: 13, color: neutral[400], lineHeight: 1.8 }}>
-          {a.riderId} · {a.vehicleId ?? 'no bike'} · <Link href={`tel:${a.phone}`}>{a.phone}</Link> · {rupeesWithSymbol(a.planAmount)} a week · deposit {rupeesWithSymbol(a.depositHeld)}
+          <Link component={RouterLink} to={`/riders/${a.riderId}`} title="Open rider profile">{a.riderId}</Link>
+          {' · '}
+          {a.vehicleId ? (
+            <Link component={RouterLink} to={`/vehicles/${a.vehicleId}`} title="Open bike record">{a.vehicleId}</Link>
+          ) : (
+            'no bike'
+          )}
+          {' · '}
+          {rupeesWithSymbol(a.planAmount)} a week · {money(a.perDayAmount)} a day
         </Mono>
         <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
           <Typography sx={{ fontSize: 12, letterSpacing: '0.08em', color: neutral[500] }}>OWES</Typography>
@@ -258,6 +276,7 @@ export function RiderAccount() {
 
 /** One payment, printable. */
 function ReceiptDialog({ paymentId, onClose }: { paymentId: string | null; onClose: () => void }) {
+  const queryClient = useQueryClient();
   const payment = useQuery({
     queryKey: ['payments', 'payment', paymentId],
     queryFn: () => getPayment(paymentId!),
@@ -309,7 +328,19 @@ function ReceiptDialog({ paymentId, onClose }: { paymentId: string | null; onClo
       </DialogContent>
       <DialogActions className="receipt-actions" sx={{ px: 6, pb: 5 }}>
         <Button color="inherit" onClick={onClose}>Close</Button>
-        <Button variant="contained" onClick={() => window.print()} disabled={!p}>Print</Button>
+        <Button
+          variant="contained"
+          disabled={!p}
+          onClick={() => {
+            // Recorded first: once the rider holds a printed receipt, staff cannot reverse it alone.
+            if (p && !p.reversesId) {
+              markReceiptIssued(p.id).then(() => invalidatePayments(queryClient)).catch(() => {});
+            }
+            window.print();
+          }}
+        >
+          Print
+        </Button>
       </DialogActions>
     </Dialog>
   );
@@ -335,10 +366,12 @@ function ReverseDialog({ line, account, onClose }: { line: AccountLine | null; a
       onClose();
     },
   });
+  const detailed = Boolean(line?.needsDetailedReason);
+  const reasonOk = reason.trim().length >= (detailed ? 20 : 1);
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (reverse.isPending) return;
-    if (!reason.trim()) {
+    if (!reasonOk) {
       setTried(true);
       requestAnimationFrame(shake);
       return;
@@ -357,14 +390,18 @@ function ReverseDialog({ line, account, onClose }: { line: AccountLine | null; a
             record with a reversing line beside it, and the audit log shows both.
           </Typography>
           <TextField
-            label="Why is it being reversed?"
+            label={<>Why is it being reversed? <MandatoryLabel /></>}
             placeholder="e.g. Wrong rider, typed 10,000 for 1,000"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             fullWidth
             autoFocus
-            error={tried && !reason.trim()}
-            helperText={tried && !reason.trim() ? 'Say why — it goes on the record.' : ' '}
+            error={tried && !reasonOk}
+            helperText={
+              detailed
+                ? 'More than 7 days old: say what happened, in at least 20 characters.'
+                : tried && !reasonOk ? 'Say why — it goes on the record.' : ' '
+            }
             slotProps={{ htmlInput: { maxLength: 200 } }}
           />
           {reverse.isError && (

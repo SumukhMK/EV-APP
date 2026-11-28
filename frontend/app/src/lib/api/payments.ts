@@ -21,4 +21,6 @@ export const getRiderAccount = impl.getRiderAccount;
 export const recordPayment = impl.recordPayment;
 export const reversePayment = impl.reversePayment;
 export const getPayment = impl.getPayment;
+export const markReceiptIssued = impl.markReceiptIssued;
 export const getTodayCollections = impl.getTodayCollections;
+export const getPaymentsReceived = impl.getPaymentsReceived;

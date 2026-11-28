@@ -14,6 +14,8 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import Tooltip from '@mui/material/Tooltip';
+import { ApiError } from '../../lib/api/client';
 import { recordPayment, reversePayment } from '../../lib/api/payments';
 import { invalidatePayments } from '../../lib/invalidate';
 import { useShakeValidation, shakeStyles } from '../../hooks/useShakeValidation';
@@ -22,7 +24,9 @@ import { PAYMENT_METHOD_LABEL } from '../../lib/labels';
 import { Mono } from '../../components/Mono';
 import { neutral, status as tones } from '../../theme/tokens';
 import type { LastPayment, Payment, PaymentMethod } from '../../types';
-import { inputFromPaise, newClientKey, owesText, paiseFromInput, money } from './money';
+import { canCollectFrom, inputFromPaise, newClientKey, owesText, paiseFromInput, money } from './money';
+import { MandatoryLabel } from '../../components/form/MandatoryLabel';
+import { rupeesInput } from '../../lib/inputFormat';
 
 const METHODS: PaymentMethod[] = ['UPI', 'CASH', 'BANK_TRANSFER'];
 /** A second payment of the same amount this soon is more likely a double entry. */
@@ -39,16 +43,78 @@ export interface CollectTarget {
   lastPayment: LastPayment | null;
 }
 
-type Confirm = { kind: 'repeat' | 'large'; message: string } | null;
+type Confirm = { kind: 'repeat'; message: string } | null;
+
+/**
+ * The Collect button every money screen uses. A rider who owes nothing gets a
+ * disabled button that says so, so nobody can open the form to pay ahead.
+ */
+export function CollectButton({
+  owes,
+  onClick,
+  compact = false,
+  sx,
+}: {
+  owes: number;
+  onClick: () => void;
+  /** Rows: "No dues" fits where "No outstanding dues" does not. */
+  compact?: boolean;
+  sx?: React.ComponentProps<typeof Button>['sx'];
+}) {
+  if (!canCollectFrom(owes)) {
+    return (
+      <Tooltip title="No outstanding dues — nothing can be collected">
+        {/* A disabled button fires no events, so the tooltip needs a wrapper. */}
+        <Box component="span" sx={{ display: 'inline-flex', ...(sx as object) }}>
+          <Button
+            variant="outlined"
+            size="small"
+            disabled
+            aria-label="Collect — no outstanding dues"
+            sx={{ minHeight: 36, minWidth: 88, flex: 1, borderStyle: 'dashed', textTransform: 'none' }}
+          >
+            {compact ? 'No dues' : 'No outstanding dues'}
+          </Button>
+        </Box>
+      </Tooltip>
+    );
+  }
+  return (
+    <Button
+      variant="contained"
+      size="small"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      sx={{ minHeight: 36, minWidth: 88, ...(sx as object) }}
+    >
+      Collect
+    </Button>
+  );
+}
+
+/** What went wrong, in the words the desk needs; the server's code decides. */
+function errorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    const code = error.details?.code;
+    const owes = typeof error.details?.owes === 'number' ? (error.details.owes as number) : null;
+    if (code === 'NO_OUTSTANDING_DUES') return 'This rider has no outstanding dues now — someone may have just collected. Nothing was saved.';
+    if (code === 'PAYMENT_EXCEEDS_DUES' && owes != null) return `That is more than the ${money(owes)} owed now. Nothing was saved.`;
+    if (code === 'INVALID_PAYMENT_AMOUNT') return 'Enter an amount above zero.';
+  }
+  return (error as Error)?.message || 'The payment was not saved. Try again.';
+}
 
 /**
  * Collect a payment in two taps: the amount starts at what the rider owes and
  * the method at how they usually pay, so the common case is Enter.
  *
- * Less than owed stays owed; more is kept as credit. One form sends one
- * payment however many times it is submitted (a key travels with it). After
- * saving, a bar says what the rider owes now and offers Undo — only admins
- * reach this form, and Undo is a reversal, so nothing is ever deleted.
+ * Never more than is owed: less stays owed, more is refused here and again by
+ * the server, which is the real rule. One form sends one payment however many
+ * times it is submitted (a key travels with it). After saving, a bar says
+ * what the rider owes now and offers Reverse — only admins reach this form, and
+ * a reversal adds a line, so nothing is ever deleted.
  */
 export function CollectDialog({ target, onClose }: { target: CollectTarget | null; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -79,8 +145,10 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
   }
 
   const paise = paiseFromInput(amount);
-  const valid = Number.isFinite(paise) && paise > 0;
-  const showError = tried && !valid;
+  const max = target?.owes ?? 0;
+  const tooMuch = Number.isFinite(paise) && paise > max;
+  const valid = Number.isFinite(paise) && paise > 0 && !tooMuch;
+  const showError = (tried && !valid) || tooMuch;
 
   const collect = useMutation({
     mutationFn: () =>
@@ -91,6 +159,10 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
         reference: method === 'CASH' ? undefined : reference.trim() || undefined,
         clientKey,
       }),
+    onError: () => {
+      // The figure on screen may be stale (someone else collected); fetch the real one.
+      invalidatePayments(queryClient);
+    },
     onSuccess: (payment) => {
       invalidatePayments(queryClient);
       setUndone(false);
@@ -100,7 +172,7 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
   });
 
   const undo = useMutation({
-    mutationFn: (id: string) => reversePayment(id, 'Undone right after saving'),
+    mutationFn: (id: string) => reversePayment(id, 'Reversed right after collecting'),
     onSuccess: () => {
       invalidatePayments(queryClient);
       setUndone(true);
@@ -120,14 +192,7 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
       if (last && last.amount === paise && justNow(last.at)) {
         setConfirm({
           kind: 'repeat',
-          message: `${money(paise)} was already saved for ${target.riderName} a moment ago. Save it again?`,
-        });
-        return;
-      }
-      if (target.owes > 0 && paise > target.owes * 2) {
-        setConfirm({
-          kind: 'large',
-          message: `That is more than twice what ${target.riderName} owes. The extra ${money(paise - target.owes)} is kept as credit.`,
+          message: `${money(paise)} was already collected from ${target.riderName} a moment ago. Collect it again?`,
         });
         return;
       }
@@ -139,7 +204,7 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
 
   return (
     <>
-      <Dialog open={Boolean(target)} onClose={onClose} maxWidth="xs" fullWidth fullScreen={fullScreen}>
+      <Dialog open={Boolean(target) && canCollectFrom(max)} onClose={onClose} maxWidth="xs" fullWidth fullScreen={fullScreen}>
         <Box component="form" onSubmit={submit} noValidate sx={{ display: 'contents' }}>
           <DialogTitle sx={{ pb: 1 }}>
             <Typography sx={{ fontSize: 12, letterSpacing: '0.08em', color: neutral[500] }}>COLLECT PAYMENT</Typography>
@@ -172,25 +237,27 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
 
           <DialogContent ref={containerRef} sx={{ ...shakeStyles, pt: '12px !important' }}>
             <TextField
-              label="Amount received"
+              label={<>Amount received <MandatoryLabel /></>}
               value={amount}
               onChange={(e) => {
-                setAmount(e.target.value);
+                setAmount(rupeesInput(e.target.value, { decimals: 0 }));
                 setConfirm(null);
               }}
               fullWidth
               autoFocus
-              inputMode="decimal"
+              inputMode="numeric"
               slotProps={{
                 input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
-                htmlInput: { inputMode: 'decimal', 'aria-describedby': 'amount-help', style: { fontSize: 20 } },
+                htmlInput: { inputMode: 'numeric', 'aria-describedby': 'amount-help', style: { fontSize: 20 } },
               }}
               error={showError}
               helperText={
                 <span id="amount-help">
-                  {showError
-                    ? 'Enter the amount received, above zero.'
-                    : 'Less than they owe is fine — the rest stays owed. More is kept as credit.'}
+                  {tooMuch
+                    ? `No more than ${money(max)} — what ${target?.riderName ?? 'the rider'} owes. Advance payments are not taken.`
+                    : showError
+                      ? 'Enter the amount received, above zero.'
+                      : `Up to ${money(max)}. Less is fine — the rest stays owed.`}
                 </span>
               }
             />
@@ -241,7 +308,7 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
             )}
             {collect.isError && (
               <Typography role="alert" sx={{ mt: 3, fontSize: 13, color: tones.bad.fg }}>
-                {(collect.error as Error).message || 'The payment was not saved. Try again.'}
+                {errorText(collect.error)}
               </Typography>
             )}
           </DialogContent>
@@ -252,12 +319,10 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
             </Button>
             <Button type="submit" variant="contained" sx={{ minHeight: 44, flex: { xs: 1, sm: 'none' } }}>
               {collect.isPending
-                ? 'Saving…'
+                ? 'Collecting…'
                 : confirm
-                  ? confirm.kind === 'repeat'
-                    ? 'Yes, save again'
-                    : `Yes, save ${money(paise)}`
-                  : `Save ${valid ? money(paise) : 'payment'}`}
+                    ? 'Yes, collect again'
+                  : `Collect ${valid ? money(paise) : ''}`.trim()}
             </Button>
           </DialogActions>
         </Box>
@@ -271,20 +336,22 @@ export function CollectDialog({ target, onClose }: { target: CollectTarget | nul
         message={
           saved
             ? undone
-              ? `Undone. ${saved.riderName}'s payment was reversed.`
+              ? `Reversed. ${money(saved.payment.amount)} from ${saved.riderName} no longer counts.`
               : `${money(saved.payment.amount)} from ${saved.riderName}.` +
-                (after == null ? '' : ` Now ${after > 0 ? `owes ${money(after)}` : owesText(after, true).toLowerCase()}.`)
+                (after == null ? '' : after > 0 ? ` Now owes ${money(after)}.` : ' PAID — no dues left.')
             : ''
         }
         action={
           saved && !undone ? (
             <Button
-              color="inherit"
               size="small"
+              variant="outlined"
               disabled={undo.isPending}
               onClick={() => undo.mutate(saved.payment.id)}
+              // The theme's outlined button is dark text on a dark snackbar; take the snackbar's own colour.
+              sx={{ color: 'inherit', borderColor: 'currentColor', '&.Mui-disabled': { color: 'inherit', opacity: 0.5 } }}
             >
-              Undo
+              {undo.isPending ? 'Reversing…' : 'Reverse'}
             </Button>
           ) : undefined
         }

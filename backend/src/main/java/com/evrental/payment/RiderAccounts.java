@@ -35,9 +35,13 @@ import org.springframework.transaction.annotation.Transactional;
  * ones a payment settled in this window (before V022 a payment could settle a
  * charge). A charge settled by hand was paid elsewhere and is never billed.
  *
- * <p><b>Payments</b> count from the start of the tenancy — or, for a rider
- * who has handed their bike back, from the day their unpaid rent was raised as
- * a charge, so paying that off counts.
+ * <p><b>Payments</b> count from the start of the tenancy.
+ *
+ * <p><b>After a return</b> (no bike now) the account starts afresh at the
+ * moment the return was recorded: the return form's "still owed" already
+ * covered the rent, the repairs and what had been paid, so only charges
+ * raised since (a later repair, the settlement once approved) and payments
+ * taken since count.
  */
 @Component
 public class RiderAccounts {
@@ -93,7 +97,7 @@ public class RiderAccounts {
             PaymentCollection lastPayment,
             List<Line> lines) {
 
-        /** Positive is owed; negative is credit. */
+        /** Positive is owed; negative only for credit taken before advance payments were stopped. */
         public long balance() {
             return rent + charges - paid;
         }
@@ -118,7 +122,7 @@ public class RiderAccounts {
         BillingPeriod period = BillingPeriod.current(rider.getBillingDay(),
                 since != null ? since : rider.getOnboardedOn(), today);
         long plan = rider.getPlanAmountPaise();
-        long perDay = Math.round(plan / 7.0);
+        long perDay = perDay(plan);
 
         List<PaymentPeriod> rows = since == null ? List.of() : rows(rider, since, today);
         List<Segment> segments = since == null ? List.of() : segments(rows, since, period, today, plan, perDay);
@@ -126,16 +130,24 @@ public class RiderAccounts {
         List<RiderCharge> billable = charges.findByRiderIdOrderByChargedOnDesc(rider.getId()).stream()
                 .filter(c -> c.getLiability() == BILLABLE)
                 .toList();
-        LocalDate paymentsFrom = paymentsFrom(since, billable,
-                since == null ? assignments.lastReturnedOn(rider.getId()).orElse(null) : null);
-        List<RiderCharge> counted = billable.stream().filter(c -> counts(c, paymentsFrom)).toList();
+        // No bike: the account starts afresh at the moment the last return was
+        // recorded. The return form's "still owed" covered everything before
+        // it (rent, repairs, and what had been paid against them), so only
+        // charges raised and payments taken after that moment count.
+        Instant returnedAt = since == null ? assignments.lastReturnedAt(rider.getId()).orElse(null) : null;
+        LocalDate paymentsFrom = returnedAt != null ? dateOf(returnedAt) : paymentsFrom(since, billable);
+        List<RiderCharge> counted = billable.stream()
+                .filter(c -> returnedAt != null ? countsAfter(c, returnedAt) : counts(c, paymentsFrom))
+                .toList();
 
         Set<UUID> tenancyRows = new HashSet<>();
         rows.forEach(r -> tenancyRows.add(r.getId()));
         List<PaymentCollection> payments = paymentsFrom == null ? List.of()
                 : collections.findByRiderIdOrderByCollectedOnAsc(rider.getId()).stream()
-                        .filter(p -> !dateOf(p.getCollectedOn()).isBefore(paymentsFrom)
-                                || (p.getPeriodId() != null && tenancyRows.contains(p.getPeriodId())))
+                        .filter(p -> returnedAt != null
+                                ? !p.getCollectedOn().isBefore(returnedAt)
+                                : !dateOf(p.getCollectedOn()).isBefore(paymentsFrom)
+                                        || (p.getPeriodId() != null && tenancyRows.contains(p.getPeriodId())))
                         .toList();
 
         long rent = segments.stream().mapToLong(Segment::rent).sum();
@@ -152,6 +164,16 @@ public class RiderAccounts {
         return new Account(since, period, rent, chargeTotal, paid, weekRent, late.days(), late.weekEnd(),
                 late.partlyPaid(), lastPayment,
                 lines(weekly(segments, rider.getBillingDay(), plan, perDay), counted, payments));
+    }
+
+    /**
+     * One day of a weekly plan: a seventh, to the nearest whole rupee (₹2,199 →
+     * ₹314). The one rule for a part week — the period rows, the live account,
+     * the screen and the seed data all call this, so no two places disagree.
+     * A full week is always the plan itself.
+     */
+    public static long perDay(long weeklyPlan) {
+        return Math.round(weeklyPlan / 700.0) * 100;
     }
 
     // -----------------------------------------------------------------------
@@ -249,17 +271,26 @@ public class RiderAccounts {
      * returned bike is still open — payments after that charge was raised
      * are paying it.
      */
-    private static LocalDate paymentsFrom(LocalDate since, List<RiderCharge> billable, LocalDate returnedOn) {
+    /**
+     * When payments start counting for a rider holding a bike (the tenancy
+     * start), or for one who never returned a bike but has an unpaid
+     * settlement charge (its date).
+     */
+    private static LocalDate paymentsFrom(LocalDate since, List<RiderCharge> billable) {
         LocalDate settlement = billable.stream()
                 .filter(c -> c.getStatus() == RiderChargeStatus.OPEN && c.getServiceJobId() == null)
                 .map(c -> dateOf(c.getChargedOn()))
                 .min(LocalDate::compareTo).orElse(null);
-        // No bike: whatever they pay from the day it came back is paying off
-        // what is still open — repairs, and the unpaid rent once it is raised.
-        LocalDate start = since != null ? since : returnedOn;
-        if (start == null) return settlement;
-        if (settlement == null) return start;
-        return settlement.isBefore(start) ? settlement : start;
+        if (since == null) return settlement;
+        if (settlement == null) return since;
+        return settlement.isBefore(since) ? settlement : since;
+    }
+
+    /** After a return: only what was raised since — a later repair, or the settlement once approved. */
+    private static boolean countsAfter(RiderCharge charge, Instant returnedAt) {
+        if (charge.getChargedOn() == null || charge.getChargedOn().isBefore(returnedAt)) return false;
+        if (charge.getStatus() == RiderChargeStatus.OPEN) return true;
+        return charge.isSettledByPayment();
     }
 
     private static boolean counts(RiderCharge charge, LocalDate paymentsFrom) {

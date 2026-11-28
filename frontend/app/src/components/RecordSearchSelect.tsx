@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
@@ -34,7 +35,7 @@ export function RecordSearchSelect({
   note,
   emptyText = 'No matching records',
 }: {
-  label: string;
+  label: ReactNode;
   placeholder?: string;
   value: string;
   onChange: (id: string) => void;

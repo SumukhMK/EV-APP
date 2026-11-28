@@ -82,13 +82,14 @@ export function WalkInJobCardDialog({ open, onClose, onCreated }: {
       onSubmit={() => create.mutate()}
       onClose={onClose}
     >
-      <ToggleButtonGroup exclusive color="primary" value={source} aria-label="Intake" sx={{ alignSelf: 'start' }}
+      {/* Intake on its own row; then a 2 × 2: rider | vehicle, created by | resolved by. */}
+      <ToggleButtonGroup exclusive color="primary" value={source} aria-label="Intake" sx={{ ...fullWidth, justifySelf: 'start', alignSelf: 'start' }}
         onChange={(_, next) => { if (next === 'RSA' || next === 'WALK_IN') setSource(next); }}>
         <ToggleButton value="WALK_IN">Walk-in</ToggleButton>
         <ToggleButton value="RSA">RSA</ToggleButton>
       </ToggleButtonGroup>
       {source === 'RSA' && (
-        <TextField label="Roadside location" value={location} onChange={(e) => setLocation(e.target.value)} />
+        <TextField label="Roadside location" sx={fullWidth} value={location} onChange={(e) => setLocation(e.target.value)} />
       )}
       <TextField select required label="Active Rider" value={riderId} onChange={(e) => setRiderId(e.target.value)}
         helperText={riders.isPending ? 'Loading riders…' : active.length ? undefined : 'No rider is holding a bike right now.'}

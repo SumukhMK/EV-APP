@@ -89,7 +89,7 @@ export const NAV: NavSection[] = [
     roles: ['SUPER_ADMIN', 'FLEET_ADMIN'],
     items: [
       { label: 'Collections', path: '/payments/collections', icon: ReceiptIcon, owner: 'smk', artboard: 15 },
-      { label: "Today's collections", path: '/payments/today', icon: TodayMoneyIcon, owner: 'smk', artboard: 17 },
+      { label: 'Payments received', path: '/payments/today', icon: TodayMoneyIcon, owner: 'smk', artboard: 17 },
     ],
   },
   {

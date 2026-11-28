@@ -3,10 +3,11 @@ import type { RepairType, ServiceJobItem } from '../../../types';
 /** A line as typed: the cost stays text until it is sent. */
 export interface CostLine { label: string; cost: string; kind: 'PART' | 'LABOUR' | 'OTHER' }
 
-export const MONEY = /^\d+(\.\d{1,2})?$/;
+/** Whole rupees only — no paise anywhere. */
+export const MONEY = /^\d+$/;
 
 export const toLines = (items: ServiceJobItem[]): CostLine[] =>
-  items.map((item) => ({ label: item.label, cost: (item.costPaise / 100).toFixed(2), kind: item.kind ?? 'PART' }));
+  items.map((item) => ({ label: item.label, cost: String(Math.round(item.costPaise / 100)), kind: item.kind ?? 'PART' }));
 
 export const toItems = (lines: CostLine[]): ServiceJobItem[] =>
   lines.map((line) => ({ label: line.label.trim(), costPaise: Math.round(Number(line.cost) * 100), kind: line.kind }));

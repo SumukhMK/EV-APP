@@ -7,6 +7,7 @@ import AddIcon from '@mui/icons-material/AddOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import type { DeboardRiderValues } from '../../../lib/schemas/assignment';
+import { MandatoryLabel } from '../../../components/form/MandatoryLabel';
 
 /**
  * Part-level damage detail for deboard/exchange tagged MINOR, MAJOR or ACCIDENT.
@@ -50,7 +51,7 @@ export function DamageItemsField({ noDamage = false }: { noDamage?: boolean }) {
           }}
         >
           <TextField
-            label="Part / area"
+            label={<>Part / area <MandatoryLabel /></>}
             defaultValue={field.part}
             {...register(`damageItems.${index}.part` as const)}
             error={Boolean(errors.damageItems?.[index]?.part)}

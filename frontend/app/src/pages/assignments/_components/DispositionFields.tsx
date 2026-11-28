@@ -15,6 +15,7 @@ import {
 } from '../../../lib/labels';
 import { RETURN_DESTINATIONS } from '../../../lib/serviceWorkflow';
 import type { ReturnCondition } from '../../../types';
+import { MandatoryLabel } from '../../../components/form/MandatoryLabel';
 
 /**
  * The three fields every return asks: reason, date, and where the bike goes
@@ -72,9 +73,10 @@ export function DispositionFields<T extends FieldValues>({
   return (
     <Box sx={{ display: 'grid', gap: 5 }}>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-        <SelectField control={control} name={reasonName} label={reasonLabel} options={reasonOptions} />
+        <SelectField control={control} name={reasonName} label={<>{reasonLabel} <MandatoryLabel /></>} options={reasonOptions} />
         <DateField
-          label={dateLabel}
+          label={<>{dateLabel} <MandatoryLabel /></>}
+          labelText={dateLabel}
           value={(watch(dateName) as string) ?? ''}
           onChange={(next) => setValue(dateName, next as never, { shouldValidate: true })}
           error={Boolean(dateError)}
@@ -84,7 +86,7 @@ export function DispositionFields<T extends FieldValues>({
       <SelectField
         control={control}
         name={nextStateName}
-        label={<>Where does the bike go next? <InfoTip title={`Recovery is not offered here — that is a separate job. Choose Quality Check, In Service, or Accident. We suggest: ${condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'Quality Check'}. You can override — if you do, say why in the notes before you confirm.`} /></>}
+        label={<>Where does the bike go next? <MandatoryLabel /> <InfoTip title={`Recovery is not offered here — that is a separate job. Choose Quality Check, In Service, or Accident. We suggest: ${condition ? VEHICLE_STATE_LABEL[CONDITION_DEFAULT_STATE[condition]] : 'Quality Check'}. You can override — if you do, say why in the notes before you confirm.`} /></>}
         options={nextStateOptions}
       />
     </Box>

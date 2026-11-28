@@ -1,3 +1,4 @@
+import { ApiError } from '../lib/api/client';
 import dayjs from 'dayjs';
 import type {
   AccountLine,
@@ -55,7 +56,8 @@ interface RentWeek {
 
 function rentWeeks(rider: Rider): RentWeek[] {
   if (!rider.currentVehicleId) return [];
-  const perDay = Math.round(rider.planAmount / 7);
+  // Same rule as RiderAccounts.perDay: a seventh of the plan, to the nearest whole rupee.
+  const perDay = Math.round(rider.planAmount / 700) * 100;
   const now = today();
   const current = weekStart(rider.billingDay, now);
   const onboarded = dayjs(rider.onboardedOn);
@@ -153,7 +155,7 @@ function accountOf(rider: Rider): RiderAccount {
       line: {
         kind: 'RENT', date: iso(w.start), at: w.start.toISOString(), amount: w.rent, to: iso(w.end), days: w.days,
         locked: !w.weekEnd.isAfter(today()), note: null, paymentId: null, receiptNo: null, method: null,
-        reference: null, by: null, reason: null, reversed: false,
+        reference: null, by: null, reason: null, reversed: false, canReverse: false, reverseBlock: null, needsDetailedReason: false, receiptIssuedAt: null,
       },
     })),
     ...charges.map<Item>((c) => ({
@@ -162,7 +164,7 @@ function accountOf(rider: Rider): RiderAccount {
       line: {
         kind: 'CHARGE', date: c.createdOn, at: dayjs(c.createdOn).toISOString(), amount: c.amount, to: null, days: 0,
         locked: false, note: 'Repair', paymentId: null, receiptNo: null, method: null, reference: null, by: null,
-        reason: null, reversed: false,
+        reason: null, reversed: false, canReverse: false, reverseBlock: null, needsDetailedReason: false, receiptIssuedAt: null,
       },
     })),
     ...paid.map<Item>((p) => ({
@@ -172,6 +174,9 @@ function accountOf(rider: Rider): RiderAccount {
         kind: p.reversesId ? 'REVERSAL' : 'PAYMENT', date: p.at.slice(0, 10), at: p.at, amount: -p.amount, to: null,
         days: 0, locked: false, note: null, paymentId: p.id, receiptNo: p.receiptNo, method: p.method,
         reference: p.reference, by: p.by, reason: p.reason, reversed: reversedIds.has(p.id),
+        // The demo signs in as an admin: any payment not yet reversed.
+        canReverse: !p.reversesId && !reversedIds.has(p.id), reverseBlock: null,
+        needsDetailedReason: false, receiptIssuedAt: null,
       },
     })),
   ];
@@ -211,6 +216,7 @@ function accountOf(rider: Rider): RiderAccount {
     vehicleId: rider.currentVehicleId,
     active: rider.status === 'ACTIVE',
     planAmount: rider.planAmount,
+    perDayAmount: Math.round(rider.planAmount / 700) * 100,
     depositHeld: rider.depositHeld,
     usualMethod: rider.paymentMode,
     owes,
@@ -249,7 +255,15 @@ function rowOf(rider: Rider): CollectionRow {
 }
 
 function todays(date: string) {
-  return payments.filter((p) => p.at.slice(0, 10) === date || dayjs(p.at).format('YYYY-MM-DD') === date);
+  return between(date, date);
+}
+
+/** Both days included, by the local calendar day a payment was taken on. */
+function between(from: string, to: string) {
+  return payments.filter((p) => {
+    const day = dayjs(p.at).format('YYYY-MM-DD');
+    return day >= from && day <= to;
+  });
 }
 
 function strip(p: MockPayment): Payment {
@@ -285,8 +299,20 @@ export function recordPayment(req: RecordPaymentRequest): Payment {
   }
   const rider = riderById(req.riderId);
   if (!rider) throw new Error(`No rider ${req.riderId}`);
-  if (!(req.amount > 0)) throw new Error('A payment must be more than zero');
+  // The same three rules, and the same codes, as PaymentRunService.record.
+  if (!(req.amount > 0)) {
+    throw new ApiError('A payment must be more than zero', 422, 'amount', { code: 'INVALID_PAYMENT_AMOUNT' });
+  }
   const owedBefore = accountOf(rider).owes;
+  if (owedBefore <= 0) {
+    throw new ApiError(`${rider.name} has no outstanding dues`, 409, 'amount', { code: 'NO_OUTSTANDING_DUES', owes: owedBefore });
+  }
+  if (req.amount > owedBefore) {
+    throw new ApiError('That is more than the rider owes. Advance payments are not taken.', 422, 'amount', {
+      code: 'PAYMENT_EXCEEDS_DUES',
+      owes: owedBefore,
+    });
+  }
   const p = newPayment(rider, req.amount, req.method, dayjs(), 'You', owedBefore, {
     reference: req.reference?.trim() || null,
   });
@@ -318,9 +344,10 @@ export function paymentById(paymentId: string): Payment | null {
   return p ? strip(p) : null;
 }
 
-export function todayCollections(date: string): TodayCollections {
+export function received(from: string, to: string): TodayCollections {
   seed();
-  const day = todays(date).slice().sort((a, b) => b.at.localeCompare(a.at));
+  if (to < from) throw new ApiError('The end date cannot be before the start date', 422, 'to', { code: 'INVALID_DATE_RANGE' });
+  const day = between(from, to).slice().sort((a, b) => b.at.localeCompare(a.at));
   const staff = new Map<string, StaffTotal>();
   for (const p of day) {
     const owner = p.reversesId ? payments.find((o) => o.id === p.reversesId)?.by ?? p.by : p.by;
@@ -334,7 +361,9 @@ export function todayCollections(date: string): TodayCollections {
     staff.set(name, t);
   }
   return {
-    date,
+    date: to,
+    from,
+    to,
     total: day.reduce((t, p) => t + p.amount, 0),
     count: day.filter((p) => !p.reversesId).length,
     byStaff: [...staff.values()],

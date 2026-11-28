@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { SessionContext, type SessionValue } from '../../app/sessionContext';
 import { getCollections, recordPayment, reversePayment } from '../../lib/api/payments';
 import type { CollectionRow, Payment, UserRole } from '../../types';
+import { ApiError } from '../../lib/api/client';
 import { Collections } from './Collections';
 
 vi.mock('../../lib/api/payments', () => ({
@@ -37,7 +38,7 @@ function row(over: Partial<CollectionRow>): CollectionRow {
 }
 
 const ROWS: CollectionRow[] = [
-  row({ riderId: 'R23', riderName: 'Harish Babu', owes: 500_045, daysLate: 12, stage: 'WARNING_1', usualMethod: 'CASH' }),
+  row({ riderId: 'R23', riderName: 'Harish Babu', owes: 500_000, daysLate: 12, stage: 'WARNING_1', usualMethod: 'CASH' }),
   row({ riderId: 'R13', riderName: 'Vikram Jadhav', owes: 140_000, vehicleId: 'FBLSS0144',
     lastPayment: { amount: 1_000_000, method: 'UPI', at: '2026-11-22T11:05:31Z', by: 'Meenakshi Iyer' } }),
   row({ riderId: 'R02', riderName: 'Raju Debnath', owes: -50_000 }),
@@ -76,7 +77,7 @@ beforeEach(() => {
 });
 
 describe('Collections', () => {
-  it('shows one number per rider: owes, credit or paid up, with the full last payment', async () => {
+  it('shows one number per rider: owes, old credit or PAID, with the full last payment', async () => {
     show();
     expect(await screen.findByText('Harish Babu')).toBeInTheDocument();
     expect(screen.getByText('₹5,000')).toBeInTheDocument();
@@ -104,63 +105,98 @@ describe('Collections', () => {
     expect(screen.queryByText('Vikram Jadhav')).not.toBeInTheDocument();
   });
 
-  it('the Late filter adds the phone and the next step', async () => {
+  /** Late and Owes are one view now: everyone who owes, late ones first, how late shown in the Owes column. */
+  it('the Owes view holds late and not-late riders, and late ones get the phone and the next step', async () => {
+    // An old ?filter=late link lands on the same view.
     show('FLEET_ADMIN', '/payments/collections?filter=late');
     expect(await screen.findByText('Harish Babu')).toBeInTheDocument();
-    expect(screen.queryByText('Vikram Jadhav')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '9886001122' })).toHaveAttribute('href', 'tel:9886001122');
+    expect(screen.getByText('Vikram Jadhav')).toBeInTheDocument();
+    expect(screen.queryByText('Raju Debnath')).not.toBeInTheDocument();
+    expect(screen.getByText('12 days late')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: '9886001122' })[0]).toHaveAttribute('href', 'tel:9886001122');
     expect(screen.getByText('First warning')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Mark reminded' })).toBeInTheDocument();
+    // Only the late rider is offered a reminder.
+    expect(screen.getAllByRole('button', { name: 'Mark reminded' })).toHaveLength(1);
   });
 
-  it('collects in two taps: amount and method start filled, one key per form, then Undo', async () => {
-    record.mockResolvedValue(payment({ riderId: 'R23', riderName: 'Harish Babu', amount: 500_045, method: 'CASH', owedBefore: 500_045, owedAfter: 0 }));
-    reverse.mockResolvedValue(payment({ id: 'p2', amount: -500_045, reversesId: 'p1' }));
+  it('collects in two taps: amount and method start filled, one key per form, then Reverse', async () => {
+    record.mockResolvedValue(payment({ riderId: 'R23', riderName: 'Harish Babu', amount: 500_000, method: 'CASH', owedBefore: 500_000, owedAfter: 0 }));
+    reverse.mockResolvedValue(payment({ id: 'p2', amount: -500_000, reversesId: 'p1' }));
     show();
     const user = userEvent.setup();
     await screen.findByText('Harish Babu');
 
     await user.click(screen.getAllByRole('button', { name: 'Collect' })[0]);
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByLabelText(/Amount received/)).toHaveValue('5000.45');
+    expect(within(dialog).getByLabelText(/Amount received/)).toHaveValue('5000');
     expect(within(dialog).getByRole('button', { name: /Cash · usual/ })).toHaveAttribute('aria-pressed', 'true');
 
     await user.keyboard('{Enter}');
     await waitFor(() => expect(record).toHaveBeenCalledTimes(1));
-    expect(record.mock.calls[0][0]).toMatchObject({ riderId: 'R23', amount: 500_045, method: 'CASH' });
+    expect(record.mock.calls[0][0]).toMatchObject({ riderId: 'R23', amount: 500_000, method: 'CASH' });
     expect(record.mock.calls[0][0].clientKey).toBeTruthy();
 
-    expect(await screen.findByText(/₹5,000.45 from Harish Babu\. Now paid up\./)).toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: 'Undo' }));
-    await waitFor(() => expect(reverse).toHaveBeenCalledWith('p1', 'Undone right after saving'));
+    expect(await screen.findByText(/₹5,000 from Harish Babu\. PAID — no dues left\./)).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Reverse' }));
+    await waitFor(() => expect(reverse).toHaveBeenCalledWith('p1', 'Reversed right after collecting'));
   });
 
-  it('accepts more than is owed after a check, and keeps it as credit', async () => {
-    record.mockResolvedValue(payment({ amount: 500_000, owedAfter: -360_000 }));
+  it('refuses more than is owed: the amount shakes, says the most it can be, and nothing is sent', async () => {
     show();
     const user = userEvent.setup();
     await screen.findByText('Vikram Jadhav');
     await user.click(screen.getAllByRole('button', { name: 'Collect' })[1]);
     const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Up to ₹1,400\. Less is fine/)).toBeInTheDocument();
+
     const amount = within(dialog).getByLabelText(/Amount received/);
     await user.clear(amount);
-    await user.type(amount, '5000');
-    await user.click(within(dialog).getByRole('button', { name: 'Save ₹5,000' }));
-
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/more than twice/);
+    await user.type(amount, '1400.01');
+    expect(within(dialog).getByText(/No more than ₹1,400 — what Vikram Jadhav owes\. Advance payments are not taken\./)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Collect' }));
     expect(record).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: 'Yes, save ₹5,000' }));
+
+    // A part payment is fine.
+    await user.clear(amount);
+    await user.type(amount, '400');
+    record.mockResolvedValue(payment({ amount: 40_000, owedAfter: 100_000 }));
+    await user.click(within(dialog).getByRole('button', { name: 'Collect ₹400' }));
     await waitFor(() => expect(record).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/Now owes ₹1,000\./)).toBeInTheDocument();
   });
 
-  it('never disables Save: an empty amount shakes and says why', async () => {
+  it('a rider who owes nothing gets a disabled button that says so, and no form', async () => {
+    show();
+    const user = userEvent.setup();
+    await screen.findByText('Raju Debnath');
+    const none = screen.getByRole('button', { name: 'Collect — no outstanding dues' });
+    expect(none).toBeDisabled();
+    expect(none).toHaveTextContent('No dues');
+    await user.click(none).catch(() => {});
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // Only the two riders who owe can be collected from.
+    expect(screen.getAllByRole('button', { name: 'Collect' })).toHaveLength(2);
+  });
+
+  it('says why when the server refuses because someone else already collected', async () => {
+    record.mockRejectedValue(new ApiError('Vikram Jadhav has no outstanding dues', 409, 'amount', { code: 'NO_OUTSTANDING_DUES', owes: 0 }));
+    show();
+    const user = userEvent.setup();
+    await screen.findByText('Vikram Jadhav');
+    await user.click(screen.getAllByRole('button', { name: 'Collect' })[1]);
+    const dialog = await screen.findByRole('dialog');
+    await user.keyboard('{Enter}');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/no outstanding dues now/);
+  });
+
+  it('never disables Collect: an empty amount shakes and says why', async () => {
     show();
     const user = userEvent.setup();
     await screen.findByText('Vikram Jadhav');
     await user.click(screen.getAllByRole('button', { name: 'Collect' })[1]);
     const dialog = await screen.findByRole('dialog');
     await user.clear(within(dialog).getByLabelText(/Amount received/));
-    const save = within(dialog).getByRole('button', { name: 'Save payment' });
+    const save = within(dialog).getByRole('button', { name: 'Collect' });
     expect(save).toBeEnabled();
     await user.click(save);
     expect(within(dialog).getByText('Enter the amount received, above zero.')).toBeInTheDocument();

@@ -41,4 +41,8 @@ public class BillingClock {
     public LocalDate today() {
         return LocalDate.now(clock);
     }
+
+    public java.time.Instant now() {
+        return clock.instant();
+    }
 }

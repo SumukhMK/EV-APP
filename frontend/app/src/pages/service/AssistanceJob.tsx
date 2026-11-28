@@ -32,6 +32,8 @@ import { linesValid, toItems, toLines, type CostLine } from './jobCards/lineItem
 import { HUBS } from '../../mocks/seed';
 import { SERVICE_QUEUES, type DamageCategory, type ServiceJob, type ServiceJobSource, type ServiceLiability, type ServiceQueue } from '../../types';
 import { CATEGORY_LABEL, LIABILITY_LABEL, REPAIR_TYPE_LABEL, SERVICE_CATEGORY_LABEL, SOURCE_LABEL, SERVICE_QUEUE_LABEL } from '../../lib/serviceJobLabels';
+import { rupeesInput } from '../../lib/inputFormat';
+import { MandatoryLabel } from '../../components/form/MandatoryLabel';
 
 const deskPath = '/service/assistance';
 const columns = { display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' }, gap: 4, mt: 4, alignItems: 'start' };
@@ -111,7 +113,7 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
           <Panel label={inspectionMode ? 'Find or start a check' : 'Bike and problem'} subtitle={inspectionMode ? 'Carry on with the job this bike already has, or take it in for a check. You write what you found and what it costs on the next screen.' : 'Say how the bike reached us and what it needs. That decides which list it goes into.'}>
             <Box component="fieldset" disabled={create.isPending} sx={{ border: 0, p: 0, m: 0, minWidth: 0, display: 'grid', gap: 4 }}>
               {(vehicles.isError || jobs.isError) && <Alert severity="error" action={<Button color="inherit" onClick={() => { void vehicles.refetch(); void jobs.refetch(); }}>Retry</Button>}>{vehicles.error?.message ?? jobs.error?.message}</Alert>}
-              <RecordSearchSelect label="Bike" placeholder="Search bike number or model" value={vehicleId} onChange={setVehicleId}
+              <RecordSearchSelect label={<>Bike <MandatoryLabel /></>} placeholder="Search bike number or model" value={vehicleId} onChange={setVehicleId}
                 options={(vehicles.data ?? []).map((v) => ({ id: v.id, primary: v.model, secondary: VEHICLE_STATE_LABEL[v.state], trailing: v.currentRiderName ?? v.hub }))}
                 loading={vehicles.isPending}
               />
@@ -121,7 +123,7 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
                 </Alert>
               ) : (
                 <Locked locked={!vehicleId && 'Pick the bike first'} sx={{ display: 'grid', gap: 4 }}>
-                  <TextField select label="How did the bike reach us?" value={source} onChange={(e) => {
+                  <TextField select required label="How did the bike reach us?" value={source} onChange={(e) => {
                     const value = e.target.value;
                     if (value === 'RSA' || value === 'QRT' || value === 'WALK_IN' || value === 'INSPECTION') {
                       setSource(value);
@@ -138,13 +140,13 @@ export function NewAssistanceJob({ inspectionMode = false }: { inspectionMode?: 
                       {HUBS.map((hub) => <MenuItem key={hub} value={hub}>{hub}</MenuItem>)}
                     </TextField>
                   )}
-                  <TextField select label="How bad is the damage?" value={category} onChange={(e) => {
+                  <TextField select required label="How bad is the damage?" value={category} onChange={(e) => {
                     const value = damageCategories.find((c) => c === e.target.value);
                     if (value) { setCategory(value); setQueue(queueForCondition(value)); }
                   }}>
                     {allowedCategories(source).map((value) => <MenuItem key={value} value={value}>{CATEGORY_LABEL[value]}</MenuItem>)}
                   </TextField>
-                  <TextField select label="Which list should it go to?" value={queue} onChange={(e) => { if (isServiceQueue(e.target.value)) setQueue(e.target.value); }}>
+                  <TextField select required label="Which list should it go to?" value={queue} onChange={(e) => { if (isServiceQueue(e.target.value)) setQueue(e.target.value); }}>
                     {SERVICE_QUEUES.filter((q) => q !== 'READY_TO_DEPLOY').map((q) => <MenuItem key={q} value={q}>{SERVICE_QUEUE_LABEL[q]}</MenuItem>)}
                   </TextField>
                   {requiresReference(queue) && <TextField label={queue === 'PARTS_WAITING' ? 'Which parts, and when are they expected?' : 'Claim number or who to follow up with'} value={reference} onChange={(e) => setReference(e.target.value)} required />}
@@ -221,7 +223,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const [reference, setReference] = useState(job.reference ?? '');
   const [qcChecks, setQcChecks] = useState<Record<QcCheckId, boolean>>(() => Object.fromEntries(QC_CHECKS.map((c) => [c.id, false])) as Record<QcCheckId, boolean>);
   const [liability, setLiability] = useState<ServiceLiability>(job.liability ?? (job.riderId ? 'RIDER' : 'COMPANY'));
-  const [partsPaid, setPartsPaid] = useState(((job.partsPaidPaise ?? 0) / 100).toFixed(2));
+  const [partsPaid, setPartsPaid] = useState(String(Math.round((job.partsPaidPaise ?? 0) / 100)));
   // The last button pressed, so its reason to wait updates as the fields are fixed.
   const [tried, setTried] = useState<Action | null>(null);
   const { containerRef: cardRef, shake: shakeCard } = useShakeValidation();
@@ -232,7 +234,7 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
   const total = valid ? priced.reduce((sum, item) => sum + item.costPaise, 0) : 0;
   const partsTotal = valid ? priced.reduce((sum, item) => sum + (item.kind === 'PART' ? item.costPaise : 0), 0) : 0;
   const partsPaidPaise = Math.round(Number(partsPaid) * 100);
-  const partsPaidValid = !walkIn || (/^\d+(\.\d{1,2})?$/.test(partsPaid) && Number.isSafeInteger(partsPaidPaise) && partsPaidPaise <= partsTotal);
+  const partsPaidValid = !walkIn || (/^\d+$/.test(partsPaid) && Number.isSafeInteger(partsPaidPaise) && partsPaidPaise <= partsTotal);
   const riderCharge = walkInRiderCharge(priced, partsPaidValid ? partsPaidPaise : 0);
   const allChecked = QC_CHECKS.every((c) => qcChecks[c.id]);
   const releaseState_ = releaseState(vehicle.data?.currentRiderId ?? null);
@@ -404,8 +406,8 @@ function JobRecord({ job, returnTo, onSaved }: { job: ServiceJob; returnTo: stri
                   {payers.map((value) => <ToggleButton key={value} value={value}>{value === 'RIDER' ? 'Rider' : value === 'DEPOSIT' ? 'Deposit' : 'Company'}</ToggleButton>)}
                 </ToggleButtonGroup>
               )}
-              {walkIn && payer === 'RIDER' && <TextField size="small" label="Spare parts paid now (₹)" value={partsPaid} onChange={(e) => setPartsPaid(e.target.value)}
-                slotProps={{ htmlInput: { inputMode: 'decimal' } }} error={!partsPaidValid}
+              {walkIn && payer === 'RIDER' && <TextField size="small" required label="Spare parts paid now (₹)" value={partsPaid} onChange={(e) => setPartsPaid(rupeesInput(e.target.value, { decimals: 0 }))}
+                slotProps={{ htmlInput: { inputMode: 'numeric' } }} error={!partsPaidValid}
                 helperText={`Parts on this card: ${rupeesWithSymbol(partsTotal)}. Labour is never charged to the rider.`} />}
               <Typography variant="body2">{chargeLine} The bike becomes {VEHICLE_STATE_LABEL[releaseState_]}.</Typography>
               <Button variant="contained" color="success" onClick={() => run('CLOSE')}>{save.isPending && save.variables === 'CLOSE' ? 'Closing…' : 'Pass QC & close ticket'}</Button>

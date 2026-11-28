@@ -19,6 +19,7 @@ import { ApiError } from '../../lib/api/client';
 import { editVehicleSchema, type EditVehicleValues } from '../../lib/schemas/vehicle';
 import { useFormOptions } from '../../lib/useFormOptions';
 import { layout } from '../../theme/tokens';
+import { MandatoryLabel } from '../../components/form/MandatoryLabel';
 
 /**
  * A correction to the record, not a re-registration — the id, the chassis
@@ -152,17 +153,17 @@ export function EditVehicle() {
       <Box sx={{ display: 'grid', gap: 5, mt: 5, maxWidth: layout.readingMax }}>
         <Panel label="Specification">
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
-            <TextField label="Make" placeholder="e-Connects" {...field('make')} />
+            <TextField label={<>Make <MandatoryLabel /></>} placeholder="e-Connects" {...field('make')} />
             <SelectField
               control={form.control}
               name="model"
-              label="Model"
+              label={<>Model <MandatoryLabel /></>}
               options={reference.including(reference.models, modelValue)}
             />
             <SelectField
               control={form.control}
               name="batteryType"
-              label="Battery"
+              label={<>Battery <MandatoryLabel /></>}
               options={[
                 { value: 'Sun Mobility', label: 'Sun Mobility' },
                 { value: 'Battery Smart', label: 'Battery Smart' },
@@ -174,7 +175,7 @@ export function EditVehicle() {
             <SelectField
               control={form.control}
               name="hub"
-              label="Hub"
+              label={<>Hub <MandatoryLabel /></>}
               options={reference.including(reference.hubs, hubValue)}
             />
             <TextField label="Registration number" {...field('registrationNumber')} />

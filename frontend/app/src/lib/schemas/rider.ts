@@ -98,7 +98,11 @@ export const onboardRiderSchema = z.object({
     .int('Enter whole rupees')
     .min(500, 'The weekly plan looks too low')
     .max(10_000, 'The weekly plan looks too high'),
-  billingDay: z.enum(['MONDAY', 'WEDNESDAY']),
+  /** Any day of the week; the rider's billing week ends the day before it. */
+  billingDay: z.enum([
+    'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY',
+    'FRIDAY', 'SATURDAY', 'SUNDAY',
+  ]),
   /**
    * The day this rider says they pay. Captured, not acted on — the weekly run
    * is fixed Wednesday to Tuesday until Ashok says otherwise.

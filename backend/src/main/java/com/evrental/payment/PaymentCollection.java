@@ -78,6 +78,10 @@ public class PaymentCollection {
     @Column(name = "owed_after_paise", updatable = false)
     private Long owedAfterPaise;
 
+    /** When the receipt was first printed. Null until then; set once, never cleared. */
+    @Column(name = "receipt_issued_at")
+    private Instant receiptIssuedAt;
+
     protected PaymentCollection() {
         // JPA
     }
@@ -111,6 +115,15 @@ public class PaymentCollection {
         c.owedBeforePaise = owedBefore;
         c.owedAfterPaise = owedBefore + of.amountPaise;
         return c;
+    }
+
+    public Instant getReceiptIssuedAt() {
+        return receiptIssuedAt;
+    }
+
+    /** The first print counts; a reprint does not move it. */
+    void markReceiptIssued(Instant at) {
+        if (receiptIssuedAt == null) receiptIssuedAt = at;
     }
 
     public UUID getId() {

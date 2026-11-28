@@ -103,7 +103,7 @@ class AssignmentAssignTest extends AssignmentTestBase {
                                 """.formatted(RIDER_A_CODE, VEHICLE_READY,
                                 java.time.LocalDate.now(com.evrental.payment.BillingClock.ZONE))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.duesPaise").value(120000 + Math.round(175000 / 7.0)));
+                .andExpect(jsonPath("$.duesPaise").value(120000 + com.evrental.payment.RiderAccounts.perDay(175000)));
 
         org.assertj.core.api.Assertions.assertThat(lastLifecycleNote(VEHICLE_READY))
                 .isEqualTo("Assigned to Anil Shetty — owes ₹1,200");

@@ -22,6 +22,10 @@ export async function reversePayment(paymentId: string, reason: string): Promise
   return delay(ledger.reversePayment(paymentId, reason));
 }
 
+export async function markReceiptIssued(_paymentId: string): Promise<void> {
+  return delay(undefined);
+}
+
 export async function getPayment(paymentId: string): Promise<Payment> {
   const payment = ledger.paymentById(paymentId);
   if (!payment) throw new Error('No such payment');
@@ -29,5 +33,10 @@ export async function getPayment(paymentId: string): Promise<Payment> {
 }
 
 export async function getTodayCollections(date?: string): Promise<TodayCollections> {
-  return delay(ledger.todayCollections(date ?? new Date().toISOString().slice(0, 10)));
+  const day = date ?? new Date().toISOString().slice(0, 10);
+  return delay(ledger.received(day, day));
+}
+
+export async function getPaymentsReceived(from: string, to: string): Promise<TodayCollections> {
+  return delay(ledger.received(from, to));
 }

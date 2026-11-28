@@ -1,11 +1,14 @@
 package com.evrental;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.http.MediaType;
 
 /**
@@ -40,6 +43,27 @@ class RiderOnboardTest extends RiderTestBase {
                 .andExpect(jsonPath("$.paymentDay").value("MONDAY"))
                 .andExpect(jsonPath("$.paymentMode").value("UPI"))
                 .andExpect(jsonPath("$.aadhaarNumber").doesNotExist());
+    }
+
+    /** Any day of the week is a billing day — not only Monday and Wednesday — and it reads back as saved. */
+    @ParameterizedTest
+    @EnumSource(com.evrental.rider.BillingDay.class)
+    void everyDayOfTheWeekCanBeTheBillingDay(com.evrental.rider.BillingDay day) throws Exception {
+        String token = tokenFor(ADMIN_EMAIL);
+        String body = ONBOARD_BODY.replace("\"billingDay\":\"MONDAY\"", "\"billingDay\":\"" + day + "\"");
+        assertThat(body).contains("\"billingDay\":\"" + day + "\"");
+        String created = mvc.perform(post("/api/v1/riders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.billingDay").value(day.name()))
+                .andReturn().getResponse().getContentAsString();
+        String code = new tools.jackson.databind.ObjectMapper().readTree(created).get("id").asString();
+
+        mvc.perform(get("/api/v1/riders/" + code).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.billingDay").value(day.name()));
     }
 
     /**

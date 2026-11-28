@@ -68,7 +68,7 @@ public class AssignmentQueryService implements AssignmentQuery {
 
     @Override
     public List<AssignmentHistoryRow> historyFor(UUID vehicleId) {
-        List<Assignment> history = assignments.findByVehicleIdOrderByStartedOnDesc(vehicleId);
+        List<Assignment> history = assignments.findByVehicleIdOrderByStartedOnDescCreatedOnDesc(vehicleId);
         Map<UUID, Rider> ridersById = ridersById(history.stream().map(Assignment::getRiderId).toList());
         return history.stream().map(a -> {
             Rider rider = ridersById.get(a.getRiderId());
@@ -93,7 +93,7 @@ public class AssignmentQueryService implements AssignmentQuery {
      */
     @Override
     public List<RiderAssignmentRow> historyForRider(UUID riderId) {
-        List<Assignment> history = assignments.findByRiderIdOrderByStartedOnDesc(riderId);
+        List<Assignment> history = assignments.findByRiderIdOrderByStartedOnDescCreatedOnDesc(riderId);
         if (history.isEmpty()) {
             return List.of();
         }
@@ -157,7 +157,7 @@ public class AssignmentQueryService implements AssignmentQuery {
 
     @Override
     public java.util.Optional<LocalDate> billingStartedOn(UUID riderId) {
-        List<Assignment> history = assignments.findByRiderIdOrderByStartedOnDesc(riderId);
+        List<Assignment> history = assignments.findByRiderIdOrderByStartedOnDescCreatedOnDesc(riderId);
         if (history.isEmpty() || history.get(0).getEndedOn() != null) {
             return java.util.Optional.empty();
         }
@@ -176,10 +176,13 @@ public class AssignmentQueryService implements AssignmentQuery {
     }
 
     @Override
-    public java.util.Optional<LocalDate> lastReturnedOn(UUID riderId) {
-        return assignments.findByRiderIdOrderByStartedOnDesc(riderId).stream()
-                .map(Assignment::getEndedOn).filter(java.util.Objects::nonNull)
-                .max(LocalDate::compareTo);
+    public java.util.Optional<java.time.Instant> lastReturnedAt(UUID riderId) {
+        return assignments.findByRiderIdOrderByStartedOnDescCreatedOnDesc(riderId).stream()
+                .filter(a -> a.getEndedOn() != null)
+                // closed_at is stamped on every close since V023 and backfilled before it.
+                .map(a -> a.getClosedAt() != null ? a.getClosedAt()
+                        : a.getEndedOn().plusDays(1).atStartOfDay(com.evrental.payment.BillingClock.ZONE).toInstant())
+                .max(java.time.Instant::compareTo);
     }
 
     private CurrentRider riderOf(UUID riderId) {

@@ -34,6 +34,6 @@ describe('paise → rupees', () => {
   });
 
   it('keeps a refund negative', () => {
-    expect(rupeesWithSymbol(-250_00)).toBe('₹-250');
+    expect(rupeesWithSymbol(-250_00)).toBe('−₹250');
   });
 });

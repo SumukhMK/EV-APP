@@ -38,8 +38,16 @@ public class SettlementLedger {
      *         there was none to raise. Returned so the assignment row can name
      *         the entry it produced and refuse to approve twice.
      */
+    /**
+     * @param returnedAt when the return was recorded. Open charges raised
+     *                   before it are folded into the return figure; one
+     *                   raised after it (a repair found once the bike was
+     *                   back) is new and stays owed. Null folds every open
+     *                   charge, as before V023.
+     */
     @Transactional
-    public UUID settle(UUID tenantId, UUID riderId, long outstandingRentPaise, long depositRefundPaise) {
+    public UUID settle(UUID tenantId, UUID riderId, long outstandingRentPaise, long depositRefundPaise,
+                       java.time.Instant returnedAt) {
         UUID chargeId = null;
 
         // What the rider still owed at return is decided on the deboard form
@@ -47,6 +55,7 @@ public class SettlementLedger {
         // are folded into that one figure instead of being billed twice.
         charges.findByRiderIdAndStatusOrderByChargedOnDesc(riderId, RiderChargeStatus.OPEN).stream()
                 .filter(c -> c.getLiability() == com.evrental.service.ServiceLiability.RIDER)
+                .filter(c -> returnedAt == null || c.getChargedOn() == null || c.getChargedOn().isBefore(returnedAt))
                 .forEach(c -> c.settle(java.time.Instant.now()));
 
         if (outstandingRentPaise > 0) {

@@ -81,17 +81,17 @@ describe('add vehicle reference data', () => {
  * sensible default, so they read as answered already.
  */
 describe('add vehicle mandatory markers', () => {
-  it('marks the required fields as Mandatory and leaves the rest alone', () => {
+  it('marks the required fields with a star and leaves the rest alone', () => {
     formOptions.mockResolvedValue({ hubs: [], models: [] });
     show();
     // MUI renders an outlined label twice (the notch legend duplicates it), and
     // a select's label is a div rather than a label, so the marker is asserted
     // on the label element itself, not counted as spans.
-    for (const label of [/Vehicle id/, /Chassis number/, /Purchase date/, /Make/, /Model/]) {
-      expect(screen.getByText(label, { selector: '.MuiInputLabel-root' }).textContent).toContain('Mandatory');
+    for (const label of [/Vehicle id/, /Chassis number/, /Purchase date/, /^Make/, /^Model/, /^Hub/, /^Battery\s*\*?$/]) {
+      expect(screen.getByText(label, { selector: '.MuiInputLabel-root' }).textContent).toContain('*');
     }
-    for (const label of ['Hub', 'Battery', 'Battery vendor', 'Motor number', 'Controller number', 'RFID tag', 'Notes']) {
-      expect(screen.getByText(label, { selector: '.MuiInputLabel-root' }).textContent).not.toContain('Mandatory');
+    for (const label of ['Battery vendor', 'Motor number', 'Controller number', 'RFID tag', 'Notes']) {
+      expect(screen.getByText(label, { selector: '.MuiInputLabel-root' }).textContent).not.toContain('*');
     }
   });
 });

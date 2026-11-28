@@ -26,6 +26,8 @@ import { DamageItemsField } from './_components/DamageItemsField';
 import { exchangeVehicle } from '../../lib/api/assignments';
 import { listAssignedRiders } from '../../lib/api/riders';
 import { getVehicle } from '../../lib/api/vehicles';
+import { getVehicleServiceHistory } from '../../lib/api/inspections';
+import { DateField } from '../../components/form/DateField';
 import { ApiError } from '../../lib/api/client';
 import { invalidateAssignments, invalidateServiceJobs } from '../../lib/invalidate';
 import {
@@ -40,6 +42,7 @@ import {
 } from '../../lib/labels';
 import { layout } from '../../theme/tokens';
 import type { ExchangeReason } from '../../types';
+import { MandatoryLabel } from '../../components/form/MandatoryLabel';
 
 const REASONS = (Object.keys(EXCHANGE_REASON_LABEL) as ExchangeReason[]).map((r) => ({
   value: r,
@@ -115,6 +118,29 @@ export function ExchangeVehicle() {
     queryFn: () => getVehicle(rider!.currentVehicleId!),
     enabled: Boolean(rider?.currentVehicleId),
   });
+
+  // The bike is already on an open job card: the job holds what is wrong with
+  // it and where it is, so the swap only needs the new bike and the date. The
+  // server writes the return on that job and leaves the bike where it is.
+  const history = useQuery({
+    queryKey: ['service-jobs', 'vehicle', rider?.currentVehicleId],
+    queryFn: () => getVehicleServiceHistory(rider!.currentVehicleId!),
+    enabled: Boolean(bike.data && IN_WORKSHOP.has(bike.data.state)),
+  });
+  const openJob = bike.data && IN_WORKSHOP.has(bike.data.state)
+    ? history.data?.find((j) => j.status !== 'CLOSED')
+    : undefined;
+  const onJob = Boolean(openJob);
+
+  useEffect(() => {
+    if (!onJob) return;
+    // Nothing to assess again: the job's own assessment stands (the server
+    // keeps the worse of the two), so the return carries no damage of its own.
+    form.setValue('reason', 'SERVICE_REQUIRED');
+    form.setValue('returnCondition', 'NONE');
+    form.setValue('damageItems', []);
+    form.setValue('nextVehicleState', 'QC_PENDING');
+  }, [onJob, form]);
 
   const save = useMutation({
     mutationFn: (values: ExchangeVehicleValues) => exchangeVehicle(values),
@@ -198,7 +224,7 @@ export function ExchangeVehicle() {
             sx={{ maxWidth: layout.readingMax }}
           >
             <RiderSearchSelect
-              label="Rider"
+              label={<>Rider <MandatoryLabel /></>}
               placeholder="Search by name, rider id, phone or bike id"
               value={picked.riderId ?? ''}
               onChange={(id) => form.setValue('riderId', id, { shouldValidate: true })}
@@ -209,7 +235,7 @@ export function ExchangeVehicle() {
             <Box sx={{ mt: 5 }}>
               <SelectionSummary rider={rider} vehicle={bike.data} loading={bike.isLoading} />
             </Box>
-            {bike.data && IN_WORKSHOP.has(bike.data.state) && (
+            {bike.data && IN_WORKSHOP.has(bike.data.state) && !onJob && (
               <Alert severity="info" sx={{ mt: 4 }}>
                 {bike.data.id} is already in the workshop. The return is written on its open job and the bike stays
                 where it is — the destination below does not move it.
@@ -217,6 +243,31 @@ export function ExchangeVehicle() {
             )}
           </Panel>
 
+          {onJob && openJob && bike.data ? (
+            <Panel label="The bike going to service" sx={{ maxWidth: layout.readingMax }}>
+              <Alert severity="info">
+                {bike.data.id} stays in {VEHICLE_STATE_LABEL[bike.data.state]} on job{' '}
+                <Link to={`/service/assistance/${openJob.id}`}>{openJob.id}</Link>. The job card already says what is
+                wrong with it, so there is nothing to fill in here — pick the new bike below.
+              </Alert>
+              <Box sx={{ mt: 5, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 5 }}>
+                <Controller
+                  control={form.control}
+                  name="occurredOn"
+                  render={({ field, fieldState }) => (
+                    <DateField
+                      label={<>Date of the swap <MandatoryLabel /></>}
+                      labelText="Date of the swap"
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      error={Boolean(fieldState.error)}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Box>
+            </Panel>
+          ) : (
           <Panel
             label={<>The bike coming back <InfoTip title="The condition you pick suggests where the bike should go. If you choose something else, say why." /></>}
             sx={{ maxWidth: layout.readingMax }}
@@ -226,7 +277,7 @@ export function ExchangeVehicle() {
               <SelectField
                 control={form.control}
                 name="returnCondition"
-                label="What condition is the bike in?"
+                label={<>What condition is the bike in? <MandatoryLabel /></>}
                 options={CONDITIONS}
               />
             </Box>
@@ -246,6 +297,7 @@ export function ExchangeVehicle() {
               <Box sx={{ mt: 4 }}><DamageItemsField noDamage={picked.returnCondition === 'NONE'} /></Box>
             )}
           </Panel>
+          )}
 
           <Panel label={<>The new bike <InfoTip title="Bikes that passed QC and are ready to go out." /></>} locked={!rider && 'Pick the rider first'}>
             <Controller
@@ -269,7 +321,7 @@ export function ExchangeVehicle() {
                 { label: 'Rider', value: rider ? `${rider.name} · ${rider.id}` : 'Not selected' },
                 {
                   label: 'Reason',
-                  value: EXCHANGE_REASON_LABEL[picked.reason ?? 'BREAKDOWN'],
+                  value: openJob ? `In service on job ${openJob.id}` : EXCHANGE_REASON_LABEL[picked.reason ?? 'BREAKDOWN'],
                 },
                 {
                   label: 'Bike going back',
@@ -279,12 +331,14 @@ export function ExchangeVehicle() {
                   label: 'Replacement bike',
                   value: <Mono sx={{ fontSize: 13 }}>{picked.toVehicleId || 'Not selected'}</Mono>,
                 },
-                { label: 'Condition', value: RETURN_CONDITION_LABEL[picked.returnCondition ?? 'NONE'] },
+                { label: 'Condition', value: openJob ? `As on job ${openJob.id}` : RETURN_CONDITION_LABEL[picked.returnCondition ?? 'NONE'] },
                 {
                   label: 'Returned bike goes to',
-                  value: picked.nextVehicleState
-                    ? VEHICLE_STATE_LABEL[picked.nextVehicleState]
-                    : '—',
+                  value: openJob && bike.data
+                    ? `Stays in ${VEHICLE_STATE_LABEL[bike.data.state]}`
+                    : picked.nextVehicleState
+                      ? VEHICLE_STATE_LABEL[picked.nextVehicleState]
+                      : '—',
                 },
                 { label: 'Recorded as', value: 'Old assignment closed, new one opened' },
               ]}
@@ -305,8 +359,8 @@ export function ExchangeVehicle() {
       <ConfirmDialog
         open={confirmOpen}
         title="Save the swap?"
-        message="The rider's bike changes and the returned bike enters service."
-        info={pendingValues ? `${rider?.name ?? rider?.id ?? 'The rider'} swaps ${pendingValues.fromVehicleId} for ${pendingValues.toVehicleId}. The returned bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.` : undefined}
+        message={openJob ? "The rider's bike changes. The old bike stays on its job card." : "The rider's bike changes and the returned bike enters service."}
+        info={pendingValues ? `${rider?.name ?? rider?.id ?? 'The rider'} swaps ${pendingValues.fromVehicleId} for ${pendingValues.toVehicleId}. ${openJob && bike.data ? `${pendingValues.fromVehicleId} stays in ${VEHICLE_STATE_LABEL[bike.data.state]} on job ${openJob.id}.` : `The returned bike goes to ${VEHICLE_STATE_LABEL[pendingValues.nextVehicleState]}.`}` : undefined}
         confirmLabel="Save the swap"
         dismissible={false}
         pending={save.isPending}

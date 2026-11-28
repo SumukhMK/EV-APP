@@ -1,5 +1,5 @@
 import { createTheme } from '@mui/material/styles';
-import { accent, base, cssVars, fonts, mix, neutral, radius, schemes } from './tokens';
+import { accent, base, cssVars, fonts, mix, neutral, radius, schemes, status } from './tokens';
 
 /**
  * The Nocturne tokens expressed as a MUI theme, in two schemes.
@@ -211,6 +211,8 @@ export const theme = createTheme({
           color: neutral[400],
           '&.MuiInputLabel-outlined.MuiInputLabel-shrink': { transform: 'translate(14px, -9px) scale(0.85)' },
         },
+        // A field set `required` gets the same red star as MandatoryLabel.
+        asterisk: { color: status.bad.fg },
       },
     },
 

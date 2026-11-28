@@ -26,6 +26,7 @@ import {
   VEHICLE_GATE_TONE,
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUS_TONE,
+  BILLING_DAY_LABEL,
 } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
@@ -167,7 +168,7 @@ export function VehicleDetail() {
                   },
                   {
                     label: 'Payment day',
-                    value: rider.data ? (rider.data.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday') : '—',
+                    value: rider.data ? BILLING_DAY_LABEL[rider.data.billingDay] ?? '—' : '—',
                   },
                   {
                     label: 'Assigned since',

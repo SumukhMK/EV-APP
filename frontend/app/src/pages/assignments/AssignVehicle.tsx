@@ -37,6 +37,7 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import { rupeesWithSymbol } from '../../lib/format';
 import { layout } from '../../theme/tokens';
+import { MandatoryLabel } from '../../components/form/MandatoryLabel';
 
 /**
  * Screen 10. Opens a new assignment.
@@ -173,7 +174,7 @@ export function AssignVehicle() {
             <SelectField
               control={form.control}
               name="riderId"
-              label="Rider"
+              label={<>Rider <MandatoryLabel /></>}
               searchable
               placeholder="Type a name or rider id"
               options={(riders.data ?? []).map((r) => ({
@@ -189,7 +190,8 @@ export function AssignVehicle() {
               name="startedOn"
               render={({ field: f, fieldState }) => (
                 <DateField
-                  label="Assigned on"
+                  label={<>Assigned on <MandatoryLabel /></>}
+                  labelText="Assigned on"
                   value={f.value ?? ''}
                   onChange={f.onChange}
                   error={Boolean(fieldState.error)}

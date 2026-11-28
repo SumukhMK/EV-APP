@@ -33,8 +33,8 @@ describe('Login', () => {
 
     await userEvent.clear(screen.getByLabelText(/email/i));
     await userEvent.type(screen.getByLabelText(/email/i), 'dhananjay@g1mobility.in');
-    await userEvent.clear(screen.getByLabelText('Password'));
-    await userEvent.type(screen.getByLabelText('Password'), 'hunter2');
+    await userEvent.clear(screen.getByLabelText(/^Password/));
+    await userEvent.type(screen.getByLabelText(/^Password/), 'hunter2');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     expect(signIn).toHaveBeenCalledWith('dhananjay@g1mobility.in', 'hunter2');
@@ -102,7 +102,7 @@ describe('Login', () => {
       vi.useFakeTimers();
       renderLogin(vi.fn().mockResolvedValue(undefined));
 
-      const field = screen.getByLabelText('Password');
+      const field = screen.getByLabelText(/^Password/);
       expect(field).toHaveAttribute('type', 'password');
 
       fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
@@ -120,7 +120,7 @@ describe('Login', () => {
       vi.useFakeTimers();
       renderLogin(vi.fn().mockResolvedValue(undefined));
 
-      const field = screen.getByLabelText('Password');
+      const field = screen.getByLabelText(/^Password/);
       fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
       expect(field).toHaveAttribute('type', 'text');
 

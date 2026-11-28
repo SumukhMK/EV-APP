@@ -1,31 +1,17 @@
 import Box from '@mui/material/Box';
+import { status } from '../../theme/tokens';
 
 /**
- * Marks a required field in a long form. The word, not an asterisk: an
- * asterisk is a convention that has to be learned, and this form already
- * spells "optional" out for the fields that are, so a required field gets
- * the same courtesy.
+ * Marks a required field: a red star after the label — the same mark MUI
+ * draws for a field set `required`, which theme.ts colours to match.
  *
- * Rendered inside the field's label, so the accessible name of the field
- * carries the marker too — a screen reader hears "Full name Mandatory".
+ * The star is aria-hidden, as MUI's own is, so the field's accessible name
+ * stays its label ("Full name", not "Full name *").
  */
 export function MandatoryLabel() {
   return (
-    <Box
-      component="span"
-      sx={{
-        ml: 1,
-        fontSize: 11,
-        fontWeight: 600,
-        color: 'error.main',
-        // The overline labels (VerifyField) uppercase and letter-space their
-        // text; the marker stays as written so it reads as a tag, not a word
-        // that belongs to the label.
-        textTransform: 'none',
-        letterSpacing: 0,
-      }}
-    >
-      Mandatory
+    <Box component="span" aria-hidden="true" sx={{ ml: 0.5, color: status.bad.fg, fontWeight: 600, letterSpacing: 0 }}>
+      *
     </Box>
   );
 }

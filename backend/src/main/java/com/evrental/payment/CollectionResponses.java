@@ -8,8 +8,9 @@ import java.util.UUID;
 /**
  * What the money screens read, mirroring frontend/app/src/types/payment.ts.
  *
- * <p>Every amount is paise. {@code owes} is positive when the rider owes and
- * negative when they have paid ahead (credit).
+ * <p>Every amount is paise. {@code owes} is positive when the rider owes. It
+ * can only be negative for a rider who paid ahead before advance payments were
+ * stopped; no new payment can take a rider below zero.
  */
 public final class CollectionResponses {
 
@@ -35,7 +36,7 @@ public final class CollectionResponses {
 
     /** A rider's whole account: header figures and every line, newest first. */
     public record Account(String riderId, String riderName, String phone, String vehicleId, boolean active,
-                          long planAmount, long depositHeld, PaymentMethod usualMethod,
+                          long planAmount, long perDayAmount, long depositHeld, PaymentMethod usualMethod,
                           long owes, long daysLate, LocalDate lateSince, DunningStage stage,
                           LocalDate rentFrom, long rent, long charges, long paid, List<Line> lines) {}
 
@@ -49,10 +50,19 @@ public final class CollectionResponses {
     public record Line(String kind, LocalDate date, Instant at, long amount, long balance,
                        LocalDate to, int days, boolean locked, String note,
                        UUID paymentId, String receiptNo, PaymentMethod method, String reference,
-                       String by, String reason, boolean reversed) {}
+                       String by, String reason, boolean reversed,
+                       /** For the person asking: may they reverse this payment now, and if not, why. */
+                       boolean canReverse, String reverseBlock, boolean needsDetailedReason,
+                       Instant receiptIssuedAt) {}
 
-    /** One day's money, for the end-of-day cash count. */
-    public record Today(LocalDate date, long total, int count, List<StaffTotal> byStaff, List<Payment> payments) {}
+    /**
+     * The money taken from {@code from} to {@code to}, both days included —
+     * one day for the end-of-day cash count, or any range.
+     *
+     * @param date the last day of the range, kept for callers that ask for one day
+     */
+    public record Today(LocalDate date, LocalDate from, LocalDate to, long total, int count,
+                        List<StaffTotal> byStaff, List<Payment> payments) {}
 
     public record StaffTotal(String name, int count, long cash, long upi, long bank, long total) {}
 

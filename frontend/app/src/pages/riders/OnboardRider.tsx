@@ -21,7 +21,7 @@ import {
   type OnboardRiderValues,
 } from '../../lib/schemas/rider';
 import { rupeesWithSymbol } from '../../lib/format';
-import { PAYMENT_METHOD_LABEL } from '../../lib/labels';
+import { BILLING_DAY_LABEL, PAYMENT_METHOD_LABEL } from '../../lib/labels';
 import { useRiderVerification } from './_components/useRiderVerification';
 import { RiderIdentityStep } from './_components/RiderIdentityStep';
 import { RiderContactStep } from './_components/RiderContactStep';
@@ -262,7 +262,7 @@ export function OnboardRider() {
                     },
                     {
                       label: 'Rent cycle',
-                      value: preview.billingDay === 'WEDNESDAY' ? 'Wednesday cycle' : 'Monday cycle',
+                      value: preview.billingDay ? `${BILLING_DAY_LABEL[preview.billingDay]} cycle` : '—',
                     },
                     {
                       label: 'Deposit',

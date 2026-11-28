@@ -7,6 +7,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { preciseRupeesWithSymbol as rupees } from '../../../lib/format';
 import { MONEY, toItems, type CostLine } from './lineItems';
+import { rupeesInput } from '../../../lib/inputFormat';
 
 /**
  * Damaged parts and repair work, one row each: what it is and what it costs.
@@ -20,10 +21,10 @@ export function CostLines({ lines, onChange, sx }: { lines: CostLine[]; onChange
       <Typography variant="subtitle2">Damaged parts &amp; repair work</Typography>
       {lines.map((line, index) => (
         <Box key={index} sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 110px 40px', gap: 1.5, alignItems: 'start' }}>
-          <TextField size="small" label={line.kind === 'PART' ? 'Part' : 'Repair work'} value={line.label}
+          <TextField size="small" required label={line.kind === 'PART' ? 'Part' : 'Repair work'} value={line.label}
             onChange={(e) => patch(index, { label: e.target.value })} />
-          <TextField size="small" label="₹" value={line.cost} onChange={(e) => patch(index, { cost: e.target.value })}
-            slotProps={{ htmlInput: { inputMode: 'decimal' } }} error={Boolean(line.cost) && !MONEY.test(line.cost)} />
+          <TextField size="small" required label="₹" value={line.cost} onChange={(e) => patch(index, { cost: rupeesInput(e.target.value, { decimals: 0 }) })}
+            slotProps={{ htmlInput: { inputMode: 'numeric' } }} error={Boolean(line.cost) && !MONEY.test(line.cost)} />
           <IconButton aria-label={`Remove line ${index + 1}`} onClick={() => onChange(lines.filter((_, i) => i !== index))}><DeleteIcon /></IconButton>
         </Box>
       ))}

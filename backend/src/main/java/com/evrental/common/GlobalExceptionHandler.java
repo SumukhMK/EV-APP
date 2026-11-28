@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiErrorResponse> conflict(ConflictException ex) {
-        return body(HttpStatus.CONFLICT, ex.getMessage(), ex.field());
+        return body(HttpStatus.CONFLICT, ex.getMessage(), ex.field(), ex.details());
     }
 
     /**
@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ApiErrorResponse> validation(ValidationException ex) {
-        return body(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), ex.field());
+        return body(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), ex.field(), ex.details());
     }
 
     /**
@@ -172,5 +172,10 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiErrorResponse> body(HttpStatus status, String message, String field) {
         return ResponseEntity.status(status).body(new ApiErrorResponse(message, status.value(), field));
+    }
+
+    private ResponseEntity<ApiErrorResponse> body(HttpStatus status, String message, String field,
+                                                  java.util.Map<String, Object> details) {
+        return ResponseEntity.status(status).body(new ApiErrorResponse(message, status.value(), field, details));
     }
 }

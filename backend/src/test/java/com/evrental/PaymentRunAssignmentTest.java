@@ -37,7 +37,7 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
     /** Rent for the days from {@code from} to today: whole weeks at the plan, the rest per day. */
     private long rentSince(LocalDate from) {
         long days = Math.max(0, today().toEpochDay() - from.toEpochDay() + 1);
-        return (days / 7) * ROUNDING_PLAN_PAISE + (days % 7) * Math.round(ROUNDING_PLAN_PAISE / 7.0);
+        return (days / 7) * ROUNDING_PLAN_PAISE + (days % 7) * com.evrental.payment.RiderAccounts.perDay(ROUNDING_PLAN_PAISE);
     }
 
     private org.springframework.test.web.servlet.ResultActions collections() throws Exception {
@@ -95,6 +95,23 @@ class PaymentRunAssignmentTest extends PaymentRunTestBase {
 
         collections()
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].weekRent").value((int) rentSince(start)))
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId").value("BLRSS0429"));
+    }
+
+    /**
+     * Swapped the same day the bike was handed over: two rows start today, and
+     * the open one was recorded second. The account must follow the open row —
+     * reading the closed one first made the rider look bikeless, and today's
+     * rent vanished from what they owe while a repair charge still showed.
+     */
+    @Test
+    void aSwapOnTheDayOfHandoverKeepsTheRent() throws Exception {
+        UUID second = insertVehicle(TENANT, "BLRSS0429", "CHASSIS0429");
+        assignment(MONDAY_RIDER, vehicleId, today(), today());
+        assignment(MONDAY_RIDER, second, today(), null);
+
+        collections()
+                .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].weekRent").value((int) rentSince(today())))
                 .andExpect(jsonPath("$.rows[?(@.riderName == 'Anil Shetty')].vehicleId").value("BLRSS0429"));
     }
 }

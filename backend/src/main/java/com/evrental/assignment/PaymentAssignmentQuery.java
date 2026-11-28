@@ -65,7 +65,7 @@ public class PaymentAssignmentQuery implements com.evrental.payment.AssignmentQu
      */
     @Override
     public Optional<Window> openAssignmentFor(UUID riderId, LocalDate from, LocalDate to) {
-        List<Assignment> overlapping = assignments.findByRiderIdOrderByStartedOnDesc(riderId).stream()
+        List<Assignment> overlapping = assignments.findByRiderIdOrderByStartedOnDescCreatedOnDesc(riderId).stream()
                 .filter(a -> overlaps(a, from, to))
                 .sorted(Comparator.comparing(Assignment::getStartedOn))
                 .toList();

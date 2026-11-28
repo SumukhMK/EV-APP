@@ -746,7 +746,7 @@ public class DevFleetSeeder implements ApplicationRunner {
                             .filter(h -> !((java.sql.Date) h.get("started_on")).toLocalDate().isAfter(end))
                             .reduce((a, b) -> b).map(h -> (UUID) h.get("vehicle_id")).orElse(null);
                     long plan = r.seed().planRupees() * 100;
-                    long perDay = Math.round(plan / 7.0);
+                    long perDay = com.evrental.payment.RiderAccounts.perDay(plan);
                     long billed = days == 7 ? plan : perDay * days;
                     // The same two sums the run uses: open rider charges of this
                     // week, and open rider charges of earlier weeks.

@@ -71,7 +71,7 @@ beforeEach(() => {
   kyc.mockReset();
   payments.mockReset();
   payments.mockResolvedValue({
-    riderId: 'R01', riderName: 'x', phone: '', vehicleId: null, active: true, planAmount: 0, depositHeld: 0,
+    riderId: 'R01', riderName: 'x', phone: '', vehicleId: null, active: true, planAmount: 0, perDayAmount: 0, depositHeld: 0,
     usualMethod: 'UPI', owes: 0, daysLate: 0, lateSince: null, stage: null, rentFrom: null, rent: 0, charges: 0,
     paid: 0, lines: [],
   });

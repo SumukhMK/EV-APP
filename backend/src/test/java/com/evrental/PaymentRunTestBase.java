@@ -99,6 +99,7 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
             jdbc.update("DELETE FROM payment_collections WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM payment_periods WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM receipt_counters WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
+            jdbc.update("UPDATE assignments SET settlement_charge_id = NULL WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM rider_charges WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM qc_inspections WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
             jdbc.update("DELETE FROM service_job_items WHERE tenant_id IN (?, ?)", TENANT, OTHER_TENANT);
@@ -273,7 +274,7 @@ public abstract class PaymentRunTestBase extends PostgresTestBase {
                         + "amount_paid_paise, status) "
                         + "VALUES (?, ?, ?, ?, ?, ?, 7, ?, ?, 0, 0, ?, ?, ?) RETURNING id",
                 UUID.class, tenantId, riderId, periodStart, periodStart.plusDays(6), billingDay.name(),
-                totalDuePaise, Math.round(totalDuePaise / 7.0), totalDuePaise, totalDuePaise,
+                totalDuePaise, com.evrental.payment.RiderAccounts.perDay(totalDuePaise), totalDuePaise, totalDuePaise,
                 amountPaidPaise, status));
     }
 

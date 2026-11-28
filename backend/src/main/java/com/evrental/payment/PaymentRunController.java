@@ -5,6 +5,7 @@ import com.evrental.payment.CollectionResponses.Account;
 import com.evrental.payment.CollectionResponses.Collections;
 import com.evrental.payment.CollectionResponses.Payment;
 import com.evrental.payment.CollectionResponses.Today;
+import com.evrental.common.ValidationException;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -46,8 +47,9 @@ public class PaymentRunController {
 
     @GetMapping("/riders/{riderId}/account")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
-    public Account account(@PathVariable String riderId) {
-        return payments.account(riderId);
+    public Account account(Authentication authentication, @PathVariable String riderId) {
+        JwtPrincipal principal = principal(authentication);
+        return payments.account(riderId, principal.userId(), principal.role());
     }
 
     /** Records money taken. Returns the payment, which is also its receipt. */
@@ -62,14 +64,38 @@ public class PaymentRunController {
         return payments.payment(paymentId);
     }
 
+    /** Staff may call it too; ReversalPolicy decides which payments, and until when. */
     @PostMapping("/collections/{paymentId}/reverse")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
     public Payment reverse(Authentication authentication, @PathVariable UUID paymentId,
                            @Valid @RequestBody ReversePaymentRequest request) {
-        return payments.reverse(principal(authentication).userId(), paymentId, request);
+        JwtPrincipal principal = principal(authentication);
+        return payments.reverse(principal.userId(), principal.role(), paymentId, request);
     }
 
+    /** Called when the receipt is printed. After that, staff cannot reverse it on their own. */
+    @PostMapping("/collections/{paymentId}/receipt-issued")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','FLEET_ADMIN','FLEET_STAFF')")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void receiptIssued(@PathVariable UUID paymentId) {
+        payments.markReceiptIssued(paymentId);
+    }
+
+    /**
+     * Payments taken on one day ({@code date}, default today) or over a range
+     * ({@code from} and {@code to}, both included, both required together).
+     */
     @GetMapping("/today")
-    public Today today(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+    public Today today(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        if (from != null || to != null) {
+            if (from == null || to == null) {
+                throw new ValidationException(from == null ? "from" : "to", "Pick both a start date and an end date",
+                        java.util.Map.of("code", "INVALID_DATE_RANGE"));
+            }
+            return payments.received(from, to);
+        }
         return payments.today(date == null ? clock.today() : date);
     }
 

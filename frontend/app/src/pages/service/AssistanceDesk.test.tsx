@@ -131,7 +131,7 @@ describe('service workbench stories', () => {
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`, 'FLEET_ADMIN');
     await fillWork(user);
-    await addPart(user, 'Mirror', '5000.01');
+    await addPart(user, 'Mirror', '5001');
     expect(screen.getByText(/over ₹5,000/)).toBeInTheDocument();
     // Closing with checks missing shakes and saves nothing.
     await user.click(screen.getByRole('button', { name: 'Pass QC & close ticket' }));
@@ -142,22 +142,24 @@ describe('service workbench stories', () => {
     expect(await screen.findByText(/This job is finished/)).toBeInTheDocument();
     expect(job.status).toBe('CLOSED');
     expect(riderCharges).toHaveLength(1);
-    expect(riderCharges[0].amount).toBe(500001);
+    expect(riderCharges[0].amount).toBe(500100);
     expect(job.technician).toBe('Ravi');
     expect(job.workSummary).toBe('Mirror');
   });
 
-  it('blocks invalid cost lines', async () => {
+  it('takes only an amount in the cost box, and blocks a line with no cost', async () => {
     const job = seed();
     const user = userEvent.setup();
     show(`/service/assistance/${job.id}`);
     await fillWork(user);
-    await addPart(user, 'Mirror', '-5');
+    await addPart(user, 'Mirror', '-5e.5.5');
+    const cost = screen.getByRole('textbox', { name: '₹' });
+    // Whole rupees only: the minus, the exponent and every point stay out.
+    expect(cost).toHaveValue('555');
+    await user.clear(cost);
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(job.status).toBe('OPEN');
     expect(screen.getByText(/Every part or repair line needs/)).toBeInTheDocument();
-    const cost = screen.getByRole('textbox', { name: '₹' });
-    await user.clear(cost);
     await user.type(cost, '200');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText(/Nothing has been charged yet/)).toBeInTheDocument();

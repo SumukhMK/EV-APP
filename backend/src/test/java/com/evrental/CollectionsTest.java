@@ -50,12 +50,17 @@ class CollectionsTest extends PaymentRunTestBase {
     }
 
     private JsonNode pay(String code, long paise, String method, String key) throws Exception {
+        return JSON.readTree(tryPay(code, paise, method, key)
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions tryPay(String code, long paise, String method, String key)
+            throws Exception {
         String body = "{\"riderId\":\"" + code + "\",\"amount\":" + paise + ",\"method\":\"" + method + "\""
                 + (key == null ? "" : ",\"clientKey\":\"" + key + "\"") + "}";
-        return JSON.readTree(mvc.perform(post("/api/v1/payments/collections")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        return mvc.perform(post("/api/v1/payments/collections")
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
     private org.springframework.test.web.servlet.ResultActions reverse(String id, String reason, String token)
@@ -112,15 +117,92 @@ class CollectionsTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$.paymentsToday").value(1));
     }
 
-    @Test
-    void payingMoreThanIsOwedIsKeptAsCredit() throws Exception {
-        long before = owes(MONDAY_RIDER_CODE);
-        pay(MONDAY_RIDER_CODE, before + 50_000, "CASH", null);
+    // -----------------------------------------------------------------------
+    // No advance payments: never more than is owed
+    // -----------------------------------------------------------------------
 
-        assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(-50_000);
-        // A rider in credit can still pay ahead.
-        pay(MONDAY_RIDER_CODE, 1_000, "CASH", null);
-        assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(-51_000);
+    @Test
+    void payingMoreThanIsOwedIsRefusedAndNothingIsSaved() throws Exception {
+        long before = owes(MONDAY_RIDER_CODE);
+        assertThat(before).isPositive();
+
+        // A paise amount is refused for that alone: money is whole rupees.
+        tryPay(MONDAY_RIDER_CODE, 1_050, "CASH", null)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("amount"))
+                .andExpect(jsonPath("$.details.code").value("INVALID_PAYMENT_AMOUNT"));
+
+        tryPay(MONDAY_RIDER_CODE, before + 100, "CASH", null)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("amount"))
+                .andExpect(jsonPath("$.details.code").value("PAYMENT_EXCEEDS_DUES"))
+                .andExpect(jsonPath("$.details.owes").value(before));
+
+        assertThat(paymentRows(MONDAY_RIDER)).isZero();
+        assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(before);
+    }
+
+    @Test
+    void payingExactlyWhatIsOwedClearsItAndThenNothingMoreCanBePaid() throws Exception {
+        long before = owes(MONDAY_RIDER_CODE);
+        JsonNode payment = pay(MONDAY_RIDER_CODE, before, "UPI", null);
+
+        assertThat(payment.get("owedAfter").asLong()).isZero();
+        assertThat(owes(MONDAY_RIDER_CODE)).isZero();
+        tryPay(MONDAY_RIDER_CODE, 100, "UPI", null)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.details.code").value("NO_OUTSTANDING_DUES"));
+        assertThat(paymentRows(MONDAY_RIDER)).isEqualTo(1);
+    }
+
+    @Test
+    void aRiderWhoOwesNothingCannotPayAhead() throws Exception {
+        assertThat(owes(NO_PLAN_RIDER_CODE)).isZero();
+        tryPay(NO_PLAN_RIDER_CODE, 175_000, "CASH", null)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.details.code").value("NO_OUTSTANDING_DUES"));
+    }
+
+    /** A retry of a payment that paid the rider up gets that payment back, not "nothing owed". */
+    @Test
+    void aRetryOfThePaymentThatClearedTheDuesReturnsItInsteadOfRefusing() throws Exception {
+        long before = owes(MONDAY_RIDER_CODE);
+        JsonNode first = pay(MONDAY_RIDER_CODE, before, "UPI", "clear-1");
+        JsonNode again = pay(MONDAY_RIDER_CODE, before, "UPI", "clear-1");
+        assertThat(again.get("id").asString()).isEqualTo(first.get("id").asString());
+        assertThat(paymentRows(MONDAY_RIDER)).isEqualTo(1);
+    }
+
+    /** Two staff collecting the whole amount at once: one lands, the other is refused. */
+    @Test
+    void twoFullPaymentsAtOnceCannotOvercollect() throws Exception {
+        long before = owes(MONDAY_RIDER_CODE);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            List<Callable<Integer>> calls = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                String key = "race-" + i;
+                calls.add(() -> tryPay(MONDAY_RIDER_CODE, before, "CASH", key).andReturn().getResponse().getStatus());
+            }
+            List<Integer> statuses = new ArrayList<>();
+            for (Future<Integer> f : pool.invokeAll(calls)) statuses.add(f.get());
+            assertThat(statuses).containsExactlyInAnyOrder(200, 409);
+            assertThat(paymentRows(MONDAY_RIDER)).isEqualTo(1);
+            assertThat(owes(MONDAY_RIDER_CODE)).isZero();
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /** A reversal puts the dues back, so the rider can be collected from again. */
+    @Test
+    void afterAReversalTheDuesCanBeCollectedAgain() throws Exception {
+        long before = owes(MONDAY_RIDER_CODE);
+        String id = pay(MONDAY_RIDER_CODE, before, "CASH", null).get("id").asString();
+        reverse(id, "Wrong amount", admin).andExpect(status().isOk());
+        assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(before);
+        pay(MONDAY_RIDER_CODE, before, "UPI", null);
+        assertThat(owes(MONDAY_RIDER_CODE)).isZero();
     }
 
     @Test
@@ -165,7 +247,12 @@ class CollectionsTest extends PaymentRunTestBase {
         mvc.perform(post("/api/v1/payments/collections").header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"riderId\":\"R01\",\"amount\":0,\"method\":\"UPI\"}"))
-                .andExpect(status().isUnprocessableContent());
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.field").value("amount"))
+                .andExpect(jsonPath("$.details.code").value("INVALID_PAYMENT_AMOUNT"));
+        tryPay("R01", -500, "UPI", null)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.details.code").value("INVALID_PAYMENT_AMOUNT"));
         mvc.perform(post("/api/v1/payments/collections").header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"riderId\":\"R01\",\"amount\":100,\"method\":\"CHEQUE\"}"))
@@ -196,7 +283,7 @@ class CollectionsTest extends PaymentRunTestBase {
         twoLateWeeks();
         long lateDays = account(MONDAY_RIDER_CODE).get("daysLate").asLong();
 
-        pay(MONDAY_RIDER_CODE, ROUNDING_PLAN_PAISE / 2, "UPI", null);
+        pay(MONDAY_RIDER_CODE, 99_900, "UPI", null); // about half a week, whole rupees
 
         assertThat(account(MONDAY_RIDER_CODE).get("daysLate").asLong()).isEqualTo(lateDays);
         mvc.perform(get("/api/v1/payments/collections").header("Authorization", "Bearer " + admin))
@@ -231,10 +318,12 @@ class CollectionsTest extends PaymentRunTestBase {
         assertThat(lines.get(1).get("reversed").asBoolean()).isTrue();
     }
 
+    /** Staff may reverse only what they took themselves (ReversalRulesTest has the rest). */
     @Test
-    void fleetStaffCannotReverseAPayment() throws Exception {
+    void fleetStaffCannotReverseSomeoneElsesPayment() throws Exception {
         String id = pay(MONDAY_RIDER_CODE, 10_000, "CASH", null).get("id").asString();
-        reverse(id, "Mistake", tokenFor(STAFF_EMAIL)).andExpect(status().isForbidden());
+        reverse(id, "Mistake", tokenFor(STAFF_EMAIL)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.details.code").value("REVERSE_NOT_YOURS"));
         assertThat(paymentRows(MONDAY_RIDER)).isEqualTo(1);
     }
 
@@ -299,18 +388,69 @@ class CollectionsTest extends PaymentRunTestBase {
                 .andExpect(jsonPath("$.rows[?(@.riderId == 'R01')].owes").value(30_000));
     }
 
-    /** Bike back, settlement not approved yet, a repair still open: paying it counts. */
+    /** Bike back, settlement not approved yet, a repair raised since: paying it counts. */
     @Test
-    void aRiderWithNoBikeCanPayOffAnOpenRepair() throws Exception {
+    void aRiderWithNoBikeCanPayOffARepairRaisedAfterTheReturn() throws Exception {
         superAdmin(jdbc -> jdbc.update("UPDATE assignments SET ended_on = CURRENT_DATE - 3, reason = 'RETURNED', "
                 + "return_condition = 'NONE', next_vehicle_state = 'QC_PENDING', closed_by = 'Test' WHERE rider_id = ?",
                 MONDAY_RIDER));
-        insertCharge(TENANT, MONDAY_RIDER, 10_000, "RIDER", "OPEN", currentPeriodStart(BillingDay.MONDAY));
+        insertCharge(TENANT, MONDAY_RIDER, 10_000, "RIDER", "OPEN", today());
         assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(10_000);
 
-        pay(MONDAY_RIDER_CODE, 70_000, "CASH", null);
+        tryPay(MONDAY_RIDER_CODE, 70_000, "CASH", null).andExpect(status().isUnprocessableContent());
+        pay(MONDAY_RIDER_CODE, 10_000, "CASH", null);
 
-        assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(-60_000);
+        assertThat(owes(MONDAY_RIDER_CODE)).isZero();
+    }
+
+    /**
+     * Paid in full at 12:20, bike back at 12:50: that payment went into the
+     * figure on the return form, so it is not counted again afterwards — the
+     * rider owes nothing, not "ahead" by everything they just paid. A repair
+     * found once the bike is back is new and is owed.
+     */
+    @Test
+    void aPaymentJustBeforeTheReturnIsNotCountedAgainAfterIt() throws Exception {
+        insertCharge(TENANT, MONDAY_RIDER, 70_000, "RIDER", "OPEN", currentPeriodStart(BillingDay.MONDAY));
+        long before = owes(MONDAY_RIDER_CODE);
+        pay(MONDAY_RIDER_CODE, before, "CASH", null);
+        assertThat(owes(MONDAY_RIDER_CODE)).isZero();
+
+        superAdmin(jdbc -> jdbc.update("UPDATE assignments SET ended_on = CURRENT_DATE, closed_at = clock_timestamp(), "
+                + "reason = 'SERVICE_ISSUE', return_condition = 'MINOR', next_vehicle_state = 'QC_PENDING', "
+                + "closed_by = 'Test', outstanding_rent_paise = 0 WHERE rider_id = ?", MONDAY_RIDER));
+        assertThat(owes(MONDAY_RIDER_CODE)).isZero();
+
+        superAdmin(jdbc -> jdbc.update("INSERT INTO rider_charges (tenant_id, rider_id, amount_paise, liability, status, charged_on, period_start) "
+                + "VALUES (?, ?, 10000, 'RIDER', 'OPEN', clock_timestamp(), CURRENT_DATE)", TENANT, MONDAY_RIDER));
+        assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(10_000);
+        tryPay(MONDAY_RIDER_CODE, 10_001, "UPI", null).andExpect(status().isUnprocessableContent());
+        pay(MONDAY_RIDER_CODE, 10_000, "UPI", null);
+        assertThat(owes(MONDAY_RIDER_CODE)).isZero();
+    }
+
+    /** Approving the return folds repairs from before it into the return figure; a later one stays owed. */
+    @Test
+    void approvingAReturnFoldsOnlyTheRepairsFromBeforeIt() throws Exception {
+        UUID old = insertCharge(TENANT, MONDAY_RIDER, 70_000, "RIDER", "OPEN", currentPeriodStart(BillingDay.MONDAY));
+        UUID assignment = superAdmin(jdbc -> {
+            jdbc.update("UPDATE rider_charges SET charged_on = now() - interval '1 hour' WHERE id = ?", old);
+            jdbc.update("UPDATE assignments SET ended_on = CURRENT_DATE, closed_at = now() - interval '1 minute', "
+                    + "reason = 'RETURNED', return_condition = 'NONE', next_vehicle_state = 'QC_PENDING', "
+                    + "closed_by = 'Test', outstanding_rent_paise = 50000 WHERE rider_id = ?", MONDAY_RIDER);
+            jdbc.update("INSERT INTO rider_charges (tenant_id, rider_id, amount_paise, liability, status, charged_on, period_start) "
+                    + "VALUES (?, ?, 10000, 'RIDER', 'OPEN', now(), CURRENT_DATE)", TENANT, MONDAY_RIDER);
+            return jdbc.queryForObject("SELECT id FROM assignments WHERE rider_id = ?", UUID.class, MONDAY_RIDER);
+        });
+        // Before approval: only the repair found after the return.
+        assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(10_000);
+
+        mvc.perform(post("/api/v1/assignments/settlements/" + assignment + "/approve")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
+
+        // The return figure (₹500, the old repair inside it) plus the later repair.
+        assertThat(owes(MONDAY_RIDER_CODE)).isEqualTo(60_000);
     }
 
     // -----------------------------------------------------------------------
@@ -333,6 +473,54 @@ class CollectionsTest extends PaymentRunTestBase {
         assertThat(meenakshi.get("cash").asLong()).isZero();
 
         getJson("/api/v1/payments/today?date=" + today().minusDays(1), admin);
+    }
+
+    // -----------------------------------------------------------------------
+    // Payments over a date range
+    // -----------------------------------------------------------------------
+
+    private void paymentOn(UUID riderId, LocalDate day, long paise) {
+        // 23:30 IST — the last half hour of the day, which a UTC cut-off would push into the next one.
+        superAdmin(jdbc -> jdbc.update("INSERT INTO payment_collections (tenant_id, rider_id, amount_paise, method, collected_on) "
+                + "VALUES (?, ?, ?, 'CASH', (?::date + time '23:30') AT TIME ZONE 'Asia/Kolkata')",
+                TENANT, riderId, paise, day.toString()));
+    }
+
+    @Test
+    void aRangeIncludesBothEndDaysInIndianTime() throws Exception {
+        LocalDate today = today();
+        paymentOn(MONDAY_RIDER, today.minusDays(10), 1_000);
+        paymentOn(MONDAY_RIDER, today.minusDays(6), 2_000);  // first day of the range
+        paymentOn(MONDAY_RIDER, today.minusDays(3), 3_000);
+        paymentOn(MONDAY_RIDER, today.minusDays(1), 4_000);  // last day, 23:30
+        paymentOn(MONDAY_RIDER, today, 5_000);               // the day after the range
+
+        JsonNode range = getJson("/api/v1/payments/today?from=" + today.minusDays(6) + "&to=" + today.minusDays(1), admin);
+
+        assertThat(range.get("from").asString()).isEqualTo(today.minusDays(6).toString());
+        assertThat(range.get("to").asString()).isEqualTo(today.minusDays(1).toString());
+        assertThat(range.get("total").asLong()).isEqualTo(9_000);
+        assertThat(range.get("payments")).hasSize(3);
+    }
+
+    @Test
+    void aRangeWithNoPaymentsIsEmptyNotAnError() throws Exception {
+        LocalDate day = today().minusYears(2);
+        JsonNode range = getJson("/api/v1/payments/today?from=" + day + "&to=" + day.plusDays(6), admin);
+        assertThat(range.get("total").asLong()).isZero();
+        assertThat(range.get("payments")).isEmpty();
+        assertThat(range.get("byStaff")).isEmpty();
+    }
+
+    @Test
+    void aBackwardsOrHalfRangeIsRefused() throws Exception {
+        LocalDate day = today();
+        for (String query : List.of("from=" + day + "&to=" + day.minusDays(1), "from=" + day, "to=" + day,
+                "from=" + day.minusYears(2) + "&to=" + day)) {
+            mvc.perform(get("/api/v1/payments/today?" + query).header("Authorization", "Bearer " + admin))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.details.code").value("INVALID_DATE_RANGE"));
+        }
     }
 
     @Test

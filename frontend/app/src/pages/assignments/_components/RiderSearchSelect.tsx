@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
@@ -27,7 +28,7 @@ export function RiderSearchSelect({
   error,
   note,
 }: {
-  label: string;
+  label: ReactNode;
   placeholder?: string;
   value: string;
   onChange: (riderId: string) => void;

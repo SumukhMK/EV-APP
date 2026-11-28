@@ -40,7 +40,7 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
     List<Assignment> findOpenByRiderIdIn(@Param("riderIds") Collection<UUID> riderIds);
 
     /** The bike's assignment history, newest first — the vehicle detail's assignments list. */
-    List<Assignment> findByVehicleIdOrderByStartedOnDesc(UUID vehicleId);
+    List<Assignment> findByVehicleIdOrderByStartedOnDescCreatedOnDesc(UUID vehicleId);
 
     /**
      * Every bike this rider has held, newest first — open rows included.
@@ -49,8 +49,13 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
      * because they answer "which bike now". This one deliberately does not:
      * the profile's history panel exists to show the bikes that have gone
      * back, which those finders can never see.
+     *
+     * <p>Ties on the start date go to the row recorded last: a bike swapped the
+     * day it was handed over gives two rows starting that day, and the open one
+     * is the later. Ordering by date alone let the closed row come first, and
+     * the rider's account then read as "no bike" and dropped the rent.
      */
-    List<Assignment> findByRiderIdOrderByStartedOnDesc(UUID riderId);
+    List<Assignment> findByRiderIdOrderByStartedOnDescCreatedOnDesc(UUID riderId);
 
     /** Every open assignment in the tenant. The read facade answers the derived fields from this. */
     List<Assignment> findByEndedOnIsNull();

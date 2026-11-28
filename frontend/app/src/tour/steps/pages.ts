@@ -288,14 +288,16 @@ const PAGES: Record<string, PageAbout> = {
   },
 
   '/payments/today': {
-    title: "Today's collections",
+    title: 'Payments received',
     about:
-      "The end-of-day count: what came in, who took it and how. Check the cash each person holds against their line. A reversal comes off the person who took the original payment.",
+      "What came in, who took it and how, for this week unless you pick other dates. Pick Today for the end-of-day cash count. A reversal comes off the person who took the original payment.",
     cards: {
+      Dates:
+        "Tap Start date or End date to open a calendar; both days are included. The shortcuts pick today, yesterday, this week, last week or this month, and Reset brings back this week.",
       "By staff":
-        "Cash, UPI and bank for each person who took money today. Cash is what they should be holding now.",
+        "Cash, UPI and bank for each person who took money in these dates. Cash is what they should be holding.",
       "Every payment":
-        "Each payment and reversal on this day, newest first, with what the rider owed before and after it.",
+        "Each payment and reversal in these dates, newest first, with what the rider owed before and after it.",
     },
   },
 

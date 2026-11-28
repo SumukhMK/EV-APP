@@ -102,8 +102,8 @@ describe('onboard rider — the form answers a refused submit', () => {
     expect(screen.queryByRole('option', { name: 'Chennai' })).not.toBeInTheDocument();
   });
 
-  /** The word, not an asterisk — and the two optional fields stay unmarked. */
-  it('marks the required fields as Mandatory and leaves the optional ones alone', () => {
+  /** A red star on every required field — and the optional ones stay unmarked. */
+  it('marks the required fields with a star and leaves the optional ones alone', () => {
     show();
     // Eleven required inputs: 3 identity, 3 contact, 4 address, 1 commercial.
     // MUI renders an outlined label twice (the notch legend duplicates it),
@@ -113,13 +113,14 @@ describe('onboard rider — the form answers a refused submit', () => {
       /01\. Aadhaar number/, /Full name/, /Permanent address/,
       /02\. Primary mobile number/, /03\. WhatsApp number/, /04\. Alternate number/,
       /Local address/, /State/, /City/, /PIN code/, /Working platform/,
+      /Weekly plan/, /Deposit plan/, /Deposit paid/, /Billing day/, /Onboarded on/,
     ];
     for (const label of required) {
-      expect(screen.getByText(label, { selector: 'label, .MuiTypography-overline' }).textContent).toContain('Mandatory');
+      expect(screen.getByText(label, { selector: 'label, .MuiInputLabel-root, .MuiTypography-overline' }).textContent).toContain('*');
     }
     // The two optional documents and the platform rider id stay unmarked.
     for (const label of [/PAN number/, /Driving licence/, /Platform rider id/]) {
-      expect(screen.getByText(label, { selector: 'label' }).textContent).not.toContain('Mandatory');
+      expect(screen.getByText(label, { selector: 'label' }).textContent).not.toContain('*');
     }
   });
 });

@@ -35,6 +35,7 @@ import {
   VEHICLE_STATE_TONE,
   EXCHANGE_REASON_LABEL,
   DEBOARD_REASON_LABEL,
+  BILLING_DAY_LABEL,
 } from '../../lib/labels';
 import { formatDate, rupees } from '../../lib/format';
 import { neutral, status as tones } from '../../theme/tokens';
@@ -226,7 +227,7 @@ export function RiderDetail() {
               },
               { label: 'Mode of payment', value: PAYMENT_METHOD_LABEL[r.paymentMode] },
               { label: 'Weekly plan', value: <Mono sx={{ fontSize: 13 }}>{rupees(r.planAmount)}</Mono> },
-              { label: 'Billing day', value: r.billingDay === 'MONDAY' ? 'Monday' : 'Wednesday' },
+              { label: 'Billing day', value: BILLING_DAY_LABEL[r.billingDay] ?? '—' },
               {
                 label: 'Onboarded on',
                 value: <Mono sx={{ fontSize: 13 }}>{formatDate(r.onboardedOn)}</Mono>,

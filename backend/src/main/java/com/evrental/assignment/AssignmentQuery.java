@@ -59,6 +59,10 @@ public interface AssignmentQuery {
      */
     java.util.Optional<java.time.LocalDate> billingStartedOn(UUID riderId);
 
-    /** The day the rider last handed a bike back; empty if they never have. */
-    java.util.Optional<java.time.LocalDate> lastReturnedOn(UUID riderId);
+    /**
+     * When the rider's last return was recorded; empty if they never handed a
+     * bike back. The return form's "still owed" covers everything up to this
+     * moment, so a rider with no bike is billed only for what comes after.
+     */
+    java.util.Optional<java.time.Instant> lastReturnedAt(UUID riderId);
 }

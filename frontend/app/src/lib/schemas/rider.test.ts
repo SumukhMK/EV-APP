@@ -118,3 +118,16 @@ describe('onboardRiderSchema contact numbers', () => {
     },
   );
 });
+
+describe('onboardRiderSchema billing day', () => {
+  it.each(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])(
+    'accepts %s',
+    (billingDay) => {
+      expect(onboardRiderSchema.safeParse({ ...valid, billingDay }).success).toBe(true);
+    },
+  );
+
+  it('refuses anything that is not a day', () => {
+    expect(onboardRiderSchema.safeParse({ ...valid, billingDay: 'FUNDAY' }).success).toBe(false);
+  });
+});

@@ -4,6 +4,7 @@ import type {
   DunningStage,
   ExchangeReason,
   KycStatus,
+  BillingDay,
   PaymentDay,
   PaymentMethod,
   PaymentStatus,
@@ -224,6 +225,7 @@ export const DEBOARD_REASON_LABEL: Record<DeboardReason, string> = {
   OTHER: 'Other',
 };
 
+/** Any of the seven days can be a rider's billing day (V020). */
 export const PAYMENT_DAY_LABEL: Record<PaymentDay, string> = {
   MONDAY: 'Monday',
   TUESDAY: 'Tuesday',
@@ -233,6 +235,9 @@ export const PAYMENT_DAY_LABEL: Record<PaymentDay, string> = {
   SATURDAY: 'Saturday',
   SUNDAY: 'Sunday',
 };
+
+/** The same seven days, for the billing day a rider's week ends on. */
+export const BILLING_DAY_LABEL: Record<BillingDay, string> = PAYMENT_DAY_LABEL;
 
 /**
  * Today's price list, in paise, offered as suggestions in a combobox that

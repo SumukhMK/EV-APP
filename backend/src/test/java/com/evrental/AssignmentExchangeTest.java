@@ -273,4 +273,45 @@ class AssignmentExchangeTest extends AssignmentTestBase {
                 """, Integer.class, VEHICLE_READY));
         org.assertj.core.api.Assertions.assertThat(openJobs).isEqualTo(1);
     }
+
+    /**
+     * The job card already says what is wrong, so the swap form asks nothing
+     * more: a bike under repair is swapped with no damage rows and no override
+     * note, stays under repair, and the closed assignment records where it is.
+     */
+    @Test
+    void aBikeAlreadyUnderRepairIsSwappedWithoutAskingForTheDamageAgain() throws Exception {
+        assign(RIDER_A, VEHICLE_READY);
+        mvc.perform(post("/api/v1/service/jobs")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"vehicleId":"%s","source":"INSPECTION","damageCategory":"MINOR","queue":"MINOR_REPAIR",
+                                 "damageNotes":"Brake lever bent"}
+                                """.formatted(VEHICLE_READY)))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/api/v1/assignments/exchange")
+                        .header("Authorization", "Bearer " + tokenFor(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"riderId":"%s","fromVehicleId":"%s","toVehicleId":"%s","reason":"SERVICE_REQUIRED",
+                                 "occurredOn":"2026-09-28","returnCondition":"NONE","nextVehicleState":"QC_PENDING","damageItems":[]}
+                                """.formatted(RIDER_A_CODE, VEHICLE_READY, VEHICLE_READY_2)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentVehicleId").value(VEHICLE_READY_2));
+
+        org.assertj.core.api.Assertions.assertThat(stateOf(VEHICLE_READY))
+                .isEqualTo(com.evrental.vehicle.VehicleState.UNDER_REPAIR);
+        String recorded = superAdmin(jdbc -> jdbc.queryForObject("""
+                SELECT a.next_vehicle_state FROM assignments a JOIN vehicles v ON v.id = a.vehicle_id
+                WHERE v.registry_id = ? AND a.ended_on IS NOT NULL
+                """, String.class, VEHICLE_READY));
+        org.assertj.core.api.Assertions.assertThat(recorded).isEqualTo("UNDER_REPAIR");
+        String category = superAdmin(jdbc -> jdbc.queryForObject("""
+                SELECT sj.damage_category FROM service_jobs sj JOIN vehicles v ON v.id = sj.vehicle_id
+                WHERE v.registry_id = ? AND sj.status <> 'CLOSED'
+                """, String.class, VEHICLE_READY));
+        org.assertj.core.api.Assertions.assertThat(category).isEqualTo("MINOR");
+    }
 }

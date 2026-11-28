@@ -27,6 +27,7 @@ import {
   RIDER_STATUS_LABEL,
   RIDER_STATUS_TONE,
   VEHICLE_STATE_LABEL,
+  BILLING_DAY_LABEL,
 } from '../../lib/labels';
 import { rupees } from '../../lib/format';
 import { RIDER_STATUSES, VEHICLE_STATES, type Platform, type Rider, type RiderStatus, type VehicleState } from '../../types';
@@ -205,7 +206,7 @@ export function RidersList() {
         flex: 0.8,
         minWidth: 82,
         valueFormatter: (value: Rider['billingDay']) =>
-          value === 'MONDAY' ? 'Monday' : 'Wednesday',
+          BILLING_DAY_LABEL[value] ?? '—',
         cellClassName: 'muted-cell',
       },
       {

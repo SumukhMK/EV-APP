@@ -5,7 +5,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -43,6 +43,8 @@ import {
 import { rupeesWithSymbol } from '../../lib/format';
 import { layout } from '../../theme/tokens';
 import type { DeboardReason } from '../../types';
+import { MandatoryLabel } from '../../components/form/MandatoryLabel';
+import { digitsOnly } from '../../lib/inputFormat';
 
 const REASONS = (Object.keys(DEBOARD_REASON_LABEL) as DeboardReason[]).map((r) => ({
   value: r,
@@ -259,7 +261,7 @@ export function DeboardRider() {
           <Box sx={{ display: 'grid', gap: 5, minWidth: 0 }}>
           <Panel label="Rider and bike">
             <RiderSearchSelect
-              label="Rider"
+              label={<>Rider <MandatoryLabel /></>}
               placeholder="Search by name, rider id, phone or bike id"
               value={picked.riderId ?? ''}
               onChange={(id) => form.setValue('riderId', id, { shouldValidate: true })}
@@ -304,7 +306,7 @@ export function DeboardRider() {
               <SelectField
                 control={form.control}
                 name="returnCondition"
-                label="What condition is the bike in?"
+                label={<>What condition is the bike in? <MandatoryLabel /></>}
                 options={CONDITIONS}
               />
             </Box>
@@ -342,14 +344,26 @@ export function DeboardRider() {
             label={<>Money <InfoTip title="Only the rent is settled here — damage is not priced yet. Do not guess a damage deduction: the bike has to be checked first. Whatever the repair costs is decided on the service job, and if it is set to come out of the deposit, it is taken off then. The rider is refunded after that." /></>}
             locked={!rider && 'Pick the rider first'}
           >
-            {/* A number input hands back a string unless it is asked not to. */}
-            <TextField
-              label="Still owed, rent and repairs (₹)"
-              type="number"
-              fullWidth
-              {...form.register('outstandingRentRupees', { valueAsNumber: true })}
-              error={Boolean(form.formState.errors.outstandingRentRupees)}
-              helperText={form.formState.errors.outstandingRentRupees?.message ?? `Our records show ${rupeesWithSymbol(Math.max(0, outstanding))} owed this week. Type what the desk agreed.`}
+            {/* Whole rupees, digits only: a number input also takes "e", "-" and ".". */}
+            <Controller
+              control={form.control}
+              name="outstandingRentRupees"
+              render={({ field, fieldState }) => (
+                <TextField
+                  label={<>Still owed, rent and repairs (₹) <MandatoryLabel /></>}
+                  fullWidth
+                  value={Number.isFinite(field.value) ? String(field.value) : ''}
+                  onChange={(e) => {
+                    const digits = digitsOnly(e.target.value, 7);
+                    field.onChange(digits === '' ? Number.NaN : Number(digits));
+                  }}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  error={Boolean(fieldState.error)}
+                  helperText={fieldState.error?.message ?? `Our records show ${rupeesWithSymbol(Math.max(0, outstanding))} owed this week. Type what the desk agreed.`}
+                  slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+                />
+              )}
             />
             <Box sx={{ mt: 5 }}>
               <DerivedField

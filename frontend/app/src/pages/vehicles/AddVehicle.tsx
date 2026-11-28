@@ -152,7 +152,7 @@ export function AddVehicle() {
             <SelectField
               control={form.control}
               name="hub"
-              label="Hub"
+              label={<>Hub <MandatoryLabel /></>}
               options={reference.including(reference.hubs, hubValue)}
             />
             <Controller
@@ -184,7 +184,7 @@ export function AddVehicle() {
             <SelectField
               control={form.control}
               name="batteryType"
-              label="Battery"
+              label={<>Battery <MandatoryLabel /></>}
               options={[
                 { value: 'Sun Mobility', label: 'Sun Mobility' },
                 { value: 'Battery Smart', label: 'Battery Smart' },
